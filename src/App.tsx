@@ -1,501 +1,916 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
-  MARKET_HUBS,
-  KNOWN_TYPES,
-  INITIAL_TABLE_COUNTS,
-  generateMockOrders,
-  INITIAL_OPPORTUNITIES,
-} from './data/mockData';
-import { MarketHub, RawMarketOrder, AppSettings, Opportunity } from './types';
-import { PriceLadder } from './engine/ladder';
-import { ProfitCalculator } from './engine/profit';
-import { QuantityCalculator } from './engine/quantity';
-import { fmtIsk, fmtPct, fmtAge, fmtNumber } from './engine/money';
-import { CarnetChart } from './components/CarnetChart';
-import { Sidebar } from './components/Sidebar';
+  EVE_CATEGORIES,
+  EVE_GROUPS,
+  EVE_TYPES_CATALOG,
+  MAJOR_MARKET_HUBS,
+} from './data/universe';
+import {
+  EveTypeDetail,
+  MarketHub,
+  FinancialConfig,
+  TradeStrategy,
+  InterRegionalOpportunity,
+  RawMarketOrder,
+  HistoricalStats,
+  RecordedTradeExecution,
+  EveCharacterSession,
+  EveCharacterOrder,
+} from './types';
+import { InterRegionalScanner } from './services/scanner';
+import { PortfolioOptimizer } from './engine/portfolio';
+import { generateMockOrders } from './data/mockData';
 import { EsiService } from './services/esi';
-import { TrendingUp, AlertTriangle, CheckCircle, Database } from 'lucide-react';
+import { fmtIsk, fmtPct, fmtNumber } from './engine/money';
+import { MarketTree } from './components/MarketTree';
+import { OpportunityModal } from './components/OpportunityModal';
+import { PortfolioView } from './components/PortfolioView';
+import { TradeJournal } from './components/TradeJournal';
+import { ConfigurationPanel } from './components/ConfigurationPanel';
+import { MyOrdersView } from './components/MyOrdersView';
+import {
+  TrendingUp,
+  Sliders,
+  PieChart,
+  BookOpen,
+  ArrowRight,
+  Filter,
+  CheckCircle,
+  AlertTriangle,
+  Zap,
+  Globe,
+  RefreshCw,
+  ShoppingBag,
+  Award,
+} from 'lucide-react';
 
 export const App: React.FC = () => {
-  const [hubs] = useState<MarketHub[]>(MARKET_HUBS);
-  const [selectedHub, setSelectedHub] = useState<MarketHub>(MARKET_HUBS[0]);
-  const [types] = useState(KNOWN_TYPES);
-  const [selectedTypeId, setSelectedTypeId] = useState<number>(34); // Default: Tritanium
+  // Navigation & Catalog state
+  const [selectedType, setSelectedType] = useState<EveTypeDetail>(EVE_TYPES_CATALOG[0]); // Tritanium
+  const [favorites, setFavorites] = useState<number[]>(() => {
+    const saved = localStorage.getItem('eve_trade_favs');
+    return saved ? JSON.parse(saved) : [34, 37, 40519, 44992];
+  });
+  const [recentTypeIds, setRecentTypeIds] = useState<number[]>([34, 37, 40519]);
+  const [customTypes, setCustomTypes] = useState<EveTypeDetail[]>([]);
 
-  // Settings
-  const [settings, setSettings] = useState<AppSettings>(() => {
-    const saved = localStorage.getItem('eve_trade_settings');
+  // Hubs state
+  const [hubs, setHubs] = useState<MarketHub[]>(MAJOR_MARKET_HUBS);
+
+  // Strategy & Configuration
+  const [strategy, setStrategy] = useState<TradeStrategy>('relist');
+  const [config, setConfig] = useState<FinancialConfig>(() => {
+    const saved = localStorage.getItem('eve_trade_config');
     if (saved) {
       try {
         return JSON.parse(saved);
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
     return {
-      default_hub: 'Jita',
-      available_capital: 500000000.0,
-      broker_fee: 0.0145,
-      sales_tax: 0.035,
+      available_capital: 1000000000.0, // 1 Billion ISK
+      broker_fee: 0.0145,             // 1.45%
+      sales_tax: 0.035,              // 3.5%
+      transport_cost_per_m3: 15.0,    // 15 ISK / m³
+      transport_cost_per_jump: 200000.0, // 200k ISK / jump
+      max_cargo_m3: 35000.0,          // 35,000 m³ (Deep Space Transport / Hauler)
+      min_roi: 0.02,                  // Min 2% ROI
+      min_net_profit: 200000.0,       // Min 200k ISK profit
+      max_days_to_sell: 10.0,         // Max 10 days turnover
+      max_capital_per_trade: 400000000.0, // 400M ISK max per position
+      max_portfolio_concentration_type: 0.35,
+      max_portfolio_concentration_group: 0.50,
     };
   });
 
-  // Table counts
-  const [counts, setCounts] = useState(INITIAL_TABLE_COUNTS);
+  // Views & Modals
+  const [currentView, setCurrentView] = useState<'cockpit' | 'portfolio' | 'orders' | 'journal' | 'config'>('cockpit');
+  const [selectedOpportunity, setSelectedOpportunity] = useState<InterRegionalOpportunity | null>(null);
 
-  // Orders cache (keyed by `${region_id}-${type_id}`)
-  const [orderCache, setOrderCache] = useState<Record<string, RawMarketOrder[]>>({});
-  const [lastSyncMeta, setLastSyncMeta] = useState<Record<string, { captured_at: string; expires_at: string }>>({});
+  // EVE Character Session & Real Orders (SSO)
+  const [characterSession, setCharacterSession] = useState<EveCharacterSession | null>(() => {
+    const saved = localStorage.getItem('eve_char_session');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [characterOrders, setCharacterOrders] = useState<EveCharacterOrder[]>([]);
+  const [isLoadingOrders, setIsLoadingOrders] = useState(false);
 
-  // Opportunities
-  const [opportunities] = useState<Opportunity[]>(INITIAL_OPPORTUNITIES);
+  // Trade Journal
+  const [tradeExecutions, setTradeExecutions] = useState<RecordedTradeExecution[]>(() => {
+    const saved = localStorage.getItem('eve_trade_journal');
+    return saved ? JSON.parse(saved) : [];
+  });
 
-  // Live ESI Sync state
-  const [isSyncingEsi, setIsSyncingEsi] = useState<boolean>(false);
-  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  // Market Orders & History Cache: keyed by region_id
+  const [orderBooks, setOrderBooks] = useState<Record<number, RawMarketOrder[]>>({});
+  const [historyCache, setHistoryCache] = useState<Record<number, HistoricalStats>>({});
+  const [isSyncingLiveEsi, setIsSyncingLiveEsi] = useState<boolean>(false);
+  const [syncStatusMsg, setSyncStatusMsg] = useState<string | null>(null);
 
-  const cacheKey = `${selectedHub.region_id}-${selectedTypeId}`;
+  // Sorting & Filtering
+  const [sortBy, setSortBy] = useState<'score' | 'profit' | 'roi' | 'profit_day' | 'turnover'>('score');
+  const [filterRoute, setFilterRoute] = useState<string>('all');
+  const [highSecOnly, setHighSecOnly] = useState<boolean>(true);
 
-  // Get or initialize orders for the selected (hub, type)
-  useEffect(() => {
-    if (!orderCache[cacheKey]) {
-      const generated = generateMockOrders(selectedHub.region_id, selectedTypeId);
-      setOrderCache((prev) => ({ ...prev, [cacheKey]: generated }));
-      const now = new Date();
-      setLastSyncMeta((prev) => ({
-        ...prev,
-        [cacheKey]: {
-          captured_at: new Date(now.getTime() - 42 * 1000).toISOString(),
-          expires_at: new Date(now.getTime() + 258 * 1000).toISOString(),
-        },
-      }));
-    }
-  }, [cacheKey, selectedHub.region_id, selectedTypeId, orderCache]);
-
-  const rawOrders = orderCache[cacheKey] || [];
-  const syncInfo = lastSyncMeta[cacheKey];
-
-  // Aggregated Price Ladders
-  const { sellLevels, buyLevels, bestSell, bestBuy, spread, spreadPct } = useMemo(() => {
-    const sells: [number, number][] = rawOrders
-      .filter((o) => !o.is_buy_order)
-      .map((o) => [o.price, o.volume_remain]);
-    const buys: [number, number][] = rawOrders
-      .filter((o) => o.is_buy_order)
-      .map((o) => [o.price, o.volume_remain]);
-
-    const sLevels = PriceLadder.aggregate(sells, false); // Ascending
-    const bLevels = PriceLadder.aggregate(buys, true);   // Descending
-
-    const bSell = PriceLadder.bestPrice(sLevels);
-    const bBuy = PriceLadder.bestPrice(bLevels);
-
-    const sp = bSell !== null && bBuy !== null ? bSell - bBuy : null;
-    const spPct = sp !== null && bSell ? sp / bSell : null;
-
-    return {
-      sellLevels: sLevels,
-      buyLevels: bLevels,
-      bestSell: bSell,
-      bestBuy: bBuy,
-      spread: sp,
-      spreadPct: spPct,
-    };
-  }, [rawOrders]);
-
-  // Simulation: quantity, effective fill, profit
-  const simulation = useMemo(() => {
-    if (!bestSell || sellLevels.length === 0 || buyLevels.length === 0) {
-      return null;
-    }
-
-    const totalSellVolume = sellLevels.reduce((acc, lv) => acc + lv.volume, 0);
-
-    const qty = QuantityCalculator.compute(
-      bestSell,
-      totalSellVolume,
-      settings.available_capital,
-      settings.broker_fee
-    );
-
-    const fill = PriceLadder.fill(sellLevels, qty.max_trade_quantity);
-    const effBuy = fill.effective_price;
-
-    const disposal = PriceLadder.fill(buyLevels, fill.filled_quantity);
-    const effSell = disposal.effective_price;
-
-    const profit = ProfitCalculator.compute(
-      effBuy,
-      effSell,
-      disposal.filled_quantity,
-      settings.broker_fee,
-      settings.sales_tax
-    );
-
-    return {
-      qty,
-      fill,
-      disposal,
-      effBuy,
-      effSell,
-      profit,
-    };
-  }, [bestSell, sellLevels, buyLevels, settings]);
-
-  const currentType = types.find((t) => t.type_id === selectedTypeId) || {
-    type_id: selectedTypeId,
-    name: `? (id ${selectedTypeId})`,
+  // Station locations dictionary for quick display
+  const stationNames: Record<number, string> = {
+    60003760: 'Jita IV - 4 - Caldari Navy Assembly Plant',
+    60008494: 'Amarr VIII (Oris) - Emperor Family Academy',
+    60011866: 'Dodixie IX - 20 - Federation Navy Assembly Plant',
+    60004588: 'Rens VI - 8 - Brutor Tribe Treasury',
+    60005686: 'Hek VIII - 12 - Boundless Creation Factory',
   };
 
-  const handleSaveSettings = (newSettings: AppSettings) => {
-    setSettings(newSettings);
-    localStorage.setItem('eve_trade_settings', JSON.stringify(newSettings));
-  };
-
-  const handleRefresh = () => {
-    const generated = generateMockOrders(selectedHub.region_id, selectedTypeId);
-    setOrderCache((prev) => ({ ...prev, [cacheKey]: generated }));
-    const now = new Date();
-    setLastSyncMeta((prev) => ({
-      ...prev,
-      [cacheKey]: {
-        captured_at: now.toISOString(),
-        expires_at: new Date(now.getTime() + 300 * 1000).toISOString(),
-      },
-    }));
-    setSyncMessage('Snapshot local rafraîchi.');
-    setTimeout(() => setSyncMessage(null), 3000);
-  };
-
-  const handleSyncLiveEsi = async () => {
-    setIsSyncingEsi(true);
-    setSyncMessage('Appel de l\'API CCP ESI Tranquility...');
+  // Load Character Data and Orders
+  const loadCharacterData = useCallback(async (
+    token: string,
+    charId: number,
+    charName: string
+  ) => {
+    setIsLoadingOrders(true);
     try {
-      const liveOrders = await EsiService.fetchLiveOrders(selectedHub.region_id, selectedTypeId);
-      if (liveOrders.length > 0) {
-        setOrderCache((prev) => ({ ...prev, [cacheKey]: liveOrders }));
-        const now = new Date();
-        setLastSyncMeta((prev) => ({
-          ...prev,
-          [cacheKey]: {
-            captured_at: now.toISOString(),
-            expires_at: new Date(now.getTime() + 300 * 1000).toISOString(),
+      // 1. Fetch wallet balance
+      const balance = await EsiService.fetchCharacterWallet(charId, token);
+
+      // 2. Fetch skills
+      const skills = await EsiService.fetchCharacterSkills(charId, token);
+
+      // 3. Fetch active character orders
+      const rawOrders = await EsiService.fetchCharacterOrders(charId, token);
+
+      // 4. Enrich orders with item names & outbid calculation
+      const enrichedOrders: EveCharacterOrder[] = [];
+      for (const o of rawOrders) {
+        // Resolve type name from catalog or fallback
+        const knownType = EVE_TYPES_CATALOG.find((t) => t.type_id === o.type_id)
+          || customTypes.find((t) => t.type_id === o.type_id);
+        const typeName = knownType ? knownType.name : `Type #${o.type_id}`;
+        const locName = stationNames[o.location_id] || `Station #${o.location_id}`;
+
+        // Market competition status
+        // Check if there are cached orders for the region
+        const regOrders = orderBooks[o.region_id] || [];
+        const sameTypeOrders = regOrders.filter((ro) => ro.type_id === o.type_id);
+        let isOutbid = false;
+        let diffPct = 0;
+        let highestBuy = 0;
+        let lowestSell = 0;
+
+        if (sameTypeOrders.length > 0) {
+          const buyOrders = sameTypeOrders.filter((ro) => ro.is_buy_order);
+          const sellOrders = sameTypeOrders.filter((ro) => !ro.is_buy_order);
+
+          if (buyOrders.length > 0) {
+            highestBuy = Math.max(...buyOrders.map((b) => b.price));
+          }
+          if (sellOrders.length > 0) {
+            lowestSell = Math.min(...sellOrders.map((s) => s.price));
+          }
+
+          if (o.is_buy_order) {
+            if (highestBuy > o.price) {
+              isOutbid = true;
+              diffPct = ((highestBuy - o.price) / o.price) * 100;
+            }
+          } else {
+            if (lowestSell > 0 && lowestSell < o.price) {
+              isOutbid = true;
+              diffPct = ((o.price - lowestSell) / lowestSell) * 100;
+            }
+          }
+        }
+
+        enrichedOrders.push({
+          ...o,
+          type_name: typeName,
+          location_name: locName,
+          market_competition: {
+            is_outbid: isOutbid,
+            price_diff_percent: diffPct,
+            highest_buy: highestBuy,
+            lowest_sell: lowestSell,
           },
-        }));
-        setCounts((prev) => ({
-          ...prev,
-          esi_cache: prev.esi_cache + 1,
-          market_orders: prev.market_orders + liveOrders.length,
-        }));
-        setSyncMessage(`Succès : ${liveOrders.length} ordres réels synchronisés depuis ESI.`);
-      } else {
-        setSyncMessage('Aucun ordre actif trouvé sur ESI pour cette sélection.');
+        });
       }
-    } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      setSyncMessage(`Erreur ESI (${errMsg}). Utilisation du miroir local.`);
+
+      setCharacterOrders(enrichedOrders);
+
+      // Calculate skills fee benefits
+      const accountingLvl = skills ? skills.accounting : 0;
+      const brokerRelLvl = skills ? skills.broker_relations : 0;
+      const calculatedBrokerFee = Math.max(0.01, 0.03 - (brokerRelLvl * 0.003));
+      const calculatedSalesTax = Math.max(0.036, 0.08 * (1 - (accountingLvl * 0.11)));
+
+      const sessionObj: EveCharacterSession = {
+        character_id: charId,
+        character_name: charName,
+        access_token: token,
+        portrait_url: `https://images.evetech.net/characters/${charId}/portrait?size=128`,
+        wallet_balance: balance !== null ? balance : undefined,
+        accounting_skill: accountingLvl,
+        broker_relations_skill: brokerRelLvl,
+        last_sync: new Date().toISOString(),
+      };
+
+      setCharacterSession(sessionObj);
+      localStorage.setItem('eve_char_session', JSON.stringify(sessionObj));
+
+      // Auto-update capital in config if wallet balance is known
+      if (balance && balance > 0) {
+        setConfig((prev) => ({
+          ...prev,
+          available_capital: balance,
+          broker_fee: calculatedBrokerFee,
+          sales_tax: calculatedSalesTax,
+        }));
+      }
+    } catch (err) {
+      console.error('Error loading character data:', err);
     } finally {
-      setIsSyncingEsi(false);
-      setTimeout(() => setSyncMessage(null), 5000);
+      setIsLoadingOrders(false);
     }
+  }, [orderBooks, customTypes]);
+
+  // Listen for OAuth Success postMessage
+  useEffect(() => {
+    const handleMessage = async (event: MessageEvent) => {
+      if (event.data?.type === 'OAUTH_AUTH_SUCCESS' && event.data?.token) {
+        const { token, character_id, character_name } = event.data;
+        await loadCharacterData(token, character_id, character_name);
+        setCurrentView('orders');
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [loadCharacterData]);
+
+  // Refresh character orders on mount if session exists
+  useEffect(() => {
+    if (characterSession?.access_token && characterSession?.character_id) {
+      loadCharacterData(
+        characterSession.access_token,
+        characterSession.character_id,
+        characterSession.character_name
+      );
+    }
+  }, []);
+
+  // Connect SSO popup trigger
+  const handleConnectSSO = async (customRedirectUri?: string) => {
+    try {
+      const urlParam = customRedirectUri ? `?redirect_uri=${encodeURIComponent(customRedirectUri)}` : '';
+      const response = await fetch(`/api/auth/url${urlParam}`);
+      if (!response.ok) {
+        throw new Error('Impossible de générer l URL d autorisation SSO');
+      }
+      const data = await response.json();
+      const authUrl = data.url;
+
+      // Popup window
+      const width = 600;
+      const height = 750;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+      const popup = window.open(
+        authUrl,
+        'eve_sso_login',
+        `toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=yes, resizable=yes, copyhistory=no, width=${width}, height=${height}, top=${top}, left=${left}`
+      );
+
+      if (!popup) {
+        window.location.href = authUrl;
+      }
+    } catch (err) {
+      alert(`Erreur d initialisation SSO : ${err}`);
+    }
+  };
+
+  // Manual code exchange
+  const handleExchangeCode = async (code: string, redirectUri?: string) => {
+    const response = await fetch('/api/auth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code,
+        redirect_uri: redirectUri || 'http://localhost:8000/callback',
+      }),
+    });
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'Échec de l échange de code');
+    }
+    const data = await response.json();
+    await loadCharacterData(data.access_token, data.character_id, data.character_name);
+  };
+
+  // Direct Token Input
+  const handleDirectTokenInput = async (token: string, characterId: number, characterName: string) => {
+    await loadCharacterData(token, characterId, characterName);
+  };
+
+  // Logout Character
+  const handleLogoutCharacter = () => {
+    setCharacterSession(null);
+    setCharacterOrders([]);
+    localStorage.removeItem('eve_char_session');
+  };
+
+  // Jump from an order to arbitrage cockpit
+  const handleSelectTypeForArbitrage = (typeId: number) => {
+    const found = EVE_TYPES_CATALOG.find((t) => t.type_id === typeId)
+      || customTypes.find((t) => t.type_id === typeId);
+    if (found) {
+      handleSelectType(found);
+      setCurrentView('cockpit');
+    } else {
+      EsiService.lookupTypeById(typeId).then((detail) => {
+        if (detail) {
+          const mDetail: EveTypeDetail = { ...detail, category_id: 0 };
+          setCustomTypes((prev) => [...prev, mDetail]);
+          handleSelectType(mDetail);
+          setCurrentView('cockpit');
+        }
+      });
+    }
+  };
+
+  // Populate mock order books for all active hubs when missing
+  useEffect(() => {
+    const nextOrderBooks = { ...orderBooks };
+    let changed = false;
+
+    for (const hub of hubs) {
+      if (!nextOrderBooks[hub.region_id]) {
+        nextOrderBooks[hub.region_id] = generateMockOrders(hub.region_id, selectedType.type_id, selectedType.average_price);
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      setOrderBooks(nextOrderBooks);
+    }
+  }, [selectedType, hubs, orderBooks]);
+
+  // Toggle favorite
+  const handleToggleFavorite = (typeId: number) => {
+    setFavorites((prev) => {
+      const next = prev.includes(typeId) ? prev.filter((id) => id !== typeId) : [...prev, typeId];
+      localStorage.setItem('eve_trade_favs', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  // Select item from market tree
+  const handleSelectType = (type: EveTypeDetail) => {
+    setSelectedType(type);
+    setRecentTypeIds((prev) => [type.type_id, ...prev.filter((id) => id !== type.type_id)].slice(0, 10));
+
+    // Update orders for new type
+    const newBooks: Record<number, RawMarketOrder[]> = {};
+    for (const hub of hubs) {
+      newBooks[hub.region_id] = generateMockOrders(hub.region_id, type.type_id, type.average_price);
+    }
+    setOrderBooks(newBooks);
+  };
+
+  // Toggle Hub active status
+  const handleToggleHub = (hubId: string) => {
+    setHubs((prev) =>
+      prev.map((h) => (h.id === hubId ? { ...h, active: !h.active } : h))
+    );
+  };
+
+  // Save Config
+  const handleUpdateConfig = (newConfig: FinancialConfig) => {
+    setConfig(newConfig);
+    localStorage.setItem('eve_trade_config', JSON.stringify(newConfig));
+  };
+
+  // Synchronize Live ESI orders for all hubs for the selected item
+  const handleSyncLiveESI = async () => {
+    setIsSyncingLiveEsi(true);
+    setSyncStatusMsg(`Synchronisation CCP ESI pour ${selectedType.name} sur les 5 hubs...`);
+
+    const updatedBooks: Record<number, RawMarketOrder[]> = { ...orderBooks };
+    const updatedHistory: Record<number, HistoricalStats> = { ...historyCache };
+    let successCount = 0;
+
+    for (const hub of hubs.filter((h) => h.active)) {
+      try {
+        const liveOrders = await EsiService.fetchLiveOrders(hub.region_id, selectedType.type_id);
+        if (liveOrders.length > 0) {
+          updatedBooks[hub.region_id] = liveOrders;
+          successCount++;
+        }
+        const hist = await EsiService.fetchMarketHistory(hub.region_id, selectedType.type_id);
+        if (hist) {
+          updatedHistory[hub.region_id] = hist;
+        }
+      } catch (err) {
+        console.warn(`Could not sync live ESI for region ${hub.region}:`, err);
+      }
+    }
+
+    setOrderBooks(updatedBooks);
+    setHistoryCache(updatedHistory);
+    setIsSyncingLiveEsi(false);
+    setSyncStatusMsg(
+      successCount > 0
+        ? `Succès : ${successCount} régions synchronisées en temps réel depuis Tranquility.`
+        : 'Données ESI temporairement inaccessibles, utilisation du carnet simulé.'
+    );
+    setTimeout(() => setSyncStatusMsg(null), 5000);
+  };
+
+  // Scan inter-regional opportunities
+  const opportunities = useMemo(() => {
+    return InterRegionalScanner.scanItemAcrossHubs(
+      selectedType,
+      hubs,
+      strategy,
+      config,
+      orderBooks,
+      historyCache
+    );
+  }, [selectedType, hubs, strategy, config, orderBooks, historyCache]);
+
+  // Filtered and sorted opportunities
+  const sortedOpportunities = useMemo(() => {
+    return opportunities
+      .filter((opp) => {
+        if (highSecOnly && !opp.route.is_highsec_only) return false;
+        if (filterRoute !== 'all') {
+          const rKey = `${opp.buy_hub.id}_${opp.sell_hub.id}`;
+          if (rKey !== filterRoute) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortBy === 'score') return b.scores.overall_score - a.scores.overall_score;
+        if (sortBy === 'profit') return b.costs.net_profit - a.costs.net_profit;
+        if (sortBy === 'roi') return b.costs.roi - a.costs.roi;
+        if (sortBy === 'profit_day') return b.profit_per_day - a.profit_per_day;
+        if (sortBy === 'turnover') return a.expected_days_to_sell - b.expected_days_to_sell;
+        return 0;
+      });
+  }, [opportunities, sortBy, filterRoute, highSecOnly]);
+
+  // Run portfolio simulation
+  const portfolioSimulation = useMemo(() => {
+    return PortfolioOptimizer.optimize(opportunities, config);
+  }, [opportunities, config]);
+
+  // Execute trade -> Add to Journal
+  const handleExecuteTrade = (opp: InterRegionalOpportunity) => {
+    const entry: RecordedTradeExecution = {
+      id: `${Date.now()}_${opp.id}`,
+      opportunity_id: opp.id,
+      timestamp: new Date().toISOString(),
+      type_id: opp.type_id,
+      type_name: opp.type_name,
+      from_hub: opp.buy_hub.name,
+      to_hub: opp.sell_hub.name,
+      strategy: opp.strategy,
+      predicted_buy_price: opp.effective_buy_price,
+      predicted_sell_price: opp.effective_sell_price,
+      predicted_quantity: opp.quantity_tradable,
+      predicted_net_profit: opp.costs.net_profit,
+      predicted_days_to_sell: opp.expected_days_to_sell,
+      status: 'planned',
+    };
+
+    const next = [entry, ...tradeExecutions];
+    setTradeExecutions(next);
+    localStorage.setItem('eve_trade_journal', JSON.stringify(next));
+  };
+
+  const handleUpdateExecution = (updated: RecordedTradeExecution) => {
+    const next = tradeExecutions.map((x) => (x.id === updated.id ? updated : x));
+    setTradeExecutions(next);
+    localStorage.setItem('eve_trade_journal', JSON.stringify(next));
   };
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-[#0e1117] text-[#fafafa]">
-      {/* Sidebar */}
-      <Sidebar
-        hubs={hubs}
-        selectedHub={selectedHub}
-        onSelectHub={setSelectedHub}
-        types={types}
-        selectedTypeId={selectedTypeId}
-        onSelectTypeId={setSelectedTypeId}
-        settings={settings}
-        onSaveSettings={handleSaveSettings}
-        onRefresh={handleRefresh}
-        onSyncLiveEsi={handleSyncLiveEsi}
-        isSyncingEsi={isSyncingEsi}
-        syncMessage={syncMessage}
-      />
+    <div className="flex h-screen bg-[#0e1117] text-[#fafafa] overflow-hidden font-sans">
+      {/* 1. Left Nav: Market Browser Tree (Category -> Group -> Type) */}
+      <aside className="w-80 flex-shrink-0 h-full">
+        <MarketTree
+          selectedTypeId={selectedType.type_id}
+          onSelectType={handleSelectType}
+          favorites={favorites}
+          onToggleFavorite={handleToggleFavorite}
+          recentTypeIds={recentTypeIds}
+          customTypes={customTypes}
+          onAddCustomType={(t) => setCustomTypes((prev) => [...prev, t])}
+        />
+      </aside>
 
-      {/* Main Page Area */}
-      <main className="flex-1 p-6 md:p-10 max-w-7xl overflow-y-auto">
-        {/* Title */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold tracking-tight text-[#fafafa] flex items-center gap-3">
-            <span>🚀</span> EVE Trade — {selectedHub.name}
-          </h1>
-          <p className="text-xs text-[#808495] mt-1">
-            Région {selectedHub.region_id} · système {selectedHub.system_id}
-            {selectedHub.station_id
-              ? ` · station ${selectedHub.station_id}`
-              : ' · station non résolue'}
-          </p>
-        </div>
-
-        {/* 4 DB Metric Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-          <div className="bg-[#161821] border border-[#262730] rounded-lg p-4">
-            <div className="text-xs text-[#808495] font-medium flex items-center gap-1.5 mb-1">
-              <Database className="w-3.5 h-3.5" />
-              <span>Ordres en DB</span>
-            </div>
-            <div className="text-2xl font-bold font-mono text-[#fafafa]">
-              {fmtNumber(counts.market_orders)}
+      {/* 2. Main Content Area */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
+        {/* Top Navbar */}
+        <header className="bg-[#161821] border-b border-[#262730] px-6 py-3 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-4">
+            <h1 className="text-lg font-bold tracking-tight text-[#fafafa] flex items-center gap-2">
+              <span className="text-xl">🚀</span> EVE Trade — Moteur Inter-Régions
+            </h1>
+            <div className="hidden lg:flex items-center gap-1.5 text-xs bg-[#0e1117] px-2.5 py-1 rounded border border-[#262730]">
+              <span className="text-[#808495]">Objet actif :</span>
+              <span className="font-bold text-[#fafafa]">{selectedType.name}</span>
+              <span className="text-[10px] text-[#808495] font-mono">({selectedType.volume} m³)</span>
             </div>
           </div>
 
-          <div className="bg-[#161821] border border-[#262730] rounded-lg p-4">
-            <div className="text-xs text-[#808495] font-medium mb-1">Types nommés</div>
-            <div className="text-2xl font-bold font-mono text-[#fafafa]">
-              {fmtNumber(counts.types)}
-            </div>
-          </div>
+          {/* View Switcher Tabs */}
+          <div className="flex items-center gap-2">
+            <nav className="flex items-center bg-[#0e1117] p-1 rounded-lg border border-[#262730] text-xs">
+              <button
+                onClick={() => setCurrentView('cockpit')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-colors ${
+                  currentView === 'cockpit'
+                    ? 'bg-[#262730] text-[#fafafa] shadow'
+                    : 'text-[#808495] hover:text-[#fafafa]'
+                }`}
+              >
+                <TrendingUp className="w-3.5 h-3.5 text-[#ff4b4b]" />
+                <span>Cockpit Inter-Hubs</span>
+              </button>
 
-          <div className="bg-[#161821] border border-[#262730] rounded-lg p-4">
-            <div className="text-xs text-[#808495] font-medium mb-1">Systèmes</div>
-            <div className="text-2xl font-bold font-mono text-[#fafafa]">
-              {fmtNumber(counts.solar_systems)}
-            </div>
-          </div>
-
-          <div className="bg-[#161821] border border-[#262730] rounded-lg p-4">
-            <div className="text-xs text-[#808495] font-medium mb-1">Entrées cache ESI</div>
-            <div className="text-2xl font-bold font-mono text-[#fafafa]">
-              {fmtNumber(counts.esi_cache)}
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t border-[#262730] my-6"></div>
-
-        {/* Carnet d'ordres Header */}
-        <div className="mb-4">
-          <h2 className="text-xl font-bold tracking-tight text-[#fafafa]">
-            Carnet d'ordres — {currentType.name}
-          </h2>
-          {syncInfo ? (
-            <p className="text-xs text-[#808495] mt-1">
-              Dernière sync : {fmtAge(syncInfo.captured_at)} (expire{' '}
-              {fmtAge(syncInfo.expires_at)})
-            </p>
-          ) : (
-            <p className="text-xs text-[#808495] mt-1">
-              Pas encore de snapshot pour ce couple région/objet — lancez la synchronisation.
-            </p>
-          )}
-        </div>
-
-        {/* 4 Order Book Metrics */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-          <div className="bg-[#161821] border border-[#262730] rounded-lg p-4">
-            <div className="text-xs text-[#808495] font-medium mb-1">Meilleur sell</div>
-            <div className="text-xl font-bold font-mono text-[#ff4d4d]">
-              {fmtIsk(bestSell)}
-            </div>
-          </div>
-
-          <div className="bg-[#161821] border border-[#262730] rounded-lg p-4">
-            <div className="text-xs text-[#808495] font-medium mb-1">Meilleur buy</div>
-            <div className="text-xl font-bold font-mono text-[#4d8dff]">
-              {fmtIsk(bestBuy)}
-            </div>
-          </div>
-
-          <div className="bg-[#161821] border border-[#262730] rounded-lg p-4">
-            <div className="text-xs text-[#808495] font-medium mb-1">Spread</div>
-            <div className="text-xl font-bold font-mono text-[#fafafa]">
-              {fmtIsk(spread)}
-            </div>
-          </div>
-
-          <div className="bg-[#161821] border border-[#262730] rounded-lg p-4">
-            <div className="text-xs text-[#808495] font-medium mb-1">Spread %</div>
-            <div className="text-xl font-bold font-mono text-[#fafafa]">
-              {fmtPct(spreadPct)}
-            </div>
-          </div>
-        </div>
-
-        {/* Depth & Volume Chart */}
-        <div className="mb-8">
-          <CarnetChart sellLevels={sellLevels} buyLevels={buyLevels} />
-        </div>
-
-        <div className="border-t border-[#262730] my-8"></div>
-
-        {/* Trade Simulator */}
-        <div className="mb-8">
-          <h2 className="text-xl font-bold tracking-tight text-[#fafafa] mb-4">
-            Simulateur de trade
-          </h2>
-
-          {simulation ? (
-            <div className="space-y-4">
-              {simulation.profit.is_profitable ? (
-                <div className="flex items-center gap-3 p-4 rounded-lg bg-green-950/40 border border-green-700/50 text-green-300 text-sm">
-                  <CheckCircle className="w-5 h-5 flex-shrink-0 text-green-400" />
-                  <span>
-                    Trade rentable : <strong>{fmtIsk(simulation.profit.net_profit)}</strong> net
-                    sur <strong>{fmtNumber(simulation.profit.quantity)}</strong> unités.
+              <button
+                onClick={() => setCurrentView('orders')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-colors ${
+                  currentView === 'orders'
+                    ? 'bg-[#262730] text-[#fafafa] shadow'
+                    : 'text-[#808495] hover:text-[#fafafa]'
+                }`}
+              >
+                <ShoppingBag className={`w-3.5 h-3.5 ${characterSession ? 'text-[#ff4b4b]' : 'text-[#808495]'}`} />
+                <span>Mes Ordres</span>
+                {characterSession ? (
+                  <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-green-500/20 text-green-400 font-bold">
+                    {characterOrders.length}
                   </span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3 p-4 rounded-lg bg-amber-950/40 border border-amber-700/50 text-amber-300 text-sm">
-                  <AlertTriangle className="w-5 h-5 flex-shrink-0 text-amber-400" />
-                  <span>Pas de profit avec les ordres locaux actuels.</span>
-                </div>
-              )}
+                ) : (
+                  <span className="ml-1 text-[10px] text-amber-400 font-mono">SSO</span>
+                )}
+              </button>
 
-              {/* 5 Primary Metrics */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                <div className="bg-[#161821] border border-[#262730] rounded-lg p-3.5">
-                  <div className="text-[11px] text-[#808495] font-medium mb-1 leading-tight">
-                    Qté tradable (capital × volume)
-                  </div>
-                  <div className="text-lg font-bold font-mono text-[#fafafa]">
-                    {fmtNumber(simulation.qty.max_trade_quantity)}
-                  </div>
-                </div>
+              <button
+                onClick={() => setCurrentView('portfolio')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-colors ${
+                  currentView === 'portfolio'
+                    ? 'bg-[#262730] text-[#fafafa] shadow'
+                    : 'text-[#808495] hover:text-[#fafafa]'
+                }`}
+              >
+                <PieChart className="w-3.5 h-3.5 text-amber-400" />
+                <span>Portefeuille ({portfolioSimulation.positions.length})</span>
+              </button>
 
-                <div className="bg-[#161821] border border-[#262730] rounded-lg p-3.5">
-                  <div className="text-[11px] text-[#808495] font-medium mb-1">
-                    Prix d'achat moyen
-                  </div>
-                  <div className="text-lg font-bold font-mono text-[#fafafa]">
-                    {fmtIsk(simulation.effBuy)}
-                  </div>
-                </div>
+              <button
+                onClick={() => setCurrentView('journal')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-colors ${
+                  currentView === 'journal'
+                    ? 'bg-[#262730] text-[#fafafa] shadow'
+                    : 'text-[#808495] hover:text-[#fafafa]'
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5 text-green-400" />
+                <span>Journal ({tradeExecutions.length})</span>
+              </button>
 
-                <div className="bg-[#161821] border border-[#262730] rounded-lg p-3.5">
-                  <div className="text-[11px] text-[#808495] font-medium mb-1">
-                    Prix de revente moyen
-                  </div>
-                  <div className="text-lg font-bold font-mono text-[#fafafa]">
-                    {fmtIsk(simulation.effSell)}
-                  </div>
-                </div>
+              <button
+                onClick={() => setCurrentView('config')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-colors ${
+                  currentView === 'config'
+                    ? 'bg-[#262730] text-[#fafafa] shadow'
+                    : 'text-[#808495] hover:text-[#fafafa]'
+                }`}
+              >
+                <Sliders className="w-3.5 h-3.5 text-blue-400" />
+                <span>Paramètres</span>
+              </button>
+            </nav>
 
-                <div className="bg-[#161821] border border-[#262730] rounded-lg p-3.5">
-                  <div className="text-[11px] text-[#808495] font-medium mb-1">Profit net</div>
-                  <div
-                    className={`text-lg font-bold font-mono ${
-                      simulation.profit.net_profit > 0 ? 'text-green-400' : 'text-red-400'
-                    }`}
-                  >
-                    {fmtIsk(simulation.profit.net_profit)}
-                  </div>
-                </div>
-
-                <div className="bg-[#161821] border border-[#262730] rounded-lg p-3.5">
-                  <div className="text-[11px] text-[#808495] font-medium mb-1">ROI</div>
-                  <div
-                    className={`text-lg font-bold font-mono ${
-                      simulation.profit.roi > 0 ? 'text-green-400' : 'text-red-400'
-                    }`}
-                  >
-                    {fmtPct(simulation.profit.roi)}
-                  </div>
+            {/* Character pill if connected */}
+            {characterSession && (
+              <div
+                onClick={() => setCurrentView('orders')}
+                className="cursor-pointer hidden sm:flex items-center gap-2 bg-[#0e1117] hover:bg-[#1f2330] border border-[#262730] px-2.5 py-1 rounded-lg transition-colors"
+                title="Gérer votre pilote et vos ordres"
+              >
+                <img
+                  src={characterSession.portrait_url}
+                  alt={characterSession.character_name}
+                  className="w-5 h-5 rounded-full border border-green-500/50 bg-[#161821]"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src =
+                      'https://images.evetech.net/characters/1/portrait?size=64';
+                  }}
+                />
+                <div className="flex flex-col text-left">
+                  <span className="text-[11px] font-bold text-[#fafafa] leading-tight truncate max-w-[90px]">
+                    {characterSession.character_name}
+                  </span>
+                  {characterSession.wallet_balance !== undefined && (
+                    <span className="text-[10px] font-mono text-amber-400 leading-tight">
+                      {fmtIsk(characterSession.wallet_balance)}
+                    </span>
+                  )}
                 </div>
               </div>
+            )}
 
-              {/* 4 Secondary Metrics */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="bg-[#161821] border border-[#262730] rounded-lg p-3.5">
-                  <div className="text-[11px] text-[#808495] font-medium mb-1">Coût d'achat</div>
-                  <div className="text-base font-bold font-mono text-[#fafafa]">
-                    {fmtIsk(simulation.profit.purchase_cost)}
-                  </div>
-                </div>
+            {/* Live ESI Refresh Button */}
+            <button
+              onClick={handleSyncLiveESI}
+              disabled={isSyncingLiveEsi}
+              className="flex items-center gap-1.5 bg-[#ff4b4b]/15 hover:bg-[#ff4b4b]/25 text-[#ff4b4b] border border-[#ff4b4b]/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
+            >
+              <Globe className={`w-3.5 h-3.5 ${isSyncingLiveEsi ? 'animate-spin' : ''}`} />
+              <span>{isSyncingLiveEsi ? 'Sync ESI...' : 'Sync Live ESI'}</span>
+            </button>
+          </div>
+        </header>
 
-                <div className="bg-[#161821] border border-[#262730] rounded-lg p-3.5">
-                  <div className="text-[11px] text-[#808495] font-medium mb-1">
-                    Frais de courtage
-                  </div>
-                  <div className="text-base font-bold font-mono text-[#fafafa]">
-                    {fmtIsk(simulation.profit.broker_cost)}
-                  </div>
-                </div>
+        {/* Sync notification banner */}
+        {syncStatusMsg && (
+          <div className="bg-[#161821] border-b border-[#262730] px-6 py-2 text-xs text-[#808495] flex items-center justify-between">
+            <span>{syncStatusMsg}</span>
+          </div>
+        )}
 
-                <div className="bg-[#161821] border border-[#262730] rounded-lg p-3.5">
-                  <div className="text-[11px] text-[#808495] font-medium mb-1">
-                    Taxe de vente
-                  </div>
-                  <div className="text-base font-bold font-mono text-[#fafafa]">
-                    {fmtIsk(simulation.profit.sales_tax_cost)}
-                  </div>
-                </div>
+        {/* Scrollable View Body */}
+        <main className="flex-1 overflow-y-auto p-6 space-y-6">
+          {currentView === 'orders' ? (
+            <MyOrdersView
+              session={characterSession}
+              orders={characterOrders}
+              isLoadingOrders={isLoadingOrders}
+              onRefreshOrders={() => {
+                if (characterSession) {
+                  loadCharacterData(
+                    characterSession.access_token,
+                    characterSession.character_id,
+                    characterSession.character_name
+                  );
+                }
+              }}
+              onConnectSSO={handleConnectSSO}
+              onExchangeCode={handleExchangeCode}
+              onDirectTokenInput={handleDirectTokenInput}
+              onLogout={handleLogoutCharacter}
+              onSelectTypeForArbitrage={handleSelectTypeForArbitrage}
+              hubs={hubs}
+            />
+          ) : currentView === 'portfolio' ? (
+            <PortfolioView
+              simulation={portfolioSimulation}
+              onSelectOpportunity={(oppId) => {
+                const found = opportunities.find((o) => o.id === oppId);
+                if (found) setSelectedOpportunity(found);
+              }}
+            />
+          ) : currentView === 'journal' ? (
 
-                <div className="bg-[#161821] border border-[#262730] rounded-lg p-3.5">
-                  <div className="text-[11px] text-[#808495] font-medium mb-1">Marge</div>
-                  <div className="text-base font-bold font-mono text-[#fafafa]">
-                    {fmtPct(simulation.profit.margin)}
-                  </div>
-                </div>
-              </div>
-            </div>
+            <TradeJournal
+              executions={tradeExecutions}
+              onUpdateExecution={handleUpdateExecution}
+            />
+          ) : currentView === 'config' ? (
+            <ConfigurationPanel
+              hubs={hubs}
+              onToggleHub={handleToggleHub}
+              config={config}
+              onUpdateConfig={handleUpdateConfig}
+              strategy={strategy}
+              onChangeStrategy={setStrategy}
+            />
           ) : (
-            <div className="bg-[#262730] border border-[#31333f] rounded-lg p-6 text-center text-[#808495] text-sm">
-              Simulation impossible : il faut à la fois des ordres de vente et d'achat.
+            /* COCKPIT VIEW */
+            <div className="space-y-6">
+              {/* Cockpit Overview Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="bg-[#161821] border border-[#262730] rounded-lg p-4">
+                  <div className="text-xs text-[#808495] font-medium mb-1">Paires de Hubs Analysées</div>
+                  <div className="text-2xl font-bold font-mono text-[#fafafa]">
+                    {hubs.filter((h) => h.active).length * (hubs.filter((h) => h.active).length - 1)} routes
+                  </div>
+                  <div className="text-[11px] text-[#808495] mt-1">
+                    Directionnel A ↔ B exhaustif
+                  </div>
+                </div>
+
+                <div className="bg-[#161821] border border-[#262730] rounded-lg p-4">
+                  <div className="text-xs text-[#808495] font-medium mb-1">Opportunités Viables</div>
+                  <div className="text-2xl font-bold font-mono text-green-400">
+                    {opportunities.filter((o) => o.is_viable).length}
+                  </div>
+                  <div className="text-[11px] text-[#808495] mt-1">
+                    {opportunities.filter((o) => !o.is_viable).length} rejetées (filtres stricts)
+                  </div>
+                </div>
+
+                <div className="bg-[#161821] border border-[#262730] rounded-lg p-4">
+                  <div className="text-xs text-[#808495] font-medium mb-1">Meilleur Profit / Jour</div>
+                  <div className="text-2xl font-bold font-mono text-amber-400">
+                    {fmtIsk(opportunities[0]?.profit_per_day || 0)}
+                  </div>
+                  <div className="text-[11px] text-[#808495] mt-1">
+                    Pondéré rotation du capital
+                  </div>
+                </div>
+
+                <div className="bg-[#161821] border border-[#262730] rounded-lg p-4">
+                  <div className="text-xs text-[#808495] font-medium mb-1">Stratégie en Cours</div>
+                  <div className="text-xl font-bold font-mono text-[#ff4b4b] uppercase">
+                    {strategy === 'relist' ? 'Buy & Relist' : 'Immédiate'}
+                  </div>
+                  <div className="text-[11px] text-[#808495] mt-1">
+                    Frais bilatéraux inclus
+                  </div>
+                </div>
+              </div>
+
+              {/* Filters & Sorters Toolbar */}
+              <div className="bg-[#161821] border border-[#262730] rounded-lg p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[#808495]">Trier par :</span>
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as any)}
+                      className="bg-[#0e1117] border border-[#31333f] text-[#fafafa] rounded px-2.5 py-1 text-xs cursor-pointer focus:outline-none focus:border-[#ff4b4b]"
+                    >
+                      <option value="score">Score Global Composite</option>
+                      <option value="profit_day">Profit / Jour (Rotation)</option>
+                      <option value="profit">Profit Net Total</option>
+                      <option value="roi">ROI (%)</option>
+                      <option value="turnover">Jours de Vente (Croissant)</option>
+                    </select>
+                  </div>
+
+                  <label className="flex items-center gap-1.5 cursor-pointer text-[#808495] hover:text-[#fafafa]">
+                    <input
+                      type="checkbox"
+                      checked={highSecOnly}
+                      onChange={(e) => setHighSecOnly(e.target.checked)}
+                      className="rounded bg-[#0e1117] text-[#ff4b4b] focus:ring-0"
+                    />
+                    <span>100% High-Sec uniquement</span>
+                  </label>
+                </div>
+
+                <div className="text-[11px] text-[#808495]">
+                  Affichage de <strong className="text-[#fafafa]">{sortedOpportunities.length}</strong> opportunités pour{' '}
+                  <span className="text-[#fafafa] font-semibold">{selectedType.name}</span>
+                </div>
+              </div>
+
+              {/* Opportunities Matrix Table */}
+              <div className="bg-[#161821] border border-[#262730] rounded-lg overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left font-mono text-xs">
+                    <thead className="bg-[#262730] text-[#808495] uppercase tracking-wider text-[11px]">
+                      <tr>
+                        <th className="p-3">Route Commerciale</th>
+                        <th className="p-3 text-right">Prix Achat (Moyen)</th>
+                        <th className="p-3 text-right">Prix Vente (Moyen)</th>
+                        <th className="p-3 text-right">Qté Tradable</th>
+                        <th className="p-3 text-right">Profit Net</th>
+                        <th className="p-3 text-right">Capturable</th>
+                        <th className="p-3 text-right">Profit / Jour</th>
+                        <th className="p-3 text-right">ROI</th>
+                        <th className="p-3 text-right">Jours Vente</th>
+                        <th className="p-3 text-right">Score</th>
+                        <th className="p-3 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#262730]">
+                      {sortedOpportunities.length === 0 ? (
+                        <tr>
+                          <td colSpan={11} className="p-8 text-center text-[#808495]">
+                            Aucune opportunité rentable trouvée pour {selectedType.name} avec les filtres actuels.
+                          </td>
+                        </tr>
+                      ) : (
+                        sortedOpportunities.map((opp) => {
+                          const isAnom = opp.is_anomalous;
+                          const isViable = opp.is_viable;
+
+                          return (
+                            <tr
+                              key={opp.id}
+                              onClick={() => setSelectedOpportunity(opp)}
+                              className={`hover:bg-[#20222c] cursor-pointer transition-colors ${
+                                isAnom ? 'bg-amber-950/10' : !isViable ? 'opacity-60' : ''
+                              }`}
+                            >
+                              <td className="p-3">
+                                <div className="flex items-center gap-1.5 font-bold text-[#fafafa]">
+                                  <span>{opp.buy_hub.name}</span>
+                                  <ArrowRight className="w-3.5 h-3.5 text-[#808495]" />
+                                  <span>{opp.sell_hub.name}</span>
+                                </div>
+                                <div className="text-[10px] text-[#808495] flex items-center gap-2 mt-0.5">
+                                  <span>{opp.route.jumps} sauts</span>
+                                  <span>· {opp.strategy === 'relist' ? 'Relist' : 'Direct'}</span>
+                                  {opp.jita_price_benchmark?.is_jita_verified && (
+                                    <span
+                                      className="text-amber-400/90 flex items-center gap-0.5"
+                                      title={opp.jita_price_benchmark.reliability_assessment}
+                                    >
+                                      <Award className="w-2.5 h-2.5" />
+                                      <span>Jita Ref</span>
+                                    </span>
+                                  )}
+                                  {isAnom && (
+                                    <span className="text-amber-400 font-bold">⚠️ anomalie</span>
+                                  )}
+                                </div>
+                              </td>
+
+                              <td className="p-3 text-right text-[#4d8dff]">
+                                {fmtIsk(opp.effective_buy_price)}
+                              </td>
+
+                              <td className="p-3 text-right text-green-400">
+                                {fmtIsk(opp.effective_sell_price)}
+                              </td>
+
+                              <td className="p-3 text-right text-[#fafafa]">
+                                {fmtNumber(opp.quantity_tradable)}
+                                <div className="text-[10px] text-[#808495]">
+                                  {fmtNumber(opp.total_cargo_volume)} m³
+                                </div>
+                              </td>
+
+                              <td className="p-3 text-right font-bold text-green-400">
+                                {fmtIsk(opp.costs.net_profit)}
+                              </td>
+
+                              <td className="p-3 text-right text-purple-300">
+                                {fmtIsk(opp.capturable_profit)}
+                              </td>
+
+                              <td className="p-3 text-right font-bold text-amber-400">
+                                {fmtIsk(opp.profit_per_day)}
+                              </td>
+
+                              <td className="p-3 text-right text-green-400 font-semibold">
+                                {fmtPct(opp.costs.roi)}
+                              </td>
+
+                              <td className="p-3 text-right text-[#808495]">
+                                {opp.expected_days_to_sell.toFixed(1)} j
+                              </td>
+
+                              <td className="p-3 text-right">
+                                <span
+                                  className={`px-2 py-0.5 rounded font-bold text-xs ${
+                                    opp.scores.overall_score >= 65
+                                      ? 'bg-green-950/60 text-green-300 border border-green-700/50'
+                                      : opp.scores.overall_score >= 40
+                                      ? 'bg-amber-950/60 text-amber-300 border border-amber-700/50'
+                                      : 'bg-red-950/60 text-red-300 border border-red-700/50'
+                                  }`}
+                                >
+                                  {opp.scores.overall_score}
+                                </span>
+                              </td>
+
+                              <td className="p-3 text-center">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedOpportunity(opp);
+                                  }}
+                                  className="px-2.5 py-1 rounded bg-[#262730] hover:bg-[#31333f] text-[#fafafa] text-[11px] font-medium"
+                                >
+                                  Détail
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           )}
-        </div>
+        </main>
+      </div>
 
-        <div className="border-t border-[#262730] my-8"></div>
-
-        {/* Saved Opportunities */}
-        <div className="mb-10">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold tracking-tight text-[#fafafa] flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-[#ff4b4b]" />
-              Opportunités enregistrées
-            </h2>
-            <span className="text-xs text-[#808495]">
-              {opportunities.length} opportunités détectées
-            </span>
-          </div>
-
-          <div className="bg-[#161821] border border-[#262730] rounded-lg overflow-x-auto shadow-sm">
-            <table className="w-full text-left text-xs font-mono">
-              <thead className="bg-[#262730] text-[#808495] uppercase tracking-wider text-[11px]">
-                <tr>
-                  <th className="p-3">Objet</th>
-                  <th className="p-3">Achat</th>
-                  <th className="p-3">Vente</th>
-                  <th className="p-3 text-right">Prix Achat</th>
-                  <th className="p-3 text-right">Prix Vente</th>
-                  <th className="p-3 text-right">Qté</th>
-                  <th className="p-3 text-right">Profit Net</th>
-                  <th className="p-3 text-right">ROI</th>
-                  <th className="p-3 text-right">Marge</th>
-                  <th className="p-3 text-right">Capital Requis</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#262730]">
-                {opportunities.map((opp, idx) => (
-                  <tr key={idx} className="hover:bg-[#20222c] transition-colors">
-                    <td className="p-3 font-semibold text-[#fafafa]">
-                      {opp.type_name || `ID ${opp.type_id}`}
-                    </td>
-                    <td className="p-3 text-[#808495]">{opp.buy_region_name}</td>
-                    <td className="p-3 text-[#808495]">{opp.sell_region_name}</td>
-                    <td className="p-3 text-right text-[#4d8dff]">{fmtIsk(opp.buy_price)}</td>
-                    <td className="p-3 text-right text-[#ff4d4d]">{fmtIsk(opp.sell_price)}</td>
-                    <td className="p-3 text-right text-[#fafafa]">{fmtNumber(opp.quantity)}</td>
-                    <td className="p-3 text-right text-green-400 font-bold">
-                      {fmtIsk(opp.net_profit)}
-                    </td>
-                    <td className="p-3 text-right text-green-400">{fmtPct(opp.roi)}</td>
-                    <td className="p-3 text-right text-[#808495]">{fmtPct(opp.margin)}</td>
-                    <td className="p-3 text-right text-[#808495]">{fmtIsk(opp.capital_required)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </main>
+      {/* Detail Modal */}
+      {selectedOpportunity && (
+        <OpportunityModal
+          opportunity={selectedOpportunity}
+          onClose={() => setSelectedOpportunity(null)}
+          onExecuteTrade={handleExecuteTrade}
+        />
+      )}
     </div>
   );
 };
+
 export default App;

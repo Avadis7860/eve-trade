@@ -1,19 +1,29 @@
-import { PriceLevel, Fill } from '../types';
+import { PriceLevel, Fill, RawMarketOrder } from '../types';
 
 export type PriceVolume = [number, number];
 
 export class PriceLadder {
   /**
    * Group orders by price, summing volume_remaining; sort best-first.
+   * Accepts either [price, volume] tuples or RawMarketOrder objects.
    * descending=true => highest price first (best for buy side / disposal)
    * descending=false => lowest price first (best for sell side / acquisition)
    */
-  static aggregate(orders: PriceVolume[], descending: boolean = false): PriceLevel[] {
+  static aggregate(orders: (PriceVolume | RawMarketOrder)[], descending: boolean = false): PriceLevel[] {
     const volumes = new Map<number, number>();
     const counts = new Map<number, number>();
 
-    for (const [price, vol] of orders) {
-      if (vol <= 0) continue;
+    for (const item of orders) {
+      let price: number;
+      let vol: number;
+      if (Array.isArray(item)) {
+        price = item[0];
+        vol = item[1];
+      } else {
+        price = item.price;
+        vol = item.volume_remain;
+      }
+      if (vol <= 0 || price <= 0) continue;
       volumes.set(price, (volumes.get(price) || 0) + vol);
       counts.set(price, (counts.get(price) || 0) + 1);
     }

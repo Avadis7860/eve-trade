@@ -1,0 +1,69 @@
+fees:
+  broker_fee: 0.0145
+  sales_tax: 0.035
+  currency_precision: 2
+esi:
+  base_url: https://esi.evetech.net/latest
+  datasource: tranquility
+  user_agent: eve-trade/0.1 (+https://github.com/avadis/eve-trade)
+  max_concurrent: 5
+  request_delay_seconds: 0.05
+  timeout_seconds: 30.0
+  max_retries: 5
+  retry_backoff_factor: 2.0
+sync:
+  market_orders_ttl_seconds: 300
+  universe_ttl_seconds: 86400
+  market_history_ttl_seconds: 1200
+database:
+  path: data/eve_trade.db
+market_hubs:
+- name: Jita
+  region: The Forge
+  solar_system: Jita
+  station: Jita IV - Moon 4 - Caldari Navy Assembly Plant
+  hub_type: npc_hub
+  priority: 1
+  region_id: 10000002
+  system_id: 30000142
+  station_id: 60003760
+- name: Amarr
+  region: Domain
+  solar_system: Amarr
+  station: null
+  hub_type: npc_hub
+  priority: 2
+  region_id: 10000043
+  system_id: 30002187
+  station_id: null
+- name: Dodixie
+  region: Sinq Laison
+  solar_system: Dodixie
+  station: null
+  hub_type: npc_hub
+  priority: 3
+  region_id: 10000032
+  system_id: 30002659
+  station_id: null
+- name: Rens
+  region: Heimatar
+  solar_system: Rens
+  station: null
+  hub_type: npc_hub
+  priority: 4
+  region_id: 10000030
+  system_id: 30002510
+  station_id: null
+- name: Hek
+  region: Metropolis
+  solar_system: Hek
+  station: null
+  hub_type: npc_hub
+  priority: 5
+  region_id: 10000042
+  system_id: 30002053
+  station_id: null
+default_hub: Jita
+available_capital: 500000000.0
+target_scope: highsec
+high_sec_threshold: 0.5

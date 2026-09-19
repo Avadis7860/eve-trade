@@ -1,0 +1,20 @@
+# Runtime data
+data/
+*.db
+*.sqlite
+*.log
+
+# Environment
+.env
+__pycache__/
+*.pyc
+
+# Python
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# IDEs
+.vscode/
+.idea/

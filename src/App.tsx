@@ -437,29 +437,29 @@ export const App: React.FC = () => {
   // Subscribe to MarketDataStore updates to keep Cockpit order books and history in sync with Global Sync
   useEffect(() => {
     const unsub = MarketDataStore.subscribe(() => {
-      const books = MarketDataStore.getOrdersForType(selectedType.type_id, hubs, selectedType.average_price);
+      const books = MarketDataStore.getOrdersForType(selectedType.type_id, hubs);
       const hist = MarketDataStore.getHistoryForType(selectedType.type_id);
       setOrderBooks(books);
       setHistoryCache(hist);
     });
     return () => unsub();
-  }, [selectedType.type_id, selectedType.average_price, hubs]);
+  }, [selectedType.type_id, hubs]);
 
   // Initial load and background sync on item change
   useEffect(() => {
-    const books = MarketDataStore.getOrdersForType(selectedType.type_id, hubs, selectedType.average_price);
+    const books = MarketDataStore.getOrdersForType(selectedType.type_id, hubs);
     const hist = MarketDataStore.getHistoryForType(selectedType.type_id);
     setOrderBooks(books);
     setHistoryCache(hist);
 
     // If not in cache or stale, fetch live in background
-    MarketDataStore.fetchLiveItemData(selectedType.type_id, hubs, false, selectedType.average_price)
+    MarketDataStore.fetchLiveItemData(selectedType.type_id, hubs, false)
       .then((res) => {
         setOrderBooks(res.orderBooks);
         setHistoryCache(res.history);
       })
       .catch(() => {});
-  }, [selectedType.type_id, selectedType.average_price, hubs]);
+  }, [selectedType.type_id, hubs]);
 
   // Toggle favorite
   const handleToggleFavorite = (typeId: number) => {
@@ -476,13 +476,13 @@ export const App: React.FC = () => {
     setRecentTypeIds((prev) => [type.type_id, ...prev.filter((id) => id !== type.type_id)].slice(0, 10));
 
     // Instantly load from MarketDataStore (if discovered in Global Sync, it's immediately available with real ESI orders!)
-    const books = MarketDataStore.getOrdersForType(type.type_id, hubs, type.average_price);
+    const books = MarketDataStore.getOrdersForType(type.type_id, hubs);
     const hist = MarketDataStore.getHistoryForType(type.type_id);
     setOrderBooks(books);
     setHistoryCache(hist);
 
     // Auto-fetch fresh ESI if needed
-    MarketDataStore.fetchLiveItemData(type.type_id, hubs, false, type.average_price)
+    MarketDataStore.fetchLiveItemData(type.type_id, hubs, false)
       .then((res) => {
         setOrderBooks(res.orderBooks);
         setHistoryCache(res.history);
@@ -509,7 +509,7 @@ export const App: React.FC = () => {
     setSyncStatusMsg(`Synchronisation CCP ESI pour ${selectedType.name} sur les 5 hubs...`);
 
     try {
-      const res = await MarketDataStore.fetchLiveItemData(selectedType.type_id, hubs, true, selectedType.average_price);
+      const res = await MarketDataStore.fetchLiveItemData(selectedType.type_id, hubs, true);
       setOrderBooks(res.orderBooks);
       setHistoryCache(res.history);
       setSyncStatusMsg(
@@ -528,13 +528,15 @@ export const App: React.FC = () => {
 
   // Scan inter-regional opportunities for single item (Cockpit)
   const opportunities = useMemo(() => {
+    const qualities = MarketDataStore.getQualitiesForType(selectedType.type_id, hubs);
     return InterRegionalScanner.scanItemAcrossHubs(
       selectedType,
       hubs,
       strategy,
       config,
       orderBooks,
-      historyCache
+      historyCache,
+      qualities
     );
   }, [selectedType, hubs, strategy, config, orderBooks, historyCache]);
 

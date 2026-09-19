@@ -382,6 +382,67 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Data Quality & Provenance Traceability */}
+          {opportunity.data_quality && (
+            <div className="bg-[#0e1117] p-4 rounded-lg border border-[#262730]">
+              <h3 className="font-bold text-[#fafafa] text-sm mb-3 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-cyan-400" />
+                  Provenance &amp; Traçabilité des Données de Marché ESI
+                </span>
+                <span className={`text-[11px] font-mono px-2 py-0.5 rounded font-bold ${
+                  opportunity.data_quality.confidence_score >= 0.8
+                    ? 'bg-green-500/20 text-green-300'
+                    : opportunity.data_quality.confidence_score >= 0.5
+                    ? 'bg-amber-500/20 text-amber-300'
+                    : 'bg-red-500/20 text-red-300'
+                }`}>
+                  Indice de Confiance : {(opportunity.data_quality.confidence_score * 100).toFixed(0)}%
+                </span>
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11px] font-mono">
+                <div className="p-2 bg-[#161821] rounded">
+                  <span className="text-[#808495] block text-[10px]">Source Buy Hub ({buy_hub.name}) :</span>
+                  <span className="text-[#fafafa] font-bold uppercase">{opportunity.data_quality.buy_hub_quality?.source || 'ESI'}</span>
+                  <span className="block text-[10px] text-[#808495]">
+                    {opportunity.data_quality.buy_hub_quality?.orders_valid ?? 0} ordres validés
+                  </span>
+                </div>
+                <div className="p-2 bg-[#161821] rounded">
+                  <span className="text-[#808495] block text-[10px]">Source Sell Hub ({sell_hub.name}) :</span>
+                  <span className="text-[#fafafa] font-bold uppercase">{opportunity.data_quality.sell_hub_quality?.source || 'ESI'}</span>
+                  <span className="block text-[10px] text-[#808495]">
+                    {opportunity.data_quality.sell_hub_quality?.orders_valid ?? 0} ordres validés
+                  </span>
+                </div>
+                <div className="p-2 bg-[#161821] rounded">
+                  <span className="text-[#808495] block text-[10px]">Fraîcheur Temporelle :</span>
+                  <span className={`font-bold uppercase ${
+                    opportunity.data_quality.overall_freshness === 'fresh'
+                      ? 'text-green-400'
+                      : opportunity.data_quality.overall_freshness === 'recent'
+                      ? 'text-blue-400'
+                      : 'text-amber-400'
+                  }`}>
+                    {opportunity.data_quality.overall_freshness}
+                  </span>
+                  <span className="block text-[10px] text-[#808495]">
+                    Âge max : {Math.max(opportunity.data_quality.buy_hub_quality?.age_seconds ?? 0, opportunity.data_quality.sell_hub_quality?.age_seconds ?? 0)}s
+                  </span>
+                </div>
+                <div className="p-2 bg-[#161821] rounded">
+                  <span className="text-[#808495] block text-[10px]">Exhaustivité des Pages :</span>
+                  <span className="text-[#fafafa] font-bold uppercase">
+                    {opportunity.data_quality.overall_completeness}
+                  </span>
+                  <span className="block text-[10px] text-[#808495]">
+                    {(opportunity.data_quality.buy_hub_quality?.pages_fetched ?? 1) + (opportunity.data_quality.sell_hub_quality?.pages_fetched ?? 1)} pages lues
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Modal Footer */}

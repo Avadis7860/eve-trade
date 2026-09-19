@@ -1,3 +1,36 @@
+export type MarketDataSource = 'esi' | 'cache' | 'mock' | 'unavailable';
+export type MarketDataFreshness = 'fresh' | 'recent' | 'stale' | 'expired';
+export type MarketDataCompleteness = 'complete' | 'partial' | 'empty';
+export type MarketDataValidationStatus = 'valid' | 'suspicious' | 'invalid';
+
+export interface MarketDataQuality {
+  source: MarketDataSource;
+  freshness: MarketDataFreshness;
+  completeness: MarketDataCompleteness;
+  validation_status: MarketDataValidationStatus;
+  fetched_at: string;
+  age_seconds: number;
+  pages_fetched: number;
+  expected_pages: number;
+  orders_fetched: number;
+  orders_valid: number;
+  duplicate_orders_removed: number;
+  rejected_orders_count: number;
+  error_count: number;
+  last_error?: string;
+  confidence: number; // 0.0 to 1.0
+  sync_duration_ms: number;
+}
+
+export interface MarketDataSnapshot {
+  type_id: number;
+  region_id: number;
+  orders: RawMarketOrder[];
+  timestamp: number;
+  quality: MarketDataQuality;
+  history?: HistoricalStats;
+}
+
 export interface MarketCategory {
   category_id: number;
   name: string;
@@ -246,6 +279,18 @@ export interface InterRegionalOpportunity {
   
   // Real Character History & Calibration Fit
   personal_fit?: PersonalCalibrationFit;
+
+  // Data Quality & Veracity tracking
+  data_quality?: {
+    buy_hub_quality?: MarketDataQuality;
+    sell_hub_quality?: MarketDataQuality;
+    overall_confidence: number;
+    overall_freshness: 'fresh' | 'recent' | 'stale' | 'expired';
+    overall_completeness: 'complete' | 'partial' | 'empty';
+    is_verified_esi: boolean;
+    confidence_score: number;
+    status_label?: string;
+  };
 
   detected_at: string;
 }

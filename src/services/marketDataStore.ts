@@ -1,12 +1,11 @@
 import { EsiService } from './esi';
-import { RawMarketOrder, HistoricalStats, MarketHub } from '../types';
-import { generateMockOrders } from '../data/mockData';
-
-interface OrderCacheEntry {
-  orders: RawMarketOrder[];
-  timestamp: number;
-  is_live_esi: boolean;
-}
+import {
+  RawMarketOrder,
+  HistoricalStats,
+  MarketHub,
+  MarketDataSnapshot,
+  MarketDataQuality,
+} from '../types';
 
 interface HistoryCacheEntry {
   stats: HistoricalStats;
@@ -14,8 +13,8 @@ interface HistoryCacheEntry {
 }
 
 export class MarketDataStore {
-  // Primary structured stores: type_id -> (region_id -> entry)
-  private static ordersCache = new Map<number, Map<number, OrderCacheEntry>>();
+  // Primary structured stores: type_id -> (region_id -> MarketDataSnapshot)
+  private static snapshots = new Map<number, Map<number, MarketDataSnapshot>>();
   private static historyCache = new Map<number, Map<number, HistoryCacheEntry>>();
 
   // Active in-flight requests to deduplicate concurrent calls
@@ -43,22 +42,54 @@ export class MarketDataStore {
   }
 
   /**
-   * Store live ESI or synchronized orders for an item in a specific region
+   * Store a complete verified market snapshot for (typeId, regionId)
+   */
+  static setSnapshot(snapshot: MarketDataSnapshot) {
+    if (!this.snapshots.has(snapshot.type_id)) {
+      this.snapshots.set(snapshot.type_id, new Map());
+    }
+    this.snapshots.get(snapshot.type_id)!.set(snapshot.region_id, snapshot);
+  }
+
+  /**
+   * Store raw orders with generated or provided quality metadata
    */
   static setOrders(
     typeId: number,
     regionId: number,
     orders: RawMarketOrder[],
-    isLiveEsi: boolean = true
+    isLiveEsi: boolean = true,
+    qualityOverride?: MarketDataQuality
   ) {
-    if (!this.ordersCache.has(typeId)) {
-      this.ordersCache.set(typeId, new Map());
-    }
-    this.ordersCache.get(typeId)!.set(regionId, {
+    const now = Date.now();
+    const snapshotTimestamp = qualityOverride?.fetched_at ? new Date(qualityOverride.fetched_at).getTime() : now;
+    const quality: MarketDataQuality = qualityOverride || {
+      source: isLiveEsi ? 'esi' : 'cache',
+      freshness: 'fresh',
+      completeness: orders.length > 0 ? 'complete' : 'empty',
+      validation_status: 'valid',
+      fetched_at: new Date(now).toISOString(),
+      age_seconds: 0,
+      pages_fetched: 1,
+      expected_pages: 1,
+      orders_fetched: orders.length,
+      orders_valid: orders.length,
+      duplicate_orders_removed: 0,
+      rejected_orders_count: 0,
+      error_count: 0,
+      confidence: 1.0,
+      sync_duration_ms: 0,
+    };
+
+    const snapshot: MarketDataSnapshot = {
+      type_id: typeId,
+      region_id: regionId,
       orders,
-      timestamp: Date.now(),
-      is_live_esi: isLiveEsi,
-    });
+      timestamp: snapshotTimestamp,
+      quality,
+    };
+
+    this.setSnapshot(snapshot);
   }
 
   /**
@@ -72,67 +103,143 @@ export class MarketDataStore {
       stats,
       timestamp: Date.now(),
     });
+
+    // Also attach to snapshot if present
+    const snap = this.getSnapshot(typeId, regionId);
+    if (snap) {
+      snap.history = stats;
+    }
   }
 
   /**
-   * Get orders for a specific item in a region
+   * Retrieve full verified snapshot for an item in a region
+   */
+  static getSnapshot(typeId: number, regionId: number): MarketDataSnapshot | null {
+    const typeMap = this.snapshots.get(typeId);
+    if (!typeMap) return null;
+    const snap = typeMap.get(regionId);
+    if (!snap) return null;
+
+    // Dynamically update age_seconds and freshness
+    const ageSec = Math.round((Date.now() - snap.timestamp) / 1000);
+    snap.quality.age_seconds = ageSec;
+    if (ageSec > 1800) {
+      // > 30 minutes
+      snap.quality.freshness = 'expired';
+      snap.quality.confidence = Math.max(0.1, snap.quality.confidence * 0.5);
+    } else if (ageSec > 600) {
+      // > 10 minutes
+      snap.quality.freshness = 'stale';
+      snap.quality.confidence = Math.max(0.3, snap.quality.confidence * 0.8);
+    } else if (ageSec > 120) {
+      // > 2 minutes
+      snap.quality.freshness = 'recent';
+    } else {
+      snap.quality.freshness = 'fresh';
+    }
+
+    return snap;
+  }
+
+  /**
+   * Get orders for a specific item in a region (strictly real orders, or null)
    */
   static getOrders(typeId: number, regionId: number): RawMarketOrder[] | null {
-    const typeMap = this.ordersCache.get(typeId);
-    if (!typeMap) return null;
-    const entry = typeMap.get(regionId);
-    return entry ? entry.orders : null;
+    const snap = this.getSnapshot(typeId, regionId);
+    return snap ? snap.orders : null;
   }
 
   /**
-   * Check whether live or cached orders exist for an item across hubs
+   * Get data quality descriptor for a specific item in a region
+   */
+  static getQuality(typeId: number, regionId: number): MarketDataQuality | null {
+    const snap = this.getSnapshot(typeId, regionId);
+    return snap ? snap.quality : null;
+  }
+
+  /**
+   * Check whether verified orders exist for an item across hubs
    */
   static hasOrdersForType(typeId: number): boolean {
-    const typeMap = this.ordersCache.get(typeId);
+    const typeMap = this.snapshots.get(typeId);
     if (!typeMap || typeMap.size === 0) return false;
-    for (const entry of typeMap.values()) {
-      if (entry.orders && entry.orders.length > 0) return true;
+    for (const snap of typeMap.values()) {
+      if (snap.orders && snap.orders.length > 0) return true;
     }
     return false;
   }
 
   /**
-   * Get whether data for an item is verified live from ESI
+   * Get whether data for an item is verified live from ESI and fresh
    */
   static isLiveEsi(typeId: number, regionId: number): boolean {
-    const typeMap = this.ordersCache.get(typeId);
-    return Boolean(typeMap?.get(regionId)?.is_live_esi);
+    const snap = this.getSnapshot(typeId, regionId);
+    return Boolean(snap && snap.quality.source === 'esi' && snap.quality.freshness !== 'expired');
   }
 
   /**
    * Get timestamp of last fetch for an item in a region
    */
   static getTimestamp(typeId: number, regionId: number): number | null {
-    const typeMap = this.ordersCache.get(typeId);
-    return typeMap?.get(regionId)?.timestamp || null;
+    const snap = this.snapshots.get(typeId)?.get(regionId);
+    return snap ? snap.timestamp : null;
   }
 
   /**
-   * Get all cached orders for a type across all regions
+   * Get all cached orders for a type across all active hubs (returns strictly real orders, empty array if none)
    */
   static getOrdersForType(
     typeId: number,
-    hubs: MarketHub[],
-    fallbackBasePrice: number = 1000
+    hubs: MarketHub[]
   ): Record<number, RawMarketOrder[]> {
     const result: Record<number, RawMarketOrder[]> = {};
-    const typeMap = this.ordersCache.get(typeId);
+    const typeMap = this.snapshots.get(typeId);
 
     for (const hub of hubs) {
-      const entry = typeMap?.get(hub.region_id);
-      if (entry && entry.orders.length > 0) {
-        result[hub.region_id] = entry.orders;
+      const snap = typeMap?.get(hub.region_id);
+      if (snap && snap.orders) {
+        result[hub.region_id] = snap.orders;
       } else {
-        // Fallback realistic orders if not yet fetched
-        result[hub.region_id] = generateMockOrders(hub.region_id, typeId, fallbackBasePrice);
+        // Strictly empty array - NO mock data fabrication!
+        result[hub.region_id] = [];
       }
     }
 
+    return result;
+  }
+
+  /**
+   * Get all quality descriptors for a type across hubs
+   */
+  static getQualitiesForType(
+    typeId: number,
+    hubs: MarketHub[]
+  ): Record<number, MarketDataQuality> {
+    const result: Record<number, MarketDataQuality> = {};
+    for (const hub of hubs) {
+      const snap = this.getSnapshot(typeId, hub.region_id);
+      if (snap) {
+        result[hub.region_id] = snap.quality;
+      } else {
+        result[hub.region_id] = {
+          source: 'unavailable',
+          freshness: 'expired',
+          completeness: 'empty',
+          validation_status: 'invalid',
+          fetched_at: new Date(0).toISOString(),
+          age_seconds: 999999,
+          pages_fetched: 0,
+          expected_pages: 1,
+          orders_fetched: 0,
+          orders_valid: 0,
+          duplicate_orders_removed: 0,
+          rejected_orders_count: 0,
+          error_count: 0,
+          confidence: 0,
+          sync_duration_ms: 0,
+        };
+      }
+    }
     return result;
   }
 
@@ -155,10 +262,10 @@ export class MarketDataStore {
    */
   static getAllOrdersByRegion(): Record<number, RawMarketOrder[]> {
     const result: Record<number, RawMarketOrder[]> = {};
-    for (const typeMap of this.ordersCache.values()) {
-      for (const [regionId, entry] of typeMap.entries()) {
+    for (const typeMap of this.snapshots.values()) {
+      for (const [regionId, snap] of typeMap.entries()) {
         if (!result[regionId]) result[regionId] = [];
-        result[regionId].push(...entry.orders);
+        result[regionId].push(...snap.orders);
       }
     }
     return result;
@@ -177,31 +284,34 @@ export class MarketDataStore {
   static async fetchLiveItemData(
     typeId: number,
     hubs: MarketHub[],
-    forceRefresh: boolean = false,
-    fallbackBasePrice: number = 1000
+    forceRefresh: boolean = false
   ): Promise<{
     orderBooks: Record<number, RawMarketOrder[]>;
     history: Record<number, HistoricalStats>;
+    qualities: Record<number, MarketDataQuality>;
     successCount: number;
   }> {
     const activeHubs = hubs.filter((h) => h.active);
     const orderBooks: Record<number, RawMarketOrder[]> = {};
     const history: Record<number, HistoricalStats> = {};
+    const qualities: Record<number, MarketDataQuality> = {};
     let successCount = 0;
 
-    // Check if recently fetched (< 10 minutes) and not forcing refresh
-    const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
+    // Check if recently fetched (< 5 minutes) and not forcing refresh
+    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
     const isAlreadyCached =
       !forceRefresh &&
+      activeHubs.length > 0 &&
       activeHubs.every((hub) => {
-        const entry = this.ordersCache.get(typeId)?.get(hub.region_id);
-        return entry && entry.is_live_esi && entry.timestamp > tenMinutesAgo;
+        const snap = this.getSnapshot(typeId, hub.region_id);
+        return snap && snap.quality.source === 'esi' && snap.timestamp > fiveMinutesAgo;
       });
 
     if (isAlreadyCached) {
       return {
-        orderBooks: this.getOrdersForType(typeId, activeHubs, fallbackBasePrice),
+        orderBooks: this.getOrdersForType(typeId, activeHubs),
         history: this.getHistoryForType(typeId),
+        qualities: this.getQualitiesForType(typeId, activeHubs),
         successCount: activeHubs.length,
       };
     }
@@ -215,31 +325,98 @@ export class MarketDataStore {
       await Promise.all(
         activeHubs.map(async (hub) => {
           try {
-            const [liveOrders, hist] = await Promise.all([
-              EsiService.fetchLiveOrders(hub.region_id, typeId),
+            const [ordersResult, hist] = await Promise.all([
+              EsiService.fetchLiveOrdersDetailed(hub.region_id, typeId),
               EsiService.fetchMarketHistory(hub.region_id, typeId),
             ]);
 
-            if (liveOrders && liveOrders.length > 0) {
-              this.setOrders(typeId, hub.region_id, liveOrders, true);
-              orderBooks[hub.region_id] = liveOrders;
+            const { orders, quality } = ordersResult;
+
+            if (quality.source === 'esi' && quality.error_count === 0) {
+              const snapshot: MarketDataSnapshot = {
+                type_id: typeId,
+                region_id: hub.region_id,
+                orders,
+                timestamp: Date.now(),
+                quality,
+                history: hist || undefined,
+              };
+              this.setSnapshot(snapshot);
+              orderBooks[hub.region_id] = orders;
+              qualities[hub.region_id] = quality;
               successCount++;
             } else {
-              // Retain previous or generate fallback
-              const existing = this.getOrders(typeId, hub.region_id);
-              orderBooks[hub.region_id] =
-                existing || generateMockOrders(hub.region_id, typeId, fallbackBasePrice);
+              // ESI returned partial or error: check previous cache
+              const previousSnap = this.getSnapshot(typeId, hub.region_id);
+              if (previousSnap && previousSnap.orders.length > 0) {
+                // Degrade previous cache to STALE
+                const ageSec = Math.round((Date.now() - previousSnap.timestamp) / 1000);
+                const degradedQuality: MarketDataQuality = {
+                  ...previousSnap.quality,
+                  freshness: 'stale',
+                  age_seconds: ageSec,
+                  confidence: Math.max(0.2, previousSnap.quality.confidence * 0.7),
+                  last_error: quality.last_error || 'ESI sync issue, using cached snapshot',
+                };
+                previousSnap.quality = degradedQuality;
+                orderBooks[hub.region_id] = previousSnap.orders;
+                qualities[hub.region_id] = degradedQuality;
+              } else {
+                // No previous cache: store empty snapshot
+                const emptySnap: MarketDataSnapshot = {
+                  type_id: typeId,
+                  region_id: hub.region_id,
+                  orders: [],
+                  timestamp: Date.now(),
+                  quality,
+                };
+                this.setSnapshot(emptySnap);
+                orderBooks[hub.region_id] = [];
+                qualities[hub.region_id] = quality;
+              }
             }
 
             if (hist) {
               this.setHistory(typeId, hub.region_id, hist);
               history[hub.region_id] = hist;
             }
-          } catch (err) {
+          } catch (err: unknown) {
             console.warn(`Could not sync live ESI for region ${hub.region}:`, err);
-            const existing = this.getOrders(typeId, hub.region_id);
-            orderBooks[hub.region_id] =
-              existing || generateMockOrders(hub.region_id, typeId, fallbackBasePrice);
+            const previousSnap = this.getSnapshot(typeId, hub.region_id);
+            if (previousSnap && previousSnap.orders.length > 0) {
+              const ageSec = Math.round((Date.now() - previousSnap.timestamp) / 1000);
+              const degradedQuality: MarketDataQuality = {
+                ...previousSnap.quality,
+                freshness: 'stale',
+                age_seconds: ageSec,
+                confidence: Math.max(0.2, previousSnap.quality.confidence * 0.6),
+                last_error: String(err),
+              };
+              previousSnap.quality = degradedQuality;
+              orderBooks[hub.region_id] = previousSnap.orders;
+              qualities[hub.region_id] = degradedQuality;
+            } else {
+              const failedQuality: MarketDataQuality = {
+                source: 'unavailable',
+                freshness: 'expired',
+                completeness: 'empty',
+                validation_status: 'invalid',
+                fetched_at: new Date().toISOString(),
+                age_seconds: 0,
+                pages_fetched: 0,
+                expected_pages: 1,
+                orders_fetched: 0,
+                orders_valid: 0,
+                duplicate_orders_removed: 0,
+                rejected_orders_count: 0,
+                error_count: 1,
+                last_error: String(err),
+                confidence: 0,
+                sync_duration_ms: 0,
+              };
+              orderBooks[hub.region_id] = [];
+              qualities[hub.region_id] = failedQuality;
+            }
           }
         })
       );
@@ -249,6 +426,7 @@ export class MarketDataStore {
       return {
         orderBooks,
         history,
+        qualities,
         successCount,
       };
     })();
@@ -274,12 +452,12 @@ export class MarketDataStore {
     const activeHubs = hubs.filter((h) => h.active);
 
     const typesToFetch: number[] = [];
-    const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
+    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
 
     for (const tid of uniqueTypeIds) {
       const needsFetch = activeHubs.some((hub) => {
-        const entry = this.ordersCache.get(tid)?.get(hub.region_id);
-        return !entry || !entry.is_live_esi || entry.timestamp < tenMinutesAgo;
+        const snap = this.getSnapshot(tid, hub.region_id);
+        return !snap || snap.quality.source !== 'esi' || snap.timestamp < fiveMinutesAgo;
       });
       if (needsFetch) {
         typesToFetch.push(tid);
@@ -301,4 +479,47 @@ export class MarketDataStore {
 
     this.notifyListeners();
   }
+
+  /**
+   * Diagnostic summary of all loaded snapshots in store
+   */
+  static getStoreSummary() {
+    let totalSnapshots = 0;
+    let liveCount = 0;
+    let staleCount = 0;
+    let expiredCount = 0;
+    let totalOrders = 0;
+
+    for (const typeMap of this.snapshots.values()) {
+      for (const snap of typeMap.values()) {
+        totalSnapshots++;
+        totalOrders += snap.orders.length;
+        if (snap.quality.freshness === 'fresh' || snap.quality.freshness === 'recent') {
+          liveCount++;
+        } else if (snap.quality.freshness === 'stale') {
+          staleCount++;
+        } else {
+          expiredCount++;
+        }
+      }
+    }
+
+    return {
+      total_snapshots: totalSnapshots,
+      live_snapshots: liveCount,
+      stale_snapshots: staleCount,
+      expired_snapshots: expiredCount,
+      total_real_orders: totalOrders,
+    };
+  }
+
+  /**
+   * Clear the entire market data store
+   */
+  static clearStore() {
+    this.snapshots.clear();
+    this.historyCache.clear();
+    this.notifyListeners();
+  }
 }
+

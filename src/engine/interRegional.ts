@@ -206,7 +206,9 @@ export class InterRegionalFinancialEngine {
     totalCargoVolume: number;
   } {
     // 1. Capital constraint (taking into account unit cost + volumetric freight if enabled)
-    const maxCapitalToUse = Math.min(config.available_capital, config.max_capital_per_trade);
+    const availableCap = config.available_capital ?? 1000000000;
+    const maxCapPerTrade = config.max_capital_per_trade ?? availableCap;
+    const maxCapitalToUse = Math.min(availableCap, maxCapPerTrade);
     const transportPerUnit =
       config.enable_transport_costs !== false
         ? (unitVolume * (config.transport_cost_per_m3 || 0))

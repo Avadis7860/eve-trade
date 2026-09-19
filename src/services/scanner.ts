@@ -24,7 +24,8 @@ export class InterRegionalScanner {
     strategy: TradeStrategy,
     config: FinancialConfig,
     orderBooks: Record<number, RawMarketOrder[]>,
-    historyStats?: Record<number, HistoricalStats>
+    historyStats?: Record<number, HistoricalStats>,
+    qualities?: Record<number, import('../types').MarketDataQuality>
   ): InterRegionalOpportunity[] {
     const opportunities: InterRegionalOpportunity[] = [];
     const activeHubs = hubs.filter((h) => h.active);
@@ -51,6 +52,43 @@ export class InterRegionalScanner {
 
         const buyOrders = orderBooks[buyHub.region_id] || [];
         const sellOrders = orderBooks[sellHub.region_id] || [];
+
+        // Quality check
+        const buyQuality = qualities?.[buyHub.region_id] || {
+          source: 'esi',
+          freshness: 'fresh',
+          completeness: buyOrders.length > 0 ? 'complete' : 'empty',
+          validation_status: 'valid',
+          fetched_at: new Date().toISOString(),
+          age_seconds: 0,
+          pages_fetched: 1,
+          expected_pages: 1,
+          orders_fetched: buyOrders.length,
+          orders_valid: buyOrders.length,
+          duplicate_orders_removed: 0,
+          rejected_orders_count: 0,
+          error_count: 0,
+          confidence: 1.0,
+          sync_duration_ms: 0,
+        };
+
+        const sellQuality = qualities?.[sellHub.region_id] || {
+          source: 'esi',
+          freshness: 'fresh',
+          completeness: sellOrders.length > 0 ? 'complete' : 'empty',
+          validation_status: 'valid',
+          fetched_at: new Date().toISOString(),
+          age_seconds: 0,
+          pages_fetched: 1,
+          expected_pages: 1,
+          orders_fetched: sellOrders.length,
+          orders_valid: sellOrders.length,
+          duplicate_orders_removed: 0,
+          rejected_orders_count: 0,
+          error_count: 0,
+          confidence: 1.0,
+          sync_duration_ms: 0,
+        };
 
         // Source: we buy from Sell Orders on buyHub (order books ascending)
         const sourceSellOrders = buyOrders
@@ -152,6 +190,35 @@ export class InterRegionalScanner {
           config
         );
 
+        // Check if data is stale or partial, and flag as anomaly reason rather than suppressing
+        const anomalyReasons = [...evaluation.anomalyReasons];
+        if (buyQuality.freshness === 'stale' || sellQuality.freshness === 'stale') {
+          anomalyReasons.push('Données de marché synchronisées récemment (stale cache)');
+        }
+        if (buyQuality.completeness === 'partial' || sellQuality.completeness === 'partial') {
+          anomalyReasons.push('Données de carnet partielles (certaines pages manquantes)');
+        }
+
+        const overallFreshness =
+          buyQuality.freshness === 'expired' || sellQuality.freshness === 'expired'
+            ? 'expired'
+            : buyQuality.freshness === 'stale' || sellQuality.freshness === 'stale'
+            ? 'stale'
+            : buyQuality.freshness === 'recent' || sellQuality.freshness === 'recent'
+            ? 'recent'
+            : 'fresh';
+
+        const overallCompleteness =
+          buyQuality.completeness === 'empty' || sellQuality.completeness === 'empty'
+            ? 'empty'
+            : buyQuality.completeness === 'partial' || sellQuality.completeness === 'partial'
+            ? 'partial'
+            : 'complete';
+
+        const confidenceScore = Number(
+          (Math.min(buyQuality.confidence, sellQuality.confidence)).toFixed(2)
+        );
+
         // Jita Reliability Assessment: Compare buy price and sell target against Jita market truth
         let jitaReliabilityAssessment = 'Aucune donnée Jita';
         let buyVsJitaPct = 0;
@@ -225,8 +292,18 @@ export class InterRegionalScanner {
             reliability_assessment: jitaReliabilityAssessment,
           },
 
-          is_anomalous: evaluation.isAnomalous,
-          anomaly_reasons: evaluation.anomalyReasons,
+          data_quality: {
+            buy_hub_quality: buyQuality,
+            sell_hub_quality: sellQuality,
+            overall_confidence: confidenceScore,
+            overall_freshness: overallFreshness,
+            overall_completeness: overallCompleteness,
+            is_verified_esi: buyQuality.source === 'esi' && sellQuality.source === 'esi',
+            confidence_score: confidenceScore,
+          },
+
+          is_anomalous: evaluation.isAnomalous || anomalyReasons.length > 0,
+          anomaly_reasons: anomalyReasons,
           rejection_reasons: evaluation.rejectionReasons,
           is_viable: evaluation.isViable,
 

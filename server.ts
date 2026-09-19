@@ -451,6 +451,78 @@ async function startServer() {
     res.json({ location_id: locIdNum, name: `Location #${locIdNum}` });
   });
 
+  // 7e. Market orders proxy endpoint with pagination & header forwarding
+  app.get('/api/markets/:regionId/orders', async (req, res) => {
+    const { regionId } = req.params;
+    const typeId = req.query.type_id ? String(req.query.type_id) : undefined;
+    const page = req.query.page ? String(req.query.page) : '1';
+    const orderType = req.query.order_type ? String(req.query.order_type) : 'all';
+
+    let url = `https://esi.evetech.net/latest/markets/${regionId}/orders/?datasource=tranquility&order_type=${orderType}&page=${page}`;
+    if (typeId) {
+      url += `&type_id=${typeId}`;
+    }
+
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'eve-trade-interregional/0.2 (+https://github.com/avadis/eve-trade)',
+        },
+      });
+
+      // Forward ESI pagination and rate limit headers
+      const xPages = response.headers.get('x-pages');
+      const xRemain = response.headers.get('x-esi-error-limit-remain');
+      const xReset = response.headers.get('x-esi-error-limit-reset');
+      if (xPages) res.setHeader('X-Pages', xPages);
+      if (xRemain) res.setHeader('X-ESI-Error-Limit-Remain', xRemain);
+      if (xReset) res.setHeader('X-ESI-Error-Limit-Reset', xReset);
+
+      if (!response.ok) {
+        return res.status(response.status).json({
+          error: `ESI error ${response.status}`,
+          status: response.status,
+        });
+      }
+
+      const data = await response.json();
+      res.json(data);
+    } catch (err: unknown) {
+      res.status(500).json({ error: 'Failed to proxy market orders', message: String(err) });
+    }
+  });
+
+  // 7f. Market history proxy endpoint
+  app.get('/api/markets/:regionId/history', async (req, res) => {
+    const { regionId } = req.params;
+    const typeId = req.query.type_id ? String(req.query.type_id) : undefined;
+
+    if (!typeId) {
+      return res.status(400).json({ error: 'type_id is required' });
+    }
+
+    const url = `https://esi.evetech.net/latest/markets/${regionId}/history/?datasource=tranquility&type_id=${typeId}`;
+
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'eve-trade-interregional/0.2 (+https://github.com/avadis/eve-trade)',
+        },
+      });
+
+      if (!response.ok) {
+        return res.status(response.status).json({ error: `ESI error ${response.status}` });
+      }
+
+      const data = await response.json();
+      res.json(data);
+    } catch (err: unknown) {
+      res.status(500).json({ error: 'Failed to proxy market history', message: String(err) });
+    }
+  });
+
   // In-memory Market Types DB (15,801 tradeable types)
   let loadedMarketTypes: Array<{
     type_id: number;

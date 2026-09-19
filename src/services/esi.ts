@@ -5,9 +5,15 @@ import {
   EveCharacterTransaction,
   EveCharacterOrderHistory,
   EveCharacterJournalEntry,
+  MarketDataQuality,
 } from '../types';
 import { KNOWN_STATION_NAMES } from '../data/universe';
 import { AuthService } from './authService';
+
+export interface EsiFetchOrdersResult {
+  orders: RawMarketOrder[];
+  quality: MarketDataQuality;
+}
 
 export class EsiService {
   private static BASE_URL = 'https://esi.evetech.net/latest';
@@ -32,75 +38,338 @@ export class EsiService {
   }
 
   /**
-   * Fetches active market orders for a given region and type from EVE ESI.
-   * Guarantees strict deduplication on CCP order_id!
+   * Pure order validator: ensures orders conform to EVE Online game constraints.
    */
-  static async fetchLiveOrders(regionId: number, typeId: number): Promise<RawMarketOrder[]> {
-    const url = `${this.BASE_URL}/markets/${regionId}/orders/?datasource=tranquility&order_type=all&type_id=${typeId}`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 12000);
+  static validateOrder(
+    raw: any,
+    expectedRegionId: number,
+    expectedTypeId?: number
+  ): { isValid: boolean; reason?: string; order?: RawMarketOrder } {
+    if (!raw || typeof raw !== 'object') {
+      return { isValid: false, reason: 'Order object is null or invalid' };
+    }
 
+    const orderId = Number(raw.order_id);
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+      return { isValid: false, reason: `Invalid order_id: ${raw.order_id}` };
+    }
+
+    const typeId = Number(raw.type_id || expectedTypeId);
+    if (!Number.isInteger(typeId) || typeId <= 0) {
+      return { isValid: false, reason: `Invalid type_id: ${raw.type_id}` };
+    }
+    if (expectedTypeId && typeId !== expectedTypeId) {
+      return { isValid: false, reason: `Type ID mismatch: got ${typeId}, expected ${expectedTypeId}` };
+    }
+
+    const price = Number(raw.price);
+    if (!Number.isFinite(price) || price <= 0) {
+      return { isValid: false, reason: `Invalid price: ${raw.price}` };
+    }
+
+    const volumeRemain = Number(raw.volume_remain);
+    if (!Number.isFinite(volumeRemain) || volumeRemain <= 0) {
+      return { isValid: false, reason: `Invalid volume_remain: ${raw.volume_remain}` };
+    }
+
+    const volumeTotal = Number(raw.volume_total ?? volumeRemain);
+    if (!Number.isFinite(volumeTotal) || volumeTotal < volumeRemain) {
+      return { isValid: false, reason: `volume_total (${volumeTotal}) < volume_remain (${volumeRemain})` };
+    }
+
+    const systemId = Number(raw.system_id ?? 0);
+    const locationId = Number(raw.location_id ?? 0);
+    if (!Number.isInteger(locationId) || locationId <= 0) {
+      return { isValid: false, reason: `Invalid location_id: ${raw.location_id}` };
+    }
+
+    const isBuyOrder = Boolean(raw.is_buy_order);
+    const issuedStr = typeof raw.issued === 'string' ? raw.issued : new Date().toISOString();
+    const duration = Number(raw.duration ?? 90);
+
+    const validOrder: RawMarketOrder = {
+      order_id: orderId,
+      type_id: typeId,
+      region_id: expectedRegionId,
+      system_id: systemId,
+      location_id: locationId,
+      price: price,
+      volume_remain: volumeRemain,
+      volume_total: volumeTotal,
+      min_volume: raw.min_volume ? Number(raw.min_volume) : 1,
+      is_buy_order: isBuyOrder,
+      order_range: raw.range || raw.order_range || 'region',
+      issued: issuedStr,
+      duration: duration,
+      captured_at: new Date().toISOString(),
+    };
+
+    return { isValid: true, order: validOrder };
+  }
+
+  /**
+   * Performs an HTTP GET with exponential backoff, jitter, timeout, and status code handling.
+   */
+  private static async fetchWithRetry(
+    url: string,
+    options: {
+      maxRetries?: number;
+      timeoutMs?: number;
+      fallbackUrl?: string;
+    } = {}
+  ): Promise<{ response: Response; attempts: number }> {
+    const maxRetries = options.maxRetries ?? 3;
+    const timeoutMs = options.timeoutMs ?? 12000;
+    let attempts = 0;
+    let currentUrl = url;
+
+    while (attempts < maxRetries) {
+      attempts++;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        const res = await fetch(currentUrl, {
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'eve-trade-interregional/0.2 (+https://github.com/avadis/eve-trade)',
+          },
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        // Success or 404 (valid negative response from ESI)
+        if (res.ok || res.status === 404) {
+          return { response: res, attempts };
+        }
+
+        // Handle Rate limit (429) or Service Unavailable (503) with Retry-After
+        if (res.status === 429 || res.status === 503 || res.status === 420) {
+          const retryAfterHeader = res.headers.get('Retry-After');
+          const delaySec = retryAfterHeader ? Math.min(Number(retryAfterHeader) || 1, 5) : 1;
+          const jitter = Math.random() * 200;
+          await new Promise((resolve) => setTimeout(resolve, delaySec * 1000 + jitter));
+          continue;
+        }
+
+        // Retryable Server Errors (500, 502, 504)
+        if (res.status >= 500 && res.status <= 599) {
+          if (attempts < maxRetries) {
+            const backoff = Math.pow(2, attempts) * 200 + Math.random() * 150;
+            await new Promise((resolve) => setTimeout(resolve, backoff));
+            // Try fallback proxy on second attempt if available
+            if (options.fallbackUrl && attempts === 2) {
+              currentUrl = options.fallbackUrl;
+            }
+            continue;
+          }
+        }
+
+        return { response: res, attempts };
+      } catch (err: unknown) {
+        clearTimeout(timeoutId);
+        if (attempts >= maxRetries) {
+          throw err;
+        }
+        const backoff = Math.pow(2, attempts) * 250 + Math.random() * 150;
+        await new Promise((resolve) => setTimeout(resolve, backoff));
+        if (options.fallbackUrl && attempts === 2) {
+          currentUrl = options.fallbackUrl;
+        }
+      }
+    }
+
+    throw new Error(`Failed after ${attempts} attempts to fetch ${url}`);
+  }
+
+  /**
+   * Fetches active market orders for a given region and type with full pagination,
+   * comprehensive error recovery, deduplication, and quality metadata tracking.
+   */
+  static async fetchLiveOrdersDetailed(
+    regionId: number,
+    typeId: number
+  ): Promise<EsiFetchOrdersResult> {
+    const startTime = Date.now();
+    let pagesFetched = 0;
+    let expectedPages = 1;
+    let totalRawOrders = 0;
+    let rejectedCount = 0;
+    let duplicateCount = 0;
+    let errorCount = 0;
+    let lastError: string | undefined;
+
+    const seenOrderIds = new Set<number>();
+    const validOrders: RawMarketOrder[] = [];
+
+    // 1. Fetch Page 1
+    const page1Url = `${this.BASE_URL}/markets/${regionId}/orders/?datasource=tranquility&order_type=all&type_id=${typeId}&page=1`;
+    const fallbackPage1Url = `/api/markets/${regionId}/orders?type_id=${typeId}&page=1`;
+
+    let page1Data: any[] = [];
     try {
-      const response = await fetch(url, {
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'eve-trade-interregional/0.2 (+https://github.com/avadis/eve-trade)',
-        },
-        signal: controller.signal,
+      const { response: res1 } = await this.fetchWithRetry(page1Url, {
+        maxRetries: 3,
+        timeoutMs: 12000,
+        fallbackUrl: fallbackPage1Url,
       });
 
-      clearTimeout(timeoutId);
+      if (!res1.ok) {
+        if (res1.status === 404) {
+          // 404 means no orders exist for this type in this region (normal market condition)
+          expectedPages = 1;
+          pagesFetched = 1;
+        } else {
+          errorCount++;
+          lastError = `ESI returned HTTP ${res1.status}`;
+          throw new Error(lastError);
+        }
+      } else {
+        pagesFetched = 1;
+        // Parse X-Pages header
+        const xPagesHeader = res1.headers.get('x-pages');
+        if (xPagesHeader) {
+          const parsedPages = parseInt(xPagesHeader, 10);
+          if (!isNaN(parsedPages) && parsedPages > 1) {
+            // Clamp to safe max (e.g. 50 pages)
+            expectedPages = Math.min(parsedPages, 50);
+          }
+        }
 
-      if (!response.ok) {
-        throw new Error(`ESI returned status ${response.status}: ${response.statusText}`);
+        page1Data = await res1.json();
       }
-
-      const orders: Array<{
-        order_id: number;
-        type_id: number;
-        system_id: number;
-        location_id: number;
-        price: number;
-        volume_remain: number;
-        volume_total: number;
-        is_buy_order: boolean;
-        range?: string;
-        issued: string;
-        duration: number;
-      }> = await response.json();
-      
-      const now = new Date().toISOString();
-      const resultOrders: RawMarketOrder[] = [];
-
-      for (const o of orders) {
-        if (!o.order_id || o.price <= 0 || o.volume_remain <= 0) continue;
-
-        const standardized: RawMarketOrder = {
-          order_id: o.order_id,
-          type_id: o.type_id || typeId,
-          region_id: regionId,
-          system_id: o.system_id,
-          location_id: o.location_id,
-          price: o.price,
-          volume_remain: o.volume_remain,
-          volume_total: o.volume_total,
-          is_buy_order: o.is_buy_order,
-          order_range: o.range,
-          issued: o.issued,
-          duration: o.duration,
-          captured_at: now,
-        };
-
-        // Strict CCP order_id deduplication into the master database
-        this.deduplicatedOrderStore.set(o.order_id, standardized);
-        resultOrders.push(standardized);
-      }
-
-      return resultOrders;
     } catch (err: unknown) {
-      clearTimeout(timeoutId);
-      throw err;
+      errorCount++;
+      lastError = String(err);
+      // Return structured quality metadata with 0 confidence
+      const quality: MarketDataQuality = {
+        source: 'unavailable',
+        freshness: 'expired',
+        completeness: 'empty',
+        validation_status: 'invalid',
+        fetched_at: new Date().toISOString(),
+        age_seconds: 0,
+        pages_fetched: 0,
+        expected_pages: 1,
+        orders_fetched: 0,
+        orders_valid: 0,
+        duplicate_orders_removed: 0,
+        rejected_orders_count: 0,
+        error_count: errorCount,
+        last_error: lastError,
+        confidence: 0,
+        sync_duration_ms: Date.now() - startTime,
+      };
+      return { orders: [], quality };
     }
+
+    // Process Page 1 orders
+    if (Array.isArray(page1Data)) {
+      totalRawOrders += page1Data.length;
+      for (const raw of page1Data) {
+        const { isValid, order, reason } = this.validateOrder(raw, regionId, typeId);
+        if (!isValid || !order) {
+          rejectedCount++;
+          continue;
+        }
+        if (seenOrderIds.has(order.order_id)) {
+          duplicateCount++;
+          continue;
+        }
+        seenOrderIds.add(order.order_id);
+        this.deduplicatedOrderStore.set(order.order_id, order);
+        validOrders.push(order);
+      }
+    }
+
+    // 2. Fetch remaining pages if expectedPages > 1
+    if (expectedPages > 1) {
+      const remainingPages: number[] = [];
+      for (let p = 2; p <= expectedPages; p++) {
+        remainingPages.push(p);
+      }
+
+      // Concurrently fetch up to 3 pages at a time
+      const chunkSize = 3;
+      for (let i = 0; i < remainingPages.length; i += chunkSize) {
+        const chunk = remainingPages.slice(i, i + chunkSize);
+        await Promise.all(
+          chunk.map(async (page) => {
+            const pageUrl = `${this.BASE_URL}/markets/${regionId}/orders/?datasource=tranquility&order_type=all&type_id=${typeId}&page=${page}`;
+            const fallbackUrl = `/api/markets/${regionId}/orders?type_id=${typeId}&page=${page}`;
+            try {
+              const { response: pageRes } = await this.fetchWithRetry(pageUrl, {
+                maxRetries: 3,
+                timeoutMs: 12000,
+                fallbackUrl,
+              });
+              if (pageRes.ok) {
+                pagesFetched++;
+                const data = await pageRes.json();
+                if (Array.isArray(data)) {
+                  totalRawOrders += data.length;
+                  for (const raw of data) {
+                    const { isValid, order } = this.validateOrder(raw, regionId, typeId);
+                    if (!isValid || !order) {
+                      rejectedCount++;
+                      continue;
+                    }
+                    if (seenOrderIds.has(order.order_id)) {
+                      duplicateCount++;
+                      continue;
+                    }
+                    seenOrderIds.add(order.order_id);
+                    this.deduplicatedOrderStore.set(order.order_id, order);
+                    validOrders.push(order);
+                  }
+                }
+              } else {
+                errorCount++;
+                lastError = `Page ${page} failed with HTTP ${pageRes.status}`;
+              }
+            } catch (err: unknown) {
+              errorCount++;
+              lastError = `Page ${page} failed: ${String(err)}`;
+            }
+          })
+        );
+      }
+    }
+
+    const durationMs = Date.now() - startTime;
+    const completeness = pagesFetched >= expectedPages ? 'complete' : pagesFetched > 0 ? 'partial' : 'empty';
+    const confidence = expectedPages > 0 ? Number((pagesFetched / expectedPages).toFixed(2)) : 1.0;
+
+    const quality: MarketDataQuality = {
+      source: 'esi',
+      freshness: 'fresh',
+      completeness,
+      validation_status: errorCount === 0 && rejectedCount === 0 ? 'valid' : 'suspicious',
+      fetched_at: new Date().toISOString(),
+      age_seconds: 0,
+      pages_fetched: pagesFetched,
+      expected_pages: expectedPages,
+      orders_fetched: totalRawOrders,
+      orders_valid: validOrders.length,
+      duplicate_orders_removed: duplicateCount,
+      rejected_orders_count: rejectedCount,
+      error_count: errorCount,
+      last_error: lastError,
+      confidence,
+      sync_duration_ms: durationMs,
+    };
+
+    return { orders: validOrders, quality };
+  }
+
+  /**
+   * Fetches active market orders for a given region and type from EVE ESI.
+   * Backward-compatible helper that returns strictly validated RawMarketOrder[].
+   */
+  static async fetchLiveOrders(regionId: number, typeId: number): Promise<RawMarketOrder[]> {
+    const result = await this.fetchLiveOrdersDetailed(regionId, typeId);
+    return result.orders;
   }
 
   /**
@@ -109,19 +378,15 @@ export class EsiService {
    */
   static async fetchMarketHistory(regionId: number, typeId: number): Promise<HistoricalStats | null> {
     const url = `${this.BASE_URL}/markets/${regionId}/history/?datasource=tranquility&type_id=${typeId}`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 12000);
+    const fallbackUrl = `/api/markets/${regionId}/history?type_id=${typeId}`;
 
     try {
-      const response = await fetch(url, {
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'eve-trade-interregional/0.2 (+https://github.com/avadis/eve-trade)',
-        },
-        signal: controller.signal,
+      const { response } = await this.fetchWithRetry(url, {
+        maxRetries: 3,
+        timeoutMs: 12000,
+        fallbackUrl,
       });
 
-      clearTimeout(timeoutId);
       if (!response.ok) return null;
 
       const rawHistory: DailyMarketHistory[] = await response.json();
@@ -150,6 +415,8 @@ export class EsiService {
         avg7 > avg30 * 1.15 ? 'increasing' : avg7 < avg30 * 0.85 ? 'decreasing' : 'stable';
 
       return {
+        type_id: typeId,
+        region_id: regionId,
         daily_volume_7d_avg: Math.round(avg7),
         daily_volume_7d_median: Math.round(median(vol7)),
         daily_volume_30d_avg: Math.round(avg30),
@@ -158,9 +425,9 @@ export class EsiService {
         price_median_30d: median(prices30),
         price_volatility: prices30.length > 1 ? (Math.max(...prices30) - Math.min(...prices30)) / Math.max(1, median(prices30)) : 0,
         volume_trend: trend,
+        is_live_esi: true,
       };
     } catch {
-      clearTimeout(timeoutId);
       return null;
     }
   }

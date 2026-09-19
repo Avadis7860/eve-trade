@@ -295,19 +295,22 @@ export class GlobalMarketSyncService {
 
           const itemOrderBooks: Record<number, RawMarketOrder[]> = {};
           const itemHistoryCache: Record<number, HistoricalStats> = {};
+          const itemQualities: Record<number, import('../types').MarketDataQuality> = {};
           let itemFailed = false;
 
           for (const hub of activeHubs) {
             try {
-              const liveOrders = await EsiService.fetchLiveOrders(hub.region_id, item.type_id);
-              if (liveOrders.length > 0) {
-                itemOrderBooks[hub.region_id] = liveOrders;
-                totalOrdersAccumulator += liveOrders.length;
-                MarketDataStore.setOrders(item.type_id, hub.region_id, liveOrders, true);
+              const { orders, quality } = await EsiService.fetchLiveOrdersDetailed(hub.region_id, item.type_id);
+              itemQualities[hub.region_id] = quality;
+
+              if (orders.length > 0) {
+                itemOrderBooks[hub.region_id] = orders;
+                totalOrdersAccumulator += orders.length;
+                MarketDataStore.setOrders(item.type_id, hub.region_id, orders, true, quality);
                 if (!this.latestRegionalOrders[hub.region_id]) {
                   this.latestRegionalOrders[hub.region_id] = [];
                 }
-                this.latestRegionalOrders[hub.region_id].push(...liveOrders);
+                this.latestRegionalOrders[hub.region_id].push(...orders);
               }
 
               if (options.fetch_history) {
@@ -333,7 +336,8 @@ export class GlobalMarketSyncService {
                 strategy,
                 config,
                 itemOrderBooks,
-                itemHistoryCache
+                itemHistoryCache,
+                itemQualities
               );
 
               if (opps.length > 0) {

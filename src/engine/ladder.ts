@@ -2,7 +2,18 @@ import { PriceLevel, Fill, RawMarketOrder } from '../types';
 
 export type PriceVolume = [number, number];
 
-export class PriceLadder {
+export interface LadderExecutionResult {
+  fulfilled_quantity: number;
+  effective_average_price: number;
+  top_of_book_price: number;
+  total_gross_value: number;
+  slippage_amount: number;
+  slippage_percent: number;
+  levels_consumed: number;
+  levels: PriceLevel[];
+}
+
+export class PriceLadderEngine {
   /**
    * Group orders by price, summing volume_remaining; sort best-first.
    * Accepts either [price, volume] tuples or RawMarketOrder objects.
@@ -74,4 +85,77 @@ export class PriceLadder {
       levels_used: used,
     };
   }
+
+  /**
+   * Full execution simulation for buying from sell orders
+   */
+  static buildBuyLadder(orders: (PriceVolume | RawMarketOrder)[], requestedQuantity: number): LadderExecutionResult {
+    const levels = this.aggregate(orders, false); // Lowest sell price first
+    if (levels.length === 0 || requestedQuantity <= 0) {
+      return {
+        fulfilled_quantity: 0,
+        effective_average_price: 0,
+        top_of_book_price: levels.length > 0 ? levels[0].price : 0,
+        total_gross_value: 0,
+        slippage_amount: 0,
+        slippage_percent: 0,
+        levels_consumed: 0,
+        levels,
+      };
+    }
+
+    const fillResult = this.fill(levels, requestedQuantity);
+    const topOfBook = levels[0].price;
+    const slippageAmount = Math.max(0, fillResult.effective_price - topOfBook);
+    const slippagePct = topOfBook > 0 ? (slippageAmount / topOfBook) * 100 : 0;
+
+    return {
+      fulfilled_quantity: fillResult.filled_quantity,
+      effective_average_price: fillResult.effective_price,
+      top_of_book_price: topOfBook,
+      total_gross_value: fillResult.filled_quantity * fillResult.effective_price,
+      slippage_amount: slippageAmount,
+      slippage_percent: slippagePct,
+      levels_consumed: fillResult.levels_used,
+      levels,
+    };
+  }
+
+  /**
+   * Full execution simulation for selling into buy orders
+   */
+  static buildSellLadder(orders: (PriceVolume | RawMarketOrder)[], requestedQuantity: number): LadderExecutionResult {
+    const levels = this.aggregate(orders, true); // Highest buy price first
+    if (levels.length === 0 || requestedQuantity <= 0) {
+      return {
+        fulfilled_quantity: 0,
+        effective_average_price: 0,
+        top_of_book_price: levels.length > 0 ? levels[0].price : 0,
+        total_gross_value: 0,
+        slippage_amount: 0,
+        slippage_percent: 0,
+        levels_consumed: 0,
+        levels,
+      };
+    }
+
+    const fillResult = this.fill(levels, requestedQuantity);
+    const topOfBook = levels[0].price;
+    const slippageAmount = Math.max(0, topOfBook - fillResult.effective_price);
+    const slippagePct = topOfBook > 0 ? (slippageAmount / topOfBook) * 100 : 0;
+
+    return {
+      fulfilled_quantity: fillResult.filled_quantity,
+      effective_average_price: fillResult.effective_price,
+      top_of_book_price: topOfBook,
+      total_gross_value: fillResult.filled_quantity * fillResult.effective_price,
+      slippage_amount: slippageAmount,
+      slippage_percent: slippagePct,
+      levels_consumed: fillResult.levels_used,
+      levels,
+    };
+  }
 }
+
+export const PriceLadder = PriceLadderEngine;
+

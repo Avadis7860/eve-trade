@@ -5,10 +5,68 @@ import {
   ExecutionFill,
   TradeCostBreakdown,
   JumpRoute,
+  EveTypeDetail,
+  MarketHub,
+  RawMarketOrder,
+  HistoricalStats,
+  InterRegionalOpportunity,
 } from '../types';
-import { FeeCalculator } from './fee';
+import { FeeEngine } from './fee';
+import { PriceLadder } from './ladder';
+import { OpportunityScoringEngine } from './scoring';
+import { getJumpRoute, EVE_GROUPS, EVE_CATEGORIES } from '../data/universe';
 
 export class InterRegionalFinancialEngine {
+  /**
+   * Filters orders accessible at a specific Hub station/structure.
+   *
+   * Source Hub Sell Orders (we buy from them):
+   * - Must be located at the Hub station_id (or if player structure, structure_id).
+   *
+   * Destination Hub Buy Orders (immediate sell into them):
+   * - If order_range === 'station': location_id must match destHub.station_id.
+   * - If order_range === 'solarsystem': system_id must match destHub.system_id.
+   * - If order_range === 'region': matches anywhere in region.
+   * - If numeric range: jump distance from order.system_id to destHub.system_id <= range.
+   */
+  static filterAccessibleOrdersForHub(
+    orders: RawMarketOrder[],
+    hub: MarketHub,
+    isSourceHub: boolean,
+    isBuyOrder: boolean
+  ): RawMarketOrder[] {
+    return orders.filter((order) => {
+      if (order.is_buy_order !== isBuyOrder) return false;
+      if (order.price <= 0 || order.volume_remain <= 0) return false;
+
+      // Source Sell orders: Trader is at hub.station_id; seller's goods must be at hub.station_id
+      if (isSourceHub && !isBuyOrder) {
+        return order.location_id === hub.station_id;
+      }
+
+      // Destination Buy orders (Trader sells goods at hub):
+      if (!isSourceHub && isBuyOrder) {
+        if (order.location_id === hub.station_id) return true;
+        const range = String(order.order_range || 'station').toLowerCase();
+        if (range === 'region') return true;
+        if (range === 'solarsystem' && order.system_id === hub.system_id) return true;
+        const numericRange = parseInt(range, 10);
+        if (!isNaN(numericRange) && numericRange >= 0) {
+          const route = getJumpRoute(order.system_id, hub.system_id);
+          return route.jumps <= numericRange;
+        }
+        return false;
+      }
+
+      // Destination Sell orders (Competing sellers for relist):
+      if (!isSourceHub && !isBuyOrder) {
+        return order.location_id === hub.station_id;
+      }
+
+      return true;
+    });
+  }
+
   /**
    * Simulates depth consumption on order book levels.
    * If buying: walks through sell levels (lowest to highest).
@@ -84,7 +142,7 @@ export class InterRegionalFinancialEngine {
 
     // Transport logistics: strictly 0 if disabled or rates are 0
     const totalCargoVolume = q * unitVolume;
-    const transportCost = FeeCalculator.calculateTransportCost(
+    const transportCost = FeeEngine.calculateTransportCost(
       config,
       totalCargoVolume,
       route.jumps,
@@ -95,10 +153,12 @@ export class InterRegionalFinancialEngine {
 
     // Revenue calculation
     const grossRevenue = sellExecution.effective_price * q;
-    const salesTax = grossRevenue * config.sales_tax;
+    const salesTaxRate = config.sales_tax !== undefined ? config.sales_tax : FeeEngine.calculateSalesTaxRate(config.accounting_level ?? 5);
+    const salesTax = grossRevenue * salesTaxRate;
 
     // Sell broker fee applies when relisting (posting a new sell order as a Maker)
-    const sellBrokerFee = strategy === 'relist' ? grossRevenue * config.broker_fee : 0.0;
+    const brokerFeeRate = config.broker_fee !== undefined ? config.broker_fee : FeeEngine.calculateNpcBrokerFeeRate(config.broker_relations_level ?? 5, config.faction_standing ?? 0, config.corp_standing ?? 0);
+    const sellBrokerFee = strategy === 'relist' ? grossRevenue * brokerFeeRate : 0.0;
     const totalExitFees = salesTax + sellBrokerFee;
 
     const netRevenue = grossRevenue - totalExitFees;
@@ -175,4 +235,150 @@ export class InterRegionalFinancialEngine {
       totalCargoVolume: finalQty * unitVolume,
     };
   }
+
+  /**
+   * Single directed opportunity calculator (Hub A -> Hub B)
+   */
+  static calculateOpportunity(
+    item: EveTypeDetail,
+    buyHub: MarketHub,
+    sellHub: MarketHub,
+    strategy: TradeStrategy,
+    config: FinancialConfig,
+    buyRegionOrders: RawMarketOrder[] = [],
+    sellRegionOrders: RawMarketOrder[] = [],
+    historyStatsByRegion: Record<number, HistoricalStats> = {}
+  ): InterRegionalOpportunity | null {
+    if (buyHub.id === sellHub.id) return null;
+
+    // Filter source sell orders located AT buyHub station
+    const sourceSellOrders = this.filterAccessibleOrdersForHub(buyRegionOrders, buyHub, true, false);
+    const sourceLadders = PriceLadder.aggregate(sourceSellOrders, false);
+    if (sourceLadders.length === 0) return null;
+
+    let destLadders: PriceLevel[] = [];
+    if (strategy === 'relist') {
+      const destSellOrders = this.filterAccessibleOrdersForHub(sellRegionOrders, sellHub, false, false);
+      const lowestDestSell = PriceLadder.aggregate(destSellOrders, false);
+      if (lowestDestSell.length > 0) {
+        const relistPrice = Math.max(0.01, lowestDestSell[0].price - 0.01);
+        const histDest = historyStatsByRegion[sellHub.region_id];
+        const absorbVol = Math.max(10, histDest?.daily_volume_7d_median || 500);
+        destLadders = [{ price: relistPrice, volume: absorbVol, orders: 1, cumulative: absorbVol }];
+      }
+    } else {
+      const destBuyOrders = this.filterAccessibleOrdersForHub(sellRegionOrders, sellHub, false, true);
+      destLadders = PriceLadder.aggregate(destBuyOrders, true);
+    }
+
+    if (destLadders.length === 0) return null;
+
+    const bestSourceSellPrice = sourceLadders[0].price;
+    const bestDestSellTargetPrice = destLadders[0].price;
+
+    if (bestDestSellTargetPrice <= bestSourceSellPrice) return null;
+
+    const totalSourceVolume = sourceLadders.reduce((acc, l) => acc + l.volume, 0);
+    const totalDestVolume = destLadders.reduce((acc, l) => acc + l.volume, 0);
+
+    const route = getJumpRoute(buyHub.system_id, sellHub.system_id);
+
+    const { quantity, bottleneck, totalCargoVolume } = this.determineTradableQuantity(
+      bestSourceSellPrice,
+      item.volume,
+      totalSourceVolume,
+      totalDestVolume,
+      route,
+      config
+    );
+
+    if (quantity <= 0) return null;
+
+    const buyFill = this.simulateFill(sourceLadders, quantity);
+    const sellFill = this.simulateFill(destLadders, quantity);
+
+    if (buyFill.filled_quantity <= 0 || sellFill.filled_quantity <= 0) return null;
+
+    const actualQuantity = Math.min(buyFill.filled_quantity, sellFill.filled_quantity);
+    const costs = this.computeCostsAndProfit(
+      buyFill,
+      sellFill,
+      actualQuantity,
+      item.volume,
+      route,
+      strategy,
+      config
+    );
+
+    const destHistory = historyStatsByRegion[sellHub.region_id];
+    const dailyDestVol = destHistory?.daily_volume_7d_median || Math.max(1, totalDestVolume * 0.5);
+
+    const liquidityMetrics = {
+      buy_hub_depth_volume: totalSourceVolume,
+      sell_hub_depth_volume: totalDestVolume,
+      daily_volume_source: historyStatsByRegion[buyHub.region_id]?.daily_volume_7d_median || totalSourceVolume,
+      daily_volume_dest: dailyDestVol,
+      turnover_ratio: dailyDestVol > 0 ? quantity / dailyDestVol : 1,
+      expected_days_to_sell: dailyDestVol > 0 ? Math.max(0.2, quantity / dailyDestVol) : 7,
+      volume_exhaustion_pct: totalSourceVolume > 0 ? (quantity / totalSourceVolume) * 100 : 100,
+    };
+
+    const evaluation = OpportunityScoringEngine.evaluate(
+      costs,
+      liquidityMetrics,
+      destHistory,
+      route.jumps,
+      route.is_highsec_only,
+      config
+    );
+
+    const group = EVE_GROUPS.find((g) => g.group_id === item.group_id);
+    const category = EVE_CATEGORIES.find((c) => c.category_id === item.category_id);
+
+    return {
+      id: `${item.type_id}_${buyHub.id}_${sellHub.id}_${strategy}`,
+      type_id: item.type_id,
+      type_name: item.name,
+      group_id: item.group_id,
+      group_name: group?.name || `Groupe ${item.group_id}`,
+      category_id: item.category_id,
+      category_name: category?.name || `Catégorie ${item.category_id}`,
+      unit_volume: item.volume,
+      buy_hub: buyHub,
+      sell_hub: sellHub,
+      strategy,
+      route,
+      best_buy_order_price: bestSourceSellPrice,
+      best_sell_order_price: bestDestSellTargetPrice,
+      effective_buy_price: buyFill.effective_price,
+      effective_sell_price: sellFill.effective_price,
+      top_of_book_buy_price: bestSourceSellPrice,
+      top_of_book_sell_price: bestDestSellTargetPrice,
+      spread_pct: bestSourceSellPrice > 0 ? (bestDestSellTargetPrice - bestSourceSellPrice) / bestSourceSellPrice : 0,
+      quantity_tradable: actualQuantity,
+      bottleneck,
+      total_cargo_volume: totalCargoVolume,
+      costs,
+      capturable_profit: evaluation.capturableProfit,
+      profit_per_day: evaluation.profitPerDay,
+      expected_days_to_sell: evaluation.expectedDaysToSell,
+      liquidity: liquidityMetrics,
+      history: destHistory,
+      scores: evaluation.scores,
+      jita_price_benchmark: {
+        jita_sell_price: bestSourceSellPrice,
+        jita_buy_price: bestDestSellTargetPrice,
+        buy_vs_jita_pct: 0,
+        sell_vs_jita_pct: 0,
+        is_jita_verified: true,
+        reliability_assessment: 'Direct hub trade',
+      },
+      is_anomalous: evaluation.isAnomalous,
+      anomaly_reasons: evaluation.anomalyReasons,
+      rejection_reasons: evaluation.rejectionReasons,
+      is_viable: evaluation.isViable,
+      detected_at: new Date().toISOString(),
+    };
+  }
 }
+

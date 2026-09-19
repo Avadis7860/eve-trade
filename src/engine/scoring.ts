@@ -74,7 +74,7 @@ export class OpportunityScoringEngine {
       stabilityScore -= 30;
     }
 
-    if (history && history.price_median_30d > 0) {
+    if (history && history.price_median_30d !== undefined && history.price_median_30d > 0) {
       const priceRatio = costs.purchase_cost / (history.price_median_30d * (costs.purchase_cost / Math.max(1, costs.purchase_cost)));
       if (priceRatio > 3.0 || priceRatio < 0.25) {
         isAnomalous = true;

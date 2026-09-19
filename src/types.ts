@@ -86,14 +86,19 @@ export interface DailyMarketHistory {
 }
 
 export interface HistoricalStats {
-  daily_volume_7d_avg: number;
+  type_id?: number;
+  region_id?: number;
+  daily_volume_7d_avg?: number;
   daily_volume_7d_median: number;
-  daily_volume_30d_avg: number;
-  daily_volume_30d_median: number;
-  daily_order_count_avg: number;
-  price_median_30d: number;
+  daily_volume_30d_avg?: number;
+  daily_volume_30d_median?: number;
+  daily_order_count_avg?: number;
+  price_median_30d?: number;
+  price_7d_avg?: number;
+  price_30d_avg?: number;
   price_volatility: number;
-  volume_trend: 'increasing' | 'stable' | 'decreasing';
+  volume_trend?: 'increasing' | 'stable' | 'decreasing';
+  is_live_esi?: boolean;
 }
 
 export interface PriceLevel {
@@ -152,6 +157,35 @@ export interface ScoreComponents {
   overall_score: number;      // 0-100 (weighted sum)
 }
 
+export interface MarketLocationFeeProfile {
+  location_id: number;
+  location_name: string;
+  is_citadel: boolean;
+  is_player_structure?: boolean;
+  location_type?: 'npc_station' | 'citadel';
+  base_broker_fee_rate?: number;
+  scc_surcharge_rate?: number;
+  relist_fee_rate?: number;
+  effective_broker_fee_rate: number;
+  tax_rate?: number;
+}
+
+export interface DetailedCostBreakdown {
+  gross_purchase_cost: number;
+  buy_broker_fee_cost: number;
+  transport_cost: number;
+  total_acquisition_cost: number;
+  gross_revenue: number;
+  sales_tax_cost: number;
+  sell_broker_fee_cost: number;
+  total_exit_fees: number;
+  net_revenue: number;
+  net_profit: number;
+  profit_per_unit: number;
+  roi: number;
+  margin: number;
+}
+
 export interface InterRegionalOpportunity {
   id: string;
   type_id: number;
@@ -170,6 +204,8 @@ export interface InterRegionalOpportunity {
   // Pricing
   best_buy_order_price: number;
   best_sell_order_price: number;
+  top_of_book_buy_price?: number;
+  top_of_book_sell_price?: number;
   effective_buy_price: number;
   effective_sell_price: number;
   spread_pct: number;
@@ -282,6 +318,7 @@ export interface RawMarketOrder {
   price: number;
   volume_remain: number;
   volume_total: number;
+  min_volume?: number;
   is_buy_order: boolean;
   order_range?: string;
   issued: string;

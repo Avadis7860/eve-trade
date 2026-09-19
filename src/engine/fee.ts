@@ -1,6 +1,6 @@
-import { FeeBreakdown, FinancialConfig } from '../types';
+import { FeeBreakdown, FinancialConfig, MarketLocationFeeProfile } from '../types';
 
-export class FeeCalculator {
+export class FeeEngine {
   /**
    * EVE Online Sales Tax formula:
    * Base tax is 8.0%, reduced by 11% per Accounting skill level.
@@ -33,6 +33,30 @@ export class FeeCalculator {
     const cs = Math.max(-10.0, Math.min(10.0, corpStanding));
     const rawRate = 0.03 - (0.003 * br) - (0.0003 * fs) - (0.0002 * cs);
     return Math.max(0.01, Math.min(0.08, rawRate));
+  }
+
+  /**
+   * EVE Online Player Structure (Citadel / Upwell) Broker Fee formula:
+   * Structure Owner Profile Fee + CCP SCC Structure Surcharge (0.5% default).
+   */
+  static calculateStructureBrokerFeeRate(
+    structureBaseFeeRate: number = 0.01,
+    sccSurchargeRate: number = 0.005
+  ): number {
+    return Math.max(0.005, structureBaseFeeRate + sccSurchargeRate);
+  }
+
+  /**
+   * Relist Fee (Advanced Broker Relations):
+   * Each level gives 5% discount on the relisting fee.
+   */
+  static calculateRelistFeeRate(
+    brokerFeeRate: number,
+    advancedBrokerRelationsLevel: number = 5
+  ): number {
+    const advBr = Math.max(0, Math.min(5, Math.floor(advancedBrokerRelationsLevel)));
+    const discount = 0.05 * advBr;
+    return Math.max(0.001, brokerFeeRate * (1.0 - discount));
   }
 
   /**
@@ -71,8 +95,8 @@ export class FeeCalculator {
   ): number {
     return (
       purchaseCost +
-      FeeCalculator.brokerCost(purchaseCost, brokerFee) +
-      FeeCalculator.salesTaxCost(grossRevenue, salesTax) +
+      FeeEngine.brokerCost(purchaseCost, brokerFee) +
+      FeeEngine.salesTaxCost(grossRevenue, salesTax) +
       transportCost
     );
   }
@@ -84,8 +108,8 @@ export class FeeCalculator {
     salesTax: number,
     transportCost: number = 0
   ): FeeBreakdown {
-    const bc = FeeCalculator.brokerCost(purchaseCost, brokerFee);
-    const stc = FeeCalculator.salesTaxCost(grossRevenue, salesTax);
+    const bc = FeeEngine.brokerCost(purchaseCost, brokerFee);
+    const stc = FeeEngine.salesTaxCost(grossRevenue, salesTax);
     return {
       purchase_cost: purchaseCost,
       broker_fee: brokerFee,
@@ -97,3 +121,9 @@ export class FeeCalculator {
     };
   }
 }
+
+/**
+ * Backwards compatible alias
+ */
+export const FeeCalculator = FeeEngine;
+

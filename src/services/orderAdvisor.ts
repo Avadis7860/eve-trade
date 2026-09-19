@@ -8,6 +8,7 @@ import {
 } from '../types';
 import { MAJOR_MARKET_HUBS, getJumpRoute, EVE_TYPES_CATALOG } from '../data/universe';
 import { MarketDataStore } from './marketDataStore';
+import { FeeEngine } from '../engine/fee';
 
 export class OrderAdvisorService {
   /**
@@ -24,8 +25,10 @@ export class OrderAdvisorService {
     const typeName = order.type_name || typeInfo?.name || `Objet #${order.type_id}`;
     const unitVolume = typeInfo?.volume || 0.1;
 
-    const salesTaxRate = config?.sales_tax !== undefined ? config.sales_tax / 100 : 0.045;
-    const brokerFeeRate = config?.broker_fee !== undefined ? config.broker_fee / 100 : 0.015;
+    const safeConfig: Partial<FinancialConfig> = config || {};
+    const feeRes = FeeEngine.resolveRates({ config: safeConfig });
+    const salesTaxRate = feeRes.sales_tax_rate;
+    const brokerFeeRate = feeRes.broker_fee_rate;
 
     // Estimate original acquisition cost baseline (or 75% of current price as conservative heuristic)
     const estimatedUnitCost = order.is_buy_order
@@ -187,12 +190,19 @@ export class OrderAdvisorService {
         const route = getJumpRoute(sourceSystemId, targetHub.system_id);
 
         const totalM3 = unitVolume * order.volume_remain;
-        const transportCost = (totalM3 * 650) + (route.jumps * 75_000);
-        const relistBrokerFee = (targetLowestSell * order.volume_remain) * brokerFeeRate;
-        const targetSalesTax = (targetLowestSell * order.volume_remain) * salesTaxRate;
+        const targetGross = targetLowestSell * order.volume_remain;
+        const transportCost = FeeEngine.calculateTransportCost(
+          safeConfig,
+          totalM3,
+          route.jumps,
+          targetGross
+        );
+        const relistBrokerFee = FeeEngine.brokerCost(targetGross, brokerFeeRate);
+        const targetSalesTax = FeeEngine.salesTaxCost(targetGross, salesTaxRate);
 
-        const targetNetRevenue = (targetLowestSell * order.volume_remain) - transportCost - relistBrokerFee - targetSalesTax;
-        const currentExpectedRevenue = (lowestSellInRegion * order.volume_remain) * (1 - salesTaxRate - brokerFeeRate);
+        const targetNetRevenue = targetGross - transportCost - relistBrokerFee - targetSalesTax;
+        const currentGross = lowestSellInRegion * order.volume_remain;
+        const currentExpectedRevenue = currentGross - FeeEngine.salesTaxCost(currentGross, salesTaxRate) - FeeEngine.brokerCost(currentGross, brokerFeeRate);
 
         const netGainIsk = targetNetRevenue - currentExpectedRevenue;
 

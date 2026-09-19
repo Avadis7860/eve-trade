@@ -6,6 +6,7 @@ import {
   MarketDataSnapshot,
   MarketDataQuality,
 } from '../types';
+import { IndexedDbStore } from './indexedDbStore';
 
 interface HistoryCacheEntry {
   stats: HistoricalStats;
@@ -20,6 +21,46 @@ export class MarketDataStore {
   // Active in-flight requests to deduplicate concurrent calls
   private static activeFetches = new Map<string, Promise<any>>();
   private static listeners = new Set<() => void>();
+  private static isHydrated = false;
+
+  /**
+   * Hydrates the in-memory store from durable IndexedDB storage
+   */
+  static async hydrateFromIndexedDb(): Promise<void> {
+    if (this.isHydrated) return;
+    try {
+      const persistedSnaps = await IndexedDbStore.loadAllSnapshots();
+      for (const snap of persistedSnaps) {
+        if (!this.snapshots.has(snap.type_id)) {
+          this.snapshots.set(snap.type_id, new Map());
+        }
+        this.snapshots.get(snap.type_id)!.set(snap.region_id, snap);
+      }
+
+      const persistedHistory = await IndexedDbStore.loadAllHistory();
+      for (const [key, stats] of persistedHistory.entries()) {
+        const [typeIdStr, regionIdStr] = key.split(':');
+        const typeId = Number(typeIdStr);
+        const regionId = Number(regionIdStr);
+        if (typeId && regionId) {
+          if (!this.historyCache.has(typeId)) {
+            this.historyCache.set(typeId, new Map());
+          }
+          this.historyCache.get(typeId)!.set(regionId, {
+            stats,
+            timestamp: Date.now() - 300000,
+          });
+        }
+      }
+
+      this.isHydrated = true;
+      if (persistedSnaps.length > 0) {
+        this.notifyListeners();
+      }
+    } catch (err) {
+      console.warn('[MarketDataStore] Failed to hydrate from IndexedDB:', err);
+    }
+  }
 
   /**
    * Subscribe to market data updates across the application
@@ -49,6 +90,8 @@ export class MarketDataStore {
       this.snapshots.set(snapshot.type_id, new Map());
     }
     this.snapshots.get(snapshot.type_id)!.set(snapshot.region_id, snapshot);
+    // Asynchronously save to durable IndexedDB store
+    IndexedDbStore.saveSnapshot(snapshot).catch(() => {});
   }
 
   /**
@@ -109,6 +152,9 @@ export class MarketDataStore {
     if (snap) {
       snap.history = stats;
     }
+
+    // Persist to IndexedDB
+    IndexedDbStore.saveHistory(typeId, regionId, stats).catch(() => {});
   }
 
   /**
@@ -519,6 +565,7 @@ export class MarketDataStore {
   static clearStore() {
     this.snapshots.clear();
     this.historyCache.clear();
+    IndexedDbStore.clearAll().catch(() => {});
     this.notifyListeners();
   }
 }

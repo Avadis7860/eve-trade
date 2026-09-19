@@ -1,11 +1,12 @@
 import { FeeEngine, FeeCalculator } from '../fee';
-import { PriceLadderEngine } from '../ladder';
+import { PriceLadderEngine, PriceLadder } from '../ladder';
 import { TradableQuantityEngine } from '../quantity';
 import { ProfitEngine } from '../profit';
 import { OpportunityScoringEngine } from '../scoring';
 import { InterRegionalFinancialEngine } from '../interRegional';
 import { RawMarketOrder, MarketHub, EveTypeDetail, FinancialConfig } from '../../types';
 import { MAJOR_MARKET_HUBS, getJumpRoute } from '../../data/universe';
+import { getEveTickSize, roundToEveTick } from '../money';
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
@@ -229,6 +230,39 @@ function runAllTests() {
   assert(oppRelist!.is_viable, 'Opportunity should be marked viable');
 
   console.log('✅ InterRegional Hub filtering passed all assertions.');
+
+  // 6. Testing CCP Tick Sizes, Alpha Clone Caps & Min Volume Enforcement
+  console.log('6. Testing CCP Tick Sizes, Alpha Clone Caps & Min Volume Enforcement...');
+
+  // EVE Tick size: 4 significant figures, minimum floor 0.01 ISK
+  assert(getEveTickSize(0.05) === 0.01, 'Tick size for 0.05 should be 0.01 (EVE minimum centisk floor)');
+  assert(getEveTickSize(4.5) === 0.01, 'Tick size for 4.5 should be 0.01');
+  assert(getEveTickSize(123456) === 100, 'Tick size for 123456 should be 100');
+  assert(roundToEveTick(123456) === 123500, `Round 123456 to tick: expected 123500, got ${roundToEveTick(123456)}`);
+
+  // Alpha Clone fee caps (capped at Level 3: 5.36% sales tax, 2.1% base broker fee)
+  const alphaConfig: FinancialConfig = {
+    ...testConfig,
+    is_alpha_clone: true,
+    accounting_level: 5, // user passed 5, but Alpha clone caps at 3
+    broker_relations_level: 5, // user passed 5, but Alpha clone caps at 3
+    sales_tax: undefined as any,
+    broker_fee: undefined as any,
+  };
+  const alphaResolution = FeeEngine.resolveRates({ config: alphaConfig });
+  assert(Math.abs(alphaResolution.sales_tax_rate - 0.0536) < 1e-6, `Alpha sales tax must be capped at 5.36%, got ${alphaResolution.sales_tax_rate}`);
+  assert(Math.abs(alphaResolution.broker_fee_rate - 0.0210) < 1e-6, `Alpha broker fee must be capped at 2.10%, got ${alphaResolution.broker_fee_rate}`);
+
+  // Min Volume execution check (selling into buy orders with min_volume)
+  const levelsWithMinVol = [
+    { price: 100, volume: 50, orders: 1, cumulative: 50, min_volume_max: 200 }, // min volume 200 > target 50
+    { price: 90, volume: 100, orders: 1, cumulative: 150, min_volume_max: 1 },
+  ];
+  const fillMinVol = PriceLadder.simulateExecution(levelsWithMinVol, 50, true);
+  assert(fillMinVol.filled_quantity === 50, 'Should fill 50 from second level');
+  assert(fillMinVol.effective_price === 90, `Should execute at 90 skipping level with min_vol 200, got ${fillMinVol.effective_price}`);
+
+  console.log('✅ CCP Tick Sizes, Alpha Clone Caps & Min Volume Enforcement passed all assertions.');
   console.log('ALL ENGINE UNIT TESTS COMPLETED SUCCESSFULLY!');
 }
 

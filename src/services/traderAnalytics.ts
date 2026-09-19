@@ -8,6 +8,7 @@ import {
   EveTypeDetail,
 } from '../types';
 import { EVE_TYPES_CATALOG, EVE_CATEGORIES } from '../data/universe';
+import { FeeEngine } from '../engine/fee';
 
 const STORAGE_KEY_PREFIX = 'eve_trader_analytics_';
 
@@ -54,9 +55,9 @@ export class TraderAnalyticsService {
       }
     > = {};
 
-    // Estimated broker and tax rates based on skills
-    const salesTaxRate = Math.max(0.036, 0.08 - accountingLevel * 0.008);
-    const brokerFeeRate = Math.max(0.01, 0.03 - brokerRelationsLevel * 0.003);
+    // Estimated broker and tax rates based on skills using official FeeEngine
+    const salesTaxRate = FeeEngine.calculateSalesTaxRate(accountingLevel);
+    const brokerFeeRate = FeeEngine.calculateNpcBrokerFeeRate(brokerRelationsLevel, 0, 0);
 
     for (const tx of sortedTx) {
       const typeInfo = EVE_TYPES_CATALOG.find((t) => t.type_id === tx.type_id);

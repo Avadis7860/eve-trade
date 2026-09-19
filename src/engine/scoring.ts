@@ -100,15 +100,45 @@ export class OpportunityScoringEngine {
     // 10. Competition Score: estimated from order depth and hub activity
     const competitionScore = Math.min(100, Math.max(20, 90 - (liquidity.sell_hub_depth_volume > 1000000 ? 30 : 10)));
 
+    // Profile-adaptive scoring weights
+    const profile = config.trader_profile || 'balanced';
+    let wProfit = 0.15, wRoi = 0.15, wLiq = 0.15, wTurn = 0.15, wCap = 0.15, wTrans = 0.10, wStab = 0.15;
+
+    if (profile === 'highsec_daytrader') {
+      wTurn = 0.25;
+      wLiq = 0.20;
+      wStab = 0.20;
+      wProfit = 0.15;
+      wRoi = 0.10;
+      wCap = 0.05;
+      wTrans = 0.05;
+    } else if (profile === 'heavy_hauler') {
+      wProfit = 0.25;
+      wTrans = 0.20;
+      wCap = 0.15;
+      wRoi = 0.15;
+      wTurn = 0.10;
+      wLiq = 0.10;
+      wStab = 0.05;
+    } else if (profile === 'station_trader') {
+      wCap = 0.25;
+      wRoi = 0.25;
+      wProfit = 0.20;
+      wTurn = 0.15;
+      wLiq = 0.15;
+      wTrans = 0.0;
+      wStab = 0.0;
+    }
+
     // Overall Weighted Score (0 to 100)
     const overallScore = Math.round(
-      profitScore * 0.15 +
-      roiScore * 0.15 +
-      liquidityScore * 0.15 +
-      turnoverScore * 0.15 +
-      capitalEfficiencyScore * 0.15 +
-      transportScore * 0.10 +
-      stabilityScore * 0.15
+      profitScore * wProfit +
+      roiScore * wRoi +
+      liquidityScore * wLiq +
+      turnoverScore * wTurn +
+      capitalEfficiencyScore * wCap +
+      transportScore * wTrans +
+      stabilityScore * wStab
     );
 
     const scores: ScoreComponents = {

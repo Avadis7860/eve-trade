@@ -137,6 +137,62 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
         )}
       </div>
 
+      {/* Profil de Trading & Filtres de Risque Avancés */}
+      <div className="bg-[#0e1117] p-4 rounded-xl border border-[#262730] grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div>
+          <label className="block text-[#808495] text-[11px] mb-1 font-semibold">Profil de Trader :</label>
+          <select
+            value={form.trader_profile || 'balanced'}
+            onChange={(e) => setForm({ ...form, trader_profile: e.target.value as any })}
+            className="w-full bg-[#161821] border border-[#262730] text-[#fafafa] p-1.5 rounded text-xs"
+          >
+            <option value="balanced">⚖️ Équilibré (Standard)</option>
+            <option value="highsec_daytrader">⚡ Day-Trader High-Sec (Rotation)</option>
+            <option value="heavy_hauler">🚛 Fret Lourd / Hauler</option>
+            <option value="station_trader">🏛️ Station Trader (0 Saut)</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-[#808495] text-[11px] mb-1 font-semibold">Part. Marché Max / Jour (%) :</label>
+          <input
+            type="number"
+            min="5"
+            max="100"
+            step="5"
+            value={Math.round((form.max_market_participation_pct ?? 0.25) * 100)}
+            onChange={(e) => setForm({ ...form, max_market_participation_pct: (parseFloat(e.target.value) || 25) / 100 })}
+            className="w-full bg-[#161821] border border-[#262730] text-[#fafafa] p-1.5 rounded font-mono text-xs"
+          />
+        </div>
+
+        <div className="flex flex-col justify-center">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.avoid_chokepoints ?? false}
+              onChange={(e) => setForm({ ...form, avoid_chokepoints: e.target.checked })}
+              className="w-4 h-4 rounded bg-[#262730] text-[#ff4b4b] focus:ring-0 cursor-pointer"
+            />
+            <span className="text-[11px] font-semibold text-[#cfd3dc]">Éviter coupe-gorges (Uedama)</span>
+          </label>
+          <p className="text-[9px] text-[#808495] mt-0.5 ml-6">Rejette les routes traversant les zones de gank</p>
+        </div>
+
+        <div className="flex flex-col justify-center">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.exclude_citadels ?? false}
+              onChange={(e) => setForm({ ...form, exclude_citadels: e.target.checked })}
+              className="w-4 h-4 rounded bg-[#262730] text-[#ff4b4b] focus:ring-0 cursor-pointer"
+            />
+            <span className="text-[11px] font-semibold text-[#cfd3dc]">Exclure Citadelles Upwell</span>
+          </label>
+          <p className="text-[9px] text-[#808495] mt-0.5 ml-6">Stations NPC uniquement (aucun risque d'amarrage)</p>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* 1. FRAIS DE TRANSPORT / HAULING */}
         <div className="space-y-4 bg-[#0e1117] p-4 rounded-xl border border-[#262730]">
@@ -292,43 +348,96 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
           </div>
 
           <div className="p-3 bg-[#161821] rounded-lg border border-[#262730] space-y-2 text-[11px]">
+            {/* Clone Alpha / Omega Toggle */}
+            <div className="flex items-center justify-between pb-2 border-b border-[#262730]">
+              <span className="text-[#808495]">Type de Clone EVE :</span>
+              <div className="flex items-center gap-1.5 font-mono">
+                <button
+                  type="button"
+                  onClick={() => setForm((prev) => ({ ...prev, is_alpha_clone: false }))}
+                  className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                    !form.is_alpha_clone
+                      ? 'bg-amber-500 text-black'
+                      : 'bg-[#262730] text-[#808495] hover:text-[#fafafa]'
+                  }`}
+                >
+                  Clone Omega
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const cappedAcc = Math.min(3, form.accounting_level ?? 3);
+                    const cappedBr = Math.min(3, form.broker_relations_level ?? 3);
+                    updateSkills(cappedAcc, cappedBr, form.faction_standing ?? 0, form.corp_standing ?? 0);
+                    setForm((prev) => ({
+                      ...prev,
+                      is_alpha_clone: true,
+                      accounting_level: cappedAcc,
+                      broker_relations_level: cappedBr,
+                    }));
+                  }}
+                  className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                    form.is_alpha_clone
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-[#262730] text-[#808495] hover:text-[#fafafa]'
+                  }`}
+                >
+                  Clone Alpha (Plafonné L3)
+                </button>
+              </div>
+            </div>
+
             <div className="flex items-center justify-between">
               <span className="text-[#808495]">Accounting (Taxe de vente) :</span>
               <div className="flex items-center gap-1 font-mono">
-                {[0, 1, 2, 3, 4, 5].map((lvl) => (
-                  <button
-                    key={lvl}
-                    type="button"
-                    onClick={() => updateSkills(lvl, form.broker_relations_level ?? 5, form.faction_standing ?? 0, form.corp_standing ?? 0)}
-                    className={`w-5 h-5 rounded text-[10px] font-bold ${
-                      (form.accounting_level ?? 5) === lvl
-                        ? 'bg-amber-500 text-black'
-                        : 'bg-[#262730] text-[#808495] hover:text-[#fafafa]'
-                    }`}
-                  >
-                    {lvl}
-                  </button>
-                ))}
+                {[0, 1, 2, 3, 4, 5].map((lvl) => {
+                  const isBlocked = form.is_alpha_clone && lvl > 3;
+                  return (
+                    <button
+                      key={lvl}
+                      type="button"
+                      disabled={isBlocked}
+                      title={isBlocked ? 'Bloqué pour les clones Alpha (max lvl 3)' : undefined}
+                      onClick={() => updateSkills(lvl, form.broker_relations_level ?? 5, form.faction_standing ?? 0, form.corp_standing ?? 0)}
+                      className={`w-5 h-5 rounded text-[10px] font-bold transition-opacity ${
+                        (form.accounting_level ?? 5) === lvl
+                          ? 'bg-amber-500 text-black'
+                          : isBlocked
+                          ? 'bg-[#1e2029] text-[#4a4d5a] opacity-40 cursor-not-allowed'
+                          : 'bg-[#262730] text-[#808495] hover:text-[#fafafa]'
+                      }`}
+                    >
+                      {lvl}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             <div className="flex items-center justify-between">
               <span className="text-[#808495]">Broker Relations (Courtage) :</span>
               <div className="flex items-center gap-1 font-mono">
-                {[0, 1, 2, 3, 4, 5].map((lvl) => (
-                  <button
-                    key={lvl}
-                    type="button"
-                    onClick={() => updateSkills(form.accounting_level ?? 5, lvl, form.faction_standing ?? 0, form.corp_standing ?? 0)}
-                    className={`w-5 h-5 rounded text-[10px] font-bold ${
-                      (form.broker_relations_level ?? 5) === lvl
-                        ? 'bg-amber-500 text-black'
-                        : 'bg-[#262730] text-[#808495] hover:text-[#fafafa]'
-                    }`}
-                  >
-                    {lvl}
-                  </button>
-                ))}
+                {[0, 1, 2, 3, 4, 5].map((lvl) => {
+                  const isBlocked = form.is_alpha_clone && lvl > 3;
+                  return (
+                    <button
+                      key={lvl}
+                      type="button"
+                      disabled={isBlocked}
+                      title={isBlocked ? 'Bloqué pour les clones Alpha (max lvl 3)' : undefined}
+                      onClick={() => updateSkills(form.accounting_level ?? 5, lvl, form.faction_standing ?? 0, form.corp_standing ?? 0)}
+                      className={`w-5 h-5 rounded text-[10px] font-bold transition-opacity ${
+                        (form.broker_relations_level ?? 5) === lvl
+                          ? 'bg-amber-500 text-black'
+                          : isBlocked
+                          ? 'bg-[#1e2029] text-[#4a4d5a] opacity-40 cursor-not-allowed'
+                          : 'bg-[#262730] text-[#808495] hover:text-[#fafafa]'
+                      }`}
+                    >
+                      {lvl}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

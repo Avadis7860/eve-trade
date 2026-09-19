@@ -10,24 +10,34 @@ import {
   RawMarketOrder,
   HistoricalStats,
   InterRegionalOpportunity,
+  MarketDataQuality,
+  RelistMarketContext,
+  OpportunityExplanation,
 } from '../types';
 import { FeeEngine } from './fee';
+import { ProfitEngine } from './profit';
 import { PriceLadder } from './ladder';
 import { OpportunityScoringEngine } from './scoring';
+import { roundIsk, safeDiv } from './money';
 import { getJumpRoute, EVE_GROUPS, EVE_CATEGORIES } from '../data/universe';
 
 export class InterRegionalFinancialEngine {
   /**
    * Filters orders accessible at a specific Hub station/structure.
    *
-   * Source Hub Sell Orders (we buy from them):
-   * - Must be located at the Hub station_id (or if player structure, structure_id).
+   * 1. Source Hub Sell Orders (we buy physical goods from them):
+   *    - Physical goods are located at order.location_id.
+   *    - To acquire at the Source Hub, order.location_id MUST match hub.station_id.
    *
-   * Destination Hub Buy Orders (immediate sell into them):
-   * - If order_range === 'station': location_id must match destHub.station_id.
-   * - If order_range === 'solarsystem': system_id must match destHub.system_id.
-   * - If order_range === 'region': matches anywhere in region.
-   * - If numeric range: jump distance from order.system_id to destHub.system_id <= range.
+   * 2. Destination Hub Buy Orders (immediate sell into them as Taker):
+   *    - Order range 'station': order.location_id === hub.station_id.
+   *    - Order range 'solarsystem': order.system_id === hub.system_id.
+   *    - Order range 'region': order.region_id === hub.region_id (or anywhere in region).
+   *    - Numeric jump range (e.g. 1..40): jump distance from order.system_id to hub.system_id <= numeric range.
+   *    - min_volume: if order specifies min_volume > 1, order.volume_remain must be >= min_volume.
+   *
+   * 3. Destination Hub Sell Orders (competing sell orders for Relist / Maker strategy):
+   *    - Must be located at hub.station_id.
    */
   static filterAccessibleOrdersForHub(
     orders: RawMarketOrder[],
@@ -37,19 +47,27 @@ export class InterRegionalFinancialEngine {
   ): RawMarketOrder[] {
     return orders.filter((order) => {
       if (order.is_buy_order !== isBuyOrder) return false;
-      if (order.price <= 0 || order.volume_remain <= 0) return false;
+      if (order.price <= 0 || order.volume_remain <= 0 || !isFinite(order.price) || !isFinite(order.volume_remain)) {
+        return false;
+      }
 
-      // Source Sell orders: Trader is at hub.station_id; seller's goods must be at hub.station_id
+      // Source Sell orders: Trader is at hub.station_id; seller's items are in station
       if (isSourceHub && !isBuyOrder) {
         return order.location_id === hub.station_id;
       }
 
-      // Destination Buy orders (Trader sells goods at hub):
+      // Destination Buy orders (Trader arrives at destination hub and executes taker sale):
       if (!isSourceHub && isBuyOrder) {
         if (order.location_id === hub.station_id) return true;
-        const range = String(order.order_range || 'station').toLowerCase();
-        if (range === 'region') return true;
-        if (range === 'solarsystem' && order.system_id === hub.system_id) return true;
+
+        const range = String(order.order_range || 'station').toLowerCase().trim();
+        if (range === 'region') {
+          return order.region_id === hub.region_id;
+        }
+        if (range === 'solarsystem') {
+          return order.system_id === hub.system_id;
+        }
+
         const numericRange = parseInt(range, 10);
         if (!isNaN(numericRange) && numericRange >= 0) {
           const route = getJumpRoute(order.system_id, hub.system_id);
@@ -58,7 +76,7 @@ export class InterRegionalFinancialEngine {
         return false;
       }
 
-      // Destination Sell orders (Competing sellers for relist):
+      // Destination Sell orders (Competing sellers for relist strategy):
       if (!isSourceHub && !isBuyOrder) {
         return order.location_id === hub.station_id;
       }
@@ -68,59 +86,14 @@ export class InterRegionalFinancialEngine {
   }
 
   /**
-   * Simulates depth consumption on order book levels.
-   * If buying: walks through sell levels (lowest to highest).
-   * If selling: walks through buy levels (highest to lowest).
+   * Simulates depth consumption on order book levels using the deterministic ladder engine.
    */
-  static simulateFill(levels: PriceLevel[], targetQuantity: number): ExecutionFill {
-    let remaining = Math.max(0, Math.floor(targetQuantity));
-    let totalExpenditure = 0.0;
-    let levelsUsed = 0;
-
-    for (const lvl of levels) {
-      if (remaining <= 0) break;
-      const take = Math.min(remaining, lvl.volume);
-      totalExpenditure += take * lvl.price;
-      remaining -= take;
-      levelsUsed += 1;
-    }
-
-    const filled = Math.max(0, targetQuantity - remaining);
-    const avgPrice = filled > 0 ? totalExpenditure / filled : 0.0;
-    const topOfBookPrice = levels.length > 0 ? levels[0].price : 0.0;
-    const slippage = topOfBookPrice > 0 ? Math.abs((avgPrice - topOfBookPrice) / topOfBookPrice) : 0.0;
-
-    return {
-      requested_quantity: targetQuantity,
-      filled_quantity: filled,
-      effective_price: avgPrice,
-      total_cost_or_revenue: totalExpenditure,
-      slippage_pct: slippage,
-      levels_exhausted: levelsUsed,
-    };
+  static simulateFill(levels: PriceLevel[], targetQuantity: number, isBuySide: boolean = false): ExecutionFill {
+    return PriceLadder.simulateExecution(levels, targetQuantity, isBuySide);
   }
 
   /**
-   * Computes exact trade cost breakdown based on EVE Online mechanics:
-   *
-   * 1. Purchase Phase (Source Hub):
-   *    - In EVE Online, buying directly from existing sell orders ("Taker" order) incurs NO broker fee!
-   *    - Broker fee only applies if posting a limit Buy order ("Maker").
-   *    - By default, inter-regional haul arbitrage executes as a Taker on the source hub:
-   *      Buy Broker Fee = 0.
-   *
-   * 2. Transport Logistics:
-   *    - If enable_transport_costs is false or rates are 0, transport cost is strictly 0.00 ISK.
-   *    - Otherwise, volumetric cost (m³ * ISK/m³) + jump cost.
-   *    - Total acquisition cost = Purchase Cost + Buy Broker Fee + Transport Cost.
-   *
-   * 3. Revenue & Exit Phase (Destination Hub):
-   *    - Strategy 'immediate':
-   *      - Taker sell into existing buy orders.
-   *      - CCP Sales Tax applies to seller. NO broker fee (taker).
-   *    - Strategy 'relist':
-   *      - Maker sell order posted on destination market.
-   *      - CCP Sales Tax applies upon sale + Broker Fee for posting the order.
+   * Computes exact trade cost breakdown using ProfitEngine.
    */
   static computeCostsAndProfit(
     buyExecution: ExecutionFill,
@@ -132,64 +105,42 @@ export class InterRegionalFinancialEngine {
     config: FinancialConfig,
     isBuyMaker: boolean = false
   ): TradeCostBreakdown {
-    const q = Math.max(0, Math.floor(quantity));
-    const purchaseCost = buyExecution.effective_price * q;
+    const scenario = isBuyMaker
+      ? (strategy === 'relist' ? 'maker_maker' : 'maker_taker')
+      : (strategy === 'relist' ? 'taker_maker' : 'taker_taker');
 
-    // EVE Market Mechanics:
-    // Buying from sell orders = Taker (0% broker fee).
-    // If explicitly configured as Maker buy, then broker_fee applies.
-    const buyBrokerFee = isBuyMaker ? purchaseCost * config.broker_fee : 0.0;
-
-    // Transport logistics: strictly 0 if disabled or rates are 0
-    const totalCargoVolume = q * unitVolume;
-    const transportCost = FeeEngine.calculateTransportCost(
+    const result = ProfitEngine.calculateScenario({
+      scenario,
+      quantity,
+      effective_buy_price: buyExecution.effective_price,
+      effective_sell_price: sellExecution.effective_price,
+      unit_volume: unitVolume,
+      jumps: route.jumps,
       config,
-      totalCargoVolume,
-      route.jumps,
-      purchaseCost
-    );
-
-    const totalAcquisitionCost = purchaseCost + buyBrokerFee + transportCost;
-
-    // Revenue calculation
-    const grossRevenue = sellExecution.effective_price * q;
-    const salesTaxRate = config.sales_tax !== undefined ? config.sales_tax : FeeEngine.calculateSalesTaxRate(config.accounting_level ?? 5);
-    const salesTax = grossRevenue * salesTaxRate;
-
-    // Sell broker fee applies when relisting (posting a new sell order as a Maker)
-    const brokerFeeRate = config.broker_fee !== undefined ? config.broker_fee : FeeEngine.calculateNpcBrokerFeeRate(config.broker_relations_level ?? 5, config.faction_standing ?? 0, config.corp_standing ?? 0);
-    const sellBrokerFee = strategy === 'relist' ? grossRevenue * brokerFeeRate : 0.0;
-    const totalExitFees = salesTax + sellBrokerFee;
-
-    const netRevenue = grossRevenue - totalExitFees;
-    const netProfit = netRevenue - totalAcquisitionCost;
-
-    const profitPerUnit = q > 0 ? netProfit / q : 0.0;
-    const roi = totalAcquisitionCost > 0 ? netProfit / totalAcquisitionCost : 0.0;
-    const margin = grossRevenue > 0 ? netProfit / grossRevenue : 0.0;
+    });
 
     return {
-      purchase_cost: purchaseCost,
-      buy_broker_fee: buyBrokerFee,
-      transport_cost: transportCost,
-      total_acquisition_cost: totalAcquisitionCost,
-      gross_revenue: grossRevenue,
-      sales_tax: salesTax,
-      sell_broker_fee: sellBrokerFee,
-      total_exit_fees: totalExitFees,
-      net_revenue: netRevenue,
-      net_profit: netProfit,
-      profit_per_unit: profitPerUnit,
-      roi: roi,
-      margin: margin,
-      capital_locked: totalAcquisitionCost,
+      purchase_cost: result.gross_purchase_cost,
+      buy_broker_fee: result.buy_broker_fee_cost,
+      transport_cost: result.transport_cost,
+      total_acquisition_cost: result.total_acquisition_cost,
+      gross_revenue: result.gross_revenue,
+      sales_tax: result.sales_tax_cost,
+      sell_broker_fee: result.sell_broker_fee_cost,
+      total_exit_fees: result.total_exit_fees,
+      net_revenue: result.net_revenue,
+      net_profit: result.net_profit,
+      profit_per_unit: result.profit_per_unit,
+      roi: result.roi,
+      margin: result.margin,
+      capital_locked: result.capital_locked,
     };
   }
 
   /**
-   * Calculates the maximum tradable quantity respecting four core constraints:
-   * 1. Available Capital (and user capital limit per trade)
-   * 2. Cargo Capacity (m³)
+   * Calculates the maximum tradable quantity respecting 4 core physical and market constraints:
+   * 1. Available Capital & max capital per trade limit
+   * 2. Cargo capacity limit (m³)
    * 3. Source Market Available Volume
    * 4. Destination Market Depth (or daily absorption capacity if relist)
    */
@@ -204,42 +155,418 @@ export class InterRegionalFinancialEngine {
     quantity: number;
     bottleneck: 'capital' | 'cargo' | 'source_market' | 'destination_market';
     totalCargoVolume: number;
+    capitalLimitedUnits: number;
+    cargoLimitedUnits: number;
+    sourceAvailableUnits: number;
+    destAvailableUnits: number;
   } {
-    // 1. Capital constraint (taking into account unit cost + volumetric freight if enabled)
     const availableCap = config.available_capital ?? 1000000000;
     const maxCapPerTrade = config.max_capital_per_trade ?? availableCap;
     const maxCapitalToUse = Math.min(availableCap, maxCapPerTrade);
+
     const transportPerUnit =
       config.enable_transport_costs !== false
-        ? (unitVolume * (config.transport_cost_per_m3 || 0))
+        ? unitVolume * (config.transport_cost_per_m3 || 0) + (route.jumps * (config.transport_cost_per_jump || 0) * (unitVolume / Math.max(1, config.max_cargo_m3 || 5000)))
         : 0;
+
     const unitEstCost = unitBuyPrice + transportPerUnit;
-    const capitalQuantity = unitEstCost > 0 ? Math.floor(maxCapitalToUse / unitEstCost) : 0;
+    const capitalLimitedUnits = unitEstCost > 0 && maxCapitalToUse > 0 ? Math.floor(maxCapitalToUse / unitEstCost) : 0;
+    const cargoLimitedUnits = unitVolume > 0 && (config.max_cargo_m3 || 0) > 0 ? Math.floor(config.max_cargo_m3 / unitVolume) : 999999999;
+    const sourceAvailableUnits = Math.max(0, Math.floor(sourceAvailableVolume));
+    const destAvailableUnits = Math.max(0, Math.floor(destinationAbsorptionVolume));
 
-    // 2. Cargo constraint
-    const cargoQuantity = unitVolume > 0 ? Math.floor(config.max_cargo_m3 / unitVolume) : 999999999;
-
-    // 3. Source & Destination market depth constraints
-    const sourceQty = Math.max(0, sourceAvailableVolume);
-    const destQty = Math.max(0, destinationAbsorptionVolume);
-
-    const minQty = Math.min(capitalQuantity, cargoQuantity, sourceQty, destQty);
-    const finalQty = Math.max(0, minQty);
+    const minQty = Math.max(0, Math.min(capitalLimitedUnits, cargoLimitedUnits, sourceAvailableUnits, destAvailableUnits));
 
     let bottleneck: 'capital' | 'cargo' | 'source_market' | 'destination_market' = 'capital';
-    if (finalQty === cargoQuantity && cargoQuantity < capitalQuantity) bottleneck = 'cargo';
-    else if (finalQty === sourceQty && sourceQty < capitalQuantity) bottleneck = 'source_market';
-    else if (finalQty === destQty && destQty < capitalQuantity) bottleneck = 'destination_market';
+    if (minQty === cargoLimitedUnits && cargoLimitedUnits < capitalLimitedUnits) bottleneck = 'cargo';
+    else if (minQty === sourceAvailableUnits && sourceAvailableUnits < capitalLimitedUnits) bottleneck = 'source_market';
+    else if (minQty === destAvailableUnits && destAvailableUnits < capitalLimitedUnits) bottleneck = 'destination_market';
+    else if (minQty === capitalLimitedUnits) bottleneck = 'capital';
 
     return {
-      quantity: finalQty,
+      quantity: minQty,
       bottleneck,
-      totalCargoVolume: finalQty * unitVolume,
+      totalCargoVolume: minQty * unitVolume,
+      capitalLimitedUnits,
+      cargoLimitedUnits,
+      sourceAvailableUnits,
+      destAvailableUnits,
     };
   }
 
   /**
-   * Single directed opportunity calculator (Hub A -> Hub B)
+   * Computes Relist Market Context and Capturable Daily Volume.
+   * Clearly separates CURRENT ORDER BOOK from ESTIMATED FUTURE EXECUTION.
+   */
+  static computeCapturableVolumeAndRelistContext(
+    destSellLevels: PriceLevel[],
+    destHistory: HistoricalStats | undefined,
+    quantity: number,
+    unitBuyPrice: number,
+    config: FinancialConfig
+  ): {
+    relistContext: RelistMarketContext;
+    suggestedRelistPrice: number;
+    expectedCapturableVolumePerDay: number;
+    expectedDaysToSell: number;
+  } {
+    const historical7d = destHistory?.daily_volume_7d_median || destHistory?.daily_volume_7d_avg || 100;
+    const historical30d = destHistory?.daily_volume_30d_median || destHistory?.daily_volume_30d_avg || historical7d;
+    const trend = destHistory?.volume_trend || 'stable';
+
+    let currentLowestSell = 0.0;
+    let suggestedRelistPrice = 0.0;
+    let ordersAhead = 0;
+    let volumeAhead = 0;
+
+    if (destSellLevels.length > 0) {
+      currentLowestSell = destSellLevels[0].price;
+      // Undercut by 0.01 ISK if lowest sell is > 0.01, otherwise match
+      suggestedRelistPrice = currentLowestSell > 0.01 ? roundIsk(currentLowestSell - 0.01) : currentLowestSell;
+
+      // Calculate orders and volume ahead in the queue (priced <= our suggested price)
+      for (const lvl of destSellLevels) {
+        if (lvl.price <= suggestedRelistPrice) {
+          ordersAhead += lvl.orders;
+          volumeAhead += lvl.volume;
+        } else {
+          break;
+        }
+      }
+    } else {
+      // Empty destination sell book: use historical 30d median price or fallback
+      const benchmarkPrice = destHistory?.price_median_30d || (unitBuyPrice * 1.15);
+      currentLowestSell = benchmarkPrice;
+      suggestedRelistPrice = benchmarkPrice;
+      ordersAhead = 0;
+      volumeAhead = 0;
+    }
+
+    // Trend Multiplier
+    let trendMultiplier = 1.0;
+    if (trend === 'increasing') trendMultiplier = 1.15;
+    else if (trend === 'decreasing') trendMultiplier = 0.85;
+
+    // Competition Market Share Factor: in a competitive station, market share decreases with more sellers ahead
+    const competitionShare = safeDiv(1.0, 1.0 + ordersAhead * 0.4, 0.5);
+    const boundedShare = Math.max(0.10, Math.min(0.90, competitionShare));
+
+    // Capturable Volume per day
+    const baseDailyVolume = Math.max(1, historical7d);
+    const expectedCapturableVolumePerDay = Math.max(1, Math.round(baseDailyVolume * trendMultiplier * boundedShare));
+
+    // Expected Days to Sell
+    const timeToClearAhead = volumeAhead > 0 ? safeDiv(volumeAhead, baseDailyVolume, 0) : 0;
+    const timeToClearOurQty = safeDiv(quantity, expectedCapturableVolumePerDay, 1);
+    const rawDays = timeToClearAhead + timeToClearOurQty;
+    const expectedDaysToSell = Math.max(0.1, roundIsk(rawDays));
+
+    let competitionDensity: 'low' | 'moderate' | 'high' | 'intense' = 'low';
+    if (ordersAhead >= 10 || volumeAhead > baseDailyVolume * 3) competitionDensity = 'intense';
+    else if (ordersAhead >= 5 || volumeAhead > baseDailyVolume) competitionDensity = 'high';
+    else if (ordersAhead >= 2) competitionDensity = 'moderate';
+
+    const grossRevenue = roundIsk(suggestedRelistPrice * quantity);
+    const estimatedProfit = roundIsk(grossRevenue * 0.10); // temporary reference for context
+
+    const relistContext: RelistMarketContext = {
+      is_estimated_execution: true,
+      current_lowest_sell: currentLowestSell,
+      suggested_relist_price: suggestedRelistPrice,
+      orders_ahead: ordersAhead,
+      volume_ahead: volumeAhead,
+      historical_daily_volume: Math.round(baseDailyVolume),
+      historical_volume_7d_median: Math.round(historical7d),
+      historical_volume_30d_median: Math.round(historical30d),
+      volume_trend: trend,
+      expected_capturable_volume_per_day: expectedCapturableVolumePerDay,
+      expected_days_to_sell: expectedDaysToSell,
+      expected_revenue: grossRevenue,
+      expected_profit: estimatedProfit,
+      competition_density: competitionDensity,
+    };
+
+    return {
+      relistContext,
+      suggestedRelistPrice,
+      expectedCapturableVolumePerDay,
+      expectedDaysToSell,
+    };
+  }
+
+  /**
+   * Evaluates Jita (The Forge 10000002 / Jita 4-4 60003760) as an independent market benchmark.
+   */
+  static evaluateJitaBenchmark(
+    jitaOrders: RawMarketOrder[],
+    effectiveBuyPrice: number,
+    effectiveSellPrice: number,
+    jitaQuality?: MarketDataQuality
+  ): {
+    jita_sell_price: number;
+    jita_buy_price: number;
+    buy_vs_jita_pct: number;
+    sell_vs_jita_pct: number;
+    is_jita_verified: boolean;
+    reliability_assessment: string;
+  } {
+    const jitaStationOrders = jitaOrders.filter((o) => o.location_id === 60003760 || o.region_id === 10000002);
+    const jitaSells = jitaStationOrders.filter((o) => !o.is_buy_order && o.price > 0 && o.volume_remain > 0);
+    const jitaBuys = jitaStationOrders.filter((o) => o.is_buy_order && o.price > 0 && o.volume_remain > 0);
+
+    const jitaSellLevels = PriceLadder.aggregate(jitaSells, false);
+    const jitaBuyLevels = PriceLadder.aggregate(jitaBuys, true);
+
+    const jitaSellPrice = jitaSellLevels.length > 0 ? jitaSellLevels[0].price : 0;
+    const jitaBuyPrice = jitaBuyLevels.length > 0 ? jitaBuyLevels[0].price : 0;
+
+    let buyVsJitaPct = 0.0;
+    let sellVsJitaPct = 0.0;
+
+    if (jitaSellPrice > 0 && effectiveBuyPrice > 0) {
+      buyVsJitaPct = roundIsk(((effectiveBuyPrice - jitaSellPrice) / jitaSellPrice) * 100);
+    }
+    if (jitaSellPrice > 0 && effectiveSellPrice > 0) {
+      sellVsJitaPct = roundIsk(((effectiveSellPrice - jitaSellPrice) / jitaSellPrice) * 100);
+    }
+
+    const isVerified = (jitaQuality?.validation_status === 'valid' || jitaStationOrders.length > 0 || jitaOrders.length > 0);
+
+    let reliabilityAssessment = 'Benchmark Jita actif.';
+    if (jitaSellPrice === 0) {
+      reliabilityAssessment = 'Données Jita non disponibles pour cet article.';
+    } else if (buyVsJitaPct < -10) {
+      reliabilityAssessment = `Prix d'achat ${Math.abs(buyVsJitaPct).toFixed(1)}% sous le sell Jita (Excellente opportunité d'approvisionnement).`;
+    } else if (buyVsJitaPct > 30) {
+      reliabilityAssessment = `Prix d'achat ${buyVsJitaPct.toFixed(1)}% au-dessus du sell Jita (Approvisionnement potentiellement coûteux).`;
+    } else if (sellVsJitaPct > 100) {
+      reliabilityAssessment = `Prix de vente ${sellVsJitaPct.toFixed(1)}% au-dessus de Jita. Risque d'anomalie de cotation destination.`;
+    } else {
+      reliabilityAssessment = 'Alignement de prix cohérent avec les cours de référence Jita 4-4.';
+    }
+
+    return {
+      jita_sell_price: jitaSellPrice,
+      jita_buy_price: jitaBuyPrice,
+      buy_vs_jita_pct: buyVsJitaPct,
+      sell_vs_jita_pct: sellVsJitaPct,
+      is_jita_verified: isVerified,
+      reliability_assessment: reliabilityAssessment,
+    };
+  }
+
+  /**
+   * Hard Rejection Engine:
+   * Rejects invalid trades BEFORE or DURING scoring. Score must never save an invalid trade.
+   */
+  static evaluateHardRejection(
+    quantity: number,
+    costs: TradeCostBreakdown,
+    expectedDaysToSell: number,
+    config: FinancialConfig,
+    sourceSellLevels: PriceLevel[],
+    destLevels: PriceLevel[],
+    buyQuality?: MarketDataQuality,
+    sellQuality?: MarketDataQuality,
+    jitaBenchmark?: { jita_sell_price: number; buy_vs_jita_pct: number; sell_vs_jita_pct: number }
+  ): {
+    is_viable: boolean;
+    rejection_reasons: string[];
+    is_anomalous: boolean;
+    anomaly_reasons: string[];
+  } {
+    const rejectionReasons: string[] = [];
+    const anomalyReasons: string[] = [];
+    let isViable = true;
+    let isAnomalous = false;
+
+    // 1. Data Quality Checks
+    if (buyQuality?.freshness === 'expired' || sellQuality?.freshness === 'expired') {
+      isViable = false;
+      rejectionReasons.push('Données de marché expirées (>24h).');
+    }
+    if (buyQuality?.validation_status === 'invalid' || sellQuality?.validation_status === 'invalid') {
+      isViable = false;
+      rejectionReasons.push('Données de carnet invalidées par le contrôleur de conformité.');
+    }
+    if (buyQuality?.completeness === 'partial' || sellQuality?.completeness === 'partial') {
+      isAnomalous = true;
+      anomalyReasons.push('Données de carnet partielles (certaines pages manquantes).');
+    }
+    if (buyQuality?.freshness === 'stale' || sellQuality?.freshness === 'stale') {
+      isAnomalous = true;
+      anomalyReasons.push('Données de marché synchronisées récemment (stale cache).');
+    }
+
+    // 2. Quantity & Liquidity Checks
+    if (quantity <= 0) {
+      isViable = false;
+      rejectionReasons.push('Quantité tradable nulle après application des contraintes de capital, cargo et profondeur.');
+    }
+    if (sourceSellLevels.length === 0) {
+      isViable = false;
+      rejectionReasons.push('Aucun ordre de vente accessible à la station source.');
+    }
+    if (destLevels.length === 0) {
+      isViable = false;
+      rejectionReasons.push('Aucune liquidité de destination disponible ou accessible.');
+    }
+
+    // 3. Profitability & ROI Thresholds
+    if (costs.net_profit <= 0) {
+      isViable = false;
+      rejectionReasons.push(`Profit net négatif (${costs.net_profit.toLocaleString()} ISK) après déduction des taxes, courtages et fret.`);
+    }
+    if (costs.net_profit < (config.min_net_profit || 0)) {
+      isViable = false;
+      rejectionReasons.push(`Profit net (${costs.net_profit.toLocaleString()} ISK) inférieur au minimum configuré (${(config.min_net_profit || 0).toLocaleString()} ISK).`);
+    }
+    if (costs.roi < (config.min_roi || 0)) {
+      isViable = false;
+      rejectionReasons.push(`ROI (${(costs.roi * 100).toFixed(2)}%) inférieur au seuil minimal configuré (${((config.min_roi || 0) * 100).toFixed(2)}%).`);
+    }
+
+    // 4. Turnover & Days to Sell
+    const maxDays = config.max_days_to_sell || 14;
+    if (expectedDaysToSell > maxDays) {
+      isViable = false;
+      rejectionReasons.push(`Délai d'absorption estimé (${expectedDaysToSell.toFixed(1)}j) supérieur au maximum toléré (${maxDays}j).`);
+    }
+
+    // 5. Anomaly Detection vs Benchmark
+    if (costs.roi > 0.80) {
+      isAnomalous = true;
+      anomalyReasons.push(`ROI exceptionnellement élevé (${(costs.roi * 100).toFixed(1)}%). Risque de manipulation de carnet ou piège margin scam.`);
+    }
+
+    if (jitaBenchmark && jitaBenchmark.jita_sell_price > 0) {
+      if (jitaBenchmark.sell_vs_jita_pct > 250) {
+        isAnomalous = true;
+        anomalyReasons.push(`Prix de vente destination à +${jitaBenchmark.sell_vs_jita_pct.toFixed(0)}% du cours Jita 4-4.`);
+      }
+      if (jitaBenchmark.buy_vs_jita_pct > 150) {
+        isAnomalous = true;
+        anomalyReasons.push(`Prix d'achat source à +${jitaBenchmark.buy_vs_jita_pct.toFixed(0)}% du cours Jita 4-4.`);
+      }
+    }
+
+    return {
+      is_viable: isViable,
+      rejection_reasons: rejectionReasons,
+      is_anomalous: isAnomalous,
+      anomaly_reasons: anomalyReasons,
+    };
+  }
+
+  /**
+   * Generates a fully transparent, step-by-step explicability breakdown answering all 6 "Why" questions.
+   */
+  static generateExplanation(
+    item: EveTypeDetail,
+    buyHub: MarketHub,
+    sellHub: MarketHub,
+    strategy: TradeStrategy,
+    quantity: number,
+    bottleneck: 'capital' | 'cargo' | 'source_market' | 'destination_market',
+    tradableDetails: { capitalLimitedUnits: number; cargoLimitedUnits: number; sourceAvailableUnits: number; destAvailableUnits: number },
+    buyFill: ExecutionFill,
+    sellFill: ExecutionFill,
+    costs: TradeCostBreakdown,
+    expectedDaysToSell: number,
+    capturableDailyVolume: number,
+    dailyMarketVolume: number,
+    ordersAhead: number,
+    volumeAhead: number,
+    overallConfidence: number,
+    buyQuality?: MarketDataQuality,
+    sellQuality?: MarketDataQuality,
+    jitaVerified: boolean = false,
+    jitaSpreadPct: number = 0,
+    isAnomalous: boolean = false,
+    anomalyReasons: string[] = [],
+    isViable: boolean = true,
+    rejectionReasons: string[] = []
+  ): OpportunityExplanation {
+    const whyDetected = `Opportunité d'arbitrage ${strategy === 'relist' ? 'Taker -> Maker (Relist)' : 'Taker -> Taker (Immédiat)'} pour ${item.name} de ${buyHub.name} vers ${sellHub.name} avec un profit net simulé de ${costs.net_profit.toLocaleString()} ISK (ROI: ${(costs.roi * 100).toFixed(2)}%).`;
+
+    let bottleneckSummary = '';
+    if (bottleneck === 'capital') bottleneckSummary = `Limité par le capital alloué (${tradableDetails.capitalLimitedUnits.toLocaleString()} unités max).`;
+    else if (bottleneck === 'cargo') bottleneckSummary = `Limité par la capacité de soute du vaisseau (${tradableDetails.cargoLimitedUnits.toLocaleString()} unités max pour ${costs.capital_locked.toLocaleString()} ISK).`;
+    else if (bottleneck === 'source_market') bottleneckSummary = `Limité par la liquidité disponible sur le carnet source (${tradableDetails.sourceAvailableUnits.toLocaleString()} unités).`;
+    else bottleneckSummary = `Limité par la capacité d'absorption du marché de destination (${tradableDetails.destAvailableUnits.toLocaleString()} unités).`;
+
+    const whyThisQuantity = {
+      tradable_quantity: quantity,
+      bottleneck,
+      capital_limit_units: tradableDetails.capitalLimitedUnits,
+      cargo_limit_units: tradableDetails.cargoLimitedUnits,
+      source_available_units: tradableDetails.sourceAvailableUnits,
+      dest_available_units: tradableDetails.destAvailableUnits,
+      summary: bottleneckSummary,
+    };
+
+    const whyThisPrice = {
+      source_top_of_book: buyFill.top_of_book_price || buyFill.effective_price,
+      source_effective_price: buyFill.effective_price,
+      source_slippage_pct: roundIsk(buyFill.slippage_pct * 100),
+      source_levels_consumed: buyFill.levels_exhausted,
+      dest_top_of_book: sellFill.top_of_book_price || sellFill.effective_price,
+      dest_effective_price: sellFill.effective_price,
+      dest_slippage_pct: roundIsk(sellFill.slippage_pct * 100),
+      dest_levels_consumed: sellFill.levels_exhausted,
+      summary: `Achat source sur ${buyFill.levels_exhausted} niveau(x) (Top: ${(buyFill.top_of_book_price || buyFill.effective_price).toLocaleString()} ISK, Moyen: ${buyFill.effective_price.toLocaleString()} ISK, Slippage: ${(buyFill.slippage_pct * 100).toFixed(2)}%). Vente destination ${strategy === 'relist' ? 'au prix relist suggéré' : `sur ${sellFill.levels_exhausted} niveau(x) d'ordres d'achat`} (${sellFill.effective_price.toLocaleString()} ISK).`,
+    };
+
+    const whyThisProfit = {
+      gross_purchase: costs.purchase_cost,
+      buy_broker_fee: costs.buy_broker_fee,
+      transport_cost: costs.transport_cost,
+      gross_revenue: costs.gross_revenue,
+      sales_tax: costs.sales_tax,
+      sell_broker_fee: costs.sell_broker_fee,
+      net_profit: costs.net_profit,
+      roi_pct: roundIsk(costs.roi * 100),
+      margin_pct: roundIsk(costs.margin * 100),
+      summary: `Revenu brut: ${costs.gross_revenue.toLocaleString()} ISK - Achat: ${costs.purchase_cost.toLocaleString()} ISK - Courtage: ${(costs.buy_broker_fee + costs.sell_broker_fee).toLocaleString()} ISK - Taxes: ${costs.sales_tax.toLocaleString()} ISK - Fret: ${costs.transport_cost.toLocaleString()} ISK = Profit Net: ${costs.net_profit.toLocaleString()} ISK.`,
+    };
+
+    const whyThisDelay = {
+      strategy,
+      expected_days_to_sell: expectedDaysToSell,
+      capturable_volume_per_day: capturableDailyVolume,
+      daily_market_volume: dailyMarketVolume,
+      orders_ahead: ordersAhead,
+      volume_ahead: volumeAhead,
+      summary: strategy === 'immediate'
+        ? 'Exécution immédiate à l\'arrivée en station destination.'
+        : `Vente relist estimée sur ${expectedDaysToSell.toFixed(1)} jour(s) (${volumeAhead.toLocaleString()} unités en compétition devant l'ordre, absorption estimée à ${capturableDailyVolume.toLocaleString()} u/jour).`,
+    };
+
+    const whyThisConfidence = {
+      overall_confidence: overallConfidence,
+      source_freshness: buyQuality?.freshness || 'fresh',
+      dest_freshness: sellQuality?.freshness || 'fresh',
+      jita_verified: jitaVerified,
+      jita_spread_pct: jitaSpreadPct,
+      is_anomalous: isAnomalous,
+      anomaly_reasons: anomalyReasons,
+      summary: `Indice de confiance ${Math.round(overallConfidence * 100)}%. ${jitaVerified ? 'Aligné sur le benchmark Jita.' : 'Benchmark Jita indicatif.'} ${isAnomalous ? `Attention : ${anomalyReasons.join(' ')}` : 'Données stables et vérifiées.'}`,
+    };
+
+    return {
+      why_detected: whyDetected,
+      why_this_quantity: whyThisQuantity,
+      why_this_price: whyThisPrice,
+      why_this_profit: whyThisProfit,
+      why_this_delay: whyThisDelay,
+      why_this_confidence: whyThisConfidence,
+      why_rejected: !isViable ? { is_viable: false, rejection_reasons: rejectionReasons } : undefined,
+    };
+  }
+
+  /**
+   * Complete Directed Inter-Regional Arbitrage Opportunity Calculator (Hub A -> Hub B).
+   * Fully deterministic execution simulation with order books, accessibility, logistics, and audit tracing.
    */
   static calculateOpportunity(
     item: EveTypeDetail,
@@ -249,43 +576,78 @@ export class InterRegionalFinancialEngine {
     config: FinancialConfig,
     buyRegionOrders: RawMarketOrder[] = [],
     sellRegionOrders: RawMarketOrder[] = [],
-    historyStatsByRegion: Record<number, HistoricalStats> = {}
+    historyStatsByRegion: Record<number, HistoricalStats> = {},
+    qualitiesByRegion: Record<number, MarketDataQuality> = {},
+    jitaOrders: RawMarketOrder[] = []
   ): InterRegionalOpportunity | null {
     if (buyHub.id === sellHub.id) return null;
 
-    // Filter source sell orders located AT buyHub station
+    const buyQuality = qualitiesByRegion[buyHub.region_id];
+    const sellQuality = qualitiesByRegion[sellHub.region_id];
+    const jitaQuality = qualitiesByRegion[10000002];
+
+    // 1. Filter source sell orders located physically AT buyHub station
     const sourceSellOrders = this.filterAccessibleOrdersForHub(buyRegionOrders, buyHub, true, false);
-    const sourceLadders = PriceLadder.aggregate(sourceSellOrders, false);
+    const sourceLadders = PriceLadder.aggregate(sourceSellOrders, false); // Lowest sell price first
     if (sourceLadders.length === 0) return null;
 
+    const totalSourceVolume = sourceLadders.reduce((acc, l) => acc + l.volume, 0);
+    const bestSourceSellPrice = sourceLadders[0].price;
+
     let destLadders: PriceLevel[] = [];
+    let relistContext: RelistMarketContext | undefined;
+    let expectedDaysToSell = 0.1;
+    let capturableDailyVolume = 0;
+    const destHistory = historyStatsByRegion[sellHub.region_id];
+
+    // 2. Build Destination Execution Ladder
     if (strategy === 'relist') {
       const destSellOrders = this.filterAccessibleOrdersForHub(sellRegionOrders, sellHub, false, false);
-      const lowestDestSell = PriceLadder.aggregate(destSellOrders, false);
-      if (lowestDestSell.length > 0) {
-        const relistPrice = Math.max(0.01, lowestDestSell[0].price - 0.01);
-        const histDest = historyStatsByRegion[sellHub.region_id];
-        const absorbVol = Math.max(10, histDest?.daily_volume_7d_median || 500);
-        destLadders = [{ price: relistPrice, volume: absorbVol, orders: 1, cumulative: absorbVol }];
-      }
+      const destSellLadders = PriceLadder.aggregate(destSellOrders, false);
+
+      const relistRes = this.computeCapturableVolumeAndRelistContext(
+        destSellLadders,
+        destHistory,
+        1, // Initial reference unit
+        bestSourceSellPrice,
+        config
+      );
+
+      relistContext = relistRes.relistContext;
+      const targetRelistPrice = relistRes.suggestedRelistPrice;
+      const virtualAbsorption = Math.max(1, relistRes.expectedCapturableVolumePerDay * Math.max(1, config.max_days_to_sell || 7));
+
+      destLadders = [
+        {
+          price: targetRelistPrice,
+          volume: virtualAbsorption,
+          orders: 1,
+          cumulative: virtualAbsorption,
+        },
+      ];
+      expectedDaysToSell = relistRes.expectedDaysToSell;
+      capturableDailyVolume = relistRes.expectedCapturableVolumePerDay;
     } else {
+      // Immediate strategy (Taker Sell into existing accessible Buy Orders)
       const destBuyOrders = this.filterAccessibleOrdersForHub(sellRegionOrders, sellHub, false, true);
-      destLadders = PriceLadder.aggregate(destBuyOrders, true);
+      destLadders = PriceLadder.aggregate(destBuyOrders, true); // Highest buy price first
+      if (destLadders.length === 0) return null;
+
+      expectedDaysToSell = 0.1; // Execution is immediate upon docking
+      capturableDailyVolume = destLadders.reduce((acc, l) => acc + l.volume, 0);
     }
 
     if (destLadders.length === 0) return null;
-
-    const bestSourceSellPrice = sourceLadders[0].price;
     const bestDestSellTargetPrice = destLadders[0].price;
 
+    // Early gross spread check
     if (bestDestSellTargetPrice <= bestSourceSellPrice) return null;
 
-    const totalSourceVolume = sourceLadders.reduce((acc, l) => acc + l.volume, 0);
     const totalDestVolume = destLadders.reduce((acc, l) => acc + l.volume, 0);
-
     const route = getJumpRoute(buyHub.system_id, sellHub.system_id);
 
-    const { quantity, bottleneck, totalCargoVolume } = this.determineTradableQuantity(
+    // 3. Multi-constraint tradable quantity resolution
+    const tradableDetails = this.determineTradableQuantity(
       bestSourceSellPrice,
       item.volume,
       totalSourceVolume,
@@ -294,14 +656,17 @@ export class InterRegionalFinancialEngine {
       config
     );
 
+    const quantity = tradableDetails.quantity;
     if (quantity <= 0) return null;
 
-    const buyFill = this.simulateFill(sourceLadders, quantity);
-    const sellFill = this.simulateFill(destLadders, quantity);
+    // 4. Exact Execution Fill Simulation on source and destination books
+    const buyFill = this.simulateFill(sourceLadders, quantity, false);
+    const sellFill = this.simulateFill(destLadders, quantity, true);
 
     if (buyFill.filled_quantity <= 0 || sellFill.filled_quantity <= 0) return null;
-
     const actualQuantity = Math.min(buyFill.filled_quantity, sellFill.filled_quantity);
+
+    // 5. Cost and Profit Calculation
     const costs = this.computeCostsAndProfit(
       buyFill,
       sellFill,
@@ -309,29 +674,104 @@ export class InterRegionalFinancialEngine {
       item.volume,
       route,
       strategy,
-      config
+      config,
+      false
     );
 
-    const destHistory = historyStatsByRegion[sellHub.region_id];
-    const dailyDestVol = destHistory?.daily_volume_7d_median || Math.max(1, totalDestVolume * 0.5);
+    // Update relist context with actual final trade quantity
+    if (strategy === 'relist' && relistContext) {
+      const destSellOrders = this.filterAccessibleOrdersForHub(sellRegionOrders, sellHub, false, false);
+      const destSellLadders = PriceLadder.aggregate(destSellOrders, false);
+      const updatedRelist = this.computeCapturableVolumeAndRelistContext(
+        destSellLadders,
+        destHistory,
+        actualQuantity,
+        buyFill.effective_price,
+        config
+      );
+      relistContext = {
+        ...updatedRelist.relistContext,
+        expected_revenue: costs.gross_revenue,
+        expected_profit: costs.net_profit,
+      };
+      expectedDaysToSell = updatedRelist.expectedDaysToSell;
+      capturableDailyVolume = updatedRelist.expectedCapturableVolumePerDay;
+    }
 
+    // 6. Independent Jita Benchmark Evaluation
+    const jitaBenchmark = this.evaluateJitaBenchmark(
+      jitaOrders,
+      buyFill.effective_price,
+      sellFill.effective_price,
+      jitaQuality
+    );
+
+    // 7. Hard Rejection & Viability Evaluation
+    const hardRejection = this.evaluateHardRejection(
+      actualQuantity,
+      costs,
+      expectedDaysToSell,
+      config,
+      sourceLadders,
+      destLadders,
+      buyQuality,
+      sellQuality,
+      jitaBenchmark
+    );
+
+    // 8. Liquidity Metrics
+    const dailyDestVol = destHistory?.daily_volume_7d_median || (strategy === 'relist' ? capturableDailyVolume : totalDestVolume);
     const liquidityMetrics = {
       buy_hub_depth_volume: totalSourceVolume,
       sell_hub_depth_volume: totalDestVolume,
       daily_volume_source: historyStatsByRegion[buyHub.region_id]?.daily_volume_7d_median || totalSourceVolume,
       daily_volume_dest: dailyDestVol,
-      turnover_ratio: dailyDestVol > 0 ? quantity / dailyDestVol : 1,
-      expected_days_to_sell: dailyDestVol > 0 ? Math.max(0.2, quantity / dailyDestVol) : 7,
-      volume_exhaustion_pct: totalSourceVolume > 0 ? (quantity / totalSourceVolume) * 100 : 100,
+      turnover_ratio: dailyDestVol > 0 ? actualQuantity / dailyDestVol : 1,
+      expected_days_to_sell: expectedDaysToSell,
+      volume_exhaustion_pct: totalSourceVolume > 0 ? (actualQuantity / totalSourceVolume) * 100 : 100,
     };
 
-    const evaluation = OpportunityScoringEngine.evaluate(
+    // 9. Transparent Factor Scoring
+    const scoringEvaluation = OpportunityScoringEngine.evaluate(
       costs,
       liquidityMetrics,
       destHistory,
       route.jumps,
       route.is_highsec_only,
       config
+    );
+
+    // Overall Data Quality Confidence
+    const buyConf = buyQuality?.confidence ?? 1.0;
+    const sellConf = sellQuality?.confidence ?? 1.0;
+    const overallConfidence = roundIsk(Math.min(buyConf, sellConf) * (jitaBenchmark.is_jita_verified ? 1.0 : 0.9));
+
+    // 10. Audit & Explicability Rationale Generation
+    const explanation = this.generateExplanation(
+      item,
+      buyHub,
+      sellHub,
+      strategy,
+      actualQuantity,
+      tradableDetails.bottleneck,
+      tradableDetails,
+      buyFill,
+      sellFill,
+      costs,
+      expectedDaysToSell,
+      capturableDailyVolume,
+      dailyDestVol,
+      relistContext?.orders_ahead || 0,
+      relistContext?.volume_ahead || 0,
+      overallConfidence,
+      buyQuality,
+      sellQuality,
+      jitaBenchmark.is_jita_verified,
+      jitaBenchmark.buy_vs_jita_pct,
+      hardRejection.is_anomalous,
+      hardRejection.anomaly_reasons,
+      hardRejection.is_viable,
+      hardRejection.rejection_reasons
     );
 
     const group = EVE_GROUPS.find((g) => g.group_id === item.group_id);
@@ -354,33 +794,39 @@ export class InterRegionalFinancialEngine {
       best_sell_order_price: bestDestSellTargetPrice,
       effective_buy_price: buyFill.effective_price,
       effective_sell_price: sellFill.effective_price,
-      top_of_book_buy_price: bestSourceSellPrice,
-      top_of_book_sell_price: bestDestSellTargetPrice,
+      top_of_book_buy_price: buyFill.top_of_book_price || bestSourceSellPrice,
+      top_of_book_sell_price: sellFill.top_of_book_price || bestDestSellTargetPrice,
       spread_pct: bestSourceSellPrice > 0 ? (bestDestSellTargetPrice - bestSourceSellPrice) / bestSourceSellPrice : 0,
       quantity_tradable: actualQuantity,
-      bottleneck,
-      total_cargo_volume: totalCargoVolume,
+      bottleneck: tradableDetails.bottleneck,
+      total_cargo_volume: tradableDetails.totalCargoVolume,
       costs,
-      capturable_profit: evaluation.capturableProfit,
-      profit_per_day: evaluation.profitPerDay,
-      expected_days_to_sell: evaluation.expectedDaysToSell,
+      capturable_profit: scoringEvaluation.capturableProfit,
+      profit_per_day: scoringEvaluation.profitPerDay,
+      expected_days_to_sell: expectedDaysToSell,
       liquidity: liquidityMetrics,
       history: destHistory,
-      scores: evaluation.scores,
-      jita_price_benchmark: {
-        jita_sell_price: bestSourceSellPrice,
-        jita_buy_price: bestDestSellTargetPrice,
-        buy_vs_jita_pct: 0,
-        sell_vs_jita_pct: 0,
-        is_jita_verified: true,
-        reliability_assessment: 'Direct hub trade',
+      scores: scoringEvaluation.scores,
+      jita_price_benchmark: jitaBenchmark,
+      relist_context: relistContext,
+      explanation,
+      is_anomalous: hardRejection.is_anomalous || scoringEvaluation.isAnomalous,
+      anomaly_reasons: Array.from(new Set([...hardRejection.anomaly_reasons, ...scoringEvaluation.anomalyReasons])),
+      rejection_reasons: Array.from(new Set([...hardRejection.rejection_reasons, ...scoringEvaluation.rejectionReasons])),
+      is_viable: hardRejection.is_viable && scoringEvaluation.isViable,
+      data_quality: {
+        buy_hub_quality: buyQuality,
+        sell_hub_quality: sellQuality,
+        overall_confidence: overallConfidence,
+        overall_freshness: buyQuality?.freshness === 'expired' || sellQuality?.freshness === 'expired' ? 'expired' : (buyQuality?.freshness === 'stale' || sellQuality?.freshness === 'stale' ? 'stale' : 'fresh'),
+        overall_completeness: buyQuality?.completeness === 'partial' || sellQuality?.completeness === 'partial' ? 'partial' : 'complete',
+        is_verified_esi: true,
+        confidence_score: overallConfidence,
+        status_label: hardRejection.is_viable ? 'Valide & Exécutable' : 'Rejeté',
       },
-      is_anomalous: evaluation.isAnomalous,
-      anomaly_reasons: evaluation.anomalyReasons,
-      rejection_reasons: evaluation.rejectionReasons,
-      is_viable: evaluation.isViable,
       detected_at: new Date().toISOString(),
     };
   }
 }
 
+export const InterRegionalEngine = InterRegionalFinancialEngine;

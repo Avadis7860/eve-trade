@@ -2,6 +2,7 @@ import { EsiService } from './esi';
 import { InterRegionalScanner } from './scanner';
 import { TraderAnalyticsService } from './traderAnalytics';
 import { MarketDataStore } from './marketDataStore';
+import { IndexedDbStore } from './indexedDbStore';
 import { EVE_TYPES_CATALOG, MAJOR_MARKET_HUBS } from '../data/universe';
 import {
   EveTypeDetail,
@@ -66,6 +67,24 @@ export class GlobalMarketSyncService {
     error_count: 0,
     last_updated: new Date().toISOString(),
   };
+
+  /**
+   * Hydrate opportunities from durable store on app startup
+   */
+  static async initFromStorage(): Promise<UniverseWideOpportunity[]> {
+    if (this.universeOpportunities.length > 0) return this.universeOpportunities;
+    try {
+      const saved = await IndexedDbStore.loadUniverseOpportunities();
+      if (saved && saved.length > 0) {
+        this.universeOpportunities = saved;
+        this.progressState.total_opportunities_found = saved.length;
+        this.emitOpportunities();
+      }
+    } catch (e) {
+      console.warn('Failed to load opportunities from storage:', e);
+    }
+    return this.universeOpportunities;
+  }
 
   /**
    * Subscribe to progress updates
@@ -416,12 +435,12 @@ export class GlobalMarketSyncService {
     this.emitProgress();
     MarketDataStore.notifyListeners();
 
-    // Persist discovered opportunities snapshot into localStorage
+    // Persist discovered opportunities into durable IndexedDB and localStorage
+    IndexedDbStore.saveUniverseOpportunities(this.universeOpportunities).catch(() => {});
     try {
-      localStorage.setItem('eve_universe_opportunities', JSON.stringify(this.universeOpportunities.slice(0, 150)));
       localStorage.setItem('eve_last_global_sync', new Date().toISOString());
     } catch (e) {
-      console.warn('Could not save opportunities snapshot to localStorage:', e);
+      console.warn('Could not save sync timestamp:', e);
     }
 
     return this.universeOpportunities;

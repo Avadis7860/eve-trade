@@ -80,9 +80,49 @@ export interface JumpRoute {
   jumps: number;
   min_security: number;
   is_highsec_only: boolean;
+  chokepoints?: string[];
+  gank_risk_level?: 'safe' | 'caution' | 'dangerous';
 }
 
 export type TradeStrategy = 'immediate' | 'relist';
+export type ExecutionScenario = 'taker_taker' | 'taker_maker' | 'maker_taker' | 'maker_maker';
+
+export interface FeeRateResolution {
+  sales_tax_rate: number;
+  sales_tax_source: 'skills_game_mechanics' | 'user_override';
+  sales_tax_official_calculated: number;
+  broker_fee_rate: number;
+  broker_fee_source: 'skills_standings_mechanics' | 'upwell_mechanics' | 'user_override';
+  broker_fee_official_calculated: number;
+  relist_fee_rate: number;
+  scc_surcharge_rate?: number;
+  structure_owner_fee_rate?: number;
+  description: string;
+}
+
+export interface ScenarioFinancialResult {
+  scenario: ExecutionScenario;
+  quantity: number;
+  effective_buy_price: number;
+  effective_sell_price: number;
+  gross_purchase_cost: number;
+  buy_broker_fee_cost: number;
+  transport_cost: number;
+  total_acquisition_cost: number;
+  gross_revenue: number;
+  sales_tax_cost: number;
+  sell_broker_fee_cost: number;
+  relist_fee_cost: number;
+  total_exit_fees: number;
+  net_revenue: number;
+  net_profit: number;
+  profit_per_unit: number;
+  roi: number;
+  margin: number;
+  capital_locked: number;
+  is_profitable: boolean;
+  fee_resolution?: FeeRateResolution;
+}
 
 export interface FinancialConfig {
   available_capital: number;
@@ -92,6 +132,7 @@ export interface FinancialConfig {
   transport_cost_per_m3: number; // ISK per m³ (can be 0)
   transport_cost_per_jump: number; // ISK per jump (can be 0)
   collateral_fee_pct?: number; // Collateral percentage (e.g. 0.01 = 1%)
+  transport_fixed_fee?: number; // Base fixed logistics fee per haul
   max_cargo_m3: number;    // Cargo capacity in m³ (e.g. 5000 for transport, 60000 for DST)
   min_roi: number;         // Minimum ROI (e.g. 0.02)
   min_net_profit: number;  // Minimum ISK profit
@@ -101,12 +142,19 @@ export interface FinancialConfig {
   max_portfolio_concentration_group: number; // e.g. 0.50 (max 50% in one group)
   
   // EVE Character Skill & Standing simulation parameters
-  accounting_level?: number;        // 0 to 5
-  broker_relations_level?: number;  // 0 to 5
-  faction_standing?: number;        // -10.0 to 10.0
-  corp_standing?: number;           // -10.0 to 10.0
-  custom_broker_fee_pct?: number;   // Override broker fee (e.g. 1.0% in Citadel)
+  accounting_level?: number;                // 0 to 5
+  broker_relations_level?: number;          // 0 to 5
+  advanced_broker_relations_level?: number; // 0 to 5
+  faction_standing?: number;                // -10.0 to 10.0
+  corp_standing?: number;                   // -10.0 to 10.0
+  custom_broker_fee_pct?: number;           // Override broker fee (e.g. 1.0% in Citadel)
+  custom_sales_tax_pct?: number;            // Override sales tax (e.g. 3.6%)
   use_custom_fees?: boolean;
+  is_alpha_clone?: boolean;                 // Clamps skills to Alpha clone caps (Acc 3, BR 3, AdvBR 0)
+  exclude_citadels?: boolean;               // Filter out player structures/Upwell citadels with docking ACL risks
+  max_market_participation_pct?: number;    // Cap trade volume at fraction of daily volume (e.g. 0.25 = 25%)
+  avoid_chokepoints?: boolean;              // Flag or avoid high-risk lowsec/gank chokepoints
+  trader_profile?: 'balanced' | 'highsec_daytrader' | 'station_trader' | 'heavy_hauler';
 }
 
 export interface DailyMarketHistory {
@@ -139,15 +187,105 @@ export interface PriceLevel {
   volume: number;
   orders: number;
   cumulative: number;
+  order_ids?: number[];
+  location_ids?: number[];
+  min_volume_max?: number;
+}
+
+export interface ExecutionLevelConsumption {
+  price: number;
+  volume_taken: number;
+  volume_available_at_level: number;
+  orders_at_level: number;
 }
 
 export interface ExecutionFill {
   requested_quantity: number;
   filled_quantity: number;
   effective_price: number;
+  top_of_book_price?: number;
   total_cost_or_revenue: number;
   slippage_pct: number;
+  slippage_isk?: number;
   levels_exhausted: number;
+  remaining_book_liquidity?: number;
+  levels_consumed_detail?: ExecutionLevelConsumption[];
+}
+
+export interface RelistMarketContext {
+  is_estimated_execution: boolean;
+  current_lowest_sell: number;
+  suggested_relist_price: number;
+  orders_ahead: number;
+  volume_ahead: number;
+  historical_daily_volume: number;
+  historical_volume_7d_median: number;
+  historical_volume_30d_median?: number;
+  volume_trend?: 'increasing' | 'stable' | 'decreasing';
+  expected_capturable_volume_per_day: number;
+  expected_days_to_sell: number;
+  expected_revenue: number;
+  expected_profit: number;
+  competition_density?: 'low' | 'moderate' | 'high' | 'intense';
+}
+
+export interface OpportunityExplanation {
+  why_detected: string;
+  why_this_quantity: {
+    tradable_quantity: number;
+    bottleneck: 'capital' | 'cargo' | 'source_market' | 'destination_market';
+    capital_limit_units: number;
+    cargo_limit_units: number;
+    source_available_units: number;
+    dest_available_units: number;
+    summary: string;
+  };
+  why_this_price: {
+    source_top_of_book: number;
+    source_effective_price: number;
+    source_slippage_pct: number;
+    source_levels_consumed: number;
+    dest_top_of_book: number;
+    dest_effective_price: number;
+    dest_slippage_pct: number;
+    dest_levels_consumed: number;
+    summary: string;
+  };
+  why_this_profit: {
+    gross_purchase: number;
+    buy_broker_fee: number;
+    transport_cost: number;
+    gross_revenue: number;
+    sales_tax: number;
+    sell_broker_fee: number;
+    net_profit: number;
+    roi_pct: number;
+    margin_pct: number;
+    summary: string;
+  };
+  why_this_delay: {
+    strategy: TradeStrategy;
+    expected_days_to_sell: number;
+    capturable_volume_per_day: number;
+    daily_market_volume: number;
+    orders_ahead: number;
+    volume_ahead: number;
+    summary: string;
+  };
+  why_this_confidence: {
+    overall_confidence: number;
+    source_freshness: string;
+    dest_freshness: string;
+    jita_verified: boolean;
+    jita_spread_pct: number;
+    is_anomalous: boolean;
+    anomaly_reasons: string[];
+    summary: string;
+  };
+  why_rejected?: {
+    is_viable: boolean;
+    rejection_reasons: string[];
+  };
 }
 
 export interface TradeCostBreakdown {
@@ -291,6 +429,12 @@ export interface InterRegionalOpportunity {
     confidence_score: number;
     status_label?: string;
   };
+
+  // Relist Strategy & Estimated Future Execution details
+  relist_context?: RelistMarketContext;
+
+  // Complete Audit & Explicability Rationale
+  explanation?: OpportunityExplanation;
 
   detected_at: string;
 }

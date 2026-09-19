@@ -69,12 +69,18 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
                 Stratégie : {strategy === 'relist' ? 'Relist Vendeur' : 'Vente Immédiate'}
               </span>
             </div>
-            <div className="text-xs text-[#808495] mt-1 flex items-center gap-2">
+            <div className="text-xs text-[#808495] mt-1 flex items-center gap-2 flex-wrap">
               <span>{buy_hub.name}</span>
               <ArrowRight className="w-3 h-3 text-[#ff4b4b]" />
               <span>{sell_hub.name}</span>
               <span>&bull;</span>
               <span className="text-[#cfd3dc]">{route.jumps} sauts ({route.is_highsec_only ? '100% High-Sec' : 'Low-Sec détecté'})</span>
+              {route.chokepoints && route.chokepoints.length > 0 && (
+                <span className="px-2 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/40 text-[10px] font-bold flex items-center gap-1">
+                  <ShieldAlert className="w-3 h-3 text-red-400" />
+                  Coupe-Gorge : {route.chokepoints.join(', ')} (Risque de gank élevé)
+                </span>
+              )}
             </div>
           </div>
           <button

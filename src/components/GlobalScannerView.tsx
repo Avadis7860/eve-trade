@@ -80,6 +80,11 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
         // ROI filter
         if (opp.costs.roi < minRoiFilter) return false;
 
+        // Chokepoints filter if avoid_chokepoints enabled in config
+        if (config.avoid_chokepoints && opp.route.chokepoints && opp.route.chokepoints.length > 0) {
+          return false;
+        }
+
         // Category filter
         if (categoryFilter !== 'all' && opp.category_name !== categoryFilter) {
           return false;
@@ -328,7 +333,7 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
                           <span className="text-[#808495]">&rarr;</span>
                           <span className="text-blue-400">{opp.sell_hub.name}</span>
                         </div>
-                        <div className="text-[10px] text-[#808495] flex items-center gap-2 mt-0.5">
+                        <div className="text-[10px] text-[#808495] flex items-center gap-2 mt-0.5 flex-wrap">
                           <span className="flex items-center gap-1">
                             {opp.route.is_highsec_only ? (
                               <ShieldCheck className="w-3 h-3 text-emerald-400" />
@@ -339,6 +344,11 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
                           </span>
                           <span>&bull;</span>
                           <span>Sec: {opp.route.min_security.toFixed(1)}</span>
+                          {opp.route.chokepoints && opp.route.chokepoints.length > 0 && (
+                            <span className="px-1.5 py-0.2 rounded bg-red-500/20 text-red-300 border border-red-500/40 text-[9px] font-bold">
+                              ⚠️ {opp.route.chokepoints.join(', ')}
+                            </span>
+                          )}
                         </div>
                       </td>
 

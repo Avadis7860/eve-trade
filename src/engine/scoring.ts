@@ -17,7 +17,9 @@ export class OpportunityScoringEngine {
     history: HistoricalStats | undefined,
     routeJumps: number,
     isHighSecOnly: boolean,
-    config: FinancialConfig
+    config: FinancialConfig,
+    effectiveBuyPrice?: number,
+    quantity?: number
   ): {
     scores: ScoreComponents;
     capturableProfit: number;
@@ -45,11 +47,16 @@ export class OpportunityScoringEngine {
     const volumeScore = Math.min(100, Math.max(0, (Math.log10(Math.max(1, dailyVolume)) / 6) * 100));
 
     // 4. Expected Days to Sell & Turnover
-    // If daily volume is 1000 units and we sell 200 units, absorption is 0.2 days.
-    // Minimum 0.25 days (for immediate travel + listing time)
-    const rawDays = dailyVolume > 0 ? costs.purchase_cost > 0 ? Math.max(0.2, (costs.purchase_cost / (dailyVolume * (costs.purchase_cost / Math.max(1, costs.profit_per_unit))))) : 1 : 14;
+    // Trade quantity resolution
+    const tradeQuantity = quantity && quantity > 0
+      ? quantity
+      : (liquidity.turnover_ratio > 0 && dailyVolume > 0
+        ? Math.max(1, Math.round(liquidity.turnover_ratio * dailyVolume))
+        : 1);
+
     // Normalize realistically: ratio of trade quantity to daily volume
-    const daysToSell = Math.max(0.1, Math.min(30, liquidity.expected_days_to_sell || rawDays));
+    const rawDays = dailyVolume > 0 ? Math.max(0.1, tradeQuantity / Math.max(1, dailyVolume)) : 14;
+    const daysToSell = Math.max(0.1, Math.min(30, liquidity.expected_days_to_sell && liquidity.expected_days_to_sell > 0 ? liquidity.expected_days_to_sell : rawDays));
     
     // Turnover Score (0-100): Faster turnover => higher score
     // 0.5 days => 100, 3 days => 80, 7 days => 50, 20+ days => 10
@@ -65,20 +72,28 @@ export class OpportunityScoringEngine {
     const transportScore = Math.min(100, Math.max(0, 100 - jumpPenalty + (secBonus - 40)));
 
     // 7. Stability & Anomaly Detection
+    // Unit effective buy price (resolves total purchase cost to per-unit cost)
+    const unitEffectiveBuyPrice = effectiveBuyPrice && effectiveBuyPrice > 0
+      ? effectiveBuyPrice
+      : (costs.purchase_cost > 0 && tradeQuantity > 0
+        ? costs.purchase_cost / tradeQuantity
+        : costs.purchase_cost);
+
     let isAnomalous = false;
     let stabilityScore = 80;
 
     if (costs.roi > 0.60) {
       isAnomalous = true;
-      anomalyReasons.push(`ROI anormalement élevé (${(costs.roi * 100).toFixed(1)}%). Risque de scam ou carnet illiquide.`);
+      anomalyReasons.push(`ROI anormalement élevé (${(costs.roi * 100).toFixed(1)}%). Risque de manipulation de carnet ou illiquidité.`);
       stabilityScore -= 30;
     }
 
     if (history && history.price_median_30d !== undefined && history.price_median_30d > 0) {
-      const priceRatio = costs.purchase_cost / (history.price_median_30d * (costs.purchase_cost / Math.max(1, costs.purchase_cost)));
-      if (priceRatio > 3.0 || priceRatio < 0.25) {
+      const unitPriceRatio = unitEffectiveBuyPrice / history.price_median_30d;
+      const priceDeviationPct = ((unitEffectiveBuyPrice - history.price_median_30d) / history.price_median_30d) * 100;
+      if (unitPriceRatio > 3.0 || unitPriceRatio < 0.25) {
         isAnomalous = true;
-        anomalyReasons.push(`Prix spot très éloigné de la médiane historique 30j.`);
+        anomalyReasons.push(`Prix spot unitaire (${unitEffectiveBuyPrice.toLocaleString()} ISK) très éloigné de la médiane historique 30j (${history.price_median_30d.toLocaleString()} ISK, écart: ${priceDeviationPct > 0 ? '+' : ''}${priceDeviationPct.toFixed(1)}%).`);
         stabilityScore -= 30;
       }
     }

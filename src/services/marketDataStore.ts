@@ -5,6 +5,7 @@ import {
   MarketHub,
   MarketDataSnapshot,
   MarketDataQuality,
+  MarketObservation,
 } from '../types';
 import { IndexedDbStore } from './indexedDbStore';
 
@@ -92,6 +93,49 @@ export class MarketDataStore {
     this.snapshots.get(snapshot.type_id)!.set(snapshot.region_id, snapshot);
     // Asynchronously save to durable IndexedDB store
     IndexedDbStore.saveSnapshot(snapshot).catch(() => {});
+
+    // Compute and record immutable MarketObservation (Append-Only)
+    try {
+      const buys = snapshot.orders.filter((o) => o.is_buy_order);
+      const sells = snapshot.orders.filter((o) => !o.is_buy_order);
+      const bestBuy = buys.length > 0 ? Math.max(...buys.map((o) => o.price)) : undefined;
+      const bestSell = sells.length > 0 ? Math.min(...sells.map((o) => o.price)) : undefined;
+      const buyVol = buys.reduce((acc, o) => acc + o.volume_remain, 0);
+      const sellVol = sells.reduce((acc, o) => acc + o.volume_remain, 0);
+      const spreadAbs = bestSell !== undefined && bestBuy !== undefined ? bestSell - bestBuy : undefined;
+      const spreadPct =
+        bestSell !== undefined && bestBuy !== undefined && bestBuy > 0
+          ? ((bestSell - bestBuy) / bestBuy) * 100
+          : undefined;
+
+      const minuteBucket = Math.floor(snapshot.timestamp / 60000);
+      const obsHash = `${snapshot.type_id}:${snapshot.region_id}:${minuteBucket}:${bestBuy || 0}:${bestSell || 0}`;
+
+      const obs: MarketObservation = {
+        observation_id: `obs-${snapshot.type_id}-${snapshot.region_id}-${snapshot.timestamp}`,
+        observation_hash: obsHash,
+        type_id: snapshot.type_id,
+        region_id: snapshot.region_id,
+        captured_at: new Date(snapshot.timestamp).toISOString(),
+        source: 'esi_market_orders',
+        best_buy_price: bestBuy,
+        best_sell_price: bestSell,
+        buy_volume_visible: buyVol,
+        sell_volume_visible: sellVol,
+        spread_absolute: spreadAbs,
+        spread_pct: spreadPct,
+        order_count_buy: buys.length,
+        order_count_sell: sells.length,
+        data_age_seconds: snapshot.quality?.age_seconds ?? 0,
+        esi_pages_fetched: snapshot.quality?.pages_fetched,
+        esi_pages_expected: snapshot.quality?.expected_pages,
+        confidence: snapshot.quality?.confidence ?? 1.0,
+      };
+
+      IndexedDbStore.saveMarketObservation(obs).catch(() => {});
+    } catch (e) {
+      console.warn('Failed to record MarketObservation:', e);
+    }
   }
 
   /**

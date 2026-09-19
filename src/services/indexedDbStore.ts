@@ -1,10 +1,21 @@
-import { MarketDataSnapshot, HistoricalStats, UniverseWideOpportunity } from '../types';
+import {
+  MarketDataSnapshot,
+  HistoricalStats,
+  UniverseWideOpportunity,
+  MarketObservation,
+  OpportunityObservation,
+  DailyMarketHistory,
+  EveTypeDetail,
+} from '../types';
 
 export interface StorageStats {
   snapshots_count: number;
   orders_count: number;
   history_count: number;
   opportunities_count: number;
+  observations_count: number;
+  opportunity_observations_count: number;
+  types_count: number;
   estimated_bytes: number;
   db_ready: boolean;
   last_persisted_at: string | null;
@@ -20,7 +31,7 @@ export interface EsiHttpCacheEntry {
 }
 
 const DB_NAME = 'eve_trade_durable_store';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export class IndexedDbStore {
   private static db: IDBDatabase | null = null;
@@ -29,6 +40,10 @@ export class IndexedDbStore {
   private static memoryHistory = new Map<string, HistoricalStats>();
   private static memoryOpportunities: UniverseWideOpportunity[] = [];
   private static memoryHttpCache = new Map<string, EsiHttpCacheEntry>();
+  private static memoryObservations: MarketObservation[] = [];
+  private static memoryOpportunityObservations: OpportunityObservation[] = [];
+  private static memoryDailyHistory = new Map<string, DailyMarketHistory[]>();
+  private static memoryTypes = new Map<number, EveTypeDetail>();
   private static lastPersistedAt: string | null = null;
 
   /**
@@ -74,6 +89,38 @@ export class IndexedDbStore {
           if (!db.objectStoreNames.contains('http_cache')) {
             const store = db.createObjectStore('http_cache', { keyPath: 'url' });
             store.createIndex('cached_at', 'cached_at', { unique: false });
+          }
+
+          // 5. Immutable Market Observations (Append-Only)
+          if (!db.objectStoreNames.contains('market_observations')) {
+            const obsStore = db.createObjectStore('market_observations', { keyPath: 'observation_id' });
+            obsStore.createIndex('type_id', 'type_id', { unique: false });
+            obsStore.createIndex('region_id', 'region_id', { unique: false });
+            obsStore.createIndex('captured_at', 'captured_at', { unique: false });
+            obsStore.createIndex('observation_hash', 'observation_hash', { unique: false });
+          }
+
+          // 6. Opportunity Observations (Append-Only with Outcome Tracking)
+          if (!db.objectStoreNames.contains('opportunity_observations')) {
+            const oppStore = db.createObjectStore('opportunity_observations', { keyPath: 'observation_id' });
+            oppStore.createIndex('opportunity_id', 'opportunity_id', { unique: false });
+            oppStore.createIndex('type_id', 'type_id', { unique: false });
+            oppStore.createIndex('timestamp', 'timestamp', { unique: false });
+          }
+
+          // 7. Daily Raw History ESI Series
+          if (!db.objectStoreNames.contains('market_history_daily')) {
+            const dailyStore = db.createObjectStore('market_history_daily', { keyPath: 'key' });
+            dailyStore.createIndex('type_id', 'type_id', { unique: false });
+            dailyStore.createIndex('region_id', 'region_id', { unique: false });
+          }
+
+          // 8. EVE Online Types Catalog (Full 15,801+ database cache)
+          if (!db.objectStoreNames.contains('eve_types')) {
+            const typesStore = db.createObjectStore('eve_types', { keyPath: 'type_id' });
+            typesStore.createIndex('name', 'name', { unique: false });
+            typesStore.createIndex('group_id', 'group_id', { unique: false });
+            typesStore.createIndex('category_id', 'category_id', { unique: false });
           }
         };
 
@@ -413,6 +460,263 @@ export class IndexedDbStore {
   }
 
   /**
+   * Saves an immutable MarketObservation (Append-Only)
+   */
+  static async saveMarketObservation(obs: MarketObservation): Promise<void> {
+    this.memoryObservations.push(obs);
+    // Keep memory bounded to latest 5000 observations
+    if (this.memoryObservations.length > 5000) {
+      this.memoryObservations.shift();
+    }
+
+    const isReady = await this.init();
+    if (!isReady || !this.db) return;
+
+    return new Promise((resolve) => {
+      try {
+        const tx = this.db!.transaction('market_observations', 'readwrite');
+        const store = tx.objectStore('market_observations');
+        store.put(obs);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      } catch {
+        resolve();
+      }
+    });
+  }
+
+  /**
+   * Retrieves MarketObservations for a specific item and region
+   */
+  static async getMarketObservations(
+    typeId: number,
+    regionId: number,
+    limit: number = 50
+  ): Promise<MarketObservation[]> {
+    const memoryMatches = this.memoryObservations
+      .filter((o) => o.type_id === typeId && o.region_id === regionId)
+      .slice(-limit);
+
+    const isReady = await this.init();
+    if (!isReady || !this.db) return memoryMatches;
+
+    return new Promise((resolve) => {
+      try {
+        const tx = this.db!.transaction('market_observations', 'readonly');
+        const store = tx.objectStore('market_observations');
+        const index = store.index('type_id');
+        const req = index.getAll(typeId);
+
+        req.onsuccess = () => {
+          const results = (req.result as MarketObservation[]) || [];
+          const filtered = results
+            .filter((o) => o.region_id === regionId)
+            .sort((a, b) => new Date(a.captured_at).getTime() - new Date(b.captured_at).getTime())
+            .slice(-limit);
+          resolve(filtered.length > 0 ? filtered : memoryMatches);
+        };
+        req.onerror = () => resolve(memoryMatches);
+      } catch {
+        resolve(memoryMatches);
+      }
+    });
+  }
+
+  /**
+   * Saves an immutable OpportunityObservation (Append-Only)
+   */
+  static async saveOpportunityObservation(opp: OpportunityObservation): Promise<void> {
+    const existingIdx = this.memoryOpportunityObservations.findIndex(
+      (o) => o.observation_id === opp.observation_id
+    );
+    if (existingIdx >= 0) {
+      this.memoryOpportunityObservations[existingIdx] = opp;
+    } else {
+      this.memoryOpportunityObservations.push(opp);
+      if (this.memoryOpportunityObservations.length > 1000) {
+        this.memoryOpportunityObservations.shift();
+      }
+    }
+
+    const isReady = await this.init();
+    if (!isReady || !this.db) return;
+
+    return new Promise((resolve) => {
+      try {
+        const tx = this.db!.transaction('opportunity_observations', 'readwrite');
+        const store = tx.objectStore('opportunity_observations');
+        store.put(opp);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      } catch {
+        resolve();
+      }
+    });
+  }
+
+  /**
+   * Retrieves stored opportunity observations
+   */
+  static async getOpportunityObservations(
+    typeId?: number,
+    limit: number = 100
+  ): Promise<OpportunityObservation[]> {
+    const memoryMatches = typeId
+      ? this.memoryOpportunityObservations.filter((o) => o.type_id === typeId).slice(-limit)
+      : this.memoryOpportunityObservations.slice(-limit);
+
+    const isReady = await this.init();
+    if (!isReady || !this.db) return memoryMatches;
+
+    return new Promise((resolve) => {
+      try {
+        const tx = this.db!.transaction('opportunity_observations', 'readonly');
+        const store = tx.objectStore('opportunity_observations');
+        const req = typeId ? store.index('type_id').getAll(typeId) : store.getAll();
+
+        req.onsuccess = () => {
+          const results = (req.result as OpportunityObservation[]) || [];
+          results.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+          resolve(results.slice(0, limit));
+        };
+        req.onerror = () => resolve(memoryMatches);
+      } catch {
+        resolve(memoryMatches);
+      }
+    });
+  }
+
+  /**
+   * Saves raw daily history from ESI
+   */
+  static async saveDailyHistory(
+    typeId: number,
+    regionId: number,
+    historyList: DailyMarketHistory[]
+  ): Promise<void> {
+    const key = this.getCompositeKey(typeId, regionId);
+    this.memoryDailyHistory.set(key, historyList);
+
+    const isReady = await this.init();
+    if (!isReady || !this.db) return;
+
+    return new Promise((resolve) => {
+      try {
+        const tx = this.db!.transaction('market_history_daily', 'readwrite');
+        const store = tx.objectStore('market_history_daily');
+        store.put({
+          key,
+          type_id: typeId,
+          region_id: regionId,
+          history: historyList,
+          saved_at: new Date().toISOString(),
+        });
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      } catch {
+        resolve();
+      }
+    });
+  }
+
+  /**
+   * Retrieves raw daily history
+   */
+  static async getDailyHistory(typeId: number, regionId: number): Promise<DailyMarketHistory[]> {
+    const key = this.getCompositeKey(typeId, regionId);
+    const inMem = this.memoryDailyHistory.get(key);
+    if (inMem && inMem.length > 0) return inMem;
+
+    const isReady = await this.init();
+    if (!isReady || !this.db) return inMem || [];
+
+    return new Promise((resolve) => {
+      try {
+        const tx = this.db!.transaction('market_history_daily', 'readonly');
+        const store = tx.objectStore('market_history_daily');
+        const req = store.get(key);
+
+        req.onsuccess = () => {
+          const res = req.result;
+          resolve(res?.history || inMem || []);
+        };
+        req.onerror = () => resolve(inMem || []);
+      } catch {
+        resolve(inMem || []);
+      }
+    });
+  }
+
+  /**
+   * Stores EVE online types (bulk)
+   */
+  static async saveEveTypes(types: EveTypeDetail[]): Promise<void> {
+    for (const t of types) {
+      this.memoryTypes.set(t.type_id, t);
+    }
+
+    const isReady = await this.init();
+    if (!isReady || !this.db || types.length === 0) return;
+
+    return new Promise((resolve) => {
+      try {
+        const tx = this.db!.transaction('eve_types', 'readwrite');
+        const store = tx.objectStore('eve_types');
+        for (const t of types) {
+          store.put(t);
+        }
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      } catch {
+        resolve();
+      }
+    });
+  }
+
+  /**
+   * Retrieves all cached EVE types
+   */
+  static async getEveTypes(): Promise<EveTypeDetail[]> {
+    const inMem = Array.from(this.memoryTypes.values());
+    if (inMem.length > 0) return inMem;
+
+    const isReady = await this.init();
+    if (!isReady || !this.db) return inMem;
+
+    return new Promise((resolve) => {
+      try {
+        const tx = this.db!.transaction('eve_types', 'readonly');
+        const store = tx.objectStore('eve_types');
+        const req = store.getAll();
+
+        req.onsuccess = () => {
+          const results = (req.result as EveTypeDetail[]) || [];
+          for (const t of results) {
+            this.memoryTypes.set(t.type_id, t);
+          }
+          resolve(results);
+        };
+        req.onerror = () => resolve(inMem);
+      } catch {
+        resolve(inMem);
+      }
+    });
+  }
+
+  /**
+   * Search cached EVE types
+   */
+  static async searchEveTypes(query: string, limit: number = 25): Promise<EveTypeDetail[]> {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+
+    const all = await this.getEveTypes();
+    return all
+      .filter((t) => t.name.toLowerCase().includes(q) || String(t.type_id) === q)
+      .slice(0, limit);
+  }
+
+  /**
    * Diagnostic statistics on stored datasets
    */
   static async getStorageStats(): Promise<StorageStats> {
@@ -429,6 +733,9 @@ export class IndexedDbStore {
       orders_count: orderCount,
       history_count: this.memoryHistory.size,
       opportunities_count: this.memoryOpportunities.length,
+      observations_count: this.memoryObservations.length,
+      opportunity_observations_count: this.memoryOpportunityObservations.length,
+      types_count: this.memoryTypes.size,
       estimated_bytes: jsonLength,
       db_ready: Boolean(this.db),
       last_persisted_at: this.lastPersistedAt,
@@ -443,6 +750,10 @@ export class IndexedDbStore {
     this.memoryHistory.clear();
     this.memoryOpportunities = [];
     this.memoryHttpCache.clear();
+    this.memoryObservations = [];
+    this.memoryOpportunityObservations = [];
+    this.memoryDailyHistory.clear();
+    this.memoryTypes.clear();
     this.lastPersistedAt = null;
 
     try {
@@ -455,13 +766,26 @@ export class IndexedDbStore {
     return new Promise((resolve) => {
       try {
         const tx = this.db!.transaction(
-          ['snapshots', 'history', 'universe_opportunities', 'http_cache'],
+          [
+            'snapshots',
+            'history',
+            'universe_opportunities',
+            'http_cache',
+            'market_observations',
+            'opportunity_observations',
+            'market_history_daily',
+            'eve_types',
+          ],
           'readwrite'
         );
         tx.objectStore('snapshots').clear();
         tx.objectStore('history').clear();
         tx.objectStore('universe_opportunities').clear();
         tx.objectStore('http_cache').clear();
+        tx.objectStore('market_observations').clear();
+        tx.objectStore('opportunity_observations').clear();
+        tx.objectStore('market_history_daily').clear();
+        tx.objectStore('eve_types').clear();
         tx.oncomplete = () => resolve();
         tx.onerror = () => resolve();
       } catch {

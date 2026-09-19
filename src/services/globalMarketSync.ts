@@ -199,8 +199,24 @@ export class GlobalMarketSyncService {
       ? TraderAnalyticsService.getCachedMetrics(options.character_id)
       : null;
 
-    // 1. Build Item List to sync
-    let targetItems: EveTypeDetail[] = [...EVE_TYPES_CATALOG, ...customItems];
+    // 1. Build Item List to sync: combine standard catalog, IndexedDB types, and custom items
+    let knownTypes: EveTypeDetail[] = [];
+    try {
+      const dbTypes = await IndexedDbStore.getEveTypes();
+      if (dbTypes && dbTypes.length > 0) {
+        knownTypes = dbTypes as EveTypeDetail[];
+      } else {
+        const fetched = await EsiService.fetchAllMarketTypes();
+        if (fetched && fetched.length > 0) {
+          knownTypes = fetched as EveTypeDetail[];
+          IndexedDbStore.saveEveTypes(fetched).catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.warn('Could not load known types for global sync:', e);
+    }
+
+    let targetItems: EveTypeDetail[] = [...EVE_TYPES_CATALOG, ...knownTypes, ...customItems];
 
     // Deduplicate
     const itemMap = new Map<number, EveTypeDetail>();

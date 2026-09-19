@@ -6,6 +6,7 @@ import {
 } from '../data/universe';
 import { EveTypeDetail } from '../types';
 import { EsiService } from '../services/esi';
+import { IndexedDbStore } from '../services/indexedDbStore';
 import { fmtIsk } from '../engine/money';
 import {
   ChevronRight,
@@ -54,15 +55,24 @@ export const MarketTree: React.FC<MarketTreeProps> = ({
   const [allMarketCatalog, setAllMarketCatalog] = useState<EveTypeDetail[]>([]);
   const [isLoadingAllTypes, setIsLoadingAllTypes] = useState(false);
 
-  // Fetch complete 15,801 market types DB on mount
+  // Fetch and hydrate market types with persistent IndexedDB caching
   useEffect(() => {
     let active = true;
     const loadTypes = async () => {
       setIsLoadingAllTypes(true);
       try {
+        // 1. Instant local load from IndexedDB
+        const cached = await IndexedDbStore.getEveTypes();
+        if (active && cached && cached.length > 0) {
+          setAllMarketCatalog(cached as EveTypeDetail[]);
+        }
+
+        // 2. Refresh from server/ESI
         const types = await EsiService.fetchAllMarketTypes();
         if (active && types && types.length > 0) {
           setAllMarketCatalog(types as EveTypeDetail[]);
+          // Persist to IndexedDB
+          await IndexedDbStore.saveEveTypes(types);
         }
       } catch (err) {
         console.warn('Could not load all market types:', err);
@@ -71,7 +81,9 @@ export const MarketTree: React.FC<MarketTreeProps> = ({
       }
     };
     loadTypes();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Combined catalog (EVE_TYPES_CATALOG + all 15,801 types + custom user types)

@@ -13,6 +13,7 @@ import {
   Zap,
   ShieldCheck,
   Award,
+  Sparkles,
 } from 'lucide-react';
 
 interface OpportunityModalProps {
@@ -388,6 +389,103 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Predictive Machine Learning & Market Dynamics */}
+          {opportunity.prediction && (
+            <div className="bg-[#0e1117] p-4 rounded-lg border border-purple-500/30">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-bold text-[#fafafa] text-sm flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-purple-400" />
+                  Modélisation Prédictive &amp; Dynamique de Marché
+                </h3>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded font-mono font-bold uppercase ${
+                      opportunity.prediction.risk_level === 'low'
+                        ? 'bg-green-500/20 text-green-300'
+                        : opportunity.prediction.risk_level === 'moderate'
+                        ? 'bg-blue-500/20 text-blue-300'
+                        : opportunity.prediction.risk_level === 'elevated'
+                        ? 'bg-amber-500/20 text-amber-300'
+                        : 'bg-red-500/20 text-red-300'
+                    }`}
+                  >
+                    Risque : {opportunity.prediction.risk_level}
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-mono font-bold">
+                    Confiance : {(opportunity.prediction.prediction_confidence * 100).toFixed(0)}%
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs mb-3 font-mono">
+                <div className="p-2.5 bg-[#161821] rounded border border-[#262730]">
+                  <div className="text-[#808495] text-[10px]">Survie du Spread</div>
+                  <div className="text-base font-bold text-emerald-400">
+                    {(opportunity.prediction.survival_probability * 100).toFixed(0)}%
+                  </div>
+                  <div className="text-[9px] text-[#808495]">Maintien de rentabilité</div>
+                </div>
+
+                <div className="p-2.5 bg-[#161821] rounded border border-[#262730]">
+                  <div className="text-[#808495] text-[10px]">Réalisation du Profit</div>
+                  <div className="text-base font-bold text-purple-300">
+                    {(opportunity.prediction.profit_realization_probability * 100).toFixed(0)}%
+                  </div>
+                  <div className="text-[9px] text-[#808495]">{fmtIsk(opportunity.prediction.expected_realized_profit)} espéré</div>
+                </div>
+
+                <div className="p-2.5 bg-[#161821] rounded border border-[#262730]">
+                  <div className="text-[#808495] text-[10px]">Momentum Spread (1h)</div>
+                  <div
+                    className={`text-base font-bold ${
+                      (opportunity.features?.spread_momentum_1h ?? 0) >= 0 ? 'text-green-400' : 'text-rose-400'
+                    }`}
+                  >
+                    {(opportunity.features?.spread_momentum_1h ?? 0) >= 0 ? '+' : ''}
+                    {(opportunity.features?.spread_momentum_1h ?? 0).toFixed(1)}%
+                  </div>
+                  <div className="text-[9px] text-[#808495]">Dynamique court terme</div>
+                </div>
+
+                <div className="p-2.5 bg-[#161821] rounded border border-[#262730]">
+                  <div className="text-[#808495] text-[10px]">Vitesse Concurrence</div>
+                  <div className="text-base font-bold text-amber-300">
+                    {(opportunity.features?.competition_velocity_orders ?? 0).toFixed(1)}
+                  </div>
+                  <div className="text-[9px] text-[#808495]">Nouveaux ordres / h</div>
+                </div>
+              </div>
+
+              {((opportunity.prediction.key_drivers && opportunity.prediction.key_drivers.length > 0) ||
+                (opportunity.prediction.limiting_factors && opportunity.prediction.limiting_factors.length > 0)) && (
+                <div className="space-y-1.5 text-[11px] bg-[#161821] p-2.5 rounded border border-[#262730]">
+                  {opportunity.prediction.key_drivers && opportunity.prediction.key_drivers.length > 0 && (
+                    <div>
+                      <span className="text-[10px] text-green-400 font-bold block mb-1">Moteurs favorables :</span>
+                      {opportunity.prediction.key_drivers.map((driver: string, idx: number) => (
+                        <div key={idx} className="flex items-center gap-1.5 text-xs text-[#d1d5db]">
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0" />
+                          <span>{driver}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {opportunity.prediction.limiting_factors && opportunity.prediction.limiting_factors.length > 0 && (
+                    <div className="mt-2">
+                      <span className="text-[10px] text-amber-400 font-bold block mb-1">Facteurs de vigilance :</span>
+                      {opportunity.prediction.limiting_factors.map((factor: string, idx: number) => (
+                        <div key={idx} className="flex items-center gap-1.5 text-xs text-[#d1d5db]">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
+                          <span>{factor}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Data Quality & Provenance Traceability */}
           {opportunity.data_quality && (

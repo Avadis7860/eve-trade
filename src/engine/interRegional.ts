@@ -18,6 +18,8 @@ import { FeeEngine } from './fee';
 import { ProfitEngine } from './profit';
 import { PriceLadder } from './ladder';
 import { OpportunityScoringEngine } from './scoring';
+import { MarketFeatureEngine } from './features';
+import { PredictionEngine } from './prediction';
 import { roundIsk, safeDiv } from './money';
 import { getJumpRoute, EVE_GROUPS, EVE_CATEGORIES } from '../data/universe';
 
@@ -738,7 +740,9 @@ export class InterRegionalFinancialEngine {
       destHistory,
       route.jumps,
       route.is_highsec_only,
-      config
+      config,
+      buyFill.effective_price,
+      actualQuantity
     );
 
     // Overall Data Quality Confidence
@@ -777,6 +781,32 @@ export class InterRegionalFinancialEngine {
     const group = EVE_GROUPS.find((g) => g.group_id === item.group_id);
     const category = EVE_CATEGORIES.find((c) => c.category_id === item.category_id);
 
+    const isAnomalous = hardRejection.is_anomalous || scoringEvaluation.isAnomalous;
+    const spreadPctVal = bestSourceSellPrice > 0 ? (bestDestSellTargetPrice - bestSourceSellPrice) / bestSourceSellPrice : 0;
+
+    // Deterministic feature engineering & predictive forecast
+    const features = MarketFeatureEngine.extractFeatures(
+      [],
+      destHistory,
+      spreadPctVal * 100,
+      relistContext?.orders_ahead || 0
+    );
+
+    const prediction = PredictionEngine.forecast({
+      strategy,
+      costs,
+      capturableProfit: scoringEvaluation.capturableProfit,
+      expectedDaysToSell,
+      liquidity: liquidityMetrics,
+      features,
+      history: destHistory,
+      dataConfidence: overallConfidence,
+      isJitaVerified: jitaBenchmark.is_jita_verified,
+      routeJumps: route.jumps,
+      isHighSecOnly: route.is_highsec_only,
+      isAnomalous,
+    });
+
     return {
       id: `${item.type_id}_${buyHub.id}_${sellHub.id}_${strategy}`,
       type_id: item.type_id,
@@ -796,7 +826,7 @@ export class InterRegionalFinancialEngine {
       effective_sell_price: sellFill.effective_price,
       top_of_book_buy_price: buyFill.top_of_book_price || bestSourceSellPrice,
       top_of_book_sell_price: sellFill.top_of_book_price || bestDestSellTargetPrice,
-      spread_pct: bestSourceSellPrice > 0 ? (bestDestSellTargetPrice - bestSourceSellPrice) / bestSourceSellPrice : 0,
+      spread_pct: spreadPctVal,
       quantity_tradable: actualQuantity,
       bottleneck: tradableDetails.bottleneck,
       total_cargo_volume: tradableDetails.totalCargoVolume,
@@ -810,7 +840,9 @@ export class InterRegionalFinancialEngine {
       jita_price_benchmark: jitaBenchmark,
       relist_context: relistContext,
       explanation,
-      is_anomalous: hardRejection.is_anomalous || scoringEvaluation.isAnomalous,
+      prediction,
+      features,
+      is_anomalous: isAnomalous,
       anomaly_reasons: Array.from(new Set([...hardRejection.anomaly_reasons, ...scoringEvaluation.anomalyReasons])),
       rejection_reasons: Array.from(new Set([...hardRejection.rejection_reasons, ...scoringEvaluation.rejectionReasons])),
       is_viable: hardRejection.is_viable && scoringEvaluation.isViable,

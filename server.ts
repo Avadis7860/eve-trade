@@ -659,8 +659,8 @@ async function startServer() {
     res.json(loadedMarketTypes);
   });
 
-  // 10. Fast search across all 15,801 types
-  app.get('/api/types/search', (req, res) => {
+  // 10. Fast search across market types with live ESI fallback
+  app.get('/api/types/search', async (req, res) => {
     const query = ((req.query.q as string) || '').trim().toLowerCase();
     const limit = Math.min(Number(req.query.limit) || 100, 500);
 
@@ -680,6 +680,55 @@ async function startServer() {
       if (t.name.toLowerCase().includes(query) || String(t.type_id) === query) {
         results.push(t);
         if (results.length >= limit) break;
+      }
+    }
+
+    // Dynamic ESI universe resolution if local results are few and query length >= 3
+    if (results.length < 5 && query.length >= 3) {
+      try {
+        const esiRes = await fetch('https://esi.evetech.net/latest/universe/ids/?datasource=tranquility&language=en', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'User-Agent': 'eve-trade-interregional/0.2 (+https://github.com/avadis/eve-trade)',
+          },
+          body: JSON.stringify([query]),
+        });
+
+        if (esiRes.ok) {
+          const idData = await esiRes.json();
+          if (idData.inventory_types && Array.isArray(idData.inventory_types)) {
+            for (const item of idData.inventory_types) {
+              if (!results.some((r) => r.type_id === item.id)) {
+                try {
+                  const typeRes = await fetch(
+                    `https://esi.evetech.net/latest/universe/types/${item.id}/?datasource=tranquility&language=en`,
+                    { headers: { 'User-Agent': 'eve-trade-interregional/0.2' } }
+                  );
+                  if (typeRes.ok) {
+                    const tData = await typeRes.json();
+                    if (tData.published) {
+                      const newType = {
+                        type_id: tData.type_id,
+                        name: tData.name,
+                        group_id: tData.group_id,
+                        category_id: 0,
+                        volume: tData.volume || 1.0,
+                        average_price: 0,
+                        adjusted_price: 0,
+                      };
+                      results.push(newType);
+                      loadedMarketTypes.push(newType);
+                    }
+                  }
+                } catch {}
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('ESI universe/ids dynamic resolution error:', err);
       }
     }
 

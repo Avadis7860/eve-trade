@@ -436,6 +436,10 @@ export interface InterRegionalOpportunity {
   // Complete Audit & Explicability Rationale
   explanation?: OpportunityExplanation;
 
+  // Statistical Prediction & Dynamic Feature Engineering
+  prediction?: PredictionForecast;
+  features?: MarketFeatureVector;
+
   detected_at: string;
 }
 
@@ -864,5 +868,107 @@ export interface PersonalCalibrationFit {
   badge_type: 'expert' | 'profitable' | 'caution' | 'new';
   summary: string;
 }
+
+// ==========================================
+// OBSERVATION STORE & PREDICTION ENGINE TYPES
+// ==========================================
+
+export interface MarketObservation {
+  observation_id: string;
+  observation_hash: string;
+  type_id: number;
+  region_id: number;
+  captured_at: string;
+  source: 'esi_market_orders' | 'esi_market_history';
+  best_buy_price?: number;
+  best_sell_price?: number;
+  weighted_buy_price?: number;
+  weighted_sell_price?: number;
+  buy_volume_visible?: number;
+  sell_volume_visible?: number;
+  spread_absolute?: number;
+  spread_pct?: number;
+  order_count_buy?: number;
+  order_count_sell?: number;
+  market_history_volume?: number;
+  market_history_average_price?: number;
+  data_age_seconds: number;
+  esi_pages_fetched?: number;
+  esi_pages_expected?: number;
+  confidence: number;
+}
+
+export interface OpportunityOutcomeSnapshot {
+  horizon: '1h' | '6h' | '24h' | '3d' | '7d';
+  recorded_at: string;
+  still_active: boolean;
+  current_spread_pct: number;
+  spread_decay_pct: number;
+  current_buy_price: number;
+  current_sell_price: number;
+  price_change_source_pct: number;
+  price_change_dest_pct: number;
+  realized_net_profit?: number;
+  actual_hold_days?: number;
+  prediction_error_pct?: number;
+}
+
+export interface OpportunityObservation {
+  observation_id: string;
+  opportunity_id: string;
+  timestamp: string;
+  type_id: number;
+  type_name: string;
+  source_region_id: number;
+  dest_region_id: number;
+  source_hub_id: string;
+  dest_hub_id: string;
+  strategy: TradeStrategy;
+  buy_price: number;
+  sell_price: number;
+  quantity: number;
+  net_profit: number;
+  roi: number;
+  expected_days_to_sell: number;
+  capturable_profit: number;
+  profit_per_day: number;
+  overall_score: number;
+  liquidity_score: number;
+  stability_score: number;
+  data_confidence: number;
+  is_anomalous: boolean;
+  anomaly_reasons?: string[];
+  bottleneck: string;
+  
+  // Future outcome tracking
+  outcomes?: Record<string, OpportunityOutcomeSnapshot>; // '1h' | '6h' | '24h' | '3d' | '7d'
+  realized?: boolean;
+  realized_profit?: number;
+  actual_hold_days?: number;
+  prediction_error_pct?: number;
+}
+
+export interface MarketFeatureVector {
+  spread_momentum_1h: number;        // Rate of change of spread over 1h (negative = compressing)
+  spread_momentum_24h: number;       // Rate of change of spread over 24h
+  volume_acceleration_7d_30d: number; // Ratio 7d volume / 30d baseline (> 1.0 = accelerating)
+  competition_velocity_orders: number;// Change in orders ahead per hour
+  depth_velocity_volume: number;      // Change in visible volume at top of book
+  spread_persistence_ratio: number;  // Fraction of time window spread remained positive (0.0 to 1.0)
+  volatility_zscore: number;         // Price deviation in standard deviations from median
+  observations_count: number;        // Number of immutable observations used
+}
+
+export interface PredictionForecast {
+  survival_probability: number;          // 0 to 100% (probability spread remains profitable during expectedDaysToSell)
+  profit_realization_probability: number;// 0 to 100% (probability trader captures projected net profit)
+  expected_realized_profit: number;      // ISK: capturable_profit * profit_realization_probability
+  prediction_confidence: number;         // 0 to 100% (statistical certitude based on history depth & observation consistency)
+  risk_level: 'low' | 'moderate' | 'elevated' | 'speculative';
+  estimated_turnover_hours: number;
+  key_drivers: string[];
+  limiting_factors: string[];
+}
+
 
 

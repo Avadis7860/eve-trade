@@ -1,10 +1,39 @@
-import { RawMarketOrder, DailyMarketHistory, HistoricalStats } from '../types';
+import {
+  RawMarketOrder,
+  DailyMarketHistory,
+  HistoricalStats,
+  EveCharacterTransaction,
+  EveCharacterOrderHistory,
+  EveCharacterJournalEntry,
+} from '../types';
+import { KNOWN_STATION_NAMES } from '../data/universe';
+import { AuthService } from './authService';
 
 export class EsiService {
   private static BASE_URL = 'https://esi.evetech.net/latest';
+  private static locationNameCache = new Map<number, string>();
+  private static deduplicatedOrderStore = new Map<number, RawMarketOrder>();
+
+  /**
+   * Returns current statistics of the deduplicated Order Database
+   */
+  static getOrderDatabaseStats() {
+    return {
+      total_orders_cached: this.deduplicatedOrderStore.size,
+      cached_locations: this.locationNameCache.size,
+    };
+  }
+
+  /**
+   * Clears the order database cache
+   */
+  static clearOrderDatabase() {
+    this.deduplicatedOrderStore.clear();
+  }
 
   /**
    * Fetches active market orders for a given region and type from EVE ESI.
+   * Guarantees strict deduplication on CCP order_id!
    */
   static async fetchLiveOrders(regionId: number, typeId: number): Promise<RawMarketOrder[]> {
     const url = `${this.BASE_URL}/markets/${regionId}/orders/?datasource=tranquility&order_type=all&type_id=${typeId}`;
@@ -41,22 +70,33 @@ export class EsiService {
       }> = await response.json();
       
       const now = new Date().toISOString();
+      const resultOrders: RawMarketOrder[] = [];
 
-      return orders.map((o) => ({
-        order_id: o.order_id,
-        type_id: o.type_id || typeId,
-        region_id: regionId,
-        system_id: o.system_id,
-        location_id: o.location_id,
-        price: o.price,
-        volume_remain: o.volume_remain,
-        volume_total: o.volume_total,
-        is_buy_order: o.is_buy_order,
-        order_range: o.range,
-        issued: o.issued,
-        duration: o.duration,
-        captured_at: now,
-      }));
+      for (const o of orders) {
+        if (!o.order_id || o.price <= 0 || o.volume_remain <= 0) continue;
+
+        const standardized: RawMarketOrder = {
+          order_id: o.order_id,
+          type_id: o.type_id || typeId,
+          region_id: regionId,
+          system_id: o.system_id,
+          location_id: o.location_id,
+          price: o.price,
+          volume_remain: o.volume_remain,
+          volume_total: o.volume_total,
+          is_buy_order: o.is_buy_order,
+          order_range: o.range,
+          issued: o.issued,
+          duration: o.duration,
+          captured_at: now,
+        };
+
+        // Strict CCP order_id deduplication into the master database
+        this.deduplicatedOrderStore.set(o.order_id, standardized);
+        resultOrders.push(standardized);
+      }
+
+      return resultOrders;
     } catch (err: unknown) {
       clearTimeout(timeoutId);
       throw err;
@@ -175,77 +215,284 @@ export class EsiService {
   }
 
   /**
+   * Helper to perform authenticated requests with automatic token refresh on 401
+   */
+  private static async executeWithAuthRefresh<T>(
+    characterId: number,
+    initialToken: string,
+    requestFn: (token: string) => Promise<{ ok: boolean; status: number; data?: T }>
+  ): Promise<T | null> {
+    let token = initialToken;
+    try {
+      const res1 = await requestFn(token);
+      if (res1.ok && res1.data !== undefined) {
+        return res1.data;
+      }
+
+      // If 401 Unauthorized, try refreshing token immediately
+      if (res1.status === 401) {
+        const freshToken = await AuthService.getFreshToken(characterId);
+        if (freshToken && freshToken !== token) {
+          token = freshToken;
+          const res2 = await requestFn(token);
+          if (res2.ok && res2.data !== undefined) {
+            return res2.data;
+          }
+        }
+        AuthService.markTokenExpired(characterId, 'Session SSO expirée ou révoquée (401)');
+      }
+      return null;
+    } catch (err) {
+      console.warn(`Auth request error for character #${characterId}:`, err);
+      return null;
+    }
+  }
+
+  /**
    * Fetches active character orders using the character's OAuth token
    */
   static async fetchCharacterOrders(characterId: number, accessToken: string) {
-    try {
-      const response = await fetch(`/api/character/${characterId}/orders`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
-      });
-      if (!response.ok) {
-        // Try direct ESI fallback if proxy not reachable
-        const directRes = await fetch(`${this.BASE_URL}/characters/${characterId}/orders/?datasource=tranquility`, {
-          headers: { 'Authorization': `Bearer ${accessToken}` },
+    const result = await this.executeWithAuthRefresh<any[]>(characterId, accessToken, async (token) => {
+      // 1. Try server proxy
+      try {
+        const response = await fetch(`/api/character/${characterId}/orders`, {
+          headers: { 'Authorization': `Bearer ${token}` },
         });
-        if (!directRes.ok) throw new Error(`Orders fetch failed (${directRes.status})`);
-        return await directRes.json();
+        if (response.ok) {
+          const data = await response.json();
+          return { ok: true, status: response.status, data };
+        }
+        if (response.status === 401) {
+          return { ok: false, status: 401 };
+        }
+      } catch {}
+
+      // 2. Direct ESI fallback
+      try {
+        const directRes = await fetch(`${this.BASE_URL}/characters/${characterId}/orders/?datasource=tranquility`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (directRes.ok) {
+          const data = await directRes.json();
+          return { ok: true, status: directRes.status, data };
+        }
+        return { ok: false, status: directRes.status };
+      } catch {
+        return { ok: false, status: 500 };
       }
-      return await response.json();
-    } catch (err) {
-      console.error('Failed to fetch character orders:', err);
-      throw err;
-    }
+    });
+
+    return result || [];
   }
 
   /**
    * Fetches character wallet balance
    */
   static async fetchCharacterWallet(characterId: number, accessToken: string): Promise<number | null> {
-    try {
-      const response = await fetch(`/api/character/${characterId}/wallet`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        return data.balance;
+    return await this.executeWithAuthRefresh<number>(characterId, accessToken, async (token) => {
+      try {
+        const response = await fetch(`/api/character/${characterId}/wallet`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          return { ok: true, status: response.status, data: data.balance };
+        }
+        if (response.status === 401) return { ok: false, status: 401 };
+      } catch {}
+
+      try {
+        const directRes = await fetch(`${this.BASE_URL}/characters/${characterId}/wallet/?datasource=tranquility`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (directRes.ok) {
+          const balance = await directRes.json();
+          return { ok: true, status: directRes.status, data: balance };
+        }
+        return { ok: false, status: directRes.status };
+      } catch {
+        return { ok: false, status: 500 };
       }
-      const directRes = await fetch(`${this.BASE_URL}/characters/${characterId}/wallet/?datasource=tranquility`, {
-        headers: { 'Authorization': `Bearer ${accessToken}` },
-      });
-      if (directRes.ok) {
-        return await directRes.json();
+    });
+  }
+
+  /**
+   * Fetches character wallet transactions (real buy/sell market history)
+   */
+  static async fetchCharacterTransactions(characterId: number, accessToken: string): Promise<EveCharacterTransaction[]> {
+    const result = await this.executeWithAuthRefresh<EveCharacterTransaction[]>(characterId, accessToken, async (token) => {
+      try {
+        const response = await fetch(`/api/character/${characterId}/transactions`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          return { ok: true, status: response.status, data };
+        }
+        if (response.status === 401) return { ok: false, status: 401 };
+      } catch {}
+
+      try {
+        const directRes = await fetch(`${this.BASE_URL}/characters/${characterId}/wallet/transactions/?datasource=tranquility`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (directRes.ok) {
+          const data = await directRes.json();
+          return { ok: true, status: directRes.status, data };
+        }
+        return { ok: false, status: directRes.status };
+      } catch {
+        return { ok: false, status: 500 };
       }
-      return null;
-    } catch {
-      return null;
+    });
+
+    return result || [];
+  }
+
+  /**
+   * Fetches past closed/fulfilled/cancelled character orders (order history)
+   */
+  static async fetchCharacterOrderHistory(
+    characterId: number,
+    accessToken: string,
+    page: number = 1
+  ): Promise<EveCharacterOrderHistory[]> {
+    const result = await this.executeWithAuthRefresh<EveCharacterOrderHistory[]>(characterId, accessToken, async (token) => {
+      try {
+        const response = await fetch(`/api/character/${characterId}/orders/history?page=${page}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          return { ok: true, status: response.status, data };
+        }
+        if (response.status === 401) return { ok: false, status: 401 };
+      } catch {}
+
+      try {
+        const directRes = await fetch(
+          `${this.BASE_URL}/characters/${characterId}/orders/history/?datasource=tranquility&page=${page}`,
+          { headers: { 'Authorization': `Bearer ${token}` } }
+        );
+        if (directRes.ok) {
+          const data = await directRes.json();
+          return { ok: true, status: directRes.status, data };
+        }
+        return { ok: false, status: directRes.status };
+      } catch {
+        return { ok: false, status: 500 };
+      }
+    });
+
+    return result || [];
+  }
+
+  /**
+   * Fetches character wallet journal (taxes, fees, transfers, broker fees)
+   */
+  static async fetchCharacterJournal(characterId: number, accessToken: string) {
+    const result = await this.executeWithAuthRefresh<any[]>(characterId, accessToken, async (token) => {
+      try {
+        const response = await fetch(`/api/character/${characterId}/journal`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          return { ok: true, status: response.status, data };
+        }
+        if (response.status === 401) return { ok: false, status: 401 };
+      } catch {}
+
+      try {
+        const directRes = await fetch(`${this.BASE_URL}/characters/${characterId}/wallet/journal/?datasource=tranquility`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (directRes.ok) {
+          const data = await directRes.json();
+          return { ok: true, status: directRes.status, data };
+        }
+        return { ok: false, status: directRes.status };
+      } catch {
+        return { ok: false, status: 500 };
+      }
+    });
+
+    return result || [];
+  }
+
+  /**
+   * Resolves any New Eden station or structure ID to a clean name
+   */
+  static async resolveLocationName(locationId: number, accessToken?: string): Promise<string> {
+    if (this.locationNameCache.has(locationId)) {
+      return this.locationNameCache.get(locationId)!;
     }
+
+    // Check universe static dictionary
+    if (KNOWN_STATION_NAMES[locationId]) {
+      const name = KNOWN_STATION_NAMES[locationId];
+      this.locationNameCache.set(locationId, name);
+      return name;
+    }
+
+    try {
+      const headers: Record<string, string> = {};
+      if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
+
+      const res = await fetch(`/api/universe/location/${locationId}`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.name) {
+          this.locationNameCache.set(locationId, data.name);
+          return data.name;
+        }
+      }
+    } catch {}
+
+    const fallback = `Station #${locationId}`;
+    this.locationNameCache.set(locationId, fallback);
+    return fallback;
   }
 
   /**
    * Fetches character trading skills (Accounting, Broker Relations)
    */
   static async fetchCharacterSkills(characterId: number, accessToken: string) {
-    try {
-      const response = await fetch(`/api/character/${characterId}/skills`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
-      });
-      if (!response.ok) return null;
-      const data = await response.json();
-      const skills = data.skills || [];
-      // Skill 3443 = Accounting (reduces sales tax by 11% per level from base 8% to 3.6%)
-      // Skill 3444 = Broker Relations (reduces broker fee by 0.3% per level from base 3.0%)
-      const accounting = skills.find((s: { skill_id: number }) => s.skill_id === 3443)?.active_skill_level ?? 0;
-      const brokerRel = skills.find((s: { skill_id: number }) => s.skill_id === 3444)?.active_skill_level ?? 0;
-      return { accounting, broker_relations: brokerRel };
-    } catch {
-      return null;
-    }
+    return await this.executeWithAuthRefresh<{ accounting: number; broker_relations: number }>(
+      characterId,
+      accessToken,
+      async (token) => {
+        try {
+          const response = await fetch(`/api/character/${characterId}/skills`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+          });
+          if (response.ok) {
+            const data = await response.json();
+            const skills = data.skills || [];
+            const accounting = skills.find((s: { skill_id: number }) => s.skill_id === 3443)?.active_skill_level ?? 0;
+            const brokerRel = skills.find((s: { skill_id: number }) => s.skill_id === 3444)?.active_skill_level ?? 0;
+            return { ok: true, status: response.status, data: { accounting, broker_relations: brokerRel } };
+          }
+          if (response.status === 401) return { ok: false, status: 401 };
+        } catch {}
+
+        try {
+          const directRes = await fetch(`${this.BASE_URL}/characters/${characterId}/skills/?datasource=tranquility`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+          });
+          if (directRes.ok) {
+            const data = await directRes.json();
+            const skills = data.skills || [];
+            const accounting = skills.find((s: { skill_id: number }) => s.skill_id === 3443)?.active_skill_level ?? 0;
+            const brokerRel = skills.find((s: { skill_id: number }) => s.skill_id === 3444)?.active_skill_level ?? 0;
+            return { ok: true, status: directRes.status, data: { accounting, broker_relations: brokerRel } };
+          }
+          return { ok: false, status: directRes.status };
+        } catch {
+          return { ok: false, status: 500 };
+        }
+      }
+    );
   }
 
   /**

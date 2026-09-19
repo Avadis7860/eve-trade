@@ -6,6 +6,7 @@ import {
   TradeCostBreakdown,
   JumpRoute,
 } from '../types';
+import { FeeCalculator } from './fee';
 
 export class InterRegionalFinancialEngine {
   /**
@@ -51,7 +52,8 @@ export class InterRegionalFinancialEngine {
    *      Buy Broker Fee = 0.
    *
    * 2. Transport Logistics:
-   *    - Volumetric cost (m³ * ISK/m³) + jump cost.
+   *    - If enable_transport_costs is false or rates are 0, transport cost is strictly 0.00 ISK.
+   *    - Otherwise, volumetric cost (m³ * ISK/m³) + jump cost.
    *    - Total acquisition cost = Purchase Cost + Buy Broker Fee + Transport Cost.
    *
    * 3. Revenue & Exit Phase (Destination Hub):
@@ -80,11 +82,14 @@ export class InterRegionalFinancialEngine {
     // If explicitly configured as Maker buy, then broker_fee applies.
     const buyBrokerFee = isBuyMaker ? purchaseCost * config.broker_fee : 0.0;
 
-    // Transport logistics
+    // Transport logistics: strictly 0 if disabled or rates are 0
     const totalCargoVolume = q * unitVolume;
-    const transportCost =
-      totalCargoVolume * config.transport_cost_per_m3 +
-      route.jumps * config.transport_cost_per_jump;
+    const transportCost = FeeCalculator.calculateTransportCost(
+      config,
+      totalCargoVolume,
+      route.jumps,
+      purchaseCost
+    );
 
     const totalAcquisitionCost = purchaseCost + buyBrokerFee + transportCost;
 
@@ -140,9 +145,13 @@ export class InterRegionalFinancialEngine {
     bottleneck: 'capital' | 'cargo' | 'source_market' | 'destination_market';
     totalCargoVolume: number;
   } {
-    // 1. Capital constraint (taking into account unit cost + volumetric freight)
+    // 1. Capital constraint (taking into account unit cost + volumetric freight if enabled)
     const maxCapitalToUse = Math.min(config.available_capital, config.max_capital_per_trade);
-    const unitEstCost = unitBuyPrice + unitVolume * config.transport_cost_per_m3;
+    const transportPerUnit =
+      config.enable_transport_costs !== false
+        ? (unitVolume * (config.transport_cost_per_m3 || 0))
+        : 0;
+    const unitEstCost = unitBuyPrice + transportPerUnit;
     const capitalQuantity = unitEstCost > 0 ? Math.floor(maxCapitalToUse / unitEstCost) : 0;
 
     // 2. Cargo constraint

@@ -1,10 +1,26 @@
 import React, { useState } from 'react';
 import { MarketHub, FinancialConfig, TradeStrategy } from '../types';
-import { Save, RefreshCw, Sliders, ShieldCheck, MapPin, Truck } from 'lucide-react';
+import { FeeCalculator } from '../engine/fee';
+import { EsiService } from '../services/esi';
+import {
+  Save,
+  Sliders,
+  ShieldCheck,
+  MapPin,
+  Truck,
+  GraduationCap,
+  Database,
+  Trash2,
+  CheckSquare,
+  Square,
+  Sparkles,
+  Info,
+} from 'lucide-react';
 
 interface ConfigurationPanelProps {
   hubs: MarketHub[];
   onToggleHub: (hubId: string) => void;
+  onSetHubsActive?: (activeIds: string[]) => void;
   config: FinancialConfig;
   onUpdateConfig: (newConfig: FinancialConfig) => void;
   strategy: TradeStrategy;
@@ -14,191 +30,475 @@ interface ConfigurationPanelProps {
 export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
   hubs,
   onToggleHub,
+  onSetHubsActive,
   config,
   onUpdateConfig,
   strategy,
   onChangeStrategy,
 }) => {
-  const [form, setForm] = useState<FinancialConfig>(config);
+  const [form, setForm] = useState<FinancialConfig>({
+    ...config,
+    enable_transport_costs: config.enable_transport_costs ?? false,
+    accounting_level: config.accounting_level ?? 5,
+    broker_relations_level: config.broker_relations_level ?? 5,
+    faction_standing: config.faction_standing ?? 0,
+    corp_standing: config.corp_standing ?? 0,
+  });
   const [saved, setSaved] = useState(false);
+  const [cacheStats, setCacheStats] = useState(() => EsiService.getOrderDatabaseStats());
 
   const handleSave = () => {
     onUpdateConfig(form);
     setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setTimeout(() => setSaved(false), 2500);
+  };
+
+  // Skill based auto recalculation
+  const updateSkills = (accounting: number, brokerRelations: number, faction: number = 0, corp: number = 0) => {
+    const newSalesTax = FeeCalculator.calculateSalesTaxRate(accounting);
+    const newBrokerFee = FeeCalculator.calculateNpcBrokerFeeRate(brokerRelations, faction, corp);
+    setForm((prev) => ({
+      ...prev,
+      accounting_level: accounting,
+      broker_relations_level: brokerRelations,
+      faction_standing: faction,
+      corp_standing: corp,
+      sales_tax: parseFloat(newSalesTax.toFixed(4)),
+      broker_fee: parseFloat(newBrokerFee.toFixed(4)),
+    }));
+  };
+
+  // Transport preset helpers
+  const applyTransportPreset = (type: 'zero' | 'standard' | 'redfrog') => {
+    if (type === 'zero') {
+      setForm((prev) => ({
+        ...prev,
+        enable_transport_costs: false,
+        transport_cost_per_m3: 0,
+        transport_cost_per_jump: 0,
+        collateral_fee_pct: 0,
+      }));
+    } else if (type === 'standard') {
+      setForm((prev) => ({
+        ...prev,
+        enable_transport_costs: true,
+        transport_cost_per_m3: 15,
+        transport_cost_per_jump: 200000,
+        collateral_fee_pct: 0.01,
+      }));
+    } else if (type === 'redfrog') {
+      setForm((prev) => ({
+        ...prev,
+        enable_transport_costs: true,
+        transport_cost_per_m3: 45,
+        transport_cost_per_jump: 500000,
+        collateral_fee_pct: 0.015,
+      }));
+    }
+  };
+
+  // Hub filter presets
+  const handleHubPreset = (preset: 'top5' | 'top12' | 'all' | 'none') => {
+    if (!onSetHubsActive) return;
+    if (preset === 'top5') {
+      onSetHubsActive(['jita', 'amarr', 'dodixie', 'rens', 'hek']);
+    } else if (preset === 'top12') {
+      onSetHubsActive([
+        'jita', 'amarr', 'dodixie', 'rens', 'hek',
+        'tash_murkon', 'agil', 'stacmon', 'oursulaert', 'villore', 'nonni', 'ashab'
+      ]);
+    } else if (preset === 'all') {
+      onSetHubsActive(hubs.map((h) => h.id));
+    } else if (preset === 'none') {
+      onSetHubsActive(['jita']); // Keep at least Jita anchor
+    }
+  };
+
+  const handleClearCache = () => {
+    EsiService.clearOrderDatabase();
+    setCacheStats(EsiService.getOrderDatabaseStats());
   };
 
   return (
     <div className="bg-[#161821] border border-[#262730] rounded-xl p-5 text-xs text-[#fafafa] space-y-6">
-      <div className="flex items-center justify-between border-b border-[#262730] pb-3">
-        <h2 className="text-sm font-bold flex items-center gap-2">
-          <Sliders className="w-4 h-4 text-[#ff4b4b]" />
-          Paramètres Stratégiques du Moteur de Trading
-        </h2>
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#262730] pb-3">
+        <div className="flex items-center gap-2">
+          <Sliders className="w-5 h-5 text-[#ff4b4b]" />
+          <div>
+            <h2 className="text-sm font-bold text-[#fafafa]">Configuration &amp; Paramètres Moteur EVE</h2>
+            <p className="text-[11px] text-[#808495]">Ajustement des frais, calculs CCP Excel, gestion des stations et transport</p>
+          </div>
+        </div>
         {saved && (
-          <span className="text-green-400 font-semibold flex items-center gap-1 text-[11px]">
-            <ShieldCheck className="w-3.5 h-3.5" /> Enregistré
+          <span className="text-green-400 bg-green-500/10 border border-green-500/30 px-3 py-1 rounded-md font-semibold flex items-center gap-1.5 text-xs animate-in fade-in">
+            <ShieldCheck className="w-4 h-4" /> Paramètres appliqués avec succès !
           </span>
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* 1. Hubs Actifs */}
-        <div className="space-y-3">
-          <h3 className="font-semibold text-[#808495] uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-            <MapPin className="w-3.5 h-3.5 text-blue-400" />
-            Hubs Commerciaux Inclus (Matrice A ↔ B)
-          </h3>
-          <div className="space-y-2">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* 1. FRAIS DE TRANSPORT / HAULING */}
+        <div className="space-y-4 bg-[#0e1117] p-4 rounded-xl border border-[#262730]">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-[#fafafa] flex items-center gap-2 text-xs">
+              <Truck className="w-4 h-4 text-purple-400" />
+              Frais de Transport &amp; Hauling
+            </h3>
+            <span className={`text-[10px] px-2 py-0.5 rounded font-mono font-bold ${
+              form.enable_transport_costs ? 'bg-purple-500/20 text-purple-300' : 'bg-emerald-500/20 text-emerald-300'
+            }`}>
+              {form.enable_transport_costs ? 'Hauling Activé' : '0 ISK (Transport Personnel)'}
+            </span>
+          </div>
+
+          {/* Toggle Principal Transport */}
+          <div className="p-3 bg-[#161821] rounded-lg border border-[#262730] space-y-2">
+            <label className="flex items-center justify-between cursor-pointer">
+              <span className="font-semibold text-[#cfd3dc]">Inclure les coûts de transport :</span>
+              <input
+                type="checkbox"
+                checked={form.enable_transport_costs}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setForm((prev) => ({
+                    ...prev,
+                    enable_transport_costs: checked,
+                    transport_cost_per_m3: checked ? (prev.transport_cost_per_m3 || 15) : 0,
+                    transport_cost_per_jump: checked ? (prev.transport_cost_per_jump || 200000) : 0,
+                  }));
+                }}
+                className="w-4 h-4 rounded bg-[#262730] text-[#ff4b4b] focus:ring-0 cursor-pointer"
+              />
+            </label>
+            <p className="text-[11px] text-[#808495] leading-normal">
+              {form.enable_transport_costs
+                ? 'Les frais au m³ et par saut sont déduits du profit net.'
+                : '✅ Désactivé : Tous les calculs de transport valent strictement 0.00 ISK (transport par vous-même).'}
+            </p>
+          </div>
+
+          {/* Presets rapides de transport */}
+          <div>
+            <span className="text-[11px] text-[#808495] block mb-1.5 font-medium">Préréglages de Transport :</span>
+            <div className="grid grid-cols-3 gap-1.5">
+              <button
+                type="button"
+                onClick={() => applyTransportPreset('zero')}
+                className={`p-2 rounded text-center border transition-all ${
+                  !form.enable_transport_costs || (form.transport_cost_per_m3 === 0 && form.transport_cost_per_jump === 0)
+                    ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 font-bold'
+                    : 'bg-[#161821] border-[#262730] text-[#808495] hover:text-[#fafafa]'
+                }`}
+              >
+                <div className="text-[11px]">0 ISK</div>
+                <div className="text-[9px] opacity-75">Transport perso</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => applyTransportPreset('standard')}
+                className={`p-2 rounded text-center border transition-all ${
+                  form.enable_transport_costs && form.transport_cost_per_m3 === 15
+                    ? 'bg-purple-500/20 border-purple-500/50 text-purple-300 font-bold'
+                    : 'bg-[#161821] border-[#262730] text-[#808495] hover:text-[#fafafa]'
+                }`}
+              >
+                <div className="text-[11px]">15 ISK/m³</div>
+                <div className="text-[9px] opacity-75">+200k / saut</div>
+              </button>
+              <button
+                type="button"
+                onClick={() => applyTransportPreset('redfrog')}
+                className={`p-2 rounded text-center border transition-all ${
+                  form.enable_transport_costs && form.transport_cost_per_m3 === 45
+                    ? 'bg-purple-500/20 border-purple-500/50 text-purple-300 font-bold'
+                    : 'bg-[#161821] border-[#262730] text-[#808495] hover:text-[#fafafa]'
+                }`}
+              >
+                <div className="text-[11px]">45 ISK/m³</div>
+                <div className="text-[9px] opacity-75">RedFrog / PushX</div>
+              </button>
+            </div>
+          </div>
+
+          {/* Saisie détaillée des paramètres transport */}
+          <div className="space-y-2.5 pt-1">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[#808495] text-[11px] mb-1">Coût / m³ (ISK)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  disabled={!form.enable_transport_costs}
+                  value={form.transport_cost_per_m3}
+                  onChange={(e) => setForm({ ...form, transport_cost_per_m3: parseFloat(e.target.value) || 0 })}
+                  className="w-full bg-[#161821] border border-[#262730] disabled:opacity-40 text-[#fafafa] p-1.5 rounded font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-[#808495] text-[11px] mb-1">Coût / Saut (ISK)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="10000"
+                  disabled={!form.enable_transport_costs}
+                  value={form.transport_cost_per_jump}
+                  onChange={(e) => setForm({ ...form, transport_cost_per_jump: parseFloat(e.target.value) || 0 })}
+                  className="w-full bg-[#161821] border border-[#262730] disabled:opacity-40 text-[#fafafa] p-1.5 rounded font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[#808495] text-[11px] mb-1">Capacité Cargo (m³)</label>
+                <input
+                  type="number"
+                  min="100"
+                  step="1000"
+                  value={form.max_cargo_m3}
+                  onChange={(e) => setForm({ ...form, max_cargo_m3: parseFloat(e.target.value) || 1000 })}
+                  className="w-full bg-[#161821] border border-[#262730] text-[#fafafa] p-1.5 rounded font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-[#808495] text-[11px] mb-1">Frais Collatéral (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="10"
+                  step="0.1"
+                  disabled={!form.enable_transport_costs}
+                  value={((form.collateral_fee_pct || 0) * 100).toFixed(1)}
+                  onChange={(e) => setForm({ ...form, collateral_fee_pct: (parseFloat(e.target.value) || 0) / 100 })}
+                  className="w-full bg-[#161821] border border-[#262730] disabled:opacity-40 text-[#fafafa] p-1.5 rounded font-mono"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 2. SKILLS EVE & EXACT EXCEL FORMULAS */}
+        <div className="space-y-4 bg-[#0e1117] p-4 rounded-xl border border-[#262730]">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-[#fafafa] flex items-center gap-2 text-xs">
+              <GraduationCap className="w-4 h-4 text-amber-400" />
+              Compétences &amp; Formules CCP Excel
+            </h3>
+            <span className="text-[10px] text-amber-300 font-mono">
+              Taxe {(form.sales_tax * 100).toFixed(2)}% &bull; Court. {(form.broker_fee * 100).toFixed(2)}%
+            </span>
+          </div>
+
+          <div className="p-3 bg-[#161821] rounded-lg border border-[#262730] space-y-2 text-[11px]">
+            <div className="flex items-center justify-between">
+              <span className="text-[#808495]">Accounting (Taxe de vente) :</span>
+              <div className="flex items-center gap-1 font-mono">
+                {[0, 1, 2, 3, 4, 5].map((lvl) => (
+                  <button
+                    key={lvl}
+                    type="button"
+                    onClick={() => updateSkills(lvl, form.broker_relations_level ?? 5, form.faction_standing ?? 0, form.corp_standing ?? 0)}
+                    className={`w-5 h-5 rounded text-[10px] font-bold ${
+                      (form.accounting_level ?? 5) === lvl
+                        ? 'bg-amber-500 text-black'
+                        : 'bg-[#262730] text-[#808495] hover:text-[#fafafa]'
+                    }`}
+                  >
+                    {lvl}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-[#808495]">Broker Relations (Courtage) :</span>
+              <div className="flex items-center gap-1 font-mono">
+                {[0, 1, 2, 3, 4, 5].map((lvl) => (
+                  <button
+                    key={lvl}
+                    type="button"
+                    onClick={() => updateSkills(form.accounting_level ?? 5, lvl, form.faction_standing ?? 0, form.corp_standing ?? 0)}
+                    className={`w-5 h-5 rounded text-[10px] font-bold ${
+                      (form.broker_relations_level ?? 5) === lvl
+                        ? 'bg-amber-500 text-black'
+                        : 'bg-[#262730] text-[#808495] hover:text-[#fafafa]'
+                    }`}
+                  >
+                    {lvl}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[#262730]">
+              <div>
+                <label className="text-[10px] text-[#808495] block mb-0.5">Standing Faction (-10 à 10)</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="-10"
+                  max="10"
+                  value={form.faction_standing ?? 0}
+                  onChange={(e) => {
+                    const f = parseFloat(e.target.value) || 0;
+                    updateSkills(form.accounting_level ?? 5, form.broker_relations_level ?? 5, f, form.corp_standing ?? 0);
+                  }}
+                  className="w-full bg-[#0e1117] border border-[#262730] text-[#fafafa] p-1 rounded font-mono text-center"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-[#808495] block mb-0.5">Standing Corp (-10 à 10)</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="-10"
+                  max="10"
+                  value={form.corp_standing ?? 0}
+                  onChange={(e) => {
+                    const c = parseFloat(e.target.value) || 0;
+                    updateSkills(form.accounting_level ?? 5, form.broker_relations_level ?? 5, form.faction_standing ?? 0, c);
+                  }}
+                  className="w-full bg-[#0e1117] border border-[#262730] text-[#fafafa] p-1 rounded font-mono text-center"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Saisie manuelle directe pour égaler toute feuille Excel */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[#808495] text-[11px] mb-1">Taux Taxe Vente (%)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={(form.sales_tax * 100).toFixed(2)}
+                onChange={(e) => setForm({ ...form, sales_tax: (parseFloat(e.target.value) || 0) / 100 })}
+                className="w-full bg-[#161821] border border-[#262730] text-[#fafafa] p-1.5 rounded font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-[#808495] text-[11px] mb-1">Taux Courtage (%)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={(form.broker_fee * 100).toFixed(2)}
+                onChange={(e) => setForm({ ...form, broker_fee: (parseFloat(e.target.value) || 0) / 100 })}
+                className="w-full bg-[#161821] border border-[#262730] text-[#fafafa] p-1.5 rounded font-mono"
+              />
+            </div>
+          </div>
+
+          {/* Info Formules */}
+          <div className="p-2.5 rounded bg-[#161821] border border-[#262730] text-[10px] text-[#808495] space-y-1">
+            <div className="font-semibold text-[#cfd3dc] flex items-center gap-1">
+              <Info className="w-3 h-3 text-blue-400" />
+              Formules officielles CCP :
+            </div>
+            <div>&bull; <span className="text-[#fafafa]">Taxe :</span> 8.0% &times; (1 - 0.11 &times; Accounting)</div>
+            <div>&bull; <span className="text-[#fafafa]">Courtage NPC :</span> 3.0% - (0.3% &times; BR) - (0.03% &times; Faction) - (0.02% &times; Corp)</div>
+          </div>
+        </div>
+
+        {/* 3. HUBS & DATABASE ORDER DEDUPLICATION */}
+        <div className="space-y-4 bg-[#0e1117] p-4 rounded-xl border border-[#262730]">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-[#fafafa] flex items-center gap-2 text-xs">
+              <MapPin className="w-4 h-4 text-blue-400" />
+              Stations &amp; Régions ({hubs.filter((h) => h.active).length}/{hubs.length} Actifs)
+            </h3>
+          </div>
+
+          {/* Hub presets buttons */}
+          <div className="flex items-center gap-1 flex-wrap">
+            <button
+              type="button"
+              onClick={() => handleHubPreset('top5')}
+              className="px-2 py-1 bg-[#161821] hover:bg-[#262730] border border-[#262730] rounded text-[10px] font-medium text-[#cfd3dc]"
+            >
+              Top 5 Majeurs
+            </button>
+            <button
+              type="button"
+              onClick={() => handleHubPreset('top12')}
+              className="px-2 py-1 bg-[#161821] hover:bg-[#262730] border border-[#262730] rounded text-[10px] font-medium text-[#cfd3dc]"
+            >
+              Top 12 High-Sec
+            </button>
+            <button
+              type="button"
+              onClick={() => handleHubPreset('all')}
+              className="px-2 py-1 bg-[#161821] hover:bg-[#262730] border border-[#262730] rounded text-[10px] font-medium text-[#cfd3dc]"
+            >
+              Tout Activer
+            </button>
+          </div>
+
+          {/* Liste déroulante des hubs */}
+          <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1">
             {hubs.map((h) => (
               <label
                 key={h.id}
-                className="flex items-center justify-between p-2 rounded bg-[#0e1117] border border-[#262730] cursor-pointer hover:border-[#31333f]"
+                className="flex items-center justify-between p-1.5 rounded bg-[#161821] border border-[#262730] cursor-pointer hover:border-[#31333f] text-[11px]"
               >
                 <div className="flex items-center gap-2">
                   <input
                     type="checkbox"
                     checked={h.active}
                     onChange={() => onToggleHub(h.id)}
-                    className="rounded bg-[#262730] text-[#ff4b4b] focus:ring-0"
+                    className="rounded bg-[#262730] text-[#ff4b4b] focus:ring-0 cursor-pointer"
                   />
-                  <span className="font-semibold text-[#fafafa]">{h.name}</span>
+                  <span className={`font-semibold ${h.active ? 'text-[#fafafa]' : 'text-[#808495]'}`}>
+                    {h.name}
+                  </span>
                 </div>
                 <span className="text-[10px] text-[#808495]">
-                  {h.region} (Sec {h.security_status.toFixed(1)})
+                  {h.region} ({h.security_status >= 0.5 ? 'High-Sec' : 'Low-Sec'})
                 </span>
               </label>
             ))}
           </div>
-        </div>
 
-        {/* 2. Stratégie & Frais de Marché */}
-        <div className="space-y-3">
-          <h3 className="font-semibold text-[#808495] uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-            <Sliders className="w-3.5 h-3.5 text-amber-400" />
-            Stratégie Commerciale &amp; Taxes
-          </h3>
-
-          <div>
-            <label className="block text-[#808495] mb-1">Mode d'Exécution Cible</label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => onChangeStrategy('relist')}
-                className={`p-2 rounded border text-left ${
-                  strategy === 'relist'
-                    ? 'bg-[#ff4b4b]/20 border-[#ff4b4b] text-[#ff4b4b] font-bold'
-                    : 'bg-[#0e1117] border-[#262730] text-[#808495]'
-                }`}
-              >
-                <div>Buy &amp; Relist</div>
-                <div className="text-[10px] opacity-75 font-normal">Pose d'un sell order cible</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => onChangeStrategy('immediate')}
-                className={`p-2 rounded border text-left ${
-                  strategy === 'immediate'
-                    ? 'bg-[#ff4b4b]/20 border-[#ff4b4b] text-[#ff4b4b] font-bold'
-                    : 'bg-[#0e1117] border-[#262730] text-[#808495]'
-                }`}
-              >
-                <div>Vente Immédiate</div>
-                <div className="text-[10px] opacity-75 font-normal">Revente sur buy order direct</div>
-              </button>
+          {/* Database Order Maintenance & Deduplication Card */}
+          <div className="p-3 bg-[#161821] rounded-lg border border-[#262730] space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-xs flex items-center gap-1.5 text-[#fafafa]">
+                <Database className="w-3.5 h-3.5 text-cyan-400" />
+                Maintien Database Ordres ESI
+              </span>
+              <span className="text-[10px] text-green-400 font-mono">0 doublon garanti</span>
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[#808495] mb-1">Frais de Courtage</label>
-              <input
-                type="number"
-                step="0.001"
-                value={form.broker_fee}
-                onChange={(e) => setForm({ ...form, broker_fee: parseFloat(e.target.value) || 0 })}
-                className="w-full bg-[#0e1117] border border-[#31333f] text-[#fafafa] p-1.5 rounded font-mono"
-              />
-              <span className="text-[10px] text-[#808495]">{(form.broker_fee * 100).toFixed(2)}%</span>
-            </div>
-
-            <div>
-              <label className="block text-[#808495] mb-1">Taxe de Vente (CCP)</label>
-              <input
-                type="number"
-                step="0.001"
-                value={form.sales_tax}
-                onChange={(e) => setForm({ ...form, sales_tax: parseFloat(e.target.value) || 0 })}
-                className="w-full bg-[#0e1117] border border-[#31333f] text-[#fafafa] p-1.5 rounded font-mono"
-              />
-              <span className="text-[10px] text-[#808495]">{(form.sales_tax * 100).toFixed(2)}%</span>
-            </div>
-          </div>
-        </div>
-
-        {/* 3. Logistique Transport & Filtres de Risque */}
-        <div className="space-y-3">
-          <h3 className="font-semibold text-[#808495] uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-            <Truck className="w-3.5 h-3.5 text-purple-400" />
-            Capacité Cargo &amp; Logistique
-          </h3>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[#808495] mb-1">Capacité Cargo (m³)</label>
-              <input
-                type="number"
-                value={form.max_cargo_m3}
-                onChange={(e) => setForm({ ...form, max_cargo_m3: parseFloat(e.target.value) || 0 })}
-                className="w-full bg-[#0e1117] border border-[#31333f] text-[#fafafa] p-1.5 rounded font-mono"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[#808495] mb-1">Coût par m³ (ISK)</label>
-              <input
-                type="number"
-                value={form.transport_cost_per_m3}
-                onChange={(e) => setForm({ ...form, transport_cost_per_m3: parseFloat(e.target.value) || 0 })}
-                className="w-full bg-[#0e1117] border border-[#31333f] text-[#fafafa] p-1.5 rounded font-mono"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[#808495] mb-1">Max Jours Vente</label>
-              <input
-                type="number"
-                value={form.max_days_to_sell}
-                onChange={(e) => setForm({ ...form, max_days_to_sell: parseFloat(e.target.value) || 1 })}
-                className="w-full bg-[#0e1117] border border-[#31333f] text-[#fafafa] p-1.5 rounded font-mono"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[#808495] mb-1">Max Cap. / Trade</label>
-              <input
-                type="number"
-                step="10000000"
-                value={form.max_capital_per_trade}
-                onChange={(e) => setForm({ ...form, max_capital_per_trade: parseFloat(e.target.value) || 0 })}
-                className="w-full bg-[#0e1117] border border-[#31333f] text-[#fafafa] p-1.5 rounded font-mono"
-              />
-            </div>
+            <p className="text-[10px] text-[#808495]">
+              Chaque ordre CCP est indexé par son ID unique 64-bit.
+              {cacheStats.total_orders_cached > 0 ? ` ${cacheStats.total_orders_cached.toLocaleString()} ordres uniques en cache mémoire.` : ' Cache synchronisé.'}
+            </p>
+            <button
+              type="button"
+              onClick={handleClearCache}
+              className="w-full py-1.5 px-2.5 bg-[#262730] hover:bg-[#31333f] text-[#cfd3dc] rounded flex items-center justify-center gap-1.5 text-[11px] transition-colors"
+            >
+              <Trash2 className="w-3 h-3 text-red-400" />
+              Purger le cache et forcer le rafraîchissement
+            </button>
           </div>
         </div>
       </div>
 
-      <div className="flex justify-end pt-3 border-t border-[#262730]">
+      {/* Footer Bar with Save */}
+      <div className="flex items-center justify-between pt-3 border-t border-[#262730]">
+        <div className="text-xs text-[#808495]">
+          {form.enable_transport_costs ? 'Transport actif : calculs réels de fret appliqués.' : '🚀 Transport à 0 ISK configuré : aucun coût de transport ne sera comptabilisé.'}
+        </div>
         <button
           onClick={handleSave}
-          className="px-5 py-2 bg-[#ff4b4b] hover:bg-[#ff3333] text-white font-bold rounded-md flex items-center gap-2 shadow transition-colors"
+          className="px-6 py-2 bg-[#ff4b4b] hover:bg-[#ff3333] text-white font-bold rounded-lg flex items-center gap-2 shadow-lg transition-colors text-xs"
         >
           <Save className="w-4 h-4" />
-          <span>Appliquer la Configuration</span>
+          <span>Enregistrer &amp; Recalculer les Marchés</span>
         </button>
       </div>
     </div>
   );
 };
+

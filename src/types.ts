@@ -13,7 +13,9 @@ export interface MarketGroup {
 export interface EveTypeDetail {
   type_id: number;
   group_id: number;
+  group_name?: string;
   category_id: number;
+  category_name?: string;
   name: string;
   volume: number; // in m³
   packaged_volume?: number;
@@ -53,8 +55,10 @@ export interface FinancialConfig {
   available_capital: number;
   broker_fee: number;      // e.g. 0.0145 (1.45%)
   sales_tax: number;       // e.g. 0.035 (3.5%)
-  transport_cost_per_m3: number; // ISK per m³
-  transport_cost_per_jump: number; // ISK per jump
+  enable_transport_costs: boolean; // Explicit toggle: true or false (default false if user wants 0 ISK transport)
+  transport_cost_per_m3: number; // ISK per m³ (can be 0)
+  transport_cost_per_jump: number; // ISK per jump (can be 0)
+  collateral_fee_pct?: number; // Collateral percentage (e.g. 0.01 = 1%)
   max_cargo_m3: number;    // Cargo capacity in m³ (e.g. 5000 for transport, 60000 for DST)
   min_roi: number;         // Minimum ROI (e.g. 0.02)
   min_net_profit: number;  // Minimum ISK profit
@@ -62,6 +66,14 @@ export interface FinancialConfig {
   max_capital_per_trade: number;
   max_portfolio_concentration_type: number; // e.g. 0.35 (max 35% in one type)
   max_portfolio_concentration_group: number; // e.g. 0.50 (max 50% in one group)
+  
+  // EVE Character Skill & Standing simulation parameters
+  accounting_level?: number;        // 0 to 5
+  broker_relations_level?: number;  // 0 to 5
+  faction_standing?: number;        // -10.0 to 10.0
+  corp_standing?: number;           // -10.0 to 10.0
+  custom_broker_fee_pct?: number;   // Override broker fee (e.g. 1.0% in Citadel)
+  use_custom_fees?: boolean;
 }
 
 export interface DailyMarketHistory {
@@ -196,6 +208,9 @@ export interface InterRegionalOpportunity {
   rejection_reasons: string[];
   is_viable: boolean;
   
+  // Real Character History & Calibration Fit
+  personal_fit?: PersonalCalibrationFit;
+
   detected_at: string;
 }
 
@@ -368,11 +383,44 @@ export interface EveCharacterSession {
   portrait_url: string;
   access_token: string;
   refresh_token?: string;
-  expires_at?: number;
+  expires_at?: number; // Unix timestamp in milliseconds
   wallet_balance?: number;
   accounting_skill?: number;
   broker_relations_skill?: number;
+  location_name?: string;
+  ship_name?: string;
+  active_orders_count?: {
+    buy_orders: number;
+    sell_orders: number;
+    total: number;
+  };
   last_sync?: string;
+  is_active?: boolean;
+  is_token_expired?: boolean;
+  auth_error?: string;
+}
+
+export interface GlobalSyncProgress {
+  is_running: boolean;
+  is_paused: boolean;
+  total_items: number;
+  completed_items: number;
+  successful_items: number;
+  failed_items: number;
+  current_item_name?: string;
+  current_category_name?: string;
+  total_orders_fetched: number;
+  total_opportunities_found: number;
+  percent: number;
+  elapsed_seconds: number;
+  estimated_remaining_seconds: number;
+  error_count: number;
+  last_updated: string;
+}
+
+export interface UniverseWideOpportunity extends InterRegionalOpportunity {
+  item_name: string;
+  item_icon?: string;
 }
 
 export interface EveCharacterOrder {
@@ -399,4 +447,196 @@ export interface EveCharacterOrder {
     competing_volume?: number;
   };
 }
+
+export interface EveCharacterTransaction {
+  transaction_id: number;
+  date: string;
+  type_id: number;
+  type_name?: string;
+  location_id: number;
+  location_name?: string;
+  unit_price: number;
+  quantity: number;
+  is_buy: boolean;
+  is_personal: boolean;
+  client_id: number;
+  client_name?: string;
+  journal_ref_id?: number;
+}
+
+export interface EveRegionInfo {
+  region_id: number;
+  name: string;
+  description?: string;
+  faction?: string;
+  is_highsec?: boolean;
+}
+
+export interface EveCharacterOrderHistory {
+  order_id: number;
+  type_id: number;
+  type_name?: string;
+  region_id: number;
+  region_name?: string;
+  location_id: number;
+  location_name?: string;
+  price: number;
+  volume_remain: number;
+  volume_total: number;
+  is_buy_order: boolean;
+  issued: string;
+  duration: number;
+  escrow?: number;
+  state: 'cancelled' | 'expired' | 'fulfilled' | 'open';
+  completed_at?: string;
+}
+
+export interface EveCharacterJournalEntry {
+  id: number;
+  date: string;
+  ref_type: string;
+  amount: number;
+  balance: number;
+  description?: string;
+  reason?: string;
+  context_id?: number;
+  context_id_type?: string;
+}
+
+export interface TradeCycleRecord {
+  cycle_id: string;
+  type_id: number;
+  type_name: string;
+  category_name?: string;
+  buy_date: string;
+  sell_date: string;
+  quantity: number;
+  avg_buy_price: number;
+  avg_sell_price: number;
+  total_buy_cost: number;
+  total_sell_revenue: number;
+  gross_profit: number;
+  estimated_fees_paid: number;
+  net_profit: number;
+  roi: number; // e.g. 0.25 = +25%
+  hold_days: number;
+  is_profitable: boolean;
+  buy_location?: string;
+  sell_location?: string;
+}
+
+export interface TraderPerformanceMetrics {
+  character_id: number;
+  character_name: string;
+  last_calculated: string;
+  total_realized_profit: number; // in ISK
+  total_buy_volume: number; // in ISK
+  total_sell_volume: number; // in ISK
+  total_turnover: number; // in ISK
+  total_closed_trades: number;
+  profitable_trades: number;
+  unprofitable_trades: number;
+  win_rate_pct: number; // 0 - 100
+  average_realized_roi: number; // e.g. 0.22 = 22%
+  average_hold_days: number;
+  total_broker_fees_paid: number;
+  total_sales_tax_paid: number;
+  top_profitable_items: Array<{
+    type_id: number;
+    type_name: string;
+    category_name?: string;
+    total_profit: number;
+    trades_count: number;
+    avg_roi: number;
+    avg_hold_days: number;
+    total_volume_units: number;
+  }>;
+  recent_trade_cycles: TradeCycleRecord[];
+  activity_by_location: Array<{
+    location_id: number;
+    location_name: string;
+    total_volume_isk: number;
+    transaction_count: number;
+  }>;
+  category_success_rate: Record<string, {
+    total_trades: number;
+    profit_isk: number;
+    win_rate: number;
+    avg_roi: number;
+  }>;
+  trader_title: string;
+  trader_badge_color: string;
+  calibration_weight: number;
+}
+
+export type OrderAdvisorAction = 'keep' | 'lower_price' | 'cancel' | 'relocate';
+
+export interface OrderAdvisorRecommendation {
+  order_id: number;
+  type_id: number;
+  type_name: string;
+  is_buy_order: boolean;
+  order_price: number;
+  volume_remain: number;
+  volume_total: number;
+  location_name: string;
+  region_name: string;
+  action: OrderAdvisorAction;
+  urgency: 'low' | 'medium' | 'high' | 'critical';
+  headline: string;
+  summary: string;
+  reasoning: string;
+
+  // Option 1: Lower Price
+  suggested_new_price?: number;
+  price_delta_percent?: number;
+  estimated_profit_if_lowered?: number;
+  estimated_roi_if_lowered?: number;
+  estimated_days_to_sell_after_cut?: number;
+  retained_profit_isk?: number;
+
+  // Option 2: Relocate to better market
+  suggested_relocate_hub?: {
+    hub_id: string;
+    hub_name: string;
+    region_name: string;
+    station_name: string;
+    jumps: number;
+    is_highsec: boolean;
+    current_best_sell_price: number;
+    daily_volume: number;
+    estimated_extra_profit_isk: number;
+    net_profit_after_transport_and_relist: number;
+    estimated_roi: number;
+  };
+
+  // Option 3: Cancel
+  cancel_reason?: 'dead_volume' | 'severe_crash_under_cost' | 'capital_inefficiency';
+  opportunity_cost_per_day?: number;
+  capital_locked: number;
+
+  // Competition analysis
+  market_snapshot?: {
+    current_lowest_sell: number;
+    current_highest_buy: number;
+    orders_ahead: number;
+    volume_ahead: number;
+    my_price_rank: number;
+    daily_velocity: number;
+  };
+}
+
+export interface PersonalCalibrationFit {
+  has_personal_history: boolean;
+  total_historical_trades: number;
+  historical_realized_profit: number;
+  historical_avg_roi: number;
+  historical_win_rate: number;
+  historical_avg_hold_days: number;
+  calibration_confidence_boost: number; // e.g. +5% to +15%
+  badge_text: string;
+  badge_type: 'expert' | 'profitable' | 'caution' | 'new';
+  summary: string;
+}
+
 

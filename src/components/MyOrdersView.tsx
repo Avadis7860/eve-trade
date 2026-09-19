@@ -4,8 +4,20 @@ import {
   EveCharacterOrder,
   EveTypeDetail,
   MarketHub,
+  FinancialConfig,
+  RawMarketOrder,
+  HistoricalStats,
+  TraderPerformanceMetrics,
+  OrderAdvisorRecommendation,
 } from '../types';
 import { fmtIsk, fmtNumber } from '../engine/money';
+import { EsiService } from '../services/esi';
+import { TraderAnalyticsService } from '../services/traderAnalytics';
+import { OrderAdvisorService } from '../services/orderAdvisor';
+import { GlobalMarketSyncService } from '../services/globalMarketSync';
+import { MarketDataStore } from '../services/marketDataStore';
+import { OrderAdvisorModal } from './OrderAdvisorModal';
+import { TraderPerformanceModal } from './TraderPerformanceModal';
 import {
   Shield,
   Coins,
@@ -21,7 +33,15 @@ import {
   Check,
   Zap,
   LogOut,
+  Trophy,
+  Truck,
+  XCircle,
+  Sparkles,
+  Award,
+  Clock,
+  Percent,
   SlidersHorizontal,
+  Globe,
 } from 'lucide-react';
 
 interface MyOrdersViewProps {
@@ -35,6 +55,9 @@ interface MyOrdersViewProps {
   onLogout: () => void;
   onSelectTypeForArbitrage: (typeId: number) => void;
   hubs: MarketHub[];
+  config?: FinancialConfig;
+  orderBooks?: Record<number, RawMarketOrder[]>;
+  historyCache?: Record<number, HistoricalStats>;
 }
 
 export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
@@ -48,10 +71,22 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
   onLogout,
   onSelectTypeForArbitrage,
   hubs,
+  config,
+  orderBooks = {},
+  historyCache = {},
 }) => {
-  const [filterTab, setFilterTab] = useState<'all' | 'buy' | 'sell' | 'outbid'>('all');
+  const [filterTab, setFilterTab] = useState<'all' | 'buy' | 'sell' | 'outbid' | 'action_needed'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
+
+  // Trader Performance & Analytics State
+  const [traderMetrics, setTraderMetrics] = useState<TraderPerformanceMetrics | null>(null);
+  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
+  const [isMetricsModalOpen, setIsMetricsModalOpen] = useState(false);
+
+  // Order Advisor State
+  const [selectedRecommendation, setSelectedRecommendation] = useState<OrderAdvisorRecommendation | null>(null);
+  const [isAdvisorModalOpen, setIsAdvisorModalOpen] = useState(false);
 
   // Manual code/token accordion
   const [manualCode, setManualCode] = useState('');
@@ -83,11 +118,118 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
     setManualRedirectUri(activeRedirectUri);
   }, [activeRedirectUri]);
 
+  // Load and compute Trader Performance Metrics when character session changes
+  useEffect(() => {
+    if (!session) {
+      setTraderMetrics(null);
+      return;
+    }
+
+    // Check localStorage cache first
+    const cached = TraderAnalyticsService.getCachedMetrics(session.character_id);
+    if (cached) {
+      setTraderMetrics(cached);
+    }
+
+    // Fetch fresh transactions and orders history from ESI
+    const fetchAnalytics = async () => {
+      setIsLoadingAnalytics(true);
+      try {
+        const [txs, orderHistory, journal] = await Promise.all([
+          EsiService.fetchCharacterTransactions(session.character_id, session.access_token),
+          EsiService.fetchCharacterOrderHistory(session.character_id, session.access_token, 1),
+          EsiService.fetchCharacterJournal(session.character_id, session.access_token),
+        ]);
+
+        const computed = TraderAnalyticsService.processTransactions(
+          session.character_id,
+          session.character_name,
+          txs,
+          orderHistory,
+          journal,
+          session.accounting_skill || 4,
+          session.broker_relations_skill || 4
+        );
+
+        setTraderMetrics(computed);
+      } catch (err) {
+        console.warn('Failed to compute trader analytics:', err);
+      } finally {
+        setIsLoadingAnalytics(false);
+      }
+    };
+
+    fetchAnalytics();
+  }, [session, session?.character_id]);
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedUrl(text);
     setTimeout(() => setCopiedUrl(null), 2500);
   };
+
+  // Reactive store trigger
+  const [storeTick, setStoreTick] = useState(0);
+  const [isSyncingOrderMarkets, setIsSyncingOrderMarkets] = useState(false);
+
+  // Subscribe to MarketDataStore updates to instantly recalculate recommendations when Global Sync or item sync completes
+  useEffect(() => {
+    const unsub = MarketDataStore.subscribe(() => {
+      setStoreTick((t) => t + 1);
+    });
+    return () => unsub();
+  }, []);
+
+  // Automatically synchronize market books across hubs for all items in character's active orders
+  useEffect(() => {
+    if (orders && orders.length > 0) {
+      const typeIds = orders.map((o) => o.type_id);
+      setIsSyncingOrderMarkets(true);
+      MarketDataStore.syncCharacterOrdersMarketData(typeIds, hubs)
+        .catch(() => {})
+        .finally(() => setIsSyncingOrderMarkets(false));
+    }
+  }, [orders, hubs]);
+
+  // Compile combined market orders from App state, MarketDataStore, and GlobalMarketSyncService cache
+  const combinedMarketOrders = useMemo(() => {
+    const storeOrders = MarketDataStore.getAllOrdersByRegion();
+    const syncOrders = GlobalMarketSyncService.getLatestRegionalOrders();
+    const result: Record<number, RawMarketOrder[]> = { ...orderBooks };
+
+    for (const [regIdStr, ordersList] of Object.entries(storeOrders)) {
+      const regId = Number(regIdStr);
+      if (!result[regId]) result[regId] = [];
+      result[regId] = [...result[regId], ...ordersList];
+    }
+
+    for (const [regIdStr, ordersList] of Object.entries(syncOrders)) {
+      const regId = Number(regIdStr);
+      if (!result[regId]) result[regId] = [];
+      result[regId] = [...result[regId], ...ordersList];
+    }
+    return result;
+  }, [orderBooks, storeTick]);
+
+  const combinedHistoryStats = useMemo(() => {
+    const syncHistory = GlobalMarketSyncService.getLatestRegionalHistory();
+    return { ...historyCache, ...syncHistory };
+  }, [historyCache, storeTick]);
+
+  // Compute Order Advisor Recommendations for each active order
+  const orderRecommendations = useMemo(() => {
+    const map = new Map<number, OrderAdvisorRecommendation>();
+    for (const order of orders) {
+      const rec = OrderAdvisorService.analyzeOrder(
+        order,
+        combinedMarketOrders,
+        combinedHistoryStats,
+        config
+      );
+      map.set(order.order_id, rec);
+    }
+    return map;
+  }, [orders, combinedMarketOrders, combinedHistoryStats, config]);
 
   // Stats calculation
   const stats = useMemo(() => {
@@ -96,6 +238,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
     let escrowTotal = 0;
     let sellTotal = 0;
     let outbidCount = 0;
+    let actionNeededCount = 0;
 
     for (const o of orders) {
       if (o.is_buy_order) {
@@ -108,6 +251,10 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
       if (o.market_competition?.is_outbid) {
         outbidCount++;
       }
+      const rec = orderRecommendations.get(o.order_id);
+      if (rec && rec.action !== 'keep') {
+        actionNeededCount++;
+      }
     }
 
     return {
@@ -117,8 +264,9 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
       escrowTotal,
       sellTotal,
       outbidCount,
+      actionNeededCount,
     };
-  }, [orders]);
+  }, [orders, orderRecommendations]);
 
   // Filtered orders
   const filteredOrders = useMemo(() => {
@@ -126,6 +274,10 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
       if (filterTab === 'buy' && !o.is_buy_order) return false;
       if (filterTab === 'sell' && o.is_buy_order) return false;
       if (filterTab === 'outbid' && !o.market_competition?.is_outbid) return false;
+      if (filterTab === 'action_needed') {
+        const rec = orderRecommendations.get(o.order_id);
+        if (!rec || rec.action === 'keep') return false;
+      }
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -136,7 +288,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
 
       return true;
     });
-  }, [orders, filterTab, searchQuery]);
+  }, [orders, filterTab, searchQuery, orderRecommendations]);
 
   const handleManualCodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,7 +297,6 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
 
     if (!codeToUse) return;
 
-    // Auto-detect and parse if user pasted a full URL or query string
     if (codeToUse.includes('code=') || codeToUse.startsWith('http')) {
       try {
         const urlObj = new URL(codeToUse);
@@ -183,12 +334,104 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
     );
   };
 
+  // Helper for rendering advice pill
+  const renderAdvicePill = (rec: OrderAdvisorRecommendation | undefined) => {
+    if (!rec) return null;
+
+    switch (rec.action) {
+      case 'lower_price':
+        return (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedRecommendation(rec);
+              setIsAdvisorModalOpen(true);
+            }}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 transition-all text-left"
+            title="Cliquez pour afficher les calculs de rentabilité et copier le prix"
+          >
+            <TrendingDown className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+            <div className="truncate">
+              <div>Ajuster : {fmtIsk(rec.suggested_new_price || 0)}</div>
+              {rec.estimated_profit_if_lowered !== undefined && (
+                <div className="text-[9px] text-emerald-400 font-mono">
+                  +{fmtIsk(rec.estimated_profit_if_lowered)} net préservé
+                </div>
+              )}
+            </div>
+          </button>
+        );
+
+      case 'relocate':
+        return (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedRecommendation(rec);
+              setIsAdvisorModalOpen(true);
+            }}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-purple-500/15 text-purple-300 border border-purple-500/30 hover:bg-purple-500/25 transition-all text-left"
+            title="Cliquez pour voir la route et le gain net après transport"
+          >
+            <Truck className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
+            <div className="truncate">
+              <div>Déplacer ➔ {rec.suggested_relocate_hub?.hub_name}</div>
+              {rec.suggested_relocate_hub?.estimated_extra_profit_isk !== undefined && (
+                <div className="text-[9px] text-emerald-400 font-mono">
+                  +{fmtIsk(rec.suggested_relocate_hub.estimated_extra_profit_isk)} gain net
+                </div>
+              )}
+            </div>
+          </button>
+        );
+
+      case 'cancel':
+        return (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedRecommendation(rec);
+              setIsAdvisorModalOpen(true);
+            }}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25 transition-all text-left"
+            title="Marché mort ou marge cassée - Cliquez pour voir l'analyse de coût d'opportunité"
+          >
+            <XCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+            <div className="truncate">
+              <div>Annuler l'Ordre</div>
+              <div className="text-[9px] text-red-300/80 font-mono">
+                {rec.cancel_reason === 'dead_volume' ? 'Marché inactif' : 'Marge écrasée'}
+              </div>
+            </div>
+          </button>
+        );
+
+      case 'keep':
+      default:
+        return (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedRecommendation(rec);
+              setIsAdvisorModalOpen(true);
+            }}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all text-left"
+          >
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+            <div>
+              <div>Conserver</div>
+              <div className="text-[9px] text-[#808495] font-mono">1er Vendeur</div>
+            </div>
+          </button>
+        );
+    }
+  };
+
   // 1. Not connected view
   if (!session) {
     return (
       <div className="flex-1 overflow-y-auto p-6 bg-[#0e1117] text-[#fafafa]">
         <div className="max-w-4xl mx-auto space-y-6">
-          {/* Main Auth Card */}
           <div className="bg-[#161821] border border-[#262730] rounded-xl p-8 relative overflow-hidden shadow-2xl">
             <div className="absolute -right-12 -top-12 w-64 h-64 bg-[#ff4b4b]/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -199,12 +442,11 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                   EVE Online Single Sign-On v2
                 </div>
                 <h2 className="text-2xl font-bold tracking-tight text-[#fafafa]">
-                  Visualisez &amp; Gérez vos Ordres Réels en Direct
+                  Visualisez &amp; Gérez vos Ordres Réels &amp; Performances
                 </h2>
                 <p className="text-sm text-[#808495] max-w-2xl leading-relaxed">
-                  Connectez votre compte EVE Online pour synchroniser vos ordres de vente et d'achat actifs,
-                  suivre votre solde de portefeuille en temps réel, et détecter instantanément si vos prix sont
-                  dépassés (outbid) sur les hubs commerciaux majeurs de New Eden.
+                  Connectez votre compte EVE Online pour synchroniser vos ordres actifs, analyser votre historique réel d'achats/ventes,
+                  obtenir un conseil d'arbitrage automatisé (Ajuster / Déplacer / Annuler) et calibrer les prédictions du scanner.
                 </p>
               </div>
 
@@ -235,11 +477,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                   </div>
                   <div className="flex justify-between">
                     <span>Scopes :</span>
-                    <span className="text-[#fafafa]">esi-markets.read_character_orders.v1</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Protection :</span>
-                    <span className="text-green-400">Secret sécurisé côté serveur</span>
+                    <span className="text-[#fafafa]">orders, transactions, wallet</span>
                   </div>
                 </div>
               </div>
@@ -299,94 +537,52 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                     </code>
                     <button
                       onClick={() => copyToClipboard(activeRedirectUri)}
-                      className="flex items-center gap-1 text-[11px] bg-[#262730] hover:bg-[#31333f] px-2 py-1 rounded text-[#fafafa] transition-colors flex-shrink-0"
-                      title="Copier l'URL de callback"
+                      className="text-xs bg-[#262730] hover:bg-[#31333f] text-[#fafafa] px-2.5 py-1 rounded flex items-center gap-1 flex-shrink-0"
                     >
                       {copiedUrl === activeRedirectUri ? (
-                        <Check className="w-3 h-3 text-green-400" />
+                        <>
+                          <Check className="w-3.5 h-3.5 text-green-400" />
+                          <span>Copié</span>
+                        </>
                       ) : (
-                        <Copy className="w-3 h-3" />
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Copier</span>
+                        </>
                       )}
-                      <span>Copier</span>
                     </button>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Comprehensive Diagnostics for "The redirect URL does not match any of the configured values for this client." */}
-            <div className="mt-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg text-xs space-y-2">
-              <div className="flex items-center gap-2 text-amber-300 font-bold">
-                <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                <span>Résolution de l'erreur CCP : « The redirect URL does not match any of the configured values »</span>
+            {/* Manual OAuth Exchange Form */}
+            <form onSubmit={handleManualCodeSubmit} className="pt-6 border-t border-[#262730] mt-6 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-[#808495] uppercase tracking-wider">
+                  Validation Manuelle du Code OAuth
+                </span>
+                <span className="text-[11px] text-[#808495]">
+                  Collez l'URL de redirection ou le code retourné par CCP
+                </span>
               </div>
-              <p className="text-[#808495] leading-relaxed">
-                Le serveur EVE SSO v2 compare le paramètre <code className="text-[#fafafa]">redirect_uri</code> avec la liste exacte des <em>Callback URLs</em> enregistrées sur votre application CCP. Si vous obtenez cette erreur :
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-                <div className="bg-[#0e1117] p-3 rounded border border-amber-500/20 text-[#808495] space-y-1">
-                  <span className="font-semibold text-amber-200">Cas 1 : Vos identifiants ont http://localhost:8000/callback</span>
-                  <p className="text-[11px]">
-                    Sélectionnez simplement l'option <strong>« Localhost (8000) »</strong> ci-dessus, puis cliquez sur <em>« Se connecter avec EVE SSO »</em>. CCP reconnaîtra immédiatement l'URL et affichera la mire d'authentification !
-                  </p>
-                </div>
-                <div className="bg-[#0e1117] p-3 rounded border border-amber-500/20 text-[#808495] space-y-1">
-                  <span className="font-semibold text-amber-200">Cas 2 : En Cloud Run Preview (URL dynamique) vs Sur Votre PC</span>
-                  <p className="text-[11px]">
-                    Sur votre PC local, la redirection automatique fonctionnera nativement. En attendant en Cloud Run Preview, utilisez la boîte ci-dessous : <strong>copiez l'URL de votre barre d'adresse</strong> après connexion CCP et collez-la pour une connexion instantanée.
-                  </p>
-                </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="https://localhost:8000/callback?code=..."
+                  value={manualCode}
+                  onChange={(e) => setManualCode(e.target.value)}
+                  className="flex-1 bg-[#0e1117] border border-[#262730] text-[#fafafa] p-2 rounded text-xs font-mono focus:outline-none focus:border-[#ff4b4b]"
+                />
+                <button
+                  type="submit"
+                  disabled={isSubmittingCode || !manualCode.trim()}
+                  className="flex items-center gap-1.5 bg-[#ff4b4b] hover:bg-[#ff3333] text-white text-xs font-bold px-5 py-2 rounded transition-colors disabled:opacity-50 flex-shrink-0"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSubmittingCode ? 'animate-spin' : ''}`} />
+                  <span>Valider &amp; Synchroniser</span>
+                </button>
               </div>
-            </div>
-          </div>
-
-          {/* Saisie Manuelle de Code / URL Complète (Alternative & Résilience Totale 100% Fonctionnelle) */}
-          <div className="bg-[#161821] border border-[#262730] rounded-xl p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <SlidersHorizontal className="w-4 h-4 text-green-400" />
-                <h3 className="font-bold text-sm text-[#fafafa]">
-                  Connexion Instantanée par URL ou Code (Méthode 100% Garantie)
-                </h3>
-              </div>
-              <span className="text-[11px] px-2 py-0.5 rounded bg-green-500/10 text-green-400 border border-green-500/20 font-mono">
-                Recommandé si port 8000 non ouvert
-              </span>
-            </div>
-
-            <div className="bg-[#0e1117] p-3 rounded-lg border border-[#262730] text-xs text-[#808495] space-y-1.5">
-              <div className="font-semibold text-[#fafafa]">Procédure express en 3 étapes :</div>
-              <ol className="list-decimal list-inside space-y-1 pl-1">
-                <li>Cliquez sur le bouton rouge <strong>« Se connecter avec EVE SSO »</strong> plus haut (avec <em>Localhost 8000</em> sélectionné).</li>
-                <li>Connectez votre personnage sur le portail sécurisé CCP Games et autorisez l'accès.</li>
-                <li>Votre navigateur sera redirigé vers <code className="text-amber-300">http://localhost:8000/callback?code=...</code> (même si votre navigateur affiche « Page inaccessible », l'URL dans la barre d'adresse contient votre jeton). <strong>Copiez simplement cette adresse complète et collez-la ci-dessous</strong>.</li>
-              </ol>
-            </div>
-
-            <form onSubmit={handleManualCodeSubmit} className="space-y-3">
-              <div className="space-y-2">
-                <label className="block text-[11px] text-[#808495] uppercase font-semibold">
-                  Collez l'URL complète de redirection ou le code d'autorisation :
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Collez ici http://localhost:8000/callback?code=... ou directement le code"
-                    value={manualCode}
-                    onChange={(e) => setManualCode(e.target.value)}
-                    className="flex-1 bg-[#0e1117] border border-[#31333f] text-[#fafafa] rounded px-3 py-2 text-xs font-mono focus:outline-none focus:border-[#ff4b4b]"
-                  />
-                  <button
-                    type="submit"
-                    disabled={isSubmittingCode || !manualCode.trim()}
-                    className="flex items-center gap-1.5 bg-[#ff4b4b] hover:bg-[#ff3333] text-white text-xs font-bold px-5 py-2 rounded transition-colors disabled:opacity-50 flex-shrink-0"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isSubmittingCode ? 'animate-spin' : ''}`} />
-                    <span>Valider &amp; Synchroniser</span>
-                  </button>
-                </div>
-              </div>
-
               {manualError && (
                 <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded">
                   <div className="font-semibold">Échec de validation :</div>
@@ -404,6 +600,34 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
   return (
     <div className="flex-1 overflow-y-auto p-6 bg-[#0e1117] text-[#fafafa] space-y-6">
       <div className="max-w-7xl mx-auto space-y-6">
+        {/* Session Expired / Auth Error Banner */}
+        {session.is_token_expired && (
+          <div className="bg-amber-500/10 border-2 border-amber-500/40 rounded-xl p-5 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-in fade-in duration-300">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <div className="text-sm font-bold text-amber-300">
+                  Session EVE SSO expirée (Jeton 401 Unauthorized)
+                </div>
+                <div className="text-xs text-[#808495] leading-relaxed">
+                  Le jeton d'authentification CCP ESI a expiré et le renouvellement automatique nécessite une nouvelle autorisation.
+                  Cliquez sur <strong className="text-[#fafafa]">Reconnecter</strong> ou utilisez la saisie manuelle pour synchroniser vos ordres.
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-shrink-0 w-full md:w-auto">
+              <button
+                onClick={() => onConnectSSO(activeRedirectUri)}
+                className="flex items-center justify-center gap-1.5 bg-[#ff4b4b] hover:bg-[#ff3333] text-white text-xs font-bold px-4 py-2.5 rounded-lg shadow-md transition-all w-full md:w-auto"
+              >
+                <Zap className="w-3.5 h-3.5 fill-current" />
+                <span>Reconnecter EVE SSO</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Character Header Banner */}
         <div className="bg-[#161821] border border-[#262730] rounded-xl p-6 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
@@ -411,25 +635,36 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
               <img
                 src={session.portrait_url}
                 alt={session.character_name}
-                className="w-16 h-16 rounded-xl border-2 border-[#ff4b4b]/40 shadow-lg object-cover bg-[#0e1117]"
+                className={`w-16 h-16 rounded-xl border-2 ${session.is_token_expired ? 'border-amber-500/60' : 'border-[#ff4b4b]/40'} shadow-lg object-cover bg-[#0e1117]`}
                 onError={(e) => {
                   (e.target as HTMLImageElement).src =
                     'https://images.evetech.net/characters/1/portrait?size=128';
                 }}
               />
-              <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-[#161821] rounded-full" />
+              <span className={`absolute -bottom-1 -right-1 w-4 h-4 ${session.is_token_expired ? 'bg-amber-500 animate-pulse' : 'bg-green-500'} border-2 border-[#161821] rounded-full`} />
             </div>
 
             <div className="space-y-1">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-xl font-bold text-[#fafafa] tracking-tight">
                   {session.character_name}
                 </h2>
-                <span className="text-xs bg-green-500/15 text-green-400 border border-green-500/30 px-2 py-0.5 rounded-full font-mono font-medium">
-                  Connecté ESI
-                </span>
+                {session.is_token_expired ? (
+                  <span className="text-xs bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-mono font-medium flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" /> Session expirée (401)
+                  </span>
+                ) : (
+                  <span className="text-xs bg-green-500/15 text-green-400 border border-green-500/30 px-2 py-0.5 rounded-full font-mono font-medium">
+                    Connecté ESI
+                  </span>
+                )}
+                {traderMetrics && (
+                  <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold border ${traderMetrics.trader_badge_color}`}>
+                    {traderMetrics.trader_title}
+                  </span>
+                )}
               </div>
-              <div className="flex items-center gap-4 text-xs text-[#808495]">
+              <div className="flex items-center gap-4 text-xs text-[#808495] flex-wrap">
                 <span>ID Pilote : <strong className="text-[#fafafa]">{session.character_id}</strong></span>
                 {session.accounting_skill !== undefined && (
                   <span>Accounting : <strong className="text-amber-400">Niv {session.accounting_skill}</strong></span>
@@ -441,16 +676,45 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2 w-full md:w-auto">
+          {/* Action Buttons & Performance Modal Trigger */}
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            {traderMetrics && (
+              <button
+                onClick={() => setIsMetricsModalOpen(true)}
+                className="flex items-center gap-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-bold px-3.5 py-2 rounded-lg transition-all shadow-sm"
+              >
+                <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                <span>Performances &amp; Historique Réel</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => {
+                if (orders && orders.length > 0) {
+                  const typeIds = orders.map((o) => o.type_id);
+                  setIsSyncingOrderMarkets(true);
+                  MarketDataStore.syncCharacterOrdersMarketData(typeIds, hubs)
+                    .catch(() => {})
+                    .finally(() => setIsSyncingOrderMarkets(false));
+                }
+              }}
+              disabled={isSyncingOrderMarkets || orders.length === 0}
+              className="flex items-center gap-1.5 bg-[#4d8dff]/15 hover:bg-[#4d8dff]/25 text-[#4d8dff] border border-[#4d8dff]/30 text-xs font-semibold px-3.5 py-2 rounded-lg transition-colors disabled:opacity-50"
+              title="Synchroniser les carnets de marché ESI des objets de tous vos ordres actifs"
+            >
+              <Globe className={`w-3.5 h-3.5 ${isSyncingOrderMarkets ? 'animate-spin' : ''}`} />
+              <span>{isSyncingOrderMarkets ? 'Sync Marchés...' : 'Sync Marché des Ordres'}</span>
+            </button>
+
             <button
               onClick={onRefreshOrders}
-              disabled={isLoadingOrders}
+              disabled={isLoadingOrders || isLoadingAnalytics}
               className="flex items-center gap-1.5 bg-[#262730] hover:bg-[#31333f] text-[#fafafa] text-xs font-semibold px-3.5 py-2 rounded-lg border border-[#31333f] transition-colors disabled:opacity-50"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingOrders ? 'animate-spin' : ''}`} />
-              <span>{isLoadingOrders ? 'Actualisation...' : 'Actualiser'}</span>
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingOrders || isLoadingAnalytics ? 'animate-spin' : ''}`} />
+              <span>{isLoadingOrders || isLoadingAnalytics ? 'Actualisation...' : 'Actualiser'}</span>
             </button>
+
             <button
               onClick={onLogout}
               className="flex items-center gap-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-semibold px-3 py-2 rounded-lg border border-red-500/20 transition-colors"
@@ -462,9 +726,67 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
           </div>
         </div>
 
+        {/* Real Trader Historical Performance Card (New Requested Feature!) */}
+        {traderMetrics && (
+          <div className="bg-gradient-to-r from-[#161821] via-[#1a1d2e] to-[#161821] border border-amber-500/30 rounded-xl p-5 shadow-xl space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-[#262730] pb-3">
+              <div className="flex items-center gap-2">
+                <Trophy className="w-5 h-5 text-amber-400" />
+                <div>
+                  <h3 className="font-bold text-sm text-[#fafafa] flex items-center gap-2">
+                    Historique Réel &amp; Performances Financières de Trader
+                    <span className="text-[11px] font-normal text-amber-300/80">
+                      (Calibre le moteur de prédiction)
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-[#808495]">
+                    Basé sur {traderMetrics.total_closed_trades} cycles d'achat/vente clôturés sur votre compte ESI Tranquility
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsMetricsModalOpen(true)}
+                className="text-xs text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1"
+              >
+                <span>Détail complet des cycles &amp; objets</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-[#0e1117] p-3 rounded-lg border border-emerald-500/20">
+                <div className="text-[11px] text-[#808495]">Bénéfice Net Réalisé Total</div>
+                <div className="text-base font-bold font-mono text-emerald-400 mt-0.5">
+                  +{fmtIsk(traderMetrics.total_realized_profit)}
+                </div>
+              </div>
+
+              <div className="bg-[#0e1117] p-3 rounded-lg border border-blue-500/20">
+                <div className="text-[11px] text-[#808495]">Taux de Réussite (Win Rate)</div>
+                <div className="text-base font-bold font-mono text-blue-400 mt-0.5">
+                  {traderMetrics.win_rate_pct.toFixed(1)}% ({traderMetrics.profitable_trades}/{traderMetrics.total_closed_trades})
+                </div>
+              </div>
+
+              <div className="bg-[#0e1117] p-3 rounded-lg border border-purple-500/20">
+                <div className="text-[11px] text-[#808495]">ROI Moyen Réalisé</div>
+                <div className="text-base font-bold font-mono text-purple-300 mt-0.5">
+                  +{(traderMetrics.average_realized_roi * 100).toFixed(1)}%
+                </div>
+              </div>
+
+              <div className="bg-[#0e1117] p-3 rounded-lg border border-amber-500/20">
+                <div className="text-[11px] text-[#808495]">Rotation Moyenne des Stocks</div>
+                <div className="text-base font-bold font-mono text-amber-400 mt-0.5">
+                  ~{traderMetrics.average_hold_days.toFixed(1)} jours
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Financial KPI Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Solde Portefeuille */}
           <div className="bg-[#161821] border border-[#262730] rounded-xl p-4 space-y-1">
             <div className="flex items-center justify-between text-xs text-[#808495]">
               <span>Solde Portefeuille ISK</span>
@@ -476,7 +798,6 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
             <div className="text-[11px] text-[#808495]">Liquidités directes disponibles</div>
           </div>
 
-          {/* Capital Immobilisé en Achats (Escrow) */}
           <div className="bg-[#161821] border border-[#262730] rounded-xl p-4 space-y-1">
             <div className="flex items-center justify-between text-xs text-[#808495]">
               <span>Fonds en Séquestre (Escrow)</span>
@@ -490,7 +811,6 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
             </div>
           </div>
 
-          {/* Valeur des Ventes en Cours */}
           <div className="bg-[#161821] border border-[#262730] rounded-xl p-4 space-y-1">
             <div className="flex items-center justify-between text-xs text-[#808495]">
               <span>Marchandises en Vente</span>
@@ -504,17 +824,16 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
             </div>
           </div>
 
-          {/* Concurrence & Outbid */}
           <div className="bg-[#161821] border border-[#262730] rounded-xl p-4 space-y-1">
             <div className="flex items-center justify-between text-xs text-[#808495]">
-              <span>Ordres Dépassés (Outbid)</span>
-              <TrendingDown className={`w-4 h-4 ${stats.outbidCount > 0 ? 'text-[#ff4b4b]' : 'text-green-400'}`} />
+              <span>Conseils d'Action Requis</span>
+              <Sparkles className="w-4 h-4 text-purple-400" />
             </div>
-            <div className={`text-xl font-bold font-mono ${stats.outbidCount > 0 ? 'text-[#ff4b4b]' : 'text-green-400'}`}>
-              {stats.outbidCount} / {stats.total}
+            <div className="text-xl font-bold font-mono text-purple-300">
+              {stats.actionNeededCount} / {stats.total}
             </div>
             <div className="text-[11px] text-[#808495]">
-              {stats.outbidCount > 0 ? 'Nécessite mise à jour 0.01 ISK' : 'Tous vos ordres sont au top !'}
+              {stats.actionNeededCount > 0 ? 'Ajustements ou déplacements rentables' : 'Aucune action urgente requise'}
             </div>
           </div>
         </div>
@@ -524,7 +843,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
           {/* Table Controls Header */}
           <div className="p-4 border-b border-[#262730] flex flex-col md:flex-row items-center justify-between gap-3">
             {/* Tabs */}
-            <div className="flex items-center bg-[#0e1117] p-1 rounded-lg border border-[#262730] text-xs">
+            <div className="flex flex-wrap items-center bg-[#0e1117] p-1 rounded-lg border border-[#262730] text-xs">
               <button
                 onClick={() => setFilterTab('all')}
                 className={`px-3 py-1.5 rounded-md font-medium transition-colors ${
@@ -534,6 +853,28 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                 }`}
               >
                 Tous ({orders.length})
+              </button>
+              <button
+                onClick={() => setFilterTab('action_needed')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-colors ${
+                  filterTab === 'action_needed'
+                    ? 'bg-purple-500/20 text-purple-300 font-bold'
+                    : 'text-[#808495] hover:text-purple-300'
+                }`}
+              >
+                <Sparkles className="w-3 h-3 text-purple-400" />
+                <span>Conseils d'Action ({stats.actionNeededCount})</span>
+              </button>
+              <button
+                onClick={() => setFilterTab('outbid')}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-md font-medium transition-colors ${
+                  filterTab === 'outbid'
+                    ? 'bg-[#ff4b4b]/20 text-[#ff4b4b]'
+                    : 'text-[#808495] hover:text-[#ff4b4b]'
+                }`}
+              >
+                <AlertCircle className="w-3 h-3" />
+                <span>Dépassés ({stats.outbidCount})</span>
               </button>
               <button
                 onClick={() => setFilterTab('buy')}
@@ -554,17 +895,6 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                 }`}
               >
                 Ventes ({stats.sellCount})
-              </button>
-              <button
-                onClick={() => setFilterTab('outbid')}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-md font-medium transition-colors ${
-                  filterTab === 'outbid'
-                    ? 'bg-[#ff4b4b]/20 text-[#ff4b4b]'
-                    : 'text-[#808495] hover:text-[#ff4b4b]'
-                }`}
-              >
-                <AlertCircle className="w-3 h-3" />
-                <span>Dépassés ({stats.outbidCount})</span>
               </button>
             </div>
 
@@ -599,8 +929,8 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                   <tr>
                     <th className="py-3 px-4">Objet</th>
                     <th className="py-3 px-3">Type</th>
-                    <th className="py-3 px-3">Prix Unitaire</th>
-                    <th className="py-3 px-3">Statut Concurrence</th>
+                    <th className="py-3 px-3">Prix Actuel</th>
+                    <th className="py-3 px-3">Conseil Stratégique d'Ordre</th>
                     <th className="py-3 px-3">Volume Restant</th>
                     <th className="py-3 px-3">Valeur Totale</th>
                     <th className="py-3 px-3">Emplacement</th>
@@ -610,9 +940,9 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                 <tbody className="divide-y divide-[#262730]">
                   {filteredOrders.map((order) => {
                     const isBuy = order.is_buy_order;
-                    const comp = order.market_competition;
                     const totalVal = order.price * order.volume_remain;
                     const volPct = Math.round((order.volume_remain / Math.max(1, order.volume_total)) * 100);
+                    const recommendation = orderRecommendations.get(order.order_id);
 
                     return (
                       <tr key={order.order_id} className="hover:bg-[#1a1d27] transition-colors">
@@ -656,28 +986,9 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                           {fmtIsk(order.price)}
                         </td>
 
-                        {/* Competition Status */}
+                        {/* Strategic Order Advisor Pill */}
                         <td className="py-3 px-3">
-                          {comp ? (
-                            comp.is_outbid ? (
-                              <div className="space-y-0.5">
-                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#ff4b4b]">
-                                  <AlertCircle className="w-3 h-3" />
-                                  Dépassé ({comp.price_diff_percent > 0 ? `+${comp.price_diff_percent.toFixed(1)}%` : `${comp.price_diff_percent.toFixed(1)}%`})
-                                </span>
-                                <div className="text-[10px] text-[#808495] font-mono">
-                                  Top hub : {isBuy ? fmtIsk(comp.highest_buy || 0) : fmtIsk(comp.lowest_sell || 0)}
-                                </div>
-                              </div>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-green-400">
-                                <CheckCircle2 className="w-3 h-3" />
-                                Meilleur Prix (#1)
-                              </span>
-                            )
-                          ) : (
-                            <span className="text-[11px] text-[#808495]">Synchronisation...</span>
-                          )}
+                          {renderAdvicePill(recommendation)}
                         </td>
 
                         {/* Volume Remaining Progress */}
@@ -726,6 +1037,22 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
           )}
         </div>
       </div>
+
+      {/* Order Advisor Strategy Breakdown Modal */}
+      <OrderAdvisorModal
+        isOpen={isAdvisorModalOpen}
+        onClose={() => setIsAdvisorModalOpen(false)}
+        recommendation={selectedRecommendation}
+        onSelectTypeForArbitrage={onSelectTypeForArbitrage}
+      />
+
+      {/* Trader Real Performance & Historical Cycles Modal */}
+      <TraderPerformanceModal
+        isOpen={isMetricsModalOpen}
+        onClose={() => setIsMetricsModalOpen(false)}
+        metrics={traderMetrics}
+        onSelectTypeForArbitrage={onSelectTypeForArbitrage}
+      />
     </div>
   );
 };

@@ -214,7 +214,7 @@ async function startServer() {
     }
   });
 
-  // 5. Proxy character orders
+  // 5. Proxy character orders (active)
   app.get('/api/character/:characterId/orders', async (req, res) => {
     const { characterId } = req.params;
     const authHeader = req.headers.authorization;
@@ -243,6 +243,39 @@ async function startServer() {
       res.json(orders);
     } catch (err: unknown) {
       res.status(500).json({ error: 'Failed to fetch orders from ESI', message: String(err) });
+    }
+  });
+
+  // 5b. Proxy character order history (closed / fulfilled / expired / cancelled orders)
+  app.get('/api/character/:characterId/orders/history', async (req, res) => {
+    const { characterId } = req.params;
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+      return res.status(401).json({ error: 'Authorization header missing' });
+    }
+
+    try {
+      const page = req.query.page || '1';
+      const response = await fetch(
+        `https://esi.evetech.net/latest/characters/${characterId}/orders/history/?datasource=tranquility&page=${page}`,
+        {
+          headers: {
+            'Authorization': authHeader,
+            'User-Agent': 'eve-trade-interregional/0.2',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errText = await response.text();
+        return res.status(response.status).json({ error: 'ESI order history error', details: errText });
+      }
+
+      const history = await response.json();
+      res.json(history);
+    } catch (err: unknown) {
+      res.status(500).json({ error: 'Failed to fetch order history from ESI', message: String(err) });
     }
   });
 
@@ -308,6 +341,114 @@ async function startServer() {
     } catch (err: unknown) {
       res.status(500).json({ error: 'Failed to fetch skills from ESI', message: String(err) });
     }
+  });
+
+  // 7b. Proxy character wallet transactions (buy/sell history)
+  app.get('/api/character/:characterId/transactions', async (req, res) => {
+    const { characterId } = req.params;
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+      return res.status(401).json({ error: 'Authorization header missing' });
+    }
+
+    try {
+      const response = await fetch(
+        `https://esi.evetech.net/latest/characters/${characterId}/wallet/transactions/?datasource=tranquility`,
+        {
+          headers: {
+            'Authorization': authHeader,
+            'User-Agent': 'eve-trade-interregional/0.2',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errText = await response.text();
+        return res.status(response.status).json({ error: 'ESI transactions error', details: errText });
+      }
+
+      const transactions = await response.json();
+      res.json(transactions);
+    } catch (err: unknown) {
+      res.status(500).json({ error: 'Failed to fetch transactions from ESI', message: String(err) });
+    }
+  });
+
+  // 7c. Proxy character wallet journal
+  app.get('/api/character/:characterId/journal', async (req, res) => {
+    const { characterId } = req.params;
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+      return res.status(401).json({ error: 'Authorization header missing' });
+    }
+
+    try {
+      const response = await fetch(
+        `https://esi.evetech.net/latest/characters/${characterId}/wallet/journal/?datasource=tranquility`,
+        {
+          headers: {
+            'Authorization': authHeader,
+            'User-Agent': 'eve-trade-interregional/0.2',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errText = await response.text();
+        return res.status(response.status).json({ error: 'ESI wallet journal error', details: errText });
+      }
+
+      const journal = await response.json();
+      res.json(journal);
+    } catch (err: unknown) {
+      res.status(500).json({ error: 'Failed to fetch journal from ESI', message: String(err) });
+    }
+  });
+
+  // 7d. Resolve station or location names from ESI
+  app.get('/api/universe/location/:locationId', async (req, res) => {
+    const { locationId } = req.params;
+    const locIdNum = Number(locationId);
+
+    // If it's a standard NPC station (ID usually between 60000000 and 64000000)
+    if (locIdNum >= 60000000 && locIdNum < 64000000) {
+      try {
+        const esiRes = await fetch(
+          `https://esi.evetech.net/latest/universe/stations/${locIdNum}/?datasource=tranquility`,
+          {
+            headers: { 'User-Agent': 'eve-trade-interregional/0.2' },
+          }
+        );
+        if (esiRes.ok) {
+          const stationData = await esiRes.json();
+          return res.json({ location_id: locIdNum, name: stationData.name, system_id: stationData.system_id });
+        }
+      } catch {}
+    }
+
+    // Try universe/structures if auth header is present
+    const authHeader = req.headers.authorization;
+    if (authHeader && locIdNum > 100000000) {
+      try {
+        const structRes = await fetch(
+          `https://esi.evetech.net/latest/universe/structures/${locIdNum}/?datasource=tranquility`,
+          {
+            headers: {
+              'Authorization': authHeader,
+              'User-Agent': 'eve-trade-interregional/0.2',
+            },
+          }
+        );
+        if (structRes.ok) {
+          const structData = await structRes.json();
+          return res.json({ location_id: locIdNum, name: structData.name, system_id: structData.solar_system_id });
+        }
+      } catch {}
+    }
+
+    res.json({ location_id: locIdNum, name: `Location #${locIdNum}` });
   });
 
   // In-memory Market Types DB (15,801 tradeable types)
@@ -401,7 +542,85 @@ async function startServer() {
   });
 
   // 9. Callback route for EVE SSO OAuth popup and redirect
-  const callbackHandler = (req: express.Request, res: express.Response) => {
+  const callbackHandler = async (req: express.Request, res: express.Response) => {
+    const code = req.query.code as string;
+    const state = req.query.state as string;
+    const error = req.query.error as string;
+    const errorDesc = req.query.error_description as string;
+
+    let exchangedSession: any = null;
+    let exchangeError: string | null = null;
+
+    if (code) {
+      try {
+        const host = req.get('host') || `localhost:${PORT}`;
+        const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+        const redirectUri = `${protocol}://${host}${req.path}`;
+        
+        const basicAuth = Buffer.from(`${EVE_CLIENT_ID}:${EVE_CLIENT_SECRET}`).toString('base64');
+        const params = new URLSearchParams({
+          grant_type: 'authorization_code',
+          code: code.trim(),
+          redirect_uri: redirectUri,
+        });
+
+        const tokenRes = await fetch('https://login.eveonline.com/v2/oauth/token', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Basic ${basicAuth}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Host': 'login.eveonline.com',
+            'User-Agent': 'eve-trade-interregional/0.2',
+          },
+          body: params.toString(),
+        });
+
+        if (tokenRes.ok) {
+          const tokenData = await tokenRes.json();
+          const payload = parseJwt(tokenData.access_token);
+
+          let characterId: number | null = null;
+          let characterName: string | null = null;
+
+          if (payload && payload.sub) {
+            const parts = payload.sub.split(':');
+            characterId = Number(parts[parts.length - 1]);
+            characterName = payload.name || null;
+          }
+
+          if (!characterId) {
+            try {
+              const verifyRes = await fetch('https://login.eveonline.com/oauth/verify', {
+                headers: {
+                  'Authorization': `Bearer ${tokenData.access_token}`,
+                  'User-Agent': 'eve-trade-interregional/0.2',
+                },
+              });
+              if (verifyRes.ok) {
+                const verifyData = await verifyRes.json();
+                characterId = verifyData.CharacterID;
+                characterName = verifyData.CharacterName;
+              }
+            } catch {}
+          }
+
+          if (characterId) {
+            exchangedSession = {
+              access_token: tokenData.access_token,
+              refresh_token: tokenData.refresh_token,
+              expires_in: tokenData.expires_in,
+              character_id: characterId,
+              character_name: characterName || `Character #${characterId}`,
+              portrait_url: `https://images.evetech.net/characters/${characterId}/portrait?size=128`,
+            };
+          }
+        }
+      } catch (err) {
+        console.warn('Direct token exchange during callback failed, falling back to client exchange:', err);
+        exchangeError = String(err);
+      }
+    }
+
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(`
       <!DOCTYPE html>
@@ -424,14 +643,14 @@ async function startServer() {
               background: #161821;
               border: 1px solid #262730;
               padding: 28px 32px;
-              border-radius: 10px;
+              border-radius: 12px;
               text-align: center;
-              max-width: 420px;
-              box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+              max-width: 440px;
+              box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
             }
             .spinner {
-              width: 36px;
-              height: 36px;
+              width: 38px;
+              height: 38px;
               border: 3px solid rgba(255, 75, 75, 0.2);
               border-top-color: #ff4b4b;
               border-radius: 50%;
@@ -441,56 +660,87 @@ async function startServer() {
             @keyframes spin { to { transform: rotate(360deg); } }
             h2 { margin: 0 0 8px; font-size: 18px; color: #fafafa; }
             p { margin: 0; font-size: 13px; color: #808495; line-height: 1.5; }
-            .code-box {
-              background: #0e1117;
-              border: 1px solid #31333f;
-              border-radius: 6px;
-              padding: 8px 12px;
-              margin: 16px 0;
-              font-family: monospace;
-              font-size: 12px;
-              word-break: break-all;
-              color: #00ff88;
+            .portrait {
+              width: 64px;
+              height: 64px;
+              border-radius: 50%;
+              border: 2px solid #00ff88;
+              margin: 0 auto 12px;
+              display: block;
             }
           </style>
         </head>
         <body>
           <div class="card">
-            <div class="spinner"></div>
-            <h2>Connexion EVE Online SSO</h2>
-            <p id="status-text">Validation du jeton d'autorisation...</p>
-            <div id="code-display" style="display: none;" class="code-box"></div>
+            ${exchangedSession?.portrait_url ? `<img class="portrait" src="${exchangedSession.portrait_url}" alt="Portrait" />` : '<div class="spinner"></div>'}
+            <h2>${exchangedSession ? `Bienvenue, ${exchangedSession.character_name} !` : 'Connexion EVE Online SSO'}</h2>
+            <p id="status-text">${
+              exchangedSession
+                ? 'Session validée avec succès ! Synchronisation avec EVE Trade...'
+                : (error ? `Erreur SSO : ${errorDesc || error}` : 'Échange du jeton avec CCP EVE SSO...')
+            }</p>
           </div>
           <script>
-            const urlParams = new URLSearchParams(window.location.search);
-            const code = urlParams.get('code');
-            const state = urlParams.get('state');
-            const error = urlParams.get('error');
-            const errorDesc = urlParams.get('error_description');
+            const sessionData = ${JSON.stringify(exchangedSession)};
+            const code = ${JSON.stringify(code || null)};
+            const state = ${JSON.stringify(state || null)};
+            const error = ${JSON.stringify(error || null)};
+            const errorDesc = ${JSON.stringify(errorDesc || null)};
 
-            if (code) {
-              document.getElementById('status-text').innerText = 'Jeton reçu ! Synchronisation avec EVE Trade...';
-            } else if (error) {
-              document.getElementById('status-text').innerText = 'Erreur EVE SSO : ' + (errorDesc || error);
-              document.getElementById('status-text').style.color = '#ff4b4b';
+            const payload = {
+              type: 'OAUTH_AUTH_SUCCESS',
+              provider: 'eve_sso',
+              code: code,
+              state: state,
+              session: sessionData,
+              token: sessionData ? sessionData.access_token : null,
+              refresh_token: sessionData ? sessionData.refresh_token : null,
+              character_id: sessionData ? sessionData.character_id : null,
+              character_name: sessionData ? sessionData.character_name : null,
+              error: error,
+              errorDescription: errorDesc
+            };
+
+            // If session was obtained, save directly in localStorage for backup
+            if (sessionData && sessionData.character_id) {
+              try {
+                const now = Date.now();
+                const fullSession = {
+                  ...sessionData,
+                  expires_at: now + ((sessionData.expires_in || 1200) * 1000),
+                  last_sync: new Date().toISOString(),
+                  is_active: true
+                };
+                // Update linked characters in localStorage
+                let chars = [];
+                try {
+                  const existing = localStorage.getItem('eve_linked_characters');
+                  if (existing) chars = JSON.parse(existing);
+                } catch(e) {}
+                if (!Array.isArray(chars)) chars = [];
+                const idx = chars.findIndex(c => c.character_id === fullSession.character_id);
+                if (idx >= 0) {
+                  chars[idx] = { ...chars[idx], ...fullSession };
+                } else {
+                  chars = chars.map(c => ({ ...c, is_active: false })).concat([fullSession]);
+                }
+                localStorage.setItem('eve_linked_characters', JSON.stringify(chars));
+                localStorage.setItem('eve_active_character_id', String(fullSession.character_id));
+                localStorage.setItem('eve_char_session', JSON.stringify(fullSession));
+              } catch (e) {
+                console.warn('Failed local storage write in callback:', e);
+              }
             }
 
+            // Transmit to opener if popup
             if (window.opener) {
-              window.opener.postMessage({
-                type: 'OAUTH_AUTH_SUCCESS',
-                provider: 'eve_sso',
-                code: code,
-                state: state,
-                error: error,
-                errorDescription: errorDesc
-              }, '*');
+              window.opener.postMessage(payload, '*');
               setTimeout(() => window.close(), 1200);
             } else {
               // Direct navigation fallback
-              if (code) {
-                sessionStorage.setItem('eve_sso_pending_code', code);
-                window.location.href = '/?eve_sso_code=' + encodeURIComponent(code);
-              }
+              setTimeout(() => {
+                window.location.href = '/?logged_in=' + (sessionData?.character_id || '1');
+              }, 1000);
             }
           </script>
         </body>

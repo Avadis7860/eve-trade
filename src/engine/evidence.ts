@@ -12,6 +12,9 @@ import {
   TypeResolutionStatus,
   RawMarketOrder,
   DataProvenance,
+  OpportunityObservation,
+  OpportunityOutcomeSnapshot,
+  InterRegionalOpportunity,
 } from '../types';
 import { Sha256 } from '../domain/catalog/CatalogHashing';
 
@@ -158,6 +161,8 @@ export class OpportunityEvidenceEngine {
     dest_market_provenance?: DataProvenance;
     source_market_hash?: string;
     dest_market_hash?: string;
+    source_observation_id?: string;
+    dest_observation_id?: string;
     catalog_version: string;
     catalog_checksum: string;
     type_resolution: TypeResolutionResult;
@@ -212,6 +217,8 @@ export class OpportunityEvidenceEngine {
       dest_market_provenance: params.dest_market_provenance,
       source_market_hash: params.source_market_hash,
       dest_market_hash: params.dest_market_hash,
+      source_observation_id: params.source_observation_id,
+      dest_observation_id: params.dest_observation_id,
       catalog_version: params.catalog_version,
       catalog_checksum: params.catalog_checksum,
       type_resolution: params.type_resolution,
@@ -424,6 +431,171 @@ export class OpportunityEvidenceEngine {
       discrepancies: errors,
       pillar_checks: pillarChecks,
       pillar_status_checks: pillarChecks,
+    };
+  }
+
+  /**
+   * Converts an evaluated InterRegionalOpportunity into an immutable, verifiable OpportunityObservation.
+   * Links cryptographic evidence, market snapshots, provenance, and historical audit keys.
+   */
+  static createOpportunityObservation(
+    opportunity: InterRegionalOpportunity,
+    options?: {
+      sourceObservationId?: string;
+      destObservationId?: string;
+      customTimestamp?: string;
+    }
+  ): OpportunityObservation {
+    const timestamp = options?.customTimestamp || opportunity.detected_at || new Date().toISOString();
+    const randSuffix = Math.random().toString(36).slice(2, 7);
+    const obsId = `obs_opp_${opportunity.type_id}_${opportunity.buy_hub.id}_${opportunity.sell_hub.id}_${opportunity.strategy}_${Date.now()}_${randSuffix}`;
+
+    const evidenceHash =
+      opportunity.evidence?.evidence_hash ||
+      opportunity.certification?.evidence_hash ||
+      (opportunity.evidence ? this.computeEvidenceHash(opportunity.evidence) : undefined);
+
+    const certVersion =
+      opportunity.certification?.certification_version ||
+      opportunity.evidence?.certification_version ||
+      CURRENT_CERTIFICATION_VERSION;
+
+    return {
+      observation_id: obsId,
+      opportunity_id: opportunity.id,
+      timestamp,
+      type_id: opportunity.type_id,
+      type_name: opportunity.type_name,
+      source_region_id: opportunity.buy_hub.region_id,
+      dest_region_id: opportunity.sell_hub.region_id,
+      source_hub_id: opportunity.buy_hub.id,
+      dest_hub_id: opportunity.sell_hub.id,
+      strategy: opportunity.strategy,
+      buy_price: opportunity.effective_buy_price,
+      sell_price: opportunity.effective_sell_price,
+      quantity: opportunity.quantity_tradable,
+      net_profit: opportunity.costs?.net_profit ?? 0,
+      roi: opportunity.costs?.roi ?? 0,
+      expected_days_to_sell: opportunity.expected_days_to_sell,
+      capturable_profit: opportunity.capturable_profit,
+      profit_per_day: opportunity.profit_per_day,
+      overall_score: opportunity.scores?.overall_score ?? 0,
+      liquidity_score: opportunity.scores?.liquidity_score ?? 0,
+      stability_score: opportunity.scores?.stability_score ?? 0,
+      data_confidence: opportunity.data_quality?.overall_confidence ?? 1.0,
+      is_anomalous: Boolean(opportunity.is_anomalous),
+      anomaly_reasons: opportunity.anomaly_reasons ? [...opportunity.anomaly_reasons] : [],
+      bottleneck: opportunity.bottleneck || 'capital',
+      
+      certification: opportunity.certification,
+      evidence: opportunity.evidence,
+      evidence_hash: evidenceHash,
+      certification_version: certVersion,
+
+      source_market_hash: opportunity.evidence?.source_market_hash,
+      dest_market_hash: opportunity.evidence?.dest_market_hash,
+      source_observation_id: options?.sourceObservationId || opportunity.evidence?.source_observation_id,
+      dest_observation_id: options?.destObservationId || opportunity.evidence?.dest_observation_id,
+      catalog_version: opportunity.provenance?.catalog_version || opportunity.evidence?.catalog_version,
+      catalog_checksum: opportunity.provenance?.catalog_checksum || opportunity.evidence?.catalog_checksum,
+      route_jumps: opportunity.route?.jumps,
+      route_is_highsec: opportunity.route?.is_highsec_only,
+    };
+  }
+
+  /**
+   * Verifies the cryptographic integrity and four-pillar consistency of an OpportunityObservation.
+   */
+  static verifyObservationIntegrity(observation: OpportunityObservation): EvidenceVerificationResult {
+    if (!observation) {
+      return {
+        is_valid: false,
+        computed_hash: '',
+        expected_hash: '',
+        errors: ['Observation object is null or undefined'],
+        discrepancies: ['Observation object is null or undefined'],
+        pillar_checks: { market_data: false, catalog: false, universe: false, financial_engine: false },
+        pillar_status_checks: { market_data: false, catalog: false, universe: false, financial_engine: false },
+      };
+    }
+
+    if (!observation.evidence) {
+      return {
+        is_valid: false,
+        computed_hash: '',
+        expected_hash: observation.evidence_hash || '',
+        errors: ['Observation is missing embedded OpportunityEvidence'],
+        discrepancies: ['Missing OpportunityEvidence'],
+        pillar_checks: { market_data: false, catalog: false, universe: false, financial_engine: false },
+        pillar_status_checks: { market_data: false, catalog: false, universe: false, financial_engine: false },
+      };
+    }
+
+    const verification = this.verifyEvidence(observation.evidence);
+
+    if (observation.evidence_hash && observation.evidence.evidence_hash !== observation.evidence_hash) {
+      verification.is_valid = false;
+      verification.errors.push(
+        `Root observation evidence_hash (${observation.evidence_hash}) does not match embedded evidence hash (${observation.evidence.evidence_hash})`
+      );
+    }
+
+    return verification;
+  }
+
+  /**
+   * Evaluates the empirical outcome of an observation against updated market conditions.
+   */
+  static createOutcomeSnapshot(
+    observation: OpportunityObservation,
+    currentSourceOrders: RawMarketOrder[] = [],
+    currentDestOrders: RawMarketOrder[] = [],
+    horizon: '1h' | '6h' | '24h' | '3d' | '7d' = '1h'
+  ): OpportunityOutcomeSnapshot {
+    const recorded_at = new Date().toISOString();
+
+    const isImmediate = observation.strategy === 'immediate';
+    const currentSourceSellOrders = currentSourceOrders.filter((o) => !o.is_buy_order); // sell orders at source (where we buy)
+    const currentDestExecutableOrders = isImmediate
+      ? currentDestOrders.filter((o) => o.is_buy_order) // buy orders at dest to dump into
+      : currentDestOrders.filter((o) => !o.is_buy_order); // sell orders at dest (our competition)
+
+    const currentBuyPrice = currentSourceSellOrders.length > 0 ? Math.min(...currentSourceSellOrders.map((o) => o.price)) : 0;
+    const currentSellPrice = currentDestExecutableOrders.length > 0
+      ? (isImmediate
+          ? Math.max(...currentDestExecutableOrders.map((o) => o.price))
+          : Math.min(...currentDestExecutableOrders.map((o) => o.price)))
+      : 0;
+
+    const currentSpreadPct =
+      currentBuyPrice > 0 && currentSellPrice > currentBuyPrice
+        ? ((currentSellPrice - currentBuyPrice) / currentBuyPrice) * 100
+        : 0;
+
+    const initialSpreadPct =
+      observation.buy_price > 0 && observation.sell_price > observation.buy_price
+        ? ((observation.sell_price - observation.buy_price) / observation.buy_price) * 100
+        : 0;
+
+    const spreadDecayPct = initialSpreadPct > 0 ? ((initialSpreadPct - currentSpreadPct) / initialSpreadPct) * 100 : 0;
+
+    const priceChangeSourcePct =
+      observation.buy_price > 0 ? ((currentBuyPrice - observation.buy_price) / observation.buy_price) * 100 : 0;
+    const priceChangeDestPct =
+      observation.sell_price > 0 ? ((currentSellPrice - observation.sell_price) / observation.sell_price) * 100 : 0;
+
+    const stillActive = currentSpreadPct > 0 && currentSellPrice > currentBuyPrice;
+
+    return {
+      horizon,
+      recorded_at,
+      still_active: stillActive,
+      current_spread_pct: Math.round(currentSpreadPct * 100) / 100,
+      spread_decay_pct: Math.round(spreadDecayPct * 100) / 100,
+      current_buy_price: currentBuyPrice,
+      current_sell_price: currentSellPrice,
+      price_change_source_pct: Math.round(priceChangeSourcePct * 100) / 100,
+      price_change_dest_pct: Math.round(priceChangeDestPct * 100) / 100,
     };
   }
 }

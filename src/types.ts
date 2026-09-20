@@ -186,6 +186,7 @@ export interface MarketSnapshotReference {
   completeness: MarketDataCompleteness;
   confidence: number;
   age_seconds: number;
+  observation_id?: string;
 }
 
 export interface FinancialInputsEvidence {
@@ -240,6 +241,8 @@ export interface OpportunityEvidence {
   dest_market_provenance?: DataProvenance;
   source_market_hash?: string;
   dest_market_hash?: string;
+  source_observation_id?: string;
+  dest_observation_id?: string;
   catalog_version: string;
   catalog_checksum: string;
   type_resolution: TypeResolutionResult;
@@ -1234,6 +1237,16 @@ export interface OpportunityObservation {
   evidence?: OpportunityEvidence;
   evidence_hash?: string;
   certification_version?: string;
+
+  // Provenance & Snapshot links for fast audit
+  source_market_hash?: string;
+  dest_market_hash?: string;
+  source_observation_id?: string;
+  dest_observation_id?: string;
+  catalog_version?: string;
+  catalog_checksum?: string;
+  route_jumps?: number;
+  route_is_highsec?: boolean;
   
   // Future outcome tracking
   outcomes?: Record<string, OpportunityOutcomeSnapshot>; // '1h' | '6h' | '24h' | '3d' | '7d'

@@ -5,6 +5,7 @@ import {
   MarketObservation,
   OpportunityObservation,
   OpportunityEvidence,
+  OpportunityOutcomeSnapshot,
   DailyMarketHistory,
   EveTypeDetail,
   TypeCatalogMetadata,
@@ -585,6 +586,7 @@ export class IndexedDbStore {
    * Saves an immutable OpportunityObservation (Append-Only)
    */
   static async saveOpportunityObservation(opp: OpportunityObservation): Promise<void> {
+    this.recordWriteAttempt();
     const existingIdx = this.memoryOpportunityObservations.findIndex(
       (o) => o.observation_id === opp.observation_id
     );
@@ -592,29 +594,89 @@ export class IndexedDbStore {
       this.memoryOpportunityObservations[existingIdx] = opp;
     } else {
       this.memoryOpportunityObservations.push(opp);
-      if (this.memoryOpportunityObservations.length > 1000) {
+      if (this.memoryOpportunityObservations.length > 2000) {
         this.memoryOpportunityObservations.shift();
       }
     }
 
     const isReady = await this.init();
-    if (!isReady || !this.db) return;
+    if (!isReady || !this.db) {
+      this.recordWriteSuccess();
+      return;
+    }
 
     return new Promise((resolve) => {
       try {
         const tx = this.db!.transaction('opportunity_observations', 'readwrite');
         const store = tx.objectStore('opportunity_observations');
         store.put(opp);
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => resolve();
-      } catch {
+        tx.oncomplete = () => {
+          this.recordWriteSuccess();
+          resolve();
+        };
+        tx.onerror = (e) => {
+          this.recordWriteFailure(e);
+          resolve();
+        };
+      } catch (err) {
+        this.recordWriteFailure(err);
         resolve();
       }
     });
   }
 
   /**
-   * Retrieves stored opportunity observations
+   * Batch saves multiple OpportunityObservations with transactional safety
+   */
+  static async saveOpportunityObservations(opps: OpportunityObservation[]): Promise<void> {
+    if (!opps || opps.length === 0) return;
+
+    this.recordWriteAttempt();
+    for (const opp of opps) {
+      const existingIdx = this.memoryOpportunityObservations.findIndex(
+        (o) => o.observation_id === opp.observation_id
+      );
+      if (existingIdx >= 0) {
+        this.memoryOpportunityObservations[existingIdx] = opp;
+      } else {
+        this.memoryOpportunityObservations.push(opp);
+      }
+    }
+
+    if (this.memoryOpportunityObservations.length > 2000) {
+      this.memoryOpportunityObservations = this.memoryOpportunityObservations.slice(-2000);
+    }
+
+    const isReady = await this.init();
+    if (!isReady || !this.db) {
+      this.recordWriteSuccess();
+      return;
+    }
+
+    return new Promise((resolve) => {
+      try {
+        const tx = this.db!.transaction('opportunity_observations', 'readwrite');
+        const store = tx.objectStore('opportunity_observations');
+        for (const opp of opps) {
+          store.put(opp);
+        }
+        tx.oncomplete = () => {
+          this.recordWriteSuccess();
+          resolve();
+        };
+        tx.onerror = (e) => {
+          this.recordWriteFailure(e);
+          resolve();
+        };
+      } catch (err) {
+        this.recordWriteFailure(err);
+        resolve();
+      }
+    });
+  }
+
+  /**
+   * Retrieves stored opportunity observations (most recent first)
    */
   static async getOpportunityObservations(
     typeId?: number,
@@ -625,7 +687,9 @@ export class IndexedDbStore {
       : this.memoryOpportunityObservations.slice(-limit);
 
     const isReady = await this.init();
-    if (!isReady || !this.db) return memoryMatches;
+    if (!isReady || !this.db) {
+      return [...memoryMatches].reverse();
+    }
 
     return new Promise((resolve) => {
       try {
@@ -638,9 +702,129 @@ export class IndexedDbStore {
           results.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
           resolve(results.slice(0, limit));
         };
-        req.onerror = () => resolve(memoryMatches);
+        req.onerror = () => resolve([...memoryMatches].reverse());
       } catch {
-        resolve(memoryMatches);
+        resolve([...memoryMatches].reverse());
+      }
+    });
+  }
+
+  /**
+   * Retrieves historical observations for a specific opportunity ID
+   */
+  static async getOpportunityObservationsByOpportunityId(
+    opportunityId: string,
+    limit: number = 50
+  ): Promise<OpportunityObservation[]> {
+    const memoryMatches = this.memoryOpportunityObservations
+      .filter((o) => o.opportunity_id === opportunityId)
+      .slice(-limit);
+
+    const isReady = await this.init();
+    if (!isReady || !this.db) {
+      return [...memoryMatches].reverse();
+    }
+
+    return new Promise((resolve) => {
+      try {
+        const tx = this.db!.transaction('opportunity_observations', 'readonly');
+        const store = tx.objectStore('opportunity_observations');
+        const req = store.index('opportunity_id').getAll(opportunityId);
+
+        req.onsuccess = () => {
+          const results = (req.result as OpportunityObservation[]) || [];
+          results.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+          resolve(results.slice(0, limit));
+        };
+        req.onerror = () => resolve([...memoryMatches].reverse());
+      } catch {
+        resolve([...memoryMatches].reverse());
+      }
+    });
+  }
+
+  /**
+   * Records an empirical outcome snapshot on an existing observation
+   */
+  static async recordOpportunityOutcome(
+    observationId: string,
+    outcome: OpportunityOutcomeSnapshot
+  ): Promise<boolean> {
+    const memObs = this.memoryOpportunityObservations.find((o) => o.observation_id === observationId);
+    if (memObs) {
+      if (!memObs.outcomes) memObs.outcomes = {};
+      memObs.outcomes[outcome.horizon] = outcome;
+    }
+
+    const isReady = await this.init();
+    if (!isReady || !this.db) return Boolean(memObs);
+
+    return new Promise((resolve) => {
+      try {
+        const tx = this.db!.transaction('opportunity_observations', 'readwrite');
+        const store = tx.objectStore('opportunity_observations');
+        const getReq = store.get(observationId);
+
+        getReq.onsuccess = () => {
+          const obs = getReq.result as OpportunityObservation | undefined;
+          if (obs) {
+            if (!obs.outcomes) obs.outcomes = {};
+            obs.outcomes[outcome.horizon] = outcome;
+            store.put(obs);
+            tx.oncomplete = () => resolve(true);
+            tx.onerror = () => resolve(false);
+          } else {
+            resolve(false);
+          }
+        };
+        getReq.onerror = () => resolve(false);
+      } catch {
+        resolve(false);
+      }
+    });
+  }
+
+  /**
+   * Prunes old observations beyond retention window to maintain high performance
+   */
+  static async pruneOldObservations(
+    retentionDays: number = 30,
+    maxPerType: number = 200
+  ): Promise<{ prunedCount: number }> {
+    const cutoffDate = new Date(Date.now() - retentionDays * 24 * 3600 * 1000).toISOString();
+    let pruned = 0;
+
+    // Prune memory
+    const beforeCount = this.memoryOpportunityObservations.length;
+    this.memoryOpportunityObservations = this.memoryOpportunityObservations.filter(
+      (o) => o.timestamp >= cutoffDate
+    );
+    pruned += beforeCount - this.memoryOpportunityObservations.length;
+
+    const isReady = await this.init();
+    if (!isReady || !this.db) return { prunedCount: pruned };
+
+    return new Promise((resolve) => {
+      try {
+        const tx = this.db!.transaction('opportunity_observations', 'readwrite');
+        const store = tx.objectStore('opportunity_observations');
+        const req = store.getAll();
+
+        req.onsuccess = () => {
+          const all = (req.result as OpportunityObservation[]) || [];
+          let dbPruned = 0;
+          for (const item of all) {
+            if (item.timestamp < cutoffDate) {
+              store.delete(item.observation_id);
+              dbPruned++;
+            }
+          }
+          tx.oncomplete = () => resolve({ prunedCount: Math.max(pruned, dbPruned) });
+          tx.onerror = () => resolve({ prunedCount: pruned });
+        };
+        req.onerror = () => resolve({ prunedCount: pruned });
+      } catch {
+        resolve({ prunedCount: pruned });
       }
     });
   }

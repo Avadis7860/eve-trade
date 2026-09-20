@@ -3,6 +3,7 @@ import { InterRegionalScanner } from './scanner';
 import { TraderAnalyticsService } from './traderAnalytics';
 import { MarketDataStore } from './marketDataStore';
 import { IndexedDbStore } from './indexedDbStore';
+import { OpportunityEvidenceEngine } from '../engine/evidence';
 import { CatalogRepository } from '../domain/catalog/CatalogRepository';
 import { MarketGroupRepository } from '../domain/catalog/MarketGroupRepository';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
@@ -16,6 +17,7 @@ import {
   HistoricalStats,
   GlobalSyncProgress,
   UniverseWideOpportunity,
+  OpportunityObservation,
 } from '../types';
 
 export interface GlobalSyncOptions {
@@ -409,6 +411,14 @@ export class GlobalMarketSyncService {
               );
 
               if (opps.length > 0) {
+                // Generate and record verifiable OpportunityObservations into append-only store
+                const observations: OpportunityObservation[] = opps.map((opp) =>
+                  OpportunityEvidenceEngine.createOpportunityObservation(opp)
+                );
+                IndexedDbStore.saveOpportunityObservations(observations).catch((err) => {
+                  console.warn('[GlobalMarketSync] saveOpportunityObservations failed:', err);
+                });
+
                 // Personal calibration fitting
                 const personalFit = userMetrics
                   ? TraderAnalyticsService.calibrateOpportunity(item.type_id, item.category_id, userMetrics)

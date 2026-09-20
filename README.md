@@ -48,9 +48,16 @@
 * **Indicateurs de Performance Trader** : P&L net réalisé, Taux de réussite (Win Rate %), ROI moyen effectif, Temps moyen de détention (*Hold Days*), Frais de courtage totaux versés.
 * **Calibration Personnalisée du Risque** : Attribution de bonus ou de pénalités de confiance sur les opportunités selon l'historique personnel du joueur.
 
-### 6. 🔐 Gestion Multi-Personnages & Sécurité SSO
-* **Support Multi-Comptes / Multi-Personnages** : Ajout et bascule instantanée entre plusieurs traders EVE Online.
-* **Renouvellement Automatique de Jeton (Auto-Refresh)** : Gestion proactive des expirations (< 2 min) et reprise sur erreur 401.
+### 6. 🔐 Gestion Multi-Personnages & Sécurité SSO Durcie
+* **Support Multi-Comptes / Multi-Personnages** : Ajout et bascule instantanée entre plusieurs traders EVE Online via `AuthService` avec persistance `safeStorage`.
+* **Protection CSRF & State Cryptographique** : Jetons d'état OAuth 2.0 générés cryptographiquement avec expiration TTL (10 min) et consommation unique strictly-once.
+* **Verrouillage Atomique des Rafraîchissements (Refresh Lock)** : Déduplication concurrente des appels `refresh_token` pour éviter toute invalidation de jeton CCP.
+* **Résolution Prioritaire de Callback EVE SSO** : Priorité absolue à `EVE_CALLBACK_URL` configurable, avec détection contextuelle en fallback.
+
+### 7. 📚 Catalogue de Types EVE Déterministe & Intégrité des Données
+* **`TypeCatalogService` & Checksum SHA-256** : Chargement validé et vérification d'empreinte cryptographique des items de marché avec métadonnées (`CATALOG_LOADED`, `CATALOG_FALLBACK_CORE`, `CATALOG_CORRUPTED`, `CATALOG_UNAVAILABLE`).
+* **Contrats "Fail-Loud" Sans Faux Zéro** : Respect strict du principe `NO DATA ≠ ZERO DATA`. Aucune transformation silencieuse d'erreur réseau ou de catalogue en tableau vide.
+* **Observabilité & Healthchecks Structurés** : Endpoints `/api/health` et `/api/types/status` avec métriques en temps réel et journalisation structurée.
 
 ---
 

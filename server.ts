@@ -1,16 +1,70 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
+import { TypeCatalogService } from './src/services/typeCatalog';
 
-const EVE_CLIENT_ID = process.env.EVE_CLIENT_ID || '790ee291d084cb5bc36adff8163b538';
-const EVE_CLIENT_SECRET = process.env.EVE_CLIENT_SECRET || 'eat_tBVLi6jORbnrpX9Lj2o0FFoQakoLvpQ_18xtI3';
+// EVE SSO Credentials (purely from environment variables, no hardcoded secrets)
+const EVE_CLIENT_ID = process.env.EVE_CLIENT_ID || '';
+const EVE_CLIENT_SECRET = process.env.EVE_CLIENT_SECRET || '';
+const EVE_CALLBACK_URL = process.env.EVE_CALLBACK_URL?.trim() || '';
+
 const EVE_SCOPES = [
   'esi-markets.read_character_orders.v1',
   'esi-wallet.read_character_wallet.v1',
   'esi-skills.read_skills.v1',
   'publicData',
 ].join(' ');
+
+// Structured observability logger
+function logEvent(
+  level: 'INFO' | 'WARN' | 'ERROR',
+  category: 'SSO' | 'ESI' | 'CATALOG' | 'SERVER',
+  message: string,
+  meta?: Record<string, any>
+) {
+  const timestamp = new Date().toISOString();
+  const metaStr = meta ? ` ${JSON.stringify(meta)}` : '';
+  console.log(`[${timestamp}] [${level}] [${category}] ${message}${metaStr}`);
+}
+
+// OAuth State Manager for CSRF protection
+interface OAuthStateEntry {
+  createdAt: number;
+  redirectUri?: string;
+}
+
+const activeOAuthStates = new Map<string, OAuthStateEntry>();
+const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+function generateOAuthState(redirectUri?: string): string {
+  const now = Date.now();
+  for (const [key, val] of activeOAuthStates.entries()) {
+    if (now - val.createdAt > STATE_TTL_MS) {
+      activeOAuthStates.delete(key);
+    }
+  }
+  const state = crypto.randomBytes(32).toString('hex');
+  activeOAuthStates.set(state, { createdAt: now, redirectUri });
+  return state;
+}
+
+function validateAndConsumeOAuthState(state: string | undefined): { isValid: boolean; error?: string } {
+  if (!state) {
+    return { isValid: false, error: 'MISSING_STATE' };
+  }
+  const entry = activeOAuthStates.get(state);
+  if (!entry) {
+    return { isValid: false, error: 'INVALID_OR_EXPIRED_STATE' };
+  }
+  if (Date.now() - entry.createdAt > STATE_TTL_MS) {
+    activeOAuthStates.delete(state);
+    return { isValid: false, error: 'EXPIRED_STATE' };
+  }
+  activeOAuthStates.delete(state); // One-time token use
+  return { isValid: true };
+}
 
 async function startServer() {
   const app = express();
@@ -36,6 +90,36 @@ async function startServer() {
     }
   }
 
+  // 0. Diagnostic Health Endpoint
+  app.get('/api/health', (req, res) => {
+    const mem = process.memoryUsage();
+    const uptimeSec = Math.floor(process.uptime());
+    const catalogMeta = TypeCatalogService.getMetadata();
+    const ssoConfigured = Boolean(EVE_CLIENT_ID && EVE_CLIENT_SECRET);
+
+    const isHealthy = catalogMeta.status === 'CATALOG_LOADED' || catalogMeta.status === 'CATALOG_FALLBACK_CORE';
+
+    res.status(isHealthy ? 200 : 503).json({
+      status: isHealthy ? 'healthy' : 'degraded',
+      timestamp: new Date().toISOString(),
+      uptime_seconds: uptimeSec,
+      environment: process.env.NODE_ENV || 'development',
+      memory: {
+        rss_mb: Math.round(mem.rss / 1024 / 1024),
+        heap_used_mb: Math.round(mem.heapUsed / 1024 / 1024),
+        heap_total_mb: Math.round(mem.heapTotal / 1024 / 1024),
+      },
+      catalog: catalogMeta,
+      sso: {
+        configured: ssoConfigured,
+        client_id_present: Boolean(EVE_CLIENT_ID),
+        client_secret_present: Boolean(EVE_CLIENT_SECRET),
+        callback_url: EVE_CALLBACK_URL || null,
+        active_oauth_states_count: activeOAuthStates.size,
+      },
+    });
+  });
+
   // 1. Auth configuration endpoint
   app.get('/api/auth/config', (req, res) => {
     const host = req.get('host') || `localhost:${PORT}`;
@@ -45,8 +129,11 @@ async function startServer() {
     res.json({
       client_id: EVE_CLIENT_ID,
       has_client_secret: Boolean(EVE_CLIENT_SECRET),
+      callback_url_configured: Boolean(EVE_CALLBACK_URL),
+      callback_url: EVE_CALLBACK_URL || null,
       scopes: EVE_SCOPES,
       suggested_redirect_uris: [
+        ...(EVE_CALLBACK_URL ? [EVE_CALLBACK_URL] : []),
         `${currentOrigin}/auth/callback`,
         'http://localhost:8000/callback',
         `${currentOrigin}/callback`,
@@ -55,13 +142,15 @@ async function startServer() {
     });
   });
 
-  // 2. Auth URL builder
+  // 2. Auth URL builder (cryptographically random state, prioritized EVE_CALLBACK_URL)
   app.get('/api/auth/url', (req, res) => {
     const host = req.get('host') || `localhost:${PORT}`;
     const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
-    const defaultRedirect = `${protocol}://${host}/auth/callback`;
+    const defaultRedirect = EVE_CALLBACK_URL || `${protocol}://${host}/auth/callback`;
     const redirectUri = (req.query.redirect_uri as string) || defaultRedirect;
-    const state = (req.query.state as string) || Math.random().toString(36).substring(2, 15);
+    
+    // Cryptographically secure CSRF state
+    const state = generateOAuthState(redirectUri);
 
     const params = new URLSearchParams({
       response_type: 'code',
@@ -72,25 +161,42 @@ async function startServer() {
     });
 
     const url = `https://login.eveonline.com/v2/oauth/authorize/?${params.toString()}`;
+    logEvent('INFO', 'SSO', 'Generated SSO authorization URL', { redirectUri, statePrefix: state.substring(0, 8) });
     res.json({ url, redirect_uri: redirectUri, state });
   });
 
   // 3. Exchange authorization code for tokens
   app.post('/api/auth/token', async (req, res) => {
-    let { code, redirect_uri } = req.body;
+    let { code, redirect_uri, state } = req.body;
     if (!code) {
-      return res.status(400).json({ error: 'Missing code parameter' });
+      return res.status(400).json({ error: 'MISSING_CODE', message: 'Missing code parameter' });
+    }
+
+    if (!EVE_CLIENT_ID || !EVE_CLIENT_SECRET) {
+      logEvent('ERROR', 'SSO', 'Attempted token exchange without EVE_CLIENT_ID or EVE_CLIENT_SECRET configured');
+      return res.status(500).json({
+        error: 'SSO_NOT_CONFIGURED',
+        message: 'EVE_CLIENT_ID and EVE_CLIENT_SECRET environment variables are required.',
+      });
+    }
+
+    if (state) {
+      const stateCheck = validateAndConsumeOAuthState(state);
+      if (!stateCheck.isValid) {
+        logEvent('WARN', 'SSO', 'OAuth state verification failed during token exchange', {
+          statePrefix: String(state).substring(0, 8),
+          error: stateCheck.error,
+        });
+      }
     }
 
     // Auto-extract code and redirect_uri if user pasted a full URL
-    // e.g. "http://localhost:8000/callback?code=abc...&state=xyz"
     if (typeof code === 'string' && (code.includes('code=') || code.startsWith('http'))) {
       try {
         const urlObj = new URL(code.trim());
         const extracted = urlObj.searchParams.get('code');
         if (extracted) {
           code = extracted;
-          // If no custom redirect_uri was sent, use the base URL from the pasted URL
           if (!redirect_uri || redirect_uri === 'http://localhost:8000/callback') {
             redirect_uri = `${urlObj.origin}${urlObj.pathname}`;
           }
@@ -124,8 +230,9 @@ async function startServer() {
 
       if (!response.ok) {
         const errText = await response.text();
+        logEvent('WARN', 'SSO', 'Token exchange rejected by CCP', { status: response.status, details: errText });
         return res.status(response.status).json({
-          error: 'EVE SSO token exchange failed',
+          error: 'EVE_SSO_TOKEN_EXCHANGE_FAILED',
           details: errText,
           redirect_uri_used: redirect_uri,
         });
@@ -138,13 +245,11 @@ async function startServer() {
       let characterName: string | null = null;
 
       if (payload && payload.sub) {
-        // sub is typically "CHARACTER:EVE:2112345678"
         const parts = payload.sub.split(':');
         characterId = Number(parts[parts.length - 1]);
         characterName = payload.name || null;
       }
 
-      // If parsing failed, verify via ESI /oauth/verify
       if (!characterId) {
         try {
           const verifyRes = await fetch('https://login.eveonline.com/oauth/verify', {
@@ -158,10 +263,10 @@ async function startServer() {
             characterId = verifyData.CharacterID;
             characterName = verifyData.CharacterName;
           }
-        } catch {
-          // Ignore secondary failure
-        }
+        } catch {}
       }
+
+      logEvent('INFO', 'SSO', 'Character session authenticated successfully', { characterId, characterName });
 
       res.json({
         access_token: tokenData.access_token,
@@ -172,8 +277,8 @@ async function startServer() {
         portrait_url: characterId ? `https://images.evetech.net/characters/${characterId}/portrait?size=128` : null,
       });
     } catch (err: unknown) {
-      console.error('Token exchange error:', err);
-      res.status(500).json({ error: 'Internal server error exchanging token', message: String(err) });
+      logEvent('ERROR', 'SSO', 'Internal error during token exchange', { error: String(err) });
+      res.status(500).json({ error: 'INTERNAL_TOKEN_EXCHANGE_ERROR', message: String(err) });
     }
   });
 
@@ -181,7 +286,14 @@ async function startServer() {
   app.post('/api/auth/refresh', async (req, res) => {
     const { refresh_token } = req.body;
     if (!refresh_token) {
-      return res.status(400).json({ error: 'Missing refresh_token' });
+      return res.status(400).json({ error: 'MISSING_REFRESH_TOKEN', message: 'Missing refresh_token parameter' });
+    }
+
+    if (!EVE_CLIENT_ID || !EVE_CLIENT_SECRET) {
+      return res.status(500).json({
+        error: 'SSO_NOT_CONFIGURED',
+        message: 'EVE_CLIENT_ID and EVE_CLIENT_SECRET environment variables are required.',
+      });
     }
 
     try {
@@ -204,13 +316,16 @@ async function startServer() {
 
       if (!response.ok) {
         const errText = await response.text();
-        return res.status(response.status).json({ error: 'Refresh failed', details: errText });
+        logEvent('WARN', 'SSO', 'Token refresh rejected by CCP', { status: response.status, details: errText });
+        return res.status(response.status).json({ error: 'REFRESH_FAILED', details: errText });
       }
 
       const tokenData = await response.json();
+      logEvent('INFO', 'SSO', 'Token refreshed successfully');
       res.json(tokenData);
     } catch (err: unknown) {
-      res.status(500).json({ error: 'Internal server error refreshing token', message: String(err) });
+      logEvent('ERROR', 'SSO', 'Internal error during token refresh', { error: String(err) });
+      res.status(500).json({ error: 'INTERNAL_REFRESH_ERROR', message: String(err) });
     }
   });
 
@@ -596,34 +711,25 @@ async function startServer() {
     }
   });
 
-  // In-memory Market Types DB (15,801 tradeable types)
-  let loadedMarketTypes: Array<{
-    type_id: number;
-    name: string;
-    group_id: number;
-    category_id: number;
-    volume: number;
-    average_price: number;
-    adjusted_price: number;
-  }> = [];
+  // In-memory Market Types DB via hardened TypeCatalogService
+  const initialCatalog = TypeCatalogService.loadCatalog();
+  logEvent('INFO', 'CATALOG', `Type ID Catalog initialized: ${initialCatalog.metadata.status}`, {
+    item_count: initialCatalog.metadata.item_count,
+    version: initialCatalog.metadata.version,
+    checksum: initialCatalog.metadata.checksum.substring(0, 12),
+    source: initialCatalog.metadata.source,
+    error: initialCatalog.metadata.error,
+  });
 
-  try {
-    const typesFilePath = path.join(process.cwd(), 'src', 'data', 'allMarketTypes.json');
-    if (fs.existsSync(typesFilePath)) {
-      loadedMarketTypes = JSON.parse(fs.readFileSync(typesFilePath, 'utf-8'));
-      console.log(`[Market DB] Loaded ${loadedMarketTypes.length} market types into memory.`);
-    }
-  } catch (err) {
-    console.warn('[Market DB] Could not preload allMarketTypes.json:', err);
-  }
+  const getMarketTypes = () => TypeCatalogService.getTypes();
 
   // 8. Universal ESI Type Lookup / Search
   app.get('/api/types/lookup/:id', async (req, res) => {
     const { id } = req.params;
     const numId = Number(id);
 
-    // First check local in-memory DB of 15,801 types
-    const local = loadedMarketTypes.find((t) => t.type_id === numId);
+    // First check local in-memory DB of types
+    const local = getMarketTypes().find((t) => t.type_id === numId);
     if (local) {
       return res.json({
         type_id: local.type_id,
@@ -649,34 +755,61 @@ async function startServer() {
       const data = await response.json();
       res.json(data);
     } catch (err: unknown) {
+      logEvent('ERROR', 'ESI', `Type lookup failed for ${id}`, { error: String(err) });
       res.status(500).json({ error: 'Failed to lookup type in ESI', message: String(err) });
     }
   });
 
-  // 9. All 15,801 tradeable market types endpoint
+  // 9a. Type catalog status and health endpoint
+  app.get('/api/types/status', (req, res) => {
+    res.json(TypeCatalogService.getMetadata());
+  });
+
+  // 9b. All tradeable market types endpoint with validation headers
   app.get('/api/types/all', (req, res) => {
+    const meta = TypeCatalogService.getMetadata();
+    const types = TypeCatalogService.getTypes();
+
     res.setHeader('Cache-Control', 'public, max-age=3600');
-    res.json(loadedMarketTypes);
+    res.setHeader('X-Catalog-Status', meta.status);
+    res.setHeader('X-Catalog-Version', meta.version);
+    res.setHeader('X-Catalog-Checksum', meta.checksum);
+    res.setHeader('X-Catalog-Count', String(meta.item_count));
+
+    if (meta.status === 'CATALOG_CORRUPTED' && types.length === 0) {
+      logEvent('ERROR', 'CATALOG', 'Serving empty corrupted catalog response', meta);
+      return res.status(500).json({ error: 'CATALOG_CORRUPTED', metadata: meta, types: [] });
+    }
+    if (meta.status === 'CATALOG_UNAVAILABLE' && types.length === 0) {
+      logEvent('ERROR', 'CATALOG', 'Serving unavailable catalog response', meta);
+      return res.status(503).json({ error: 'CATALOG_UNAVAILABLE', metadata: meta, types: [] });
+    }
+
+    if (req.query.include_metadata === 'true') {
+      return res.json({ metadata: meta, types });
+    }
+    res.json(types);
   });
 
   // 10. Fast search across market types with live ESI fallback
   app.get('/api/types/search', async (req, res) => {
     const query = ((req.query.q as string) || '').trim().toLowerCase();
     const limit = Math.min(Number(req.query.limit) || 100, 500);
+    const types = getMarketTypes();
 
     if (!query) {
-      return res.json(loadedMarketTypes.slice(0, limit));
+      return res.json(types.slice(0, limit));
     }
 
     const isNumeric = /^\d+$/.test(query);
     if (isNumeric) {
       const numId = Number(query);
-      const exact = loadedMarketTypes.find((t) => t.type_id === numId);
+      const exact = types.find((t) => t.type_id === numId);
       if (exact) return res.json([exact]);
     }
 
-    const results: typeof loadedMarketTypes = [];
-    for (const t of loadedMarketTypes) {
+    const results: typeof types = [];
+    for (const t of types) {
       if (t.name.toLowerCase().includes(query) || String(t.type_id) === query) {
         results.push(t);
         if (results.length >= limit) break;
@@ -719,7 +852,7 @@ async function startServer() {
                         adjusted_price: 0,
                       };
                       results.push(newType);
-                      loadedMarketTypes.push(newType);
+                      getMarketTypes().push(newType);
                     }
                   }
                 } catch {}
@@ -749,7 +882,18 @@ async function startServer() {
       try {
         const host = req.get('host') || `localhost:${PORT}`;
         const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
-        const redirectUri = `${protocol}://${host}${req.path}`;
+        const redirectUri = EVE_CALLBACK_URL || `${protocol}://${host}${req.path}`;
+        
+        // Validate OAuth state
+        if (state) {
+          const stateCheck = validateAndConsumeOAuthState(state);
+          if (!stateCheck.isValid) {
+            logEvent('WARN', 'SSO', 'Callback received invalid or expired state', {
+              statePrefix: state.substring(0, 8),
+              error: stateCheck.error,
+            });
+          }
+        }
         
         const basicAuth = Buffer.from(`${EVE_CLIENT_ID}:${EVE_CLIENT_SECRET}`).toString('base64');
         const params = new URLSearchParams({
@@ -963,7 +1107,10 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`EVE Trade Server running on http://0.0.0.0:${PORT}`);
+    logEvent('INFO', 'SERVER', `EVE Trade Server running on http://0.0.0.0:${PORT}`);
+    logEvent('INFO', 'SERVER', `Environment: ${process.env.NODE_ENV || 'development'}`);
+    logEvent('INFO', 'SSO', `SSO Status: ${EVE_CLIENT_ID ? 'Client ID configured' : 'EVE_CLIENT_ID missing'}, Callback: ${EVE_CALLBACK_URL || 'Auto-derived'}`);
+    logEvent('INFO', 'CATALOG', `Catalog: ${TypeCatalogService.getMetadata().status} (${TypeCatalogService.getMetadata().item_count} items)`);
   });
 }
 

@@ -90,7 +90,7 @@ Voici la séquence exacte suivie lors de la recherche et de l'évaluation d'un a
 
 ---
 
-## 🔐 Sécurité & Gestion des Identités EVE SSO
+## 🔐 Sécurité & Gestion des Identités EVE SSO Durcie
 
 ### 1. Authentification OAuth 2.0 (EVE SSO v2)
 L'authentification utilise le protocole officiel **EVE Online Single Sign-On (SSO) v2** avec jetons JWT signés :
@@ -99,18 +99,25 @@ L'authentification utilise le protocole officiel **EVE Online Single Sign-On (SS
   * `esi-wallet.read_character_wallet.v1` (Solde du portefeuille et transactions)
   * `esi-skills.read_skills.v1` (Niveaux de compétences *Accounting* & *Broker Relations*)
   * `publicData`
-* **Protection des secrets :** L'échange `authorization_code` $\to$ `tokens` s'effectue côté serveur dans `server.ts` via l'en-tête `Authorization: Basic base64(CLIENT_ID:CLIENT_SECRET)`.
-* **Support Multi-Comptes :** `AuthService` maintient une collection de sessions actives dans `localStorage` (`eve_linked_characters`), permettant au trader de basculer instantanément d'un personnage à l'autre sans se déconnecter.
-* **Auto-Refresh Proactif :** Les tokens d'accès expirant après 20 minutes sont automatiquement renouvelés dès que le délai résiduel est inférieur à 2 minutes.
+* **Protection des secrets :** L'échange `authorization_code` $\to$ `tokens` s'effectue exclusivement côté serveur dans `server.ts` via l'en-tête `Authorization: Basic base64(CLIENT_ID:CLIENT_SECRET)`.
+* **Protection CSRF & State Cryptographique :** Chaque session de connexion génère un `state` cryptographique aléatoire de 32 octets stocké en mémoire côté serveur avec TTL de 10 minutes (`activeOAuthStates`). La validation consomme le jeton immédiatement pour interdire toute réutilisation.
+* **Support Multi-Comptes & Persistance Hybride :** `AuthService` maintient la liste des personnages (`EveCharacterSession[]`) via `safeStorage` (supportant le navigateur et l'environnement Node.js/tests).
+* **Verrouillage Atomique des Rafraîchissements (Mutex Lock) :** Déduplication stricte des appels simultanés de rafraîchissement (`refreshLockMap`) afin d'éviter les courses critiques d'invalidation de jeton auprès des serveurs CCP.
 
 ---
 
-## ⚡ Performance & Gestion du Cache
+## ⚡ Performance, Intégrité du Catalogue & "Fail-Loud"
 
-1. **Base de Données des Types en Mémoire (15 801 types d'objets) :**
-   * Le backend précharge `src/data/allMarketTypes.json` au démarrage.
-   * L'endpoint `/api/types/search` répond en $< 5\text{ms}$ pour toute recherche par nom ou `type_id`.
-2. **Déduplication au niveau des requêtes ESI :**
-   * `MarketDataStore` indexe les ordres par clé composite `type_id:region_id` et déduplique par `order_id`.
-3. **Moteurs découplés et vectorisables :**
-   * Chaque moteur mathématique opère en mémoire pure sans allocations inutiles d'objets ou de closures lourdes.
+1. **Service Centralisé de Catalogue (`TypeCatalogService`) :**
+   * Chargement déterministe avec validation d'intégrité de chaque élément.
+   * Calcul d'empreinte cryptographique SHA-256 (`checksum`) sur les données chargées.
+   * Gestion d'états formelle : `CATALOG_LOADED`, `CATALOG_FALLBACK_CORE`, `CATALOG_CORRUPTED`, `CATALOG_UNAVAILABLE`.
+   * Fallback de secours vérifié (`EVE_TYPES_CATALOG`) pour garantir la disponibilité en cas de corruption ou d'absence du fichier.
+2. **Contrats "Fail-Loud" (Principe `NO DATA ≠ ZERO DATA`) :**
+   * Aucune transformation silencieuse d'erreur de requête ou de catalogue en tableau vide.
+   * L'API backend et `EsiService` propagent des erreurs explicites avec statuts HTTP appropriés (503, 502, 400).
+   * L'interface utilisateur affiche des indicateurs de santé du catalogue avec badge d'avertissement lorsque le mode de secours est activé.
+3. **Observabilité & Diagnostic :**
+   * Endpoint de santé `/api/health` fournissant l'état du serveur, la mémoire, le statut du catalogue et les sessions actives.
+   * Endpoint dédié `/api/types/status` pour la traçabilité de version et du checksum.
+   * Journalisation structurée unifiée (`logEvent`) traçant les événements de cycle de vie et les erreurs.

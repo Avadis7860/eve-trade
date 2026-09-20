@@ -4,8 +4,40 @@ const STORAGE_KEY_CHARACTERS = 'eve_linked_characters';
 const STORAGE_KEY_ACTIVE_CHAR_ID = 'eve_active_character_id';
 const LEGACY_STORAGE_KEY = 'eve_char_session';
 
+const memoryStore = new Map<string, string>();
+
+const safeStorage = {
+  getItem(key: string): string | null {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        return localStorage.getItem(key);
+      }
+    } catch {}
+    return memoryStore.get(key) ?? null;
+  },
+  setItem(key: string, value: string): void {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(key, value);
+        return;
+      }
+    } catch {}
+    memoryStore.set(key, value);
+  },
+  removeItem(key: string): void {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(key);
+        return;
+      }
+    } catch {}
+    memoryStore.delete(key);
+  },
+};
+
 export class AuthService {
   private static listeners = new Set<(session: EveCharacterSession | null) => void>();
+  private static refreshLockMap = new Map<number, Promise<EveCharacterSession>>();
 
   /**
    * Subscribe to character session updates (e.g. token refreshed, logged out, switched).
@@ -33,7 +65,7 @@ export class AuthService {
    */
   static getLinkedCharacters(): EveCharacterSession[] {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY_CHARACTERS);
+      const raw = safeStorage.getItem(STORAGE_KEY_CHARACTERS);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
@@ -42,18 +74,18 @@ export class AuthService {
       }
 
       // Legacy fallback
-      const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY);
+      const legacyRaw = safeStorage.getItem(LEGACY_STORAGE_KEY);
       if (legacyRaw) {
         const legacyChar = JSON.parse(legacyRaw) as EveCharacterSession;
         if (legacyChar && legacyChar.character_id) {
           const list = [{ ...legacyChar, is_active: true }];
-          localStorage.setItem(STORAGE_KEY_CHARACTERS, JSON.stringify(list));
-          localStorage.setItem(STORAGE_KEY_ACTIVE_CHAR_ID, String(legacyChar.character_id));
+          safeStorage.setItem(STORAGE_KEY_CHARACTERS, JSON.stringify(list));
+          safeStorage.setItem(STORAGE_KEY_ACTIVE_CHAR_ID, String(legacyChar.character_id));
           return list;
         }
       }
     } catch (e) {
-      console.warn('Failed to parse linked characters from localStorage:', e);
+      console.warn('Failed to parse linked characters from storage:', e);
     }
     return [];
   }
@@ -65,7 +97,7 @@ export class AuthService {
     const list = this.getLinkedCharacters();
     if (list.length === 0) return null;
 
-    const activeIdStr = localStorage.getItem(STORAGE_KEY_ACTIVE_CHAR_ID);
+    const activeIdStr = safeStorage.getItem(STORAGE_KEY_ACTIVE_CHAR_ID);
     if (activeIdStr) {
       const activeId = Number(activeIdStr);
       const found = list.find((c) => c.character_id === activeId);
@@ -105,10 +137,10 @@ export class AuthService {
         : [...list, updatedSession];
     }
 
-    localStorage.setItem(STORAGE_KEY_CHARACTERS, JSON.stringify(updatedList));
+    safeStorage.setItem(STORAGE_KEY_CHARACTERS, JSON.stringify(updatedList));
     if (makeActive) {
-      localStorage.setItem(STORAGE_KEY_ACTIVE_CHAR_ID, String(session.character_id));
-      localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(updatedSession));
+      safeStorage.setItem(STORAGE_KEY_ACTIVE_CHAR_ID, String(session.character_id));
+      safeStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(updatedSession));
       this.notifyListeners(updatedSession);
     }
 
@@ -128,10 +160,10 @@ export class AuthService {
       is_active: c.character_id === characterId,
     }));
 
-    localStorage.setItem(STORAGE_KEY_CHARACTERS, JSON.stringify(updatedList));
-    localStorage.setItem(STORAGE_KEY_ACTIVE_CHAR_ID, String(characterId));
+    safeStorage.setItem(STORAGE_KEY_CHARACTERS, JSON.stringify(updatedList));
+    safeStorage.setItem(STORAGE_KEY_ACTIVE_CHAR_ID, String(characterId));
     const activeObj = { ...target, is_active: true };
-    localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(activeObj));
+    safeStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(activeObj));
     this.notifyListeners(activeObj);
 
     return activeObj;
@@ -144,15 +176,15 @@ export class AuthService {
     const list = this.getLinkedCharacters();
     const updatedList = list.filter((c) => c.character_id !== characterId);
 
-    localStorage.setItem(STORAGE_KEY_CHARACTERS, JSON.stringify(updatedList));
+    safeStorage.setItem(STORAGE_KEY_CHARACTERS, JSON.stringify(updatedList));
 
-    const activeIdStr = localStorage.getItem(STORAGE_KEY_ACTIVE_CHAR_ID);
+    const activeIdStr = safeStorage.getItem(STORAGE_KEY_ACTIVE_CHAR_ID);
     if (activeIdStr === String(characterId)) {
       if (updatedList.length > 0) {
         this.setActiveCharacter(updatedList[0].character_id);
       } else {
-        localStorage.removeItem(STORAGE_KEY_ACTIVE_CHAR_ID);
-        localStorage.removeItem(LEGACY_STORAGE_KEY);
+        safeStorage.removeItem(STORAGE_KEY_ACTIVE_CHAR_ID);
+        safeStorage.removeItem(LEGACY_STORAGE_KEY);
         this.notifyListeners(null);
       }
     }
@@ -200,40 +232,51 @@ export class AuthService {
       return this.markTokenExpired(session.character_id, 'Aucun jeton de renouvellement (refresh token) disponible') || session;
     }
 
-    try {
-      const response = await fetch('/api/auth/refresh', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: session.refresh_token }),
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        console.warn('Failed to refresh token from CCP SSO:', errText);
-        return this.markTokenExpired(session.character_id, 'Échec du renouvellement du jeton SSO auprès de CCP') || session;
-      }
-
-      const tokenData = await response.json();
-      const expiresInSec = tokenData.expires_in || 1200; // EVE SSO standard is 20 min (1200s)
-      const expiresAt = Date.now() + (expiresInSec * 1000);
-
-      const updatedSession: EveCharacterSession = {
-        ...session,
-        access_token: tokenData.access_token,
-        refresh_token: tokenData.refresh_token || session.refresh_token,
-        expires_at: expiresAt,
-        is_token_expired: false,
-        auth_error: undefined,
-        last_sync: new Date().toISOString(),
-      };
-
-      // Save to persistence
-      this.saveCharacter(updatedSession, session.is_active ?? false);
-      return updatedSession;
-    } catch (err) {
-      console.warn('Token refresh network error:', err);
-      return session;
+    if (this.refreshLockMap.has(session.character_id)) {
+      return this.refreshLockMap.get(session.character_id)!;
     }
+
+    const refreshPromise = (async () => {
+      try {
+        const response = await fetch('/api/auth/refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: session.refresh_token }),
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          console.warn('Failed to refresh token from CCP SSO:', errText);
+          return this.markTokenExpired(session.character_id, 'Échec du renouvellement du jeton SSO auprès de CCP') || session;
+        }
+
+        const tokenData = await response.json();
+        const expiresInSec = tokenData.expires_in || 1200; // EVE SSO standard is 20 min (1200s)
+        const expiresAt = Date.now() + (expiresInSec * 1000);
+
+        const updatedSession: EveCharacterSession = {
+          ...session,
+          access_token: tokenData.access_token,
+          refresh_token: tokenData.refresh_token || session.refresh_token,
+          expires_at: expiresAt,
+          is_token_expired: false,
+          auth_error: undefined,
+          last_sync: new Date().toISOString(),
+        };
+
+        // Save to persistence
+        this.saveCharacter(updatedSession, session.is_active ?? false);
+        return updatedSession;
+      } catch (err) {
+        console.warn('Token refresh network error:', err);
+        return session;
+      } finally {
+        this.refreshLockMap.delete(session.character_id);
+      }
+    })();
+
+    this.refreshLockMap.set(session.character_id, refreshPromise);
+    return refreshPromise;
   }
 
   /**

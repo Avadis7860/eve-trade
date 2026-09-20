@@ -6,6 +6,7 @@ import {
   EveCharacterOrderHistory,
   EveCharacterJournalEntry,
   MarketDataQuality,
+  TypeCatalogMetadata,
 } from '../types';
 import { KNOWN_STATION_NAMES } from '../data/universe';
 import { AuthService } from './authService';
@@ -763,7 +764,19 @@ export class EsiService {
   }
 
   /**
-   * Fetches all 15,801 tradeable market types with real average and adjusted prices from Tranquility.
+   * Fetches metadata status of the Type Catalog
+   */
+  static async getTypeCatalogStatus(): Promise<TypeCatalogMetadata> {
+    const response = await fetch('/api/types/status');
+    if (!response.ok) {
+      throw new Error(`Catalog status endpoint returned HTTP ${response.status}`);
+    }
+    return await response.json();
+  }
+
+  /**
+   * Fetches all tradeable market types with real average and adjusted prices from Tranquility.
+   * Never silently swallows failures into empty arrays.
    */
   static async fetchAllMarketTypes(): Promise<Array<{
     type_id: number;
@@ -776,17 +789,28 @@ export class EsiService {
   }>> {
     try {
       const response = await fetch('/api/types/all');
-      if (response.ok) {
-        return await response.json();
+      if (!response.ok) {
+        let errDetails = `HTTP_${response.status}`;
+        try {
+          const errJson = await response.json();
+          errDetails = errJson.error || errJson.message || errDetails;
+        } catch {}
+        throw new Error(`Failed to load market types catalog: ${errDetails}`);
       }
+      const data = await response.json();
+      if (!Array.isArray(data)) {
+        if (Array.isArray(data?.types)) return data.types;
+        throw new Error('CATALOG_DATA_FORMAT_INVALID');
+      }
+      return data;
     } catch (err) {
-      console.warn('Failed to fetch /api/types/all:', err);
+      console.error('EsiService.fetchAllMarketTypes error:', err);
+      throw err;
     }
-    return [];
   }
 
   /**
-   * Fast search across all 15,801 types
+   * Fast search across market types with live ESI fallback
    */
   static async searchMarketTypes(query: string, limit = 50): Promise<Array<{
     type_id: number;
@@ -799,12 +823,13 @@ export class EsiService {
   }>> {
     try {
       const response = await fetch(`/api/types/search?q=${encodeURIComponent(query)}&limit=${limit}`);
-      if (response.ok) {
-        return await response.json();
+      if (!response.ok) {
+        throw new Error(`Type search returned HTTP ${response.status}`);
       }
+      return await response.json();
     } catch (err) {
-      console.warn('Failed to search market types:', err);
+      console.error('EsiService.searchMarketTypes error:', err);
+      throw err;
     }
-    return [];
   }
 }

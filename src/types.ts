@@ -970,5 +970,32 @@ export interface PredictionForecast {
   limiting_factors: string[];
 }
 
+// ==========================================
+// TYPE ID CATALOG HARDENING & METADATA TYPES
+// ==========================================
+
+export type TypeCatalogStatus =
+  | 'CATALOG_LOADED'
+  | 'CATALOG_UNAVAILABLE'
+  | 'CATALOG_CORRUPTED'
+  | 'CATALOG_EMPTY'
+  | 'CATALOG_FALLBACK_CORE';
+
+export interface TypeCatalogMetadata {
+  version: string;
+  checksum: string;
+  item_count: number;
+  status: TypeCatalogStatus;
+  loaded_at: string;
+  source: 'filesystem' | 'fallback_core' | 'esi_synced';
+  error?: string;
+  file_path?: string;
+}
+
+export interface TypeCatalogResponse {
+  metadata: TypeCatalogMetadata;
+  types: EveTypeDetail[];
+}
+
 
 

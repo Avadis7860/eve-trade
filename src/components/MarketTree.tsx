@@ -54,6 +54,7 @@ export const MarketTree: React.FC<MarketTreeProps> = ({
   const [esiSearchResults, setEsiSearchResults] = useState<EveTypeDetail[]>([]);
   const [allMarketCatalog, setAllMarketCatalog] = useState<EveTypeDetail[]>([]);
   const [isLoadingAllTypes, setIsLoadingAllTypes] = useState(false);
+  const [catalogWarning, setCatalogWarning] = useState<string | null>(null);
 
   // Fetch and hydrate market types with persistent IndexedDB caching
   useEffect(() => {
@@ -71,11 +72,15 @@ export const MarketTree: React.FC<MarketTreeProps> = ({
         const types = await EsiService.fetchAllMarketTypes();
         if (active && types && types.length > 0) {
           setAllMarketCatalog(types as EveTypeDetail[]);
+          setCatalogWarning(null);
           // Persist to IndexedDB
           await IndexedDbStore.saveEveTypes(types);
         }
       } catch (err) {
         console.warn('Could not load all market types:', err);
+        if (active) {
+          setCatalogWarning('Catalogue hors-ligne / Dégradé');
+        }
       } finally {
         if (active) setIsLoadingAllTypes(false);
       }
@@ -184,14 +189,19 @@ export const MarketTree: React.FC<MarketTreeProps> = ({
             <Package className="w-4 h-4 text-[#ff4b4b]" />
             Catalogue Marché
           </span>
-          <div>
+          <div className="flex items-center gap-1.5">
+            {catalogWarning && (
+              <span className="text-[10px] bg-amber-950/80 text-amber-300 border border-amber-600/40 px-1.5 py-0.5 rounded font-mono" title={catalogWarning}>
+                Hors-ligne
+              </span>
+            )}
             {isLoadingAllTypes ? (
               <span className="text-[10px] text-amber-400 flex items-center gap-1 font-mono">
                 <Loader2 className="w-3 h-3 animate-spin" />
                 Chargement...
               </span>
             ) : (
-              <span className="text-[11px] text-green-400 font-mono flex items-center gap-1" title="15 801 types de marché EVE Online">
+              <span className="text-[11px] text-green-400 font-mono flex items-center gap-1" title="Types de marché EVE Online">
                 <Sparkles className="w-3 h-3 text-amber-400" />
                 {allAvailableTypes.length.toLocaleString()} types
               </span>

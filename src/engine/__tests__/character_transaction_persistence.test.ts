@@ -21,6 +21,8 @@ import {
   persistedTransactionToRef,
   deduplicateTransactionsByFromIdAnchor,
   RawEsiTransactionInput,
+  TransactionValidationError,
+  PersistenceValidationError,
 } from '../characterTransaction';
 import { IndexedDbStore } from '../../services/indexedDbStore';
 import { PersistedCharacterTransaction } from '../../types';
@@ -151,8 +153,8 @@ console.log('--- Test Suite 2: Normalization, Provenance & Order Non-Invention -
   assert(normalized.source === 'ESI', 'Source must be ESI');
   assert(normalized.source_endpoint === '/characters/2112001/wallet/transactions/', 'Source endpoint verified');
   assert(normalized.ingestion_version === '1.0.0', 'Ingestion version verified');
-  assert(normalized.first_seen_at === '2026-09-20T08:20:00Z', 'first_seen_at correctly captured');
-  assert(normalized.last_seen_at === '2026-09-20T08:20:00Z', 'last_seen_at correctly captured');
+  assert(normalized.first_seen_at === '2026-09-20T08:20:00.000Z', 'first_seen_at correctly captured');
+  assert(normalized.last_seen_at === '2026-09-20T08:20:00.000Z', 'last_seen_at correctly captured');
   assert(normalized.timestamp === '2026-09-20T08:15:30.000Z', 'Canonical ISO UTC date preserved');
 
   // Facts fidelity
@@ -179,7 +181,8 @@ console.log('--- Test Suite 2: Normalization, Provenance & Order Non-Invention -
       { ...raw, transaction_id: 55002 },
       { ...raw, transaction_id: -99, quantity: -10 }, // Invalid
     ],
-    2112001
+    2112001,
+    { ingestedAt: '2026-09-20T08:20:00Z' }
   );
 
   assert(batchResult.total === 3, 'Batch total is 3');
@@ -230,10 +233,10 @@ console.log('--- Test Suite 3: Idempotence & Historical Immutability ---');
   const merged = mergePersistedCharacterTransactions(initial, secondRead);
 
   // Invariant 1: first_seen_at remains original
-  assert(merged.first_seen_at === '2026-09-20T08:05:00Z', 'first_seen_at must be strictly preserved');
+  assert(merged.first_seen_at === '2026-09-20T08:05:00.000Z', 'first_seen_at must be strictly preserved');
 
   // Invariant 2: last_seen_at is updated
-  assert(merged.last_seen_at === '2026-09-20T08:35:00Z', 'last_seen_at must be updated to second read');
+  assert(merged.last_seen_at === '2026-09-20T08:35:00.000Z', 'last_seen_at must be updated to second read');
 
   // Invariant 3: Historical facts remain unchanged
   assert(merged.transaction_id === 100, 'transaction_id preserved');
@@ -264,7 +267,7 @@ console.log('--- Test Suite 3: Idempotence & Historical Immutability ---');
   assert(mergedWithDivergence.quantity === 1000, 'Original quantity must NOT be overwritten');
   assert(mergedWithDivergence.data_state === 'PARTIAL', 'Diverging transaction must be marked PARTIAL');
   assert(
-    mergedWithDivergence.validation_errors && mergedWithDivergence.validation_errors.length > 0,
+    Boolean(mergedWithDivergence.validation_errors && mergedWithDivergence.validation_errors.length > 0),
     'Divergence errors must be documented'
   );
 
@@ -291,7 +294,8 @@ console.log('--- Test Suite 4: CCP ESI from_id Pagination Anchor Deduplication -
         date: dateStr,
         is_buy: true,
       },
-      2112001
+      2112001,
+      { ingestedAt: '2026-09-20T08:55:00Z' }
     );
 
   const page1 = [
@@ -343,7 +347,8 @@ console.log('--- Test Suite 5: Multi-Character Isolation ---');
       date: '2026-09-20T08:00:00Z',
       is_buy: true,
     },
-    char1Id
+    char1Id,
+    { ingestedAt: '2026-09-20T08:20:00Z' }
   );
 
   const txChar1B = normalizeEsiCharacterTransaction(
@@ -356,7 +361,8 @@ console.log('--- Test Suite 5: Multi-Character Isolation ---');
       date: '2026-09-20T08:10:00Z',
       is_buy: false,
     },
-    char1Id
+    char1Id,
+    { ingestedAt: '2026-09-20T08:20:00Z' }
   );
 
   const txChar2A = normalizeEsiCharacterTransaction(
@@ -369,7 +375,8 @@ console.log('--- Test Suite 5: Multi-Character Isolation ---');
       date: '2026-09-20T08:15:00Z',
       is_buy: true,
     },
-    char2Id
+    char2Id,
+    { ingestedAt: '2026-09-20T08:20:00Z' }
   );
 
   await IndexedDbStore.saveCharacterTransactions([txChar1A, txChar1B, txChar2A]);
@@ -417,7 +424,8 @@ console.log('--- Test Suite 5: Multi-Character Isolation ---');
       date: '2026-09-20T08:00:00Z',
       is_buy: true,
     },
-    char1Id
+    char1Id,
+    { ingestedAt: '2026-09-20T08:05:00Z' }
   );
 
   await IndexedDbStore.saveCharacterTransaction(singleTx);
@@ -510,7 +518,475 @@ console.log('--- Test Suite 5: Multi-Character Isolation ---');
 
   console.log('  [PASS] Migration logic from DB_VERSION 3 to DB_VERSION 4 verified.');
 
-  console.log('\n🎉 ALL PHASE 2B NORMALIZED EXECUTION PERSISTENCE TESTS PASSED SUCCESSFULLY!\n');
+  // ==========================================================================
+  // PHASE 2B — CHANTIER 3B-1 HARDENING RELIABILITY GATE TESTS (A to I)
+  // ==========================================================================
+  console.log('\n==========================================================================');
+  console.log('--- RUNNING CHANTIER 3B-1 HARDENING RELIABILITY GATE TESTS (A -> I) ---');
+  console.log('==========================================================================\n');
+
+  const canonicalRaw: RawEsiTransactionInput = {
+    transaction_id: 88801,
+    type_id: 34,
+    location_id: 60003760,
+    quantity: 25000,
+    unit_price: 6.1,
+    date: '2026-09-20T10:00:00Z',
+    is_buy: true,
+    is_personal: true,
+    client_id: 99111,
+    journal_ref_id: 55555,
+  };
+
+  // --------------------------------------------------------------------------
+  // Test A — Deterministic normalization
+  // Deux appels avec la même entrée et le même ingestedAt doivent produire
+  // deux objets strictement identiques (deep equality) sans drift d'horodatage.
+  // --------------------------------------------------------------------------
+  console.log('--- Test A: Deterministic Normalization ---');
+  {
+    const resA1 = normalizeEsiCharacterTransaction(canonicalRaw, 2112001, {
+      ingestedAt: '2026-09-20T10:05:00.000Z',
+    });
+    const resA2 = normalizeEsiCharacterTransaction(canonicalRaw, 2112001, {
+      ingestedAt: '2026-09-20T10:05:00.000Z',
+    });
+
+    assert(
+      JSON.stringify(resA1) === JSON.stringify(resA2),
+      'Two identical inputs with same ingestedAt must produce identical results'
+    );
+    assert(
+      resA1.first_seen_at === '2026-09-20T10:05:00.000Z',
+      'first_seen_at matches ingestedAt exactly'
+    );
+    assert(
+      resA1.last_seen_at === '2026-09-20T10:05:00.000Z',
+      'last_seen_at matches ingestedAt exactly'
+    );
+    assert(
+      resA1.timestamp === '2026-09-20T10:00:00.000Z',
+      'canonical timestamp preserved'
+    );
+    console.log('  [PASS] Test A: Deterministic normalization verified without timestamp drift.');
+  }
+
+  // --------------------------------------------------------------------------
+  // Test B — No default clock drift
+  // Appel sans ingestedAt interdit/rejeté explicitement. Vérifier l'absence de Date.now() caché.
+  // --------------------------------------------------------------------------
+  console.log('--- Test B: No Default Clock Drift (Mandatory ingestedAt) ---');
+  {
+    let caughtB1 = false;
+    try {
+      normalizeEsiCharacterTransaction(canonicalRaw, 2112001, undefined as any);
+    } catch (e: any) {
+      caughtB1 = true;
+      assert(
+        e.message.includes('ingestedAt is required'),
+        'Must reject normalization without ingestedAt'
+      );
+    }
+    assert(caughtB1, 'normalizeEsiCharacterTransaction must throw when ingestedAt is omitted');
+
+    let caughtB2 = false;
+    try {
+      normalizeEsiCharacterTransaction(canonicalRaw, 2112001, { ingestedAt: '   ' });
+    } catch (e: any) {
+      caughtB2 = true;
+    }
+    assert(caughtB2, 'normalizeEsiCharacterTransaction must throw when ingestedAt is whitespace');
+
+    let caughtB3 = false;
+    try {
+      normalizeEsiCharacterTransactions([canonicalRaw], 2112001, undefined as any);
+    } catch (e: any) {
+      caughtB3 = true;
+      assert(
+        e.message.includes('ingestedAt is required'),
+        'Must reject batch normalization without ingestedAt'
+      );
+    }
+    assert(caughtB3, 'normalizeEsiCharacterTransactions batch must throw when ingestedAt is omitted');
+
+    console.log('  [PASS] Test B: Absence of hidden Date.now() and mandatory ingestedAt verified.');
+  }
+
+  // --------------------------------------------------------------------------
+  // Test C — Non-integer identifier rejection
+  // Rejeter: transaction_id = 12.34, Number.MAX_SAFE_INTEGER + 1, quantity = 10.5, character_id = NaN
+  // --------------------------------------------------------------------------
+  console.log('--- Test C: Non-Integer Identifier & Safe Integer Rejection ---');
+  {
+    // Float transaction_id
+    const badFloatTx = validateRawCharacterTransaction(
+      { ...canonicalRaw, transaction_id: 12.34 },
+      2112001
+    );
+    assert(!badFloatTx.isValid, 'Float transaction_id (12.34) must be rejected');
+
+    // Unsafe integer > MAX_SAFE_INTEGER
+    const badUnsafeTx = validateRawCharacterTransaction(
+      { ...canonicalRaw, transaction_id: Number.MAX_SAFE_INTEGER + 1000 },
+      2112001
+    );
+    assert(!badUnsafeTx.isValid, 'Unsafe integer transaction_id must be rejected');
+
+    // Float quantity
+    const badFloatQty = validateRawCharacterTransaction(
+      { ...canonicalRaw, quantity: 10.5 },
+      2112001
+    );
+    assert(!badFloatQty.isValid, 'Float quantity (10.5) must be rejected');
+
+    // NaN character_id
+    const badNanChar = validateRawCharacterTransaction(canonicalRaw, NaN);
+    assert(!badNanChar.isValid, 'NaN character_id must be rejected');
+
+    // Float character_id
+    const badFloatChar = validateRawCharacterTransaction(canonicalRaw, 2112001.5);
+    assert(!badFloatChar.isValid, 'Float character_id (2112001.5) must be rejected');
+
+    console.log('  [PASS] Test C: Strict Number.isSafeInteger enforcement on identifiers and quantities verified.');
+  }
+
+  // --------------------------------------------------------------------------
+  // Test D — Invalid transaction cannot be persisted
+  // Une transaction INVALID ne doit pas apparaître dans character_transactions.
+  // --------------------------------------------------------------------------
+  console.log('--- Test D: Invalid Transaction Cannot Be Persisted ---');
+  {
+    const invalidPersistedTx = {
+      transaction_id: -99,
+      character_id: 2112001,
+      type_id: 34,
+      location_id: 60003760,
+      quantity: -50,
+      unit_price: 0,
+      timestamp: '2026-09-20T10:00:00Z',
+      is_buy: true,
+      data_state: 'INVALID' as const,
+      first_seen_at: '2026-09-20T10:05:00Z',
+      last_seen_at: '2026-09-20T10:05:00Z',
+      source: 'ESI' as const,
+      source_endpoint: '/test',
+      ingestion_version: '1.0.0',
+    };
+
+    let caughtD = false;
+    try {
+      await IndexedDbStore.saveCharacterTransaction(invalidPersistedTx as any);
+    } catch (e: any) {
+      caughtD = true;
+      assert(
+        e instanceof PersistenceValidationError,
+        'Must throw PersistenceValidationError on saving invalid transaction'
+      );
+    }
+    assert(caughtD, 'IndexedDbStore.saveCharacterTransaction must reject invalid transaction');
+
+    const fetchedD = await IndexedDbStore.getCharacterTransaction(-99);
+    assert(fetchedD === null, 'Invalid transaction must not exist in store');
+
+    console.log('  [PASS] Test D: Persistence guard rejects invalid transactions unconditionally.');
+  }
+
+  // --------------------------------------------------------------------------
+  // Test E — transaction_id = 0 rejected
+  // Rejeter toute tentative d'écrire ou de normaliser transaction_id = 0 comme fait ESI.
+  // --------------------------------------------------------------------------
+  console.log('--- Test E: transaction_id = 0 Rejected as ESI Fact ---');
+  {
+    const valZeroTx = validateRawCharacterTransaction(
+      { ...canonicalRaw, transaction_id: 0 },
+      2112001
+    );
+    assert(!valZeroTx.isValid, 'transaction_id = 0 must fail validation');
+
+    let caughtE1 = false;
+    try {
+      normalizeEsiCharacterTransaction(
+        { ...canonicalRaw, transaction_id: 0 },
+        2112001,
+        { ingestedAt: '2026-09-20T10:05:00Z' }
+      );
+    } catch (e: any) {
+      caughtE1 = true;
+      assert(
+        e instanceof TransactionValidationError,
+        'Must throw TransactionValidationError for transaction_id = 0'
+      );
+    }
+    assert(caughtE1, 'normalizeEsiCharacterTransaction must throw for transaction_id = 0');
+
+    const validTx = normalizeEsiCharacterTransaction(canonicalRaw, 2112001, {
+      ingestedAt: '2026-09-20T10:05:00Z',
+    });
+
+    let caughtE2 = false;
+    try {
+      await IndexedDbStore.saveCharacterTransaction({
+        ...validTx,
+        transaction_id: 0,
+      } as any);
+    } catch (e: any) {
+      caughtE2 = true;
+      assert(
+        e instanceof PersistenceValidationError,
+        'Must throw PersistenceValidationError for transaction_id = 0'
+      );
+    }
+    assert(caughtE2, 'IndexedDbStore must reject transaction_id = 0');
+
+    console.log('  [PASS] Test E: Synthetic transaction_id = 0 strictly forbidden.');
+  }
+
+  // --------------------------------------------------------------------------
+  // Test F — Persistence-first consistency
+  // Vérifier que le cache mémoire n'est mis à jour qu'après le succès réel de la persistance durable.
+  // --------------------------------------------------------------------------
+  console.log('--- Test F: Persistence-First Consistency (Commit Point on oncomplete) ---');
+  {
+    let onCompleteTriggered: boolean = false;
+    let memCheckedBeforeComplete: boolean = false;
+
+    const mockDbF = {
+      transaction: () => {
+        let completeCb: any = null;
+        const req = {
+          onsuccess: null as any,
+          result: undefined,
+        };
+        const txObj = {
+          objectStore: () => ({
+            get: () => {
+              setTimeout(() => {
+                if (req.onsuccess) req.onsuccess();
+                // Check memory BEFORE completeCb is called
+                memCheckedBeforeComplete =
+                  IndexedDbStore.getMemoryTransaction(77001) === undefined;
+                if (completeCb) {
+                  onCompleteTriggered = true;
+                  completeCb();
+                }
+              }, 10);
+              return req;
+            },
+            put: () => {},
+          }),
+          set oncomplete(cb: any) {
+            completeCb = cb;
+          },
+          set onerror(_cb: any) {},
+          set onabort(_cb: any) {},
+        };
+        return txObj;
+      },
+    };
+
+    IndexedDbStore.setTestDatabase(mockDbF as any);
+    const txF = normalizeEsiCharacterTransaction(
+      { ...canonicalRaw, transaction_id: 77001 },
+      2112001,
+      { ingestedAt: '2026-09-20T10:05:00Z' }
+    );
+    await IndexedDbStore.saveCharacterTransaction(txF);
+
+    assert(
+      Boolean(memCheckedBeforeComplete),
+      'Memory cache must NOT have transaction before oncomplete'
+    );
+    assert(Boolean(onCompleteTriggered), 'oncomplete must have triggered');
+    assert(
+      IndexedDbStore.getMemoryTransaction(77001)?.transaction_id === 77001,
+      'Memory updated after oncomplete'
+    );
+
+    console.log('  [PASS] Test F: Persistence-first commit verified (memory updated strictly on oncomplete).');
+  }
+
+  // --------------------------------------------------------------------------
+  // Test G — IndexedDB failure
+  // Simuler une erreur d'écriture. Le cache mémoire ne doit pas prétendre que l'écriture a réussi.
+  // --------------------------------------------------------------------------
+  console.log('--- Test G: IndexedDB Failure (No False Memory Success) ---');
+  {
+    const mockDbG = {
+      transaction: () => {
+        let errorCb: any = null;
+        const req = { onsuccess: null as any, result: undefined };
+        const txObj = {
+          objectStore: () => ({
+            get: () => {
+              setTimeout(() => {
+                if (errorCb) {
+                  errorCb({ target: { error: new Error('IDB disk write I/O error') } });
+                }
+              }, 10);
+              return req;
+            },
+            put: () => {},
+          }),
+          set oncomplete(_cb: any) {},
+          set onerror(cb: any) {
+            errorCb = cb;
+          },
+          set onabort(_cb: any) {},
+        };
+        return txObj;
+      },
+    };
+
+    IndexedDbStore.setTestDatabase(mockDbG as any);
+    const txG = normalizeEsiCharacterTransaction(
+      { ...canonicalRaw, transaction_id: 77002 },
+      2112001,
+      { ingestedAt: '2026-09-20T10:05:00Z' }
+    );
+
+    let caughtG = false;
+    try {
+      await IndexedDbStore.saveCharacterTransaction(txG);
+    } catch (e: any) {
+      caughtG = true;
+      assert(e.message.includes('IDB disk write I/O error'), 'Error must be propagated');
+    }
+    assert(caughtG, 'saveCharacterTransaction must reject on IDB failure');
+    assert(
+      IndexedDbStore.getMemoryTransaction(77002) === undefined,
+      'Memory cache must NOT contain 77002 after failed persistence write'
+    );
+
+    const writeStatusG = IndexedDbStore.getLastWriteStatus();
+    assert(writeStatusG.status === 'WRITE_FAILED', 'Write status must be WRITE_FAILED');
+    assert(
+      writeStatusG.error?.includes('IDB disk write I/O error') === true,
+      'Write error recorded in audit record'
+    );
+
+    console.log('  [PASS] Test G: Storage failure rejection and audit tracking verified.');
+  }
+
+  // --------------------------------------------------------------------------
+  // Test H — Batch failure
+  // Simuler un échec transactionnel. Vérifier l'absence d'état mémoire partiellement commité.
+  // --------------------------------------------------------------------------
+  console.log('--- Test H: Batch Transaction Failure (Zero Partial Commit) ---');
+  {
+    const mockDbH = {
+      transaction: () => {
+        let abortCb: any = null;
+        const txObj = {
+          objectStore: () => ({
+            put: () => {},
+          }),
+          set oncomplete(_cb: any) {},
+          set onerror(_cb: any) {},
+          set onabort(cb: any) {
+            abortCb = cb;
+            setTimeout(() => {
+              if (abortCb) abortCb({ target: { error: new Error('Transaction quota exceeded abort') } });
+            }, 10);
+          },
+        };
+        return txObj;
+      },
+    };
+
+    IndexedDbStore.setTestDatabase(mockDbH as any);
+    const txH1 = normalizeEsiCharacterTransaction(
+      { ...canonicalRaw, transaction_id: 77003 },
+      2112001,
+      { ingestedAt: '2026-09-20T10:05:00Z' }
+    );
+    const txH2 = normalizeEsiCharacterTransaction(
+      { ...canonicalRaw, transaction_id: 77004 },
+      2112001,
+      { ingestedAt: '2026-09-20T10:05:00Z' }
+    );
+
+    let caughtH = false;
+    try {
+      await IndexedDbStore.saveCharacterTransactions([txH1, txH2]);
+    } catch (e: any) {
+      caughtH = true;
+    }
+    assert(caughtH, 'Batch save must reject on abort');
+    assert(
+      IndexedDbStore.getMemoryTransaction(77003) === undefined,
+      'Batch failure: item 77003 must NOT be in memory'
+    );
+    assert(
+      IndexedDbStore.getMemoryTransaction(77004) === undefined,
+      'Batch failure: item 77004 must NOT be in memory'
+    );
+
+    console.log('  [PASS] Test H: Zero partial commit on batch failure verified.');
+  }
+
+  // --------------------------------------------------------------------------
+  // Test I — Clear failure
+  // Simuler l'échec IndexedDB et vérifier la cohérence mémoire/durable.
+  // --------------------------------------------------------------------------
+  console.log('--- Test I: Clear Character Transactions Failure Coherence ---');
+  {
+    // First put item into memory using null db (in-memory fallback)
+    IndexedDbStore.setTestDatabase(null);
+    const txI = normalizeEsiCharacterTransaction(
+      { ...canonicalRaw, transaction_id: 77005 },
+      2112001,
+      { ingestedAt: '2026-09-20T10:05:00Z' }
+    );
+    await IndexedDbStore.saveCharacterTransaction(txI);
+    assert(
+      IndexedDbStore.getMemoryTransaction(77005) !== undefined,
+      'Item 77005 exists in memory prior to clear'
+    );
+
+    // Now inject failing db for clear
+    const mockDbI = {
+      transaction: () => {
+        let errorCb: any = null;
+        const txObj = {
+          objectStore: () => ({
+            clear: () => {
+              setTimeout(() => {
+                if (errorCb)
+                  errorCb({ target: { error: new Error('Clear operation locked by OS') } });
+              }, 10);
+            },
+          }),
+          set oncomplete(_cb: any) {},
+          set onerror(cb: any) {
+            errorCb = cb;
+          },
+          set onabort(_cb: any) {},
+        };
+        return txObj;
+      },
+    };
+
+    IndexedDbStore.setTestDatabase(mockDbI as any);
+    let caughtI = false;
+    try {
+      await IndexedDbStore.clearCharacterTransactions();
+    } catch (e: any) {
+      caughtI = true;
+    }
+    assert(caughtI, 'clearCharacterTransactions must reject on failure');
+    assert(
+      IndexedDbStore.getMemoryTransaction(77005) !== undefined,
+      'Item 77005 must STILL be in memory because durable clear failed'
+    );
+
+    // Reset test database to null
+    IndexedDbStore.setTestDatabase(null);
+
+    console.log('  [PASS] Test I: Coherence between memory and durable storage on clear failure verified.');
+  }
+
+  console.log('\n🎉 ALL HARDENING RELIABILITY GATE TESTS (A TO I) PASSED SUCCESSFULLY!\n');
+  console.log('🎉 ALL PHASE 2B NORMALIZED EXECUTION PERSISTENCE TESTS PASSED SUCCESSFULLY!\n');
 })().catch((err) => {
   console.error('Test failure:', err);
   process.exit(1);

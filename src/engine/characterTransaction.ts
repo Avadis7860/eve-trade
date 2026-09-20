@@ -29,7 +29,7 @@ export interface RawEsiTransactionInput {
 }
 
 export interface NormalizationOptions {
-  readonly ingestedAt?: string;
+  readonly ingestedAt: string;
   readonly sourceEndpoint?: string;
   readonly ingestionVersion?: string;
 }
@@ -37,12 +37,54 @@ export interface NormalizationOptions {
 export interface RawValidationResult {
   readonly isValid: boolean;
   readonly errors: readonly string[];
-  readonly dataState: 'VALID' | 'PARTIAL' | 'INVALID';
+  readonly dataState: 'VALID' | 'INVALID';
+}
+
+export interface InvalidCharacterTransactionRecord {
+  readonly data_state: 'INVALID';
+  readonly validation_errors: readonly string[];
+  readonly raw: RawEsiTransactionInput | null | undefined;
+  readonly character_id: number;
+  readonly attempted_at: string;
+}
+
+export class TransactionValidationError extends Error {
+  readonly errors: readonly string[];
+  readonly raw: RawEsiTransactionInput | null | undefined;
+  readonly characterId: number;
+
+  constructor(
+    message: string,
+    errors: readonly string[],
+    raw: RawEsiTransactionInput | null | undefined,
+    characterId: number
+  ) {
+    super(message);
+    this.name = 'TransactionValidationError';
+    this.errors = Object.freeze([...errors]);
+    this.raw = raw;
+    this.characterId = characterId;
+    Object.setPrototypeOf(this, TransactionValidationError.prototype);
+  }
+}
+
+export class PersistenceValidationError extends Error {
+  readonly transaction: unknown;
+  readonly errors: readonly string[];
+
+  constructor(message: string, errors: readonly string[], transaction: unknown) {
+    super(message);
+    this.name = 'PersistenceValidationError';
+    this.errors = Object.freeze([...errors]);
+    this.transaction = transaction;
+    Object.setPrototypeOf(this, PersistenceValidationError.prototype);
+  }
 }
 
 /**
  * Pure validator for raw character transaction inputs.
  * Rejects non-finite numbers, NaN, Infinity, negative or zero values for critical IDs and amounts.
+ * Strictly enforces Number.isSafeInteger on all ESI 64-bit integer identifiers and quantities.
  */
 export function validateRawCharacterTransaction(
   raw: RawEsiTransactionInput | null | undefined,
@@ -58,38 +100,38 @@ export function validateRawCharacterTransaction(
     });
   }
 
-  // 1. Character ID
-  if (!Number.isInteger(characterId) || characterId <= 0 || !Number.isFinite(characterId)) {
-    errors.push(`Invalid character_id: ${characterId} (must be a positive finite integer).`);
+  // 1. Character ID - must be positive safe integer
+  if (!Number.isSafeInteger(characterId) || characterId <= 0) {
+    errors.push(`Invalid character_id: ${characterId} (must be a positive safe integer).`);
   }
 
-  // 2. Transaction ID
+  // 2. Transaction ID - must be positive safe integer (int64 ESI contract)
   const txId = Number(raw.transaction_id);
-  if (!Number.isInteger(txId) || txId <= 0 || !Number.isFinite(txId)) {
-    errors.push(`Invalid transaction_id: ${String(raw.transaction_id)} (must be a positive finite integer).`);
+  if (!Number.isSafeInteger(txId) || txId <= 0) {
+    errors.push(`Invalid transaction_id: ${String(raw.transaction_id)} (must be a positive safe integer).`);
   }
 
-  // 3. Type ID
+  // 3. Type ID - must be positive safe integer
   const typeId = Number(raw.type_id);
-  if (!Number.isInteger(typeId) || typeId <= 0 || !Number.isFinite(typeId)) {
-    errors.push(`Invalid type_id: ${String(raw.type_id)} (must be a positive finite integer).`);
+  if (!Number.isSafeInteger(typeId) || typeId <= 0) {
+    errors.push(`Invalid type_id: ${String(raw.type_id)} (must be a positive safe integer).`);
   }
 
-  // 4. Location ID
+  // 4. Location ID - must be positive safe integer
   const locId = Number(raw.location_id);
-  if (!Number.isInteger(locId) || locId <= 0 || !Number.isFinite(locId)) {
-    errors.push(`Invalid location_id: ${String(raw.location_id)} (must be a positive finite integer).`);
+  if (!Number.isSafeInteger(locId) || locId <= 0) {
+    errors.push(`Invalid location_id: ${String(raw.location_id)} (must be a positive safe integer).`);
   }
 
-  // 5. Quantity
+  // 5. Quantity - must be positive safe integer per ESI transaction contract (no fractional quantities)
   const qty = Number(raw.quantity);
-  if (!Number.isFinite(qty) || isNaN(qty) || qty <= 0) {
-    errors.push(`Invalid quantity: ${String(raw.quantity)} (must be a strictly positive finite number).`);
+  if (!Number.isSafeInteger(qty) || qty <= 0) {
+    errors.push(`Invalid quantity: ${String(raw.quantity)} (must be a strictly positive safe integer).`);
   }
 
-  // 6. Unit Price
+  // 6. Unit Price - must be strictly positive finite number (can have decimals)
   const price = Number(raw.unit_price);
-  if (!Number.isFinite(price) || isNaN(price) || price <= 0) {
+  if (typeof price !== 'number' || !Number.isFinite(price) || isNaN(price) || price <= 0) {
     errors.push(`Invalid unit_price: ${String(raw.unit_price)} (must be a strictly positive finite number).`);
   }
 
@@ -109,6 +151,22 @@ export function validateRawCharacterTransaction(
     errors.push(`Invalid direction is_buy: ${String(raw.is_buy)} (must be boolean or 0/1).`);
   }
 
+  // 9. Client ID (optional) - if present must be positive safe integer
+  if (raw.client_id !== undefined && raw.client_id !== null) {
+    const clientId = Number(raw.client_id);
+    if (!Number.isSafeInteger(clientId) || clientId <= 0) {
+      errors.push(`Invalid client_id: ${String(raw.client_id)} (must be a positive safe integer).`);
+    }
+  }
+
+  // 10. Journal Ref ID (optional) - if present must be positive safe integer
+  if (raw.journal_ref_id !== undefined && raw.journal_ref_id !== null) {
+    const journalRefId = Number(raw.journal_ref_id);
+    if (!Number.isSafeInteger(journalRefId) || journalRefId <= 0) {
+      errors.push(`Invalid journal_ref_id: ${String(raw.journal_ref_id)} (must be a positive safe integer).`);
+    }
+  }
+
   const isValid = errors.length === 0;
   const dataState = isValid ? 'VALID' : 'INVALID';
 
@@ -124,9 +182,12 @@ export function validateRawCharacterTransaction(
  * into an immutable PersistedCharacterTransaction.
  *
  * CRITICAL SENSITIVE CONSTRAINTS:
+ * - ingestedAt is MANDATORY in options; Date.now() or new Date() are NEVER called to synthesize clock values.
  * - NEVER invent order_id (ESI wallet transactions endpoint does not supply order_id).
  * - NEVER map journal_ref_id to order_id.
  * - Normalized timestamps are always canonical ISO-8601 UTC strings.
+ * - NEVER synthesize fake facts (like transaction_id=0, quantity=0, price=0, timestamp=now) for invalid inputs.
+ * - Throws TransactionValidationError if raw input fails validation.
  * - All returned objects are frozen with Object.freeze().
  */
 export function normalizeEsiCharacterTransaction(
@@ -134,60 +195,78 @@ export function normalizeEsiCharacterTransaction(
   characterId: number,
   options?: NormalizationOptions
 ): PersistedCharacterTransaction {
+  if (!options?.ingestedAt || typeof options.ingestedAt !== 'string' || options.ingestedAt.trim() === '') {
+    throw new Error(
+      'NormalizationOptions.ingestedAt is required and must be an explicit, valid ISO-8601 UTC timestamp string.'
+    );
+  }
+  const ingestedTime = new Date(options.ingestedAt).getTime();
+  if (isNaN(ingestedTime) || ingestedTime <= 0) {
+    throw new Error(
+      `NormalizationOptions.ingestedAt must be a valid ISO-8601 timestamp string, received: "${options.ingestedAt}".`
+    );
+  }
+  const canonicalIngestedAt = new Date(options.ingestedAt).toISOString();
+
   const validation = validateRawCharacterTransaction(raw, characterId);
-  const nowUtc = options?.ingestedAt || new Date().toISOString();
-  const sourceEndpoint = options?.sourceEndpoint || `/characters/${characterId}/wallet/transactions/`;
-  const ingestionVersion = options?.ingestionVersion || '1.0.0';
-
-  const txId = Number(raw?.transaction_id);
-  const typeId = Number(raw?.type_id);
-  const locId = Number(raw?.location_id);
-  const qty = Number(raw?.quantity);
-  const price = Number(raw?.unit_price);
-  const isBuy = Boolean(raw?.is_buy);
-
-  let canonicalTimestamp: string;
-  const rawDate = raw?.date ?? raw?.timestamp;
-  if (rawDate && (typeof rawDate === 'string' || rawDate instanceof Date)) {
-    const d = new Date(rawDate);
-    canonicalTimestamp = !isNaN(d.getTime()) ? d.toISOString() : (typeof rawDate === 'string' ? rawDate : nowUtc);
-  } else {
-    canonicalTimestamp = nowUtc;
+  if (!validation.isValid) {
+    throw new TransactionValidationError(
+      `Cannot normalize invalid raw character transaction: ${validation.errors.join('; ')}`,
+      validation.errors,
+      raw,
+      characterId
+    );
   }
 
-  // Optional client and journal metadata
-  const clientId = raw?.client_id !== undefined ? Number(raw.client_id) : undefined;
-  const journalRefId = raw?.journal_ref_id !== undefined ? Number(raw.journal_ref_id) : undefined;
-  const isPersonal = raw?.is_personal !== undefined ? Boolean(raw.is_personal) : true;
-  const clientName = typeof raw?.client_name === 'string' ? raw.client_name : undefined;
-  const typeName = typeof raw?.type_name === 'string' ? raw.type_name : undefined;
-  const locationName = typeof raw?.location_name === 'string' ? raw.location_name : undefined;
+  const txId = Number(raw.transaction_id);
+  const typeId = Number(raw.type_id);
+  const locId = Number(raw.location_id);
+  const qty = Number(raw.quantity);
+  const price = Number(raw.unit_price);
+  const isBuy = Boolean(raw.is_buy);
+
+  const rawDate = raw.date ?? raw.timestamp;
+  const canonicalTimestamp = new Date(rawDate as string).toISOString();
+
+  const clientId =
+    raw.client_id !== undefined && raw.client_id !== null ? Number(raw.client_id) : undefined;
+  const journalRefId =
+    raw.journal_ref_id !== undefined && raw.journal_ref_id !== null
+      ? Number(raw.journal_ref_id)
+      : undefined;
+  const isPersonal = raw.is_personal !== undefined ? Boolean(raw.is_personal) : true;
+  const clientName = typeof raw.client_name === 'string' ? raw.client_name : undefined;
+  const typeName = typeof raw.type_name === 'string' ? raw.type_name : undefined;
+  const locationName = typeof raw.location_name === 'string' ? raw.location_name : undefined;
+
+  const sourceEndpoint =
+    options.sourceEndpoint || `/characters/${characterId}/wallet/transactions/`;
+  const ingestionVersion = options.ingestionVersion || '1.0.0';
 
   const result: PersistedCharacterTransaction = {
-    transaction_id: isNaN(txId) ? 0 : txId,
+    transaction_id: txId,
     character_id: characterId,
-    type_id: isNaN(typeId) ? 0 : typeId,
-    location_id: isNaN(locId) ? 0 : locId,
+    type_id: typeId,
+    location_id: locId,
     is_buy: isBuy,
-    quantity: isNaN(qty) ? 0 : qty,
-    unit_price: isNaN(price) ? 0 : price,
+    quantity: qty,
+    unit_price: price,
     timestamp: canonicalTimestamp,
 
     is_personal: isPersonal,
-    client_id: clientId !== undefined && !isNaN(clientId) ? clientId : undefined,
+    client_id: clientId,
     client_name: clientName,
     type_name: typeName,
     location_name: locationName,
-    journal_ref_id: journalRefId !== undefined && !isNaN(journalRefId) ? journalRefId : undefined,
+    journal_ref_id: journalRefId,
 
-    first_seen_at: nowUtc,
-    last_seen_at: nowUtc,
+    first_seen_at: canonicalIngestedAt,
+    last_seen_at: canonicalIngestedAt,
     source: 'ESI',
     source_endpoint: sourceEndpoint,
     ingestion_version: ingestionVersion,
 
-    data_state: validation.dataState,
-    validation_errors: validation.errors.length > 0 ? validation.errors : undefined,
+    data_state: 'VALID',
   };
 
   return Object.freeze(result);
@@ -195,6 +274,8 @@ export function normalizeEsiCharacterTransaction(
 
 /**
  * Normalizes a list of raw ESI transactions and segregates valid from invalid records.
+ * Invalid entries are audited as InvalidCharacterTransactionRecord with raw payload and validation errors,
+ * with ZERO synthetic facts generated.
  */
 export function normalizeEsiCharacterTransactions(
   rawList: readonly RawEsiTransactionInput[] | null | undefined,
@@ -202,9 +283,22 @@ export function normalizeEsiCharacterTransactions(
   options?: NormalizationOptions
 ): {
   readonly valid: readonly PersistedCharacterTransaction[];
-  readonly invalid: readonly PersistedCharacterTransaction[];
+  readonly invalid: readonly InvalidCharacterTransactionRecord[];
   readonly total: number;
 } {
+  if (!options?.ingestedAt || typeof options.ingestedAt !== 'string' || options.ingestedAt.trim() === '') {
+    throw new Error(
+      'NormalizationOptions.ingestedAt is required and must be an explicit, valid ISO-8601 UTC timestamp string.'
+    );
+  }
+  const ingestedTime = new Date(options.ingestedAt).getTime();
+  if (isNaN(ingestedTime) || ingestedTime <= 0) {
+    throw new Error(
+      `NormalizationOptions.ingestedAt must be a valid ISO-8601 timestamp string, received: "${options.ingestedAt}".`
+    );
+  }
+  const canonicalIngestedAt = new Date(options.ingestedAt).toISOString();
+
   if (!rawList || !Array.isArray(rawList)) {
     return Object.freeze({
       valid: Object.freeze([]),
@@ -214,14 +308,23 @@ export function normalizeEsiCharacterTransactions(
   }
 
   const valid: PersistedCharacterTransaction[] = [];
-  const invalid: PersistedCharacterTransaction[] = [];
+  const invalid: InvalidCharacterTransactionRecord[] = [];
 
   for (const raw of rawList) {
-    const normalized = normalizeEsiCharacterTransaction(raw, characterId, options);
-    if (normalized.data_state === 'VALID') {
+    const validation = validateRawCharacterTransaction(raw, characterId);
+    if (validation.isValid) {
+      const normalized = normalizeEsiCharacterTransaction(raw, characterId, options);
       valid.push(normalized);
     } else {
-      invalid.push(normalized);
+      invalid.push(
+        Object.freeze({
+          data_state: 'INVALID' as const,
+          validation_errors: validation.errors,
+          raw,
+          character_id: characterId,
+          attempted_at: canonicalIngestedAt,
+        })
+      );
     }
   }
 

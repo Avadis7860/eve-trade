@@ -11,7 +11,37 @@ import {
   TypeCatalogMetadata,
   PersistedCharacterTransaction,
 } from '../types';
-import { mergePersistedCharacterTransactions } from '../engine/characterTransaction';
+import {
+  mergePersistedCharacterTransactions,
+  PersistenceValidationError,
+} from '../engine/characterTransaction';
+
+function assertValidForPersistence(tx: PersistedCharacterTransaction): void {
+  if (
+    !tx ||
+    typeof tx !== 'object' ||
+    tx.data_state === 'INVALID' ||
+    !Number.isSafeInteger(tx.transaction_id) ||
+    tx.transaction_id <= 0 ||
+    !Number.isSafeInteger(tx.character_id) ||
+    tx.character_id <= 0 ||
+    !Number.isSafeInteger(tx.type_id) ||
+    tx.type_id <= 0 ||
+    !Number.isSafeInteger(tx.location_id) ||
+    tx.location_id <= 0 ||
+    !Number.isSafeInteger(tx.quantity) ||
+    tx.quantity <= 0 ||
+    typeof tx.unit_price !== 'number' ||
+    !Number.isFinite(tx.unit_price) ||
+    tx.unit_price <= 0
+  ) {
+    throw new PersistenceValidationError(
+      `Cannot persist invalid character transaction: transaction_id=${(tx as any)?.transaction_id}, data_state=${(tx as any)?.data_state}`,
+      tx?.validation_errors || ['Transaction is INVALID or violates safe integer / positive boundaries.'],
+      tx
+    );
+  }
+}
 
 export interface StorageStats {
   snapshots_count: number;
@@ -109,6 +139,7 @@ export class IndexedDbStore {
    * Initializes the IndexedDB database schema
    */
   static async init(): Promise<boolean> {
+    if (this.db) return true;
     if (this.initPromise) return this.initPromise;
 
     this.initPromise = new Promise<boolean>((resolve) => {
@@ -1169,54 +1200,83 @@ export class IndexedDbStore {
   }
 
   /**
+   * Testing hook: allows injecting or resetting the database instance
+   */
+  static setTestDatabase(db: IDBDatabase | null): void {
+    this.db = db;
+    this.initPromise = db ? Promise.resolve(true) : null;
+  }
+
+  /**
+   * Diagnostic helper: inspect memory transaction state
+   */
+  static getMemoryTransaction(id: number): PersistedCharacterTransaction | undefined {
+    return this.memoryTransactions.get(id);
+  }
+
+  /**
    * Saves or merges a PersistedCharacterTransaction (Idempotent & Auditable)
    * Preserves historical facts, updates last_seen_at.
+   * Enforces strict validation and guarantees durable commit before memory mutation.
    */
   static async saveCharacterTransaction(
     tx: PersistedCharacterTransaction
   ): Promise<PersistedCharacterTransaction> {
+    assertValidForPersistence(tx);
     this.recordWriteAttempt();
-    const existingMem = this.memoryTransactions.get(tx.transaction_id);
-    const merged = mergePersistedCharacterTransactions(existingMem, tx);
-    this.memoryTransactions.set(merged.transaction_id, merged);
 
-    const isReady = await this.init();
+    const isReady = (await this.init()) || Boolean(this.db);
     if (!isReady || !this.db) {
+      const existingMem = this.memoryTransactions.get(tx.transaction_id);
+      const merged = mergePersistedCharacterTransactions(existingMem, tx);
+      this.memoryTransactions.set(merged.transaction_id, merged);
       this.recordWriteSuccess();
       return merged;
     }
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       try {
         const dbTx = this.db!.transaction('character_transactions', 'readwrite');
         const store = dbTx.objectStore('character_transactions');
         const getReq = store.get(tx.transaction_id);
+        let finalMerged: PersistedCharacterTransaction = tx;
 
         getReq.onsuccess = () => {
           const existingDb = getReq.result as PersistedCharacterTransaction | undefined;
-          const finalMerged = mergePersistedCharacterTransactions(existingDb || existingMem, tx);
-          this.memoryTransactions.set(finalMerged.transaction_id, finalMerged);
+          const existingMem = this.memoryTransactions.get(tx.transaction_id);
+          finalMerged = mergePersistedCharacterTransactions(existingDb || existingMem, tx);
           store.put(finalMerged);
         };
 
         dbTx.oncomplete = () => {
+          // Durable commit point: update memory only upon successful completion
+          this.memoryTransactions.set(finalMerged.transaction_id, finalMerged);
           this.recordWriteSuccess();
-          resolve(this.memoryTransactions.get(tx.transaction_id) || merged);
+          resolve(finalMerged);
         };
 
         dbTx.onerror = (e) => {
-          this.recordWriteFailure(e);
-          resolve(merged);
+          const err = (e.target as any)?.error || new Error('IndexedDB transaction failed');
+          this.recordWriteFailure(err);
+          reject(err);
+        };
+
+        dbTx.onabort = (e) => {
+          const err = (e.target as any)?.error || new Error('IndexedDB transaction aborted');
+          this.recordWriteFailure(err);
+          reject(err);
         };
       } catch (err) {
         this.recordWriteFailure(err);
-        resolve(merged);
+        reject(err);
       }
     });
   }
 
   /**
    * Batch saves or merges multiple PersistedCharacterTransactions
+   * Guarantees atomic memory update only on transaction oncomplete.
+   * If the transaction fails, memory is not mutated.
    */
   static async saveCharacterTransactions(
     txs: readonly PersistedCharacterTransaction[]
@@ -1225,49 +1285,74 @@ export class IndexedDbStore {
       return { saved: 0, updated: 0, failed: 0 };
     }
 
-    this.recordWriteAttempt();
-    let saved = 0;
-    let updated = 0;
-
+    // Explicit validation guard for every transaction in batch
     for (const tx of txs) {
-      const existing = this.memoryTransactions.get(tx.transaction_id);
-      if (existing) {
-        updated++;
-      } else {
-        saved++;
-      }
-      const merged = mergePersistedCharacterTransactions(existing, tx);
-      this.memoryTransactions.set(merged.transaction_id, merged);
+      assertValidForPersistence(tx);
     }
 
-    const isReady = await this.init();
+    this.recordWriteAttempt();
+
+    const isReady = (await this.init()) || Boolean(this.db);
     if (!isReady || !this.db) {
+      let saved = 0;
+      let updated = 0;
+      for (const tx of txs) {
+        const existing = this.memoryTransactions.get(tx.transaction_id);
+        if (existing) {
+          updated++;
+        } else {
+          saved++;
+        }
+        const merged = mergePersistedCharacterTransactions(existing, tx);
+        this.memoryTransactions.set(merged.transaction_id, merged);
+      }
       this.recordWriteSuccess();
       return { saved, updated, failed: 0 };
     }
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       try {
         const dbTx = this.db!.transaction('character_transactions', 'readwrite');
         const store = dbTx.objectStore('character_transactions');
+        const stagedMerged: PersistedCharacterTransaction[] = [];
+        let saved = 0;
+        let updated = 0;
 
         for (const tx of txs) {
-          const finalMerged = this.memoryTransactions.get(tx.transaction_id) || tx;
-          store.put(finalMerged);
+          const existingMem = this.memoryTransactions.get(tx.transaction_id);
+          if (existingMem) {
+            updated++;
+          } else {
+            saved++;
+          }
+          const merged = mergePersistedCharacterTransactions(existingMem, tx);
+          stagedMerged.push(merged);
+          store.put(merged);
         }
 
         dbTx.oncomplete = () => {
+          // Durable commit point: commit batch into memory only after IndexedDB oncomplete
+          for (const m of stagedMerged) {
+            this.memoryTransactions.set(m.transaction_id, m);
+          }
           this.recordWriteSuccess();
           resolve({ saved, updated, failed: 0 });
         };
 
         dbTx.onerror = (e) => {
-          this.recordWriteFailure(e);
-          resolve({ saved: 0, updated: 0, failed: txs.length });
+          const err = (e.target as any)?.error || new Error('IndexedDB batch transaction failed');
+          this.recordWriteFailure(err);
+          reject(err);
+        };
+
+        dbTx.onabort = (e) => {
+          const err = (e.target as any)?.error || new Error('IndexedDB batch transaction aborted');
+          this.recordWriteFailure(err);
+          reject(err);
         };
       } catch (err) {
         this.recordWriteFailure(err);
-        resolve({ saved: 0, updated: 0, failed: txs.length });
+        reject(err);
       }
     });
   }
@@ -1408,23 +1493,25 @@ export class IndexedDbStore {
   }
 
   /**
-   * Clears character transactions (either for a specific character or entirely)
+   * Clears character transactions (either for a specific character or entirely).
+   * Durable commit point: only deletes from memory after durable IndexedDB clearance completes.
    */
   static async clearCharacterTransactions(characterId?: number): Promise<void> {
-    if (characterId !== undefined) {
-      for (const [id, tx] of this.memoryTransactions.entries()) {
-        if (tx.character_id === characterId) {
-          this.memoryTransactions.delete(id);
+    const isReady = (await this.init()) || Boolean(this.db);
+    if (!isReady || !this.db) {
+      if (characterId !== undefined) {
+        for (const [id, tx] of this.memoryTransactions.entries()) {
+          if (tx.character_id === characterId) {
+            this.memoryTransactions.delete(id);
+          }
         }
+      } else {
+        this.memoryTransactions.clear();
       }
-    } else {
-      this.memoryTransactions.clear();
+      return;
     }
 
-    const isReady = await this.init();
-    if (!isReady || !this.db) return;
-
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       try {
         const dbTx = this.db!.transaction('character_transactions', 'readwrite');
         const store = dbTx.objectStore('character_transactions');
@@ -1441,10 +1528,30 @@ export class IndexedDbStore {
           store.clear();
         }
 
-        dbTx.oncomplete = () => resolve();
-        dbTx.onerror = () => resolve();
-      } catch {
-        resolve();
+        dbTx.oncomplete = () => {
+          if (characterId !== undefined) {
+            for (const [id, tx] of this.memoryTransactions.entries()) {
+              if (tx.character_id === characterId) {
+                this.memoryTransactions.delete(id);
+              }
+            }
+          } else {
+            this.memoryTransactions.clear();
+          }
+          resolve();
+        };
+
+        dbTx.onerror = (e) => {
+          const err = (e.target as any)?.error || new Error('Failed to clear character transactions in IndexedDB');
+          reject(err);
+        };
+
+        dbTx.onabort = (e) => {
+          const err = (e.target as any)?.error || new Error('Clear character transactions aborted');
+          reject(err);
+        };
+      } catch (err) {
+        reject(err);
       }
     });
   }

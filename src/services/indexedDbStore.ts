@@ -744,6 +744,34 @@ export class IndexedDbStore {
   }
 
   /**
+   * Retrieves a single opportunity observation by its observation_id
+   */
+  static async getOpportunityObservationById(
+    observationId: string
+  ): Promise<OpportunityObservation | null> {
+    const memMatch = this.memoryOpportunityObservations.find((o) => o.observation_id === observationId);
+    if (memMatch) return memMatch;
+
+    const isReady = await this.init();
+    if (!isReady || !this.db) return null;
+
+    return new Promise((resolve) => {
+      try {
+        const tx = this.db!.transaction('opportunity_observations', 'readonly');
+        const store = tx.objectStore('opportunity_observations');
+        const req = store.get(observationId);
+
+        req.onsuccess = () => {
+          resolve((req.result as OpportunityObservation) || null);
+        };
+        req.onerror = () => resolve(null);
+      } catch {
+        resolve(null);
+      }
+    });
+  }
+
+  /**
    * Records an empirical outcome snapshot on an existing observation
    */
   static async recordOpportunityOutcome(

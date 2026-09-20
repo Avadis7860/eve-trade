@@ -1190,8 +1190,20 @@ export interface MarketObservation {
   confidence: number;
 }
 
+export type OutcomeHorizon = '1h' | '6h' | '24h' | '3d' | '7d';
+
+export const OUTCOME_HORIZONS: readonly OutcomeHorizon[] = ['1h', '6h', '24h', '3d', '7d'] as const;
+
+export const OUTCOME_HORIZON_DURATIONS_MS: Record<OutcomeHorizon, number> = {
+  '1h': 60 * 60 * 1000,
+  '6h': 6 * 60 * 60 * 1000,
+  '24h': 24 * 60 * 60 * 1000,
+  '3d': 3 * 24 * 60 * 60 * 1000,
+  '7d': 7 * 24 * 60 * 60 * 1000,
+};
+
 export interface OpportunityOutcomeSnapshot {
-  horizon: '1h' | '6h' | '24h' | '3d' | '7d';
+  horizon: OutcomeHorizon;
   recorded_at: string;
   still_active: boolean;
   current_spread_pct: number;
@@ -1203,6 +1215,27 @@ export interface OpportunityOutcomeSnapshot {
   realized_net_profit?: number;
   actual_hold_days?: number;
   prediction_error_pct?: number;
+  source_quality?: MarketDataQuality;
+  dest_quality?: MarketDataQuality;
+  source_orders_count?: number;
+  dest_orders_count?: number;
+}
+
+export interface MarketOutcomeProcessReport {
+  totalObservationsChecked: number;
+  dueObservationsCount: number;
+  outcomesRecordedCount: number;
+  skippedAlreadyRecordedCount: number;
+  failedCount: number;
+  errors: Array<{ observationId: string; horizon: OutcomeHorizon; error: string }>;
+  recordedSnapshots: Array<{ observationId: string; horizon: OutcomeHorizon; snapshot: OpportunityOutcomeSnapshot }>;
+}
+
+export interface OutcomeCollectionResult {
+  recorded: boolean;
+  skippedAlreadyRecorded?: boolean;
+  outcome?: OpportunityOutcomeSnapshot;
+  error?: string;
 }
 
 export interface OpportunityObservation {
@@ -1254,6 +1287,9 @@ export interface OpportunityObservation {
   realized_profit?: number;
   actual_hold_days?: number;
   prediction_error_pct?: number;
+
+  // Phase 2B Execution Outcome Tracking
+  execution_outcome?: OpportunityExecutionOutcome;
 }
 
 export interface MarketFeatureVector {
@@ -1311,5 +1347,113 @@ export interface TypeCatalogResponse {
   types: EveTypeDetail[];
 }
 
+// ==========================================
+// PHASE 2B: EXECUTION OUTCOME TRACKING TYPES
+// ==========================================
 
+export type ExecutionStatus =
+  | 'PLANNED'
+  | 'BUY_PARTIAL'
+  | 'BUY_FILLED'
+  | 'SELL_PARTIAL'
+  | 'CLOSED'
+  | 'ABANDONED'
+  | 'AMBIGUOUS';
 
+export type CorrelationMatchLevel =
+  | 'DIRECT_MATCH'
+  | 'STRONG_MATCH'
+  | 'PROBABLE_MATCH'
+  | 'AMBIGUOUS'
+  | 'UNMATCHED';
+
+export interface ExecutionTransactionRef {
+  readonly transaction_id: number;
+  readonly order_id?: number;
+  readonly character_id?: number;
+  readonly type_id: number;
+  readonly location_id: number;
+  readonly is_buy: boolean;
+  readonly quantity: number;
+  readonly unit_price: number;
+  readonly timestamp: string;
+  readonly opportunity_id?: string;
+  readonly observation_id?: string;
+}
+
+export interface CorrelationCriterionResult {
+  readonly criterion: 'IDENTITY' | 'DIRECTION' | 'LOCATION' | 'TEMPORAL' | 'PRICE' | 'QUANTITY' | 'ORDER_REF' | 'DIRECT_LINK';
+  readonly passed: boolean;
+  readonly score: number; // 0 to 1 normalized score for internal comparison
+  readonly weight: number;
+  readonly reason: string;
+}
+
+export interface TransactionCorrelationCandidate {
+  readonly observation_id: string;
+  readonly opportunity_id: string;
+  readonly match_level: CorrelationMatchLevel;
+  readonly total_score: number; // Internal ranking metric (0 to 100)
+  readonly criteria: readonly CorrelationCriterionResult[];
+  readonly reasons: readonly string[];
+}
+
+export interface TransactionCorrelationResult {
+  readonly transaction_id: number;
+  readonly candidate_observation_ids: readonly string[];
+  readonly selected_observation_id: string | null;
+  readonly match_level: CorrelationMatchLevel;
+  readonly reasons: readonly string[];
+  readonly candidates: readonly TransactionCorrelationCandidate[];
+  readonly confidence_score: number; // 0 to 1
+  readonly direct_matched_by?: 'TRANSACTION_OPPORTUNITY_REF' | 'TRANSACTION_OBSERVATION_REF' | 'EXPLICIT_MAPPING';
+}
+
+export interface CorrelationEngineOptions {
+  readonly strong_price_tolerance_pct?: number; // default 0.02 (2%)
+  readonly probable_price_tolerance_pct?: number; // default 0.10 (10%)
+  readonly pre_observation_leeway_ms?: number; // default 600_000 (10 min)
+  readonly max_buy_window_ms?: number; // default 86_400_000 (24h)
+  readonly max_sell_window_ms?: number; // default 7 * 86_400_000 (7d)
+  readonly ambiguity_score_threshold?: number; // default 5.0 (points)
+  readonly direct_mappings?: Readonly<Record<number, string>>; // transaction_id -> observation_id or opportunity_id
+  readonly location_resolver?: (locationId: number) => { region_id?: number; system_id?: number; station_id?: number } | undefined;
+}
+
+export interface OpportunityExecutionOutcome {
+  readonly execution_status: ExecutionStatus;
+  readonly match_level: CorrelationMatchLevel;
+
+  readonly planned_quantity: number;
+
+  readonly executed_buy_quantity: number;
+  readonly executed_sell_quantity: number;
+  readonly remaining_inventory_quantity: number;
+
+  readonly buy_fill_ratio: number;
+  readonly sell_fill_ratio: number;
+
+  readonly vwap_buy_price: number | null;
+  readonly vwap_sell_price: number | null;
+
+  readonly first_buy_at: string | null;
+  readonly last_buy_at: string | null;
+  readonly first_sell_at: string | null;
+  readonly last_sell_at: string | null;
+
+  readonly buy_transactions: readonly ExecutionTransactionRef[];
+  readonly sell_transactions: readonly ExecutionTransactionRef[];
+
+  readonly linked_order_ids: readonly number[];
+  readonly candidate_observation_ids: readonly string[];
+
+  readonly has_inventory_inconsistency?: boolean;
+  readonly inconsistency_reasons?: readonly string[];
+}
+
+export interface ExecutionOutcomeCalculationOptions {
+  readonly match_level?: CorrelationMatchLevel;
+  readonly candidate_observation_ids?: readonly string[];
+  readonly force_status?: ExecutionStatus;
+  readonly linked_order_ids?: readonly number[];
+}

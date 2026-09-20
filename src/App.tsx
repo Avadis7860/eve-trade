@@ -9,6 +9,7 @@ import {
 import { EsiService } from './services/esi';
 import { GlobalMarketSyncService } from './services/globalMarketSync';
 import { CatalogRepository } from './domain/catalog/CatalogRepository';
+import { MarketOutcomeTracker } from './services/marketOutcomeTracker';
 
 import { AuthProvider, useAuth } from './context/AuthProvider';
 import { CatalogProvider, useCatalog } from './context/CatalogProvider';
@@ -93,6 +94,16 @@ const AppShell: React.FC = () => {
   useEffect(() => {
     const unsub = GlobalMarketSyncService.subscribe((p) => setGlobalSyncProgress(p));
     return () => unsub();
+  }, []);
+
+  // Phase 2A Operational Lifecycle: Background Market Outcome Tracker Scheduler
+  useEffect(() => {
+    // Start recurring scheduler (default 60s interval)
+    MarketOutcomeTracker.startScheduler(60000);
+    return () => {
+      // Cleanly stop recurring timer on unmount
+      MarketOutcomeTracker.stopScheduler();
+    };
   }, []);
 
   // Trade Journal Persistence

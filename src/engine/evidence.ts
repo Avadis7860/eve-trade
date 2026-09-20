@@ -14,6 +14,8 @@ import {
   DataProvenance,
   OpportunityObservation,
   OpportunityOutcomeSnapshot,
+  OutcomeHorizon,
+  MarketDataQuality,
   InterRegionalOpportunity,
 } from '../types';
 import { Sha256 } from '../domain/catalog/CatalogHashing';
@@ -550,7 +552,9 @@ export class OpportunityEvidenceEngine {
     observation: OpportunityObservation,
     currentSourceOrders: RawMarketOrder[] = [],
     currentDestOrders: RawMarketOrder[] = [],
-    horizon: '1h' | '6h' | '24h' | '3d' | '7d' = '1h'
+    horizon: OutcomeHorizon = '1h',
+    sourceQuality?: MarketDataQuality,
+    destQuality?: MarketDataQuality
   ): OpportunityOutcomeSnapshot {
     const recorded_at = new Date().toISOString();
 
@@ -580,9 +584,9 @@ export class OpportunityEvidenceEngine {
     const spreadDecayPct = initialSpreadPct > 0 ? ((initialSpreadPct - currentSpreadPct) / initialSpreadPct) * 100 : 0;
 
     const priceChangeSourcePct =
-      observation.buy_price > 0 ? ((currentBuyPrice - observation.buy_price) / observation.buy_price) * 100 : 0;
+      currentBuyPrice > 0 && observation.buy_price > 0 ? ((currentBuyPrice - observation.buy_price) / observation.buy_price) * 100 : 0;
     const priceChangeDestPct =
-      observation.sell_price > 0 ? ((currentSellPrice - observation.sell_price) / observation.sell_price) * 100 : 0;
+      currentSellPrice > 0 && observation.sell_price > 0 ? ((currentSellPrice - observation.sell_price) / observation.sell_price) * 100 : 0;
 
     const stillActive = currentSpreadPct > 0 && currentSellPrice > currentBuyPrice;
 
@@ -596,6 +600,10 @@ export class OpportunityEvidenceEngine {
       current_sell_price: currentSellPrice,
       price_change_source_pct: Math.round(priceChangeSourcePct * 100) / 100,
       price_change_dest_pct: Math.round(priceChangeDestPct * 100) / 100,
+      source_quality: sourceQuality,
+      dest_quality: destQuality,
+      source_orders_count: currentSourceOrders.length,
+      dest_orders_count: currentDestOrders.length,
     };
   }
 }

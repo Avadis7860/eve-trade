@@ -1381,6 +1381,37 @@ export interface ExecutionTransactionRef {
   readonly observation_id?: string;
 }
 
+export interface PersistedCharacterTransaction {
+  readonly transaction_id: number;
+  readonly character_id: number;
+
+  readonly type_id: number;
+  readonly location_id: number;
+
+  readonly is_buy: boolean;
+  readonly quantity: number;
+  readonly unit_price: number;
+
+  readonly timestamp: string; // ISO-8601 UTC date of the EVE transaction event
+
+  readonly is_personal?: boolean;
+  readonly client_id?: number;
+  readonly client_name?: string;
+  readonly type_name?: string;
+  readonly location_name?: string;
+  readonly journal_ref_id?: number;
+
+  // Provenance & Audit Metadata
+  readonly first_seen_at: string; // ISO-8601 UTC when locally ingested
+  readonly last_seen_at: string;  // ISO-8601 UTC when last observed in ESI
+  readonly source: 'ESI';
+  readonly source_endpoint: string; // e.g. "/characters/{character_id}/wallet/transactions/"
+  readonly ingestion_version: string; // "1.0.0"
+
+  readonly data_state: 'VALID' | 'PARTIAL' | 'INVALID';
+  readonly validation_errors?: readonly string[];
+}
+
 export interface CorrelationCriterionResult {
   readonly criterion: 'IDENTITY' | 'DIRECTION' | 'LOCATION' | 'TEMPORAL' | 'PRICE' | 'QUANTITY' | 'ORDER_REF' | 'DIRECT_LINK';
   readonly passed: boolean;

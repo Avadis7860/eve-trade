@@ -9,7 +9,9 @@ import {
   DailyMarketHistory,
   EveTypeDetail,
   TypeCatalogMetadata,
+  PersistedCharacterTransaction,
 } from '../types';
+import { mergePersistedCharacterTransactions } from '../engine/characterTransaction';
 
 export interface StorageStats {
   snapshots_count: number;
@@ -18,6 +20,7 @@ export interface StorageStats {
   opportunities_count: number;
   observations_count: number;
   opportunity_observations_count: number;
+  character_transactions_count: number;
   types_count: number;
   estimated_bytes: number;
   db_ready: boolean;
@@ -48,7 +51,7 @@ export interface EsiHttpCacheEntry {
 }
 
 const DB_NAME = 'eve_trade_durable_store';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 export class IndexedDbStore {
   private static db: IDBDatabase | null = null;
@@ -62,6 +65,7 @@ export class IndexedDbStore {
   private static memoryDailyHistory = new Map<string, DailyMarketHistory[]>();
   private static memoryTypes = new Map<number, EveTypeDetail>();
   private static memoryCatalogMetadata: TypeCatalogMetadata | null = null;
+  private static memoryTransactions = new Map<number, PersistedCharacterTransaction>();
   private static lastPersistedAt: string | null = null;
 
   // Storage Write Audit Tracking
@@ -181,6 +185,16 @@ export class IndexedDbStore {
           // 9. Catalog Metadata and Audit Records
           if (!db.objectStoreNames.contains('catalog_metadata')) {
             db.createObjectStore('catalog_metadata', { keyPath: 'key' });
+          }
+
+          // 10. Persisted Character Transactions (Idempotent & Auditable)
+          if (!db.objectStoreNames.contains('character_transactions')) {
+            const charTxStore = db.createObjectStore('character_transactions', { keyPath: 'transaction_id' });
+            charTxStore.createIndex('character_id', 'character_id', { unique: false });
+            charTxStore.createIndex('type_id', 'type_id', { unique: false });
+            charTxStore.createIndex('date', 'timestamp', { unique: false });
+            charTxStore.createIndex('char_date', ['character_id', 'timestamp'], { unique: false });
+            charTxStore.createIndex('char_type', ['character_id', 'type_id'], { unique: false });
           }
         };
 
@@ -1155,6 +1169,287 @@ export class IndexedDbStore {
   }
 
   /**
+   * Saves or merges a PersistedCharacterTransaction (Idempotent & Auditable)
+   * Preserves historical facts, updates last_seen_at.
+   */
+  static async saveCharacterTransaction(
+    tx: PersistedCharacterTransaction
+  ): Promise<PersistedCharacterTransaction> {
+    this.recordWriteAttempt();
+    const existingMem = this.memoryTransactions.get(tx.transaction_id);
+    const merged = mergePersistedCharacterTransactions(existingMem, tx);
+    this.memoryTransactions.set(merged.transaction_id, merged);
+
+    const isReady = await this.init();
+    if (!isReady || !this.db) {
+      this.recordWriteSuccess();
+      return merged;
+    }
+
+    return new Promise((resolve) => {
+      try {
+        const dbTx = this.db!.transaction('character_transactions', 'readwrite');
+        const store = dbTx.objectStore('character_transactions');
+        const getReq = store.get(tx.transaction_id);
+
+        getReq.onsuccess = () => {
+          const existingDb = getReq.result as PersistedCharacterTransaction | undefined;
+          const finalMerged = mergePersistedCharacterTransactions(existingDb || existingMem, tx);
+          this.memoryTransactions.set(finalMerged.transaction_id, finalMerged);
+          store.put(finalMerged);
+        };
+
+        dbTx.oncomplete = () => {
+          this.recordWriteSuccess();
+          resolve(this.memoryTransactions.get(tx.transaction_id) || merged);
+        };
+
+        dbTx.onerror = (e) => {
+          this.recordWriteFailure(e);
+          resolve(merged);
+        };
+      } catch (err) {
+        this.recordWriteFailure(err);
+        resolve(merged);
+      }
+    });
+  }
+
+  /**
+   * Batch saves or merges multiple PersistedCharacterTransactions
+   */
+  static async saveCharacterTransactions(
+    txs: readonly PersistedCharacterTransaction[]
+  ): Promise<{ saved: number; updated: number; failed: number }> {
+    if (!txs || txs.length === 0) {
+      return { saved: 0, updated: 0, failed: 0 };
+    }
+
+    this.recordWriteAttempt();
+    let saved = 0;
+    let updated = 0;
+
+    for (const tx of txs) {
+      const existing = this.memoryTransactions.get(tx.transaction_id);
+      if (existing) {
+        updated++;
+      } else {
+        saved++;
+      }
+      const merged = mergePersistedCharacterTransactions(existing, tx);
+      this.memoryTransactions.set(merged.transaction_id, merged);
+    }
+
+    const isReady = await this.init();
+    if (!isReady || !this.db) {
+      this.recordWriteSuccess();
+      return { saved, updated, failed: 0 };
+    }
+
+    return new Promise((resolve) => {
+      try {
+        const dbTx = this.db!.transaction('character_transactions', 'readwrite');
+        const store = dbTx.objectStore('character_transactions');
+
+        for (const tx of txs) {
+          const finalMerged = this.memoryTransactions.get(tx.transaction_id) || tx;
+          store.put(finalMerged);
+        }
+
+        dbTx.oncomplete = () => {
+          this.recordWriteSuccess();
+          resolve({ saved, updated, failed: 0 });
+        };
+
+        dbTx.onerror = (e) => {
+          this.recordWriteFailure(e);
+          resolve({ saved: 0, updated: 0, failed: txs.length });
+        };
+      } catch (err) {
+        this.recordWriteFailure(err);
+        resolve({ saved: 0, updated: 0, failed: txs.length });
+      }
+    });
+  }
+
+  /**
+   * Retrieves a single persisted character transaction by transaction_id
+   */
+  static async getCharacterTransaction(
+    transactionId: number
+  ): Promise<PersistedCharacterTransaction | null> {
+    const mem = this.memoryTransactions.get(transactionId);
+    if (mem) return mem;
+
+    const isReady = await this.init();
+    if (!isReady || !this.db) return null;
+
+    return new Promise((resolve) => {
+      try {
+        const dbTx = this.db!.transaction('character_transactions', 'readonly');
+        const store = dbTx.objectStore('character_transactions');
+        const req = store.get(transactionId);
+        req.onsuccess = () => {
+          const res = (req.result as PersistedCharacterTransaction) || null;
+          if (res) {
+            this.memoryTransactions.set(res.transaction_id, res);
+          }
+          resolve(res);
+        };
+        req.onerror = () => resolve(null);
+      } catch {
+        resolve(null);
+      }
+    });
+  }
+
+  /**
+   * Retrieves transactions for a specific character, optionally filtered by typeId, date bounds, and limit
+   * Sorted descending by timestamp (most recent first).
+   */
+  static async getCharacterTransactions(
+    characterId: number,
+    options?: {
+      typeId?: number;
+      startDate?: string;
+      endDate?: string;
+      limit?: number;
+    }
+  ): Promise<PersistedCharacterTransaction[]> {
+    const limit = options?.limit ?? 500;
+    const filterFn = (tx: PersistedCharacterTransaction) => {
+      if (tx.character_id !== characterId) return false;
+      if (options?.typeId !== undefined && tx.type_id !== options.typeId) return false;
+      if (options?.startDate && tx.timestamp < options.startDate) return false;
+      if (options?.endDate && tx.timestamp > options.endDate) return false;
+      return true;
+    };
+
+    const sortFn = (a: PersistedCharacterTransaction, b: PersistedCharacterTransaction) => {
+      const diff = new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+      return diff !== 0 ? diff : b.transaction_id - a.transaction_id;
+    };
+
+    const memMatches = Array.from(this.memoryTransactions.values())
+      .filter(filterFn)
+      .sort(sortFn);
+
+    const isReady = await this.init();
+    if (!isReady || !this.db) {
+      return memMatches.slice(0, limit);
+    }
+
+    return new Promise((resolve) => {
+      try {
+        const dbTx = this.db!.transaction('character_transactions', 'readonly');
+        const store = dbTx.objectStore('character_transactions');
+
+        let req: IDBRequest;
+        if (options?.typeId !== undefined && store.indexNames.contains('char_type')) {
+          req = store.index('char_type').getAll([characterId, options.typeId]);
+        } else if (store.indexNames.contains('character_id')) {
+          req = store.index('character_id').getAll(characterId);
+        } else {
+          req = store.getAll();
+        }
+
+        req.onsuccess = () => {
+          const results = ((req.result as PersistedCharacterTransaction[]) || []).filter(filterFn);
+          results.sort(sortFn);
+          for (const item of results) {
+            this.memoryTransactions.set(item.transaction_id, item);
+          }
+          resolve(results.slice(0, limit));
+        };
+        req.onerror = () => resolve(memMatches.slice(0, limit));
+      } catch {
+        resolve(memMatches.slice(0, limit));
+      }
+    });
+  }
+
+  /**
+   * Retrieves all persisted character transactions across all characters (diagnostic / maintenance)
+   */
+  static async getAllCharacterTransactions(
+    limit: number = 1000
+  ): Promise<PersistedCharacterTransaction[]> {
+    const sortFn = (a: PersistedCharacterTransaction, b: PersistedCharacterTransaction) => {
+      const diff = new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+      return diff !== 0 ? diff : b.transaction_id - a.transaction_id;
+    };
+
+    const memMatches = Array.from(this.memoryTransactions.values()).sort(sortFn);
+
+    const isReady = await this.init();
+    if (!isReady || !this.db) {
+      return memMatches.slice(0, limit);
+    }
+
+    return new Promise((resolve) => {
+      try {
+        const dbTx = this.db!.transaction('character_transactions', 'readonly');
+        const store = dbTx.objectStore('character_transactions');
+        const req = store.getAll();
+
+        req.onsuccess = () => {
+          const results = (req.result as PersistedCharacterTransaction[]) || [];
+          results.sort(sortFn);
+          for (const item of results) {
+            this.memoryTransactions.set(item.transaction_id, item);
+          }
+          resolve(results.slice(0, limit));
+        };
+        req.onerror = () => resolve(memMatches.slice(0, limit));
+      } catch {
+        resolve(memMatches.slice(0, limit));
+      }
+    });
+  }
+
+  /**
+   * Clears character transactions (either for a specific character or entirely)
+   */
+  static async clearCharacterTransactions(characterId?: number): Promise<void> {
+    if (characterId !== undefined) {
+      for (const [id, tx] of this.memoryTransactions.entries()) {
+        if (tx.character_id === characterId) {
+          this.memoryTransactions.delete(id);
+        }
+      }
+    } else {
+      this.memoryTransactions.clear();
+    }
+
+    const isReady = await this.init();
+    if (!isReady || !this.db) return;
+
+    return new Promise((resolve) => {
+      try {
+        const dbTx = this.db!.transaction('character_transactions', 'readwrite');
+        const store = dbTx.objectStore('character_transactions');
+
+        if (characterId !== undefined && store.indexNames.contains('character_id')) {
+          const req = store.index('character_id').getAll(characterId);
+          req.onsuccess = () => {
+            const list = (req.result as PersistedCharacterTransaction[]) || [];
+            for (const item of list) {
+              store.delete(item.transaction_id);
+            }
+          };
+        } else {
+          store.clear();
+        }
+
+        dbTx.oncomplete = () => resolve();
+        dbTx.onerror = () => resolve();
+      } catch {
+        resolve();
+      }
+    });
+  }
+
+  /**
    * Diagnostic statistics on stored datasets
    */
   static async getStorageStats(): Promise<StorageStats> {
@@ -1173,6 +1468,7 @@ export class IndexedDbStore {
       opportunities_count: this.memoryOpportunities.length,
       observations_count: this.memoryObservations.length,
       opportunity_observations_count: this.memoryOpportunityObservations.length,
+      character_transactions_count: this.memoryTransactions.size,
       types_count: this.memoryTypes.size,
       estimated_bytes: jsonLength,
       db_ready: Boolean(this.db),
@@ -1195,6 +1491,7 @@ export class IndexedDbStore {
     this.memoryOpportunityObservations = [];
     this.memoryDailyHistory.clear();
     this.memoryTypes.clear();
+    this.memoryTransactions.clear();
     this.lastPersistedAt = null;
 
     try {
@@ -1217,6 +1514,7 @@ export class IndexedDbStore {
             'market_history_daily',
             'eve_types',
             'catalog_metadata',
+            'character_transactions',
           ],
           'readwrite'
         );
@@ -1229,6 +1527,7 @@ export class IndexedDbStore {
         tx.objectStore('market_history_daily').clear();
         tx.objectStore('eve_types').clear();
         tx.objectStore('catalog_metadata').clear();
+        tx.objectStore('character_transactions').clear();
         tx.oncomplete = () => resolve();
         tx.onerror = () => resolve();
       } catch {

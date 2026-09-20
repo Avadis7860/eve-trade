@@ -7,7 +7,6 @@ import {
   PersonalCalibrationFit,
   EveTypeDetail,
 } from '../types';
-import { EVE_CATEGORIES } from '../data/universe';
 import { CatalogRepository } from '../domain/catalog/CatalogRepository';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
 import { FeeEngine } from '../engine/fee';
@@ -64,7 +63,7 @@ export class TraderAnalyticsService {
     for (const tx of sortedTx) {
       const typeInfo = CatalogRepository.getInstance().getTypeById(tx.type_id);
       const typeName = tx.type_name || typeInfo?.name || CatalogRepository.getInstance().getTypeName(tx.type_id);
-      const categoryInfo = typeInfo ? EVE_CATEGORIES.find((c) => c.category_id === typeInfo.category_id) : null;
+      const categoryInfo = typeInfo ? CatalogRepository.getInstance().getCategory(typeInfo.category_id) : null;
       const categoryName = typeInfo?.category_name || categoryInfo?.name || 'Général';
 
       // Track location metrics
@@ -357,7 +356,7 @@ export class TraderAnalyticsService {
     }
 
     const itemRecord = metrics.top_profitable_items.find((item) => item.type_id === typeId);
-    const categoryInfo = EVE_CATEGORIES.find((c) => c.category_id === categoryId);
+    const categoryInfo = CatalogRepository.getInstance().getCategory(categoryId);
     const catName = categoryInfo?.name || '';
     const catRecord = catName ? metrics.category_success_rate[catName] : null;
 

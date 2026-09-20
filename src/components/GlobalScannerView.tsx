@@ -315,7 +315,31 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
                       {/* Item Details */}
                       <td className="p-3.5">
                         <div className="font-bold text-[#fafafa] text-xs flex items-center gap-1.5">
-                          {opp.item_name}
+                          <span>{opp.item_name}</span>
+                          {opp.certification && (
+                            <span
+                              className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase font-mono ${
+                                opp.certification.status === 'CERTIFIED'
+                                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                  : opp.certification.status === 'DEGRADED'
+                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                                  : 'bg-red-500/20 text-red-300 border border-red-500/40'
+                              }`}
+                              title={
+                                opp.certification.status === 'CERTIFIED'
+                                  ? 'Certifié 4 Piliers (MarketData + Catalog + Universe + Financial)'
+                                  : opp.certification.warnings?.join(', ') ||
+                                    opp.certification.blocking_reasons?.join(', ') ||
+                                    opp.certification.status
+                              }
+                            >
+                              {opp.certification.status === 'CERTIFIED'
+                                ? '✓ CERTIFIÉ'
+                                : opp.certification.status === 'DEGRADED'
+                                ? '⚠ DÉGRADÉ'
+                                : '✕ REJETÉ'}
+                            </span>
+                          )}
                         </div>
                         <div className="text-[10px] text-[#808495] flex items-center gap-1 mt-0.5">
                           <span className="px-1.5 py-0.2 rounded bg-[#0e1117] border border-[#262730]">

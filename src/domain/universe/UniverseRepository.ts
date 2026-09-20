@@ -1,17 +1,15 @@
-import { MarketHub } from '../../types';
-import { MAJOR_MARKET_HUBS, KNOWN_STATION_NAMES } from '../../data/universe';
+import {
+  MarketHub,
+  LocationResolutionResult,
+  LocationResolutionStatus,
+  SystemResolutionResult,
+  RegionResolutionResult,
+  JumpRoute,
+} from '../../types';
+import { MAJOR_MARKET_HUBS, KNOWN_STATION_NAMES, getJumpRoute } from '../../data/universe';
 import universeDataRaw from '../../data/universeData.json';
 
-export interface LocationResolution {
-  location_id: number;
-  name: string;
-  system_id?: number;
-  system_name?: string;
-  region_id?: number;
-  region_name?: string;
-  is_structure: boolean;
-  source: 'hub' | 'static_npc' | 'structure_cache' | 'esi_resolved' | 'fallback';
-}
+export type { LocationResolutionResult as LocationResolution };
 
 export interface SystemInfo {
   system_id: number;
@@ -36,7 +34,7 @@ const universeData = universeDataRaw as unknown as UniverseDataFormat;
 
 export class UniverseRepository {
   private static instance: UniverseRepository;
-  private locationCache = new Map<number, LocationResolution>();
+  private locationCache = new Map<number, LocationResolutionResult>();
   private hubMap = new Map<string, MarketHub>();
   private stationToHubMap = new Map<number, MarketHub>();
   private systemToHubMap = new Map<number, MarketHub>();
@@ -67,14 +65,19 @@ export class UniverseRepository {
         const sys = this.systemMap.get(stInfo.system_id);
         const rName = sys ? this.regionMap.get(sys.region_id) : undefined;
         this.locationCache.set(stId, {
+          status: 'RESOLVED_STATION',
           location_id: stId,
           name: stInfo.name,
           system_id: stInfo.system_id,
           system_name: sys?.name,
           region_id: sys?.region_id,
           region_name: rName,
+          security_status: sys?.security,
           is_structure: false,
+          is_hub: false,
           source: 'static_npc',
+          is_verified: true,
+          confidence: 1.0,
         });
       }
     }
@@ -85,14 +88,20 @@ export class UniverseRepository {
       this.stationToHubMap.set(hub.station_id, hub);
       this.systemToHubMap.set(hub.system_id, hub);
       this.locationCache.set(hub.station_id, {
+        status: 'RESOLVED_HUB',
         location_id: hub.station_id,
         name: hub.station,
         system_id: hub.system_id,
         system_name: hub.solar_system,
         region_id: hub.region_id,
         region_name: hub.region,
-        is_structure: false,
+        security_status: hub.security_status,
+        is_structure: hub.hub_type === 'citadel',
+        is_hub: true,
+        hub_id: hub.id,
         source: 'hub',
+        is_verified: true,
+        confidence: 1.0,
       });
     }
 
@@ -104,10 +113,14 @@ export class UniverseRepository {
         existing.name = name;
       } else {
         this.locationCache.set(stId, {
+          status: 'RESOLVED_STATION',
           location_id: stId,
           name: name,
           is_structure: false,
+          is_hub: false,
           source: 'static_npc',
+          is_verified: true,
+          confidence: 1.0,
         });
       }
     }
@@ -128,7 +141,7 @@ export class UniverseRepository {
   }
 
   /**
-   * Returns all major hubs.
+   * Returns all major hubs. Single Source of Truth for hubs across the application.
    */
   getHubs(): MarketHub[] {
     return Array.from(this.hubMap.values());
@@ -149,21 +162,27 @@ export class UniverseRepository {
   }
 
   /**
-   * Resolves synchronous station name if known.
+   * Resolves a hub from either an ID (string) or stationId (number).
    */
-  getStationNameSync(stationId: number): string {
-    const loc = this.locationCache.get(stationId);
-    if (loc && loc.name) return loc.name;
-    const st = this.stationMap.get(stationId);
-    if (st && st.name) return st.name;
-    const isStructure = stationId >= 1000000000000;
-    return isStructure ? `Structure #${stationId}` : `Station #${stationId}`;
+  resolveHub(identifier: string | number): MarketHub | undefined {
+    if (typeof identifier === 'string') {
+      return this.getHubById(identifier);
+    }
+    return this.getHubByStationId(identifier);
   }
 
   /**
-   * Resolves synchronous location if known, otherwise returns a deterministic fallback.
+   * Resolves synchronous station name if known with guaranteed deterministic fallback.
    */
-  resolveLocationSync(locationId: number): LocationResolution {
+  getStationNameSync(stationId: number): string {
+    const loc = this.resolveLocationSync(stationId);
+    return loc.name;
+  }
+
+  /**
+   * Resolves synchronous location if known, otherwise returns a deterministic fallback with full provenance.
+   */
+  resolveLocationSync(locationId: number): LocationResolutionResult {
     const cached = this.locationCache.get(locationId);
     if (cached) return cached;
 
@@ -171,26 +190,36 @@ export class UniverseRepository {
     if (st) {
       const sys = this.systemMap.get(st.system_id);
       const rName = sys ? this.regionMap.get(sys.region_id) : undefined;
-      const res: LocationResolution = {
+      const res: LocationResolutionResult = {
+        status: 'RESOLVED_STATION',
         location_id: locationId,
         name: st.name,
         system_id: st.system_id,
         system_name: sys?.name,
         region_id: sys?.region_id,
         region_name: rName,
+        security_status: sys?.security,
         is_structure: false,
+        is_hub: false,
         source: 'static_npc',
+        is_verified: true,
+        confidence: 1.0,
       };
       this.locationCache.set(locationId, res);
       return res;
     }
 
     const isStructure = locationId >= 1000000000000;
-    const fallback: LocationResolution = {
+    const fallback: LocationResolutionResult = {
+      status: 'LOCATION_FALLBACK',
       location_id: locationId,
       name: isStructure ? `Structure #${locationId}` : `Station #${locationId}`,
       is_structure: isStructure,
+      is_hub: false,
       source: 'fallback',
+      is_verified: false,
+      confidence: 0.0,
+      error: `Location ID ${locationId} not found in static universe dataset or structure cache`,
     };
     this.locationCache.set(locationId, fallback);
     return fallback;
@@ -206,64 +235,110 @@ export class UniverseRepository {
     system_name?: string;
     region_id?: number;
     region_name?: string;
-  }): void {
-    const resolution: LocationResolution = {
+    security_status?: number;
+  }): LocationResolutionResult {
+    const resolution: LocationResolutionResult = {
+      status: 'RESOLVED_STRUCTURE',
       location_id: structure.location_id,
       name: structure.name,
       system_id: structure.system_id,
       system_name: structure.system_name,
       region_id: structure.region_id,
       region_name: structure.region_name,
+      security_status: structure.security_status,
       is_structure: true,
+      is_hub: false,
       source: 'structure_cache',
+      is_verified: true,
+      confidence: 0.95,
     };
     this.locationCache.set(structure.location_id, resolution);
+    return resolution;
   }
 
   /**
    * Resolves station domain entity synchronously.
    */
-  getStation(stationId: number): LocationResolution {
+  resolveStation(stationId: number): LocationResolutionResult {
     return this.resolveLocationSync(stationId);
   }
 
   /**
-   * Resolves solar system domain entity.
+   * Alias for backward compatibility.
    */
-  getSystem(systemId: number): SystemInfo {
+  getStation(stationId: number): LocationResolutionResult {
+    return this.resolveLocationSync(stationId);
+  }
+
+  /**
+   * Resolves solar system domain entity with canonical provenance.
+   */
+  resolveSystem(systemId: number): SystemResolutionResult {
     const hub = this.systemToHubMap.get(systemId);
     if (hub) {
       return {
+        status: 'RESOLVED_SYSTEM',
         system_id: hub.system_id,
         name: hub.solar_system,
         region_id: hub.region_id,
         region_name: hub.region,
         security_status: hub.security_status,
+        is_verified: true,
+        confidence: 1.0,
+        source: 'hub',
       };
     }
     const sys = this.systemMap.get(systemId);
     if (sys) {
       return {
+        status: 'RESOLVED_SYSTEM',
         system_id: systemId,
         name: sys.name,
         region_id: sys.region_id,
         region_name: this.regionMap.get(sys.region_id),
         security_status: sys.security,
+        is_verified: true,
+        confidence: 1.0,
+        source: 'static_universe',
       };
     }
     for (const loc of this.locationCache.values()) {
       if (loc.system_id === systemId) {
         return {
+          status: 'RESOLVED_SYSTEM',
           system_id: systemId,
           name: loc.system_name || `System #${systemId}`,
           region_id: loc.region_id,
           region_name: loc.region_name,
+          security_status: loc.security_status,
+          is_verified: false,
+          confidence: 0.7,
+          source: 'inferred',
         };
       }
     }
     return {
+      status: 'SYSTEM_UNKNOWN',
       system_id: systemId,
       name: `System #${systemId}`,
+      is_verified: false,
+      confidence: 0.0,
+      source: 'fallback',
+      error: `System ID ${systemId} not found in solar system dataset`,
+    };
+  }
+
+  /**
+   * Resolves solar system domain entity (legacy helper).
+   */
+  getSystem(systemId: number): SystemInfo {
+    const res = this.resolveSystem(systemId);
+    return {
+      system_id: res.system_id,
+      name: res.name,
+      region_id: res.region_id,
+      region_name: res.region_name,
+      security_status: res.security_status,
     };
   }
 
@@ -271,17 +346,43 @@ export class UniverseRepository {
    * Resolves solar system name synchronously.
    */
   getSystemName(systemId: number): string {
-    return this.getSystem(systemId).name;
+    return this.resolveSystem(systemId).name;
   }
 
   /**
-   * Resolves region domain entity.
+   * Resolves region domain entity with canonical provenance.
+   */
+  resolveRegion(regionId: number): RegionResolutionResult {
+    const name = this.regionMap.get(regionId);
+    if (name) {
+      return {
+        status: 'RESOLVED_REGION',
+        region_id: regionId,
+        name,
+        is_verified: true,
+        confidence: 1.0,
+        source: 'static_universe',
+      };
+    }
+    return {
+      status: 'REGION_UNKNOWN',
+      region_id: regionId,
+      name: `Region #${regionId}`,
+      is_verified: false,
+      confidence: 0.0,
+      source: 'fallback',
+      error: `Region ID ${regionId} not found in universe dataset`,
+    };
+  }
+
+  /**
+   * Resolves region domain entity (legacy helper).
    */
   getRegion(regionId: number): RegionInfo {
-    const name = this.regionMap.get(regionId) || `Region #${regionId}`;
+    const res = this.resolveRegion(regionId);
     return {
-      region_id: regionId,
-      name,
+      region_id: res.region_id,
+      name: res.name,
     };
   }
 
@@ -289,15 +390,24 @@ export class UniverseRepository {
    * Resolves a region name from region_id.
    */
   getRegionName(regionId: number): string {
-    return this.getRegion(regionId).name;
+    return this.resolveRegion(regionId).name;
   }
 
   /**
-   * Resolves any New Eden station or Upwell structure asynchronously.
+   * Canonical jump route calculation between any two solar systems in New Eden.
    */
-  async resolveLocation(locationId: number, accessToken?: string): Promise<LocationResolution> {
+  getRoute(fromSystemId: number, toSystemId: number): JumpRoute {
+    return getJumpRoute(fromSystemId, toSystemId);
+  }
+
+  /**
+   * Resolves any New Eden station or Upwell structure asynchronously with strict provenance.
+   */
+  async resolveLocation(locationId: number, accessToken?: string): Promise<LocationResolutionResult> {
     const cached = this.locationCache.get(locationId);
-    if (cached && cached.source !== 'fallback') return cached;
+    if (cached && cached.status !== 'LOCATION_FALLBACK' && cached.status !== 'LOCATION_UNKNOWN') {
+      return cached;
+    }
 
     const isStructure = locationId > 100000000;
 
@@ -311,12 +421,22 @@ export class UniverseRepository {
       if (res.ok) {
         const data = await res.json();
         if (data && data.name) {
-          const resolution: LocationResolution = {
+          const sys = data.system_id ? this.systemMap.get(data.system_id) : undefined;
+          const rName = sys ? this.regionMap.get(sys.region_id) : undefined;
+          const resolution: LocationResolutionResult = {
+            status: isStructure ? 'RESOLVED_STRUCTURE' : 'RESOLVED_ESI',
             location_id: locationId,
             name: data.name,
             system_id: data.system_id,
+            system_name: sys?.name,
+            region_id: sys?.region_id,
+            region_name: rName,
+            security_status: sys?.security,
             is_structure: isStructure,
+            is_hub: false,
             source: isStructure ? 'structure_cache' : 'esi_resolved',
+            is_verified: true,
+            confidence: isStructure ? 0.95 : 0.90,
           };
           this.locationCache.set(locationId, resolution);
           return resolution;
@@ -326,14 +446,18 @@ export class UniverseRepository {
       console.warn(`UniverseRepository: failed to resolve location ${locationId}:`, err);
     }
 
-    const fallback: LocationResolution = {
+    const fallback: LocationResolutionResult = {
+      status: 'LOCATION_FALLBACK',
       location_id: locationId,
       name: isStructure ? `Structure #${locationId}` : `Station #${locationId}`,
       is_structure: isStructure,
+      is_hub: false,
       source: 'fallback',
+      is_verified: false,
+      confidence: 0.0,
+      error: `Could not resolve location ID ${locationId} via ESI or universe dataset`,
     };
     this.locationCache.set(locationId, fallback);
     return fallback;
   }
 }
-

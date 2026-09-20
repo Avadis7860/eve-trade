@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { FinancialConfig, TradeStrategy, MarketHub } from '../types';
-import { MAJOR_MARKET_HUBS } from '../data/universe';
+import { UniverseRepository } from '../domain/universe/UniverseRepository';
 
 interface TradingConfigContextType {
   config: FinancialConfig;
@@ -52,7 +52,7 @@ export const TradingConfigProvider: React.FC<{ children: React.ReactNode }> = ({
   });
 
   const [strategy, setStrategy] = useState<TradeStrategy>('relist');
-  const [hubs, setHubs] = useState<MarketHub[]>(MAJOR_MARKET_HUBS);
+  const [hubs, setHubs] = useState<MarketHub[]>(() => UniverseRepository.getInstance().getHubs());
   const [sortBy, setSortBy] = useState<'score' | 'profit' | 'roi' | 'profit_day' | 'turnover'>('score');
   const [filterRoute, setFilterRoute] = useState<string>('all');
   const [highSecOnly, setHighSecOnly] = useState<boolean>(true);

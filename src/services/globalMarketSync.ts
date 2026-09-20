@@ -5,7 +5,7 @@ import { MarketDataStore } from './marketDataStore';
 import { IndexedDbStore } from './indexedDbStore';
 import { CatalogRepository } from '../domain/catalog/CatalogRepository';
 import { MarketGroupRepository } from '../domain/catalog/MarketGroupRepository';
-import { MAJOR_MARKET_HUBS } from '../data/universe';
+import { UniverseRepository } from '../domain/universe/UniverseRepository';
 import {
   EveTypeDetail,
   MarketHub,

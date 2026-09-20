@@ -6,8 +6,10 @@ import {
   MarketDataSnapshot,
   MarketDataQuality,
   MarketObservation,
+  DataHealthStatus,
 } from '../types';
 import { IndexedDbStore } from './indexedDbStore';
+import { FailureSemantics } from '../engine/failureSemantics';
 
 interface HistoryCacheEntry {
   stats: HistoricalStats;
@@ -92,7 +94,9 @@ export class MarketDataStore {
     }
     this.snapshots.get(snapshot.type_id)!.set(snapshot.region_id, snapshot);
     // Asynchronously save to durable IndexedDB store
-    IndexedDbStore.saveSnapshot(snapshot).catch(() => {});
+    IndexedDbStore.saveSnapshot(snapshot).catch((err) => {
+      console.warn('[MarketDataStore] saveSnapshot failed to persist:', err);
+    });
 
     // Compute and record immutable MarketObservation (Append-Only)
     try {
@@ -132,7 +136,9 @@ export class MarketDataStore {
         confidence: snapshot.quality?.confidence ?? 1.0,
       };
 
-      IndexedDbStore.saveMarketObservation(obs).catch(() => {});
+      IndexedDbStore.saveMarketObservation(obs).catch((err) => {
+        console.warn('[MarketDataStore] saveMarketObservation failed:', err);
+      });
     } catch (e) {
       console.warn('Failed to record MarketObservation:', e);
     }
@@ -155,6 +161,8 @@ export class MarketDataStore {
       freshness: 'fresh',
       completeness: orders.length > 0 ? 'complete' : 'empty',
       validation_status: 'valid',
+      data_state: orders.length > 0 ? 'VALID' : 'EMPTY',
+      health_status: isLiveEsi ? 'LIVE' : 'CACHE',
       fetched_at: new Date(now).toISOString(),
       age_seconds: 0,
       pages_fetched: 1,
@@ -198,7 +206,9 @@ export class MarketDataStore {
     }
 
     // Persist to IndexedDB
-    IndexedDbStore.saveHistory(typeId, regionId, stats).catch(() => {});
+    IndexedDbStore.saveHistory(typeId, regionId, stats).catch((err) => {
+      console.warn('[MarketDataStore] saveHistory failed:', err);
+    });
   }
 
   /**
@@ -228,20 +238,22 @@ export class MarketDataStore {
       snap.quality.freshness = 'fresh';
     }
 
-    // Explicit normalized data_state assignment
-    if (snap.quality.source === 'unavailable' || snap.quality.validation_status === 'invalid') {
-      snap.quality.data_state = 'ERROR';
-    } else if (snap.quality.freshness === 'stale' || snap.quality.freshness === 'expired') {
-      snap.quality.data_state = 'STALE';
-    } else if (snap.quality.completeness === 'partial') {
-      snap.quality.data_state = 'PARTIAL';
-    } else if (snap.quality.completeness === 'empty' || (snap.orders && snap.orders.length === 0)) {
-      snap.quality.data_state = 'EMPTY';
-    } else {
-      snap.quality.data_state = 'VALID';
-    }
+    // Phase 2B Failure Semantics — Canonical Health and DataState
+    const healthStatus = FailureSemantics.evaluateHealth(snap.quality);
+    snap.quality.health_status = healthStatus;
+    snap.quality.data_state = FailureSemantics.healthToDataState(healthStatus, snap.orders ? snap.orders.length : 0);
 
     return snap;
+  }
+
+  /**
+   * Returns canonical Phase 2B failure semantics health state:
+   * LIVE | CACHE | STALE | PARTIAL | UNKNOWN | ERROR
+   */
+  static getDataHealth(typeId: number, regionId: number): DataHealthStatus {
+    const snap = this.getSnapshot(typeId, regionId);
+    if (!snap) return 'UNKNOWN';
+    return snap.quality.health_status || FailureSemantics.evaluateHealth(snap.quality);
   }
 
   /**

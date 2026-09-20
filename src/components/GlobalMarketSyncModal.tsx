@@ -35,7 +35,7 @@ interface GlobalMarketSyncModalProps {
   hubs: MarketHub[];
   config: FinancialConfig;
   strategy: TradeStrategy;
-  customItems: EveTypeDetail[];
+  customItems?: EveTypeDetail[];
   onOpenOpportunity: (opp: UniverseWideOpportunity) => void;
   onGoToGlobalScanner?: () => void;
 }
@@ -46,7 +46,7 @@ export const GlobalMarketSyncModal: React.FC<GlobalMarketSyncModalProps> = ({
   hubs,
   config,
   strategy,
-  customItems,
+  customItems = [],
   onOpenOpportunity,
   onGoToGlobalScanner,
 }) => {

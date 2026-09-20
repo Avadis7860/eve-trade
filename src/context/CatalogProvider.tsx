@@ -59,6 +59,12 @@ export const CatalogProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const item = repo.getTypeById(typeId);
     if (item) {
       setSelectedType(item);
+    } else {
+      repo.resolveTypeAsync(typeId).then((res) => {
+        if (res.type) {
+          setSelectedType(res.type);
+        }
+      });
     }
   }, [repo, setSelectedType]);
 

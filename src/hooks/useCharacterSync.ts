@@ -34,7 +34,9 @@ export function useCharacterSync(
 
         const orderTypeIds = Array.from(new Set(rawOrders.map((o) => o.type_id)));
         if (orderTypeIds.length > 0) {
-          MarketDataStore.syncCharacterOrdersMarketData(orderTypeIds, hubs).catch(() => {});
+          MarketDataStore.syncCharacterOrdersMarketData(orderTypeIds, hubs).catch((err) => {
+            console.warn('[useCharacterSync] syncCharacterOrdersMarketData failed:', err);
+          });
         }
 
         const enrichedOrders: EveCharacterOrder[] = [];

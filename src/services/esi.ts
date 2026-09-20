@@ -250,6 +250,7 @@ export class EsiService {
         completeness: 'empty',
         validation_status: 'invalid',
         data_state: 'ERROR',
+        health_status: 'ERROR',
         fetched_at: new Date().toISOString(),
         age_seconds: 0,
         pages_fetched: 0,
@@ -343,12 +344,14 @@ export class EsiService {
     const completeness = pagesFetched >= expectedPages ? (validOrders.length === 0 ? 'empty' : 'complete') : pagesFetched > 0 ? 'partial' : 'empty';
     const confidence = expectedPages > 0 ? Number((pagesFetched / expectedPages).toFixed(2)) : 1.0;
     const dataState = completeness === 'partial' ? 'PARTIAL' : validOrders.length === 0 ? 'EMPTY' : 'VALID';
+    const healthStatus = completeness === 'partial' ? 'PARTIAL' : 'LIVE';
 
     const quality: MarketDataQuality = {
       source: 'esi',
       freshness: 'fresh',
       completeness,
       data_state: dataState,
+      health_status: healthStatus,
       validation_status: errorCount === 0 && rejectedCount === 0 ? 'valid' : 'suspicious',
       fetched_at: new Date().toISOString(),
       age_seconds: 0,
@@ -536,7 +539,9 @@ export class EsiService {
         if (response.status === 401) {
           return { ok: false, status: 401 };
         }
-      } catch {}
+      } catch (proxyErr) {
+        console.warn(`[EsiService] Server proxy failed for character orders (${characterId}):`, proxyErr);
+      }
 
       // 2. Direct ESI fallback
       try {
@@ -548,7 +553,8 @@ export class EsiService {
           return { ok: true, status: directRes.status, data };
         }
         return { ok: false, status: directRes.status };
-      } catch {
+      } catch (directErr) {
+        console.warn(`[EsiService] Direct ESI failed for character orders (${characterId}):`, directErr);
         return { ok: false, status: 500 };
       }
     });
@@ -570,7 +576,9 @@ export class EsiService {
           return { ok: true, status: response.status, data: data.balance };
         }
         if (response.status === 401) return { ok: false, status: 401 };
-      } catch {}
+      } catch (proxyErr) {
+        console.warn(`[EsiService] Server proxy failed for character wallet (${characterId}):`, proxyErr);
+      }
 
       try {
         const directRes = await fetch(`${this.BASE_URL}/characters/${characterId}/wallet/?datasource=tranquility`, {
@@ -581,7 +589,8 @@ export class EsiService {
           return { ok: true, status: directRes.status, data: balance };
         }
         return { ok: false, status: directRes.status };
-      } catch {
+      } catch (directErr) {
+        console.warn(`[EsiService] Direct ESI failed for character wallet (${characterId}):`, directErr);
         return { ok: false, status: 500 };
       }
     });
@@ -601,7 +610,9 @@ export class EsiService {
           return { ok: true, status: response.status, data };
         }
         if (response.status === 401) return { ok: false, status: 401 };
-      } catch {}
+      } catch (proxyErr) {
+        console.warn(`[EsiService] Server proxy failed for character transactions (${characterId}):`, proxyErr);
+      }
 
       try {
         const directRes = await fetch(`${this.BASE_URL}/characters/${characterId}/wallet/transactions/?datasource=tranquility`, {
@@ -612,7 +623,8 @@ export class EsiService {
           return { ok: true, status: directRes.status, data };
         }
         return { ok: false, status: directRes.status };
-      } catch {
+      } catch (directErr) {
+        console.warn(`[EsiService] Direct ESI failed for character transactions (${characterId}):`, directErr);
         return { ok: false, status: 500 };
       }
     });
@@ -638,7 +650,9 @@ export class EsiService {
           return { ok: true, status: response.status, data };
         }
         if (response.status === 401) return { ok: false, status: 401 };
-      } catch {}
+      } catch (proxyErr) {
+        console.warn(`[EsiService] Server proxy failed for character order history (${characterId}):`, proxyErr);
+      }
 
       try {
         const directRes = await fetch(
@@ -650,7 +664,8 @@ export class EsiService {
           return { ok: true, status: directRes.status, data };
         }
         return { ok: false, status: directRes.status };
-      } catch {
+      } catch (directErr) {
+        console.warn(`[EsiService] Direct ESI failed for character order history (${characterId}):`, directErr);
         return { ok: false, status: 500 };
       }
     });
@@ -672,7 +687,9 @@ export class EsiService {
           return { ok: true, status: response.status, data };
         }
         if (response.status === 401) return { ok: false, status: 401 };
-      } catch {}
+      } catch (proxyErr) {
+        console.warn(`[EsiService] Server proxy failed for character journal (${characterId}):`, proxyErr);
+      }
 
       try {
         const directRes = await fetch(`${this.BASE_URL}/characters/${characterId}/wallet/journal/?datasource=tranquility`, {
@@ -683,7 +700,8 @@ export class EsiService {
           return { ok: true, status: directRes.status, data };
         }
         return { ok: false, status: directRes.status };
-      } catch {
+      } catch (directErr) {
+        console.warn(`[EsiService] Direct ESI failed for character journal (${characterId}):`, directErr);
         return { ok: false, status: 500 };
       }
     });
@@ -719,7 +737,9 @@ export class EsiService {
             return { ok: true, status: response.status, data: { accounting, broker_relations: brokerRel } };
           }
           if (response.status === 401) return { ok: false, status: 401 };
-        } catch {}
+        } catch (proxyErr) {
+          console.warn(`[EsiService] Server proxy failed for character skills (${characterId}):`, proxyErr);
+        }
 
         try {
           const directRes = await fetch(`${this.BASE_URL}/characters/${characterId}/skills/?datasource=tranquility`, {
@@ -733,7 +753,8 @@ export class EsiService {
             return { ok: true, status: directRes.status, data: { accounting, broker_relations: brokerRel } };
           }
           return { ok: false, status: directRes.status };
-        } catch {
+        } catch (directErr) {
+          console.warn(`[EsiService] Direct ESI failed for character skills (${characterId}):`, directErr);
           return { ok: false, status: 500 };
         }
       }

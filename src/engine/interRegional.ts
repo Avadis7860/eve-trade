@@ -17,6 +17,7 @@ import {
   OpportunityCertification,
   OpportunityProvenance,
   DataState,
+  DataHealthStatus,
   TypeResolutionResult,
 } from '../types';
 import { FeeEngine } from './fee';
@@ -26,7 +27,9 @@ import { OpportunityScoringEngine } from './scoring';
 import { MarketFeatureEngine } from './features';
 import { PredictionEngine } from './prediction';
 import { roundIsk, safeDiv } from './money';
-import { getJumpRoute, EVE_GROUPS, EVE_CATEGORIES } from '../data/universe';
+import { FailureSemantics } from './failureSemantics';
+import { CatalogRepository } from '../domain/catalog/CatalogRepository';
+import { UniverseRepository } from '../domain/universe/UniverseRepository';
 
 export class InterRegionalFinancialEngine {
   /**
@@ -77,7 +80,7 @@ export class InterRegionalFinancialEngine {
 
         const numericRange = parseInt(range, 10);
         if (!isNaN(numericRange) && numericRange >= 0) {
-          const route = getJumpRoute(order.system_id, hub.system_id);
+          const route = UniverseRepository.getInstance().getRoute(order.system_id, hub.system_id);
           return route.jumps <= numericRange;
         }
         return false;
@@ -651,7 +654,7 @@ export class InterRegionalFinancialEngine {
     if (bestDestSellTargetPrice <= bestSourceSellPrice) return null;
 
     const totalDestVolume = destLadders.reduce((acc, l) => acc + l.volume, 0);
-    const route = getJumpRoute(buyHub.system_id, sellHub.system_id);
+    const route = UniverseRepository.getInstance().getRoute(buyHub.system_id, sellHub.system_id);
 
     // 3. Multi-constraint tradable quantity resolution
     const tradableDetails = this.determineTradableQuantity(
@@ -783,8 +786,8 @@ export class InterRegionalFinancialEngine {
       hardRejection.rejection_reasons
     );
 
-    const group = EVE_GROUPS.find((g) => g.group_id === item.group_id);
-    const category = EVE_CATEGORIES.find((c) => c.category_id === item.category_id);
+    const group = CatalogRepository.getInstance().getGroup(item.group_id);
+    const category = CatalogRepository.getInstance().getCategory(item.category_id);
 
     const isAnomalous = hardRejection.is_anomalous || scoringEvaluation.isAnomalous;
     const spreadPctVal = bestSourceSellPrice > 0 ? (bestDestSellTargetPrice - bestSourceSellPrice) / bestSourceSellPrice : 0;
@@ -812,42 +815,175 @@ export class InterRegionalFinancialEngine {
       isAnomalous,
     });
 
-    const buyDataState: DataState = buyQuality?.data_state || (buyQuality?.freshness === 'stale' || buyQuality?.freshness === 'expired' ? 'STALE' : buyQuality?.completeness === 'partial' ? 'PARTIAL' : buyQuality?.completeness === 'empty' ? 'EMPTY' : 'VALID');
-    const sellDataState: DataState = sellQuality?.data_state || (sellQuality?.freshness === 'stale' || sellQuality?.freshness === 'expired' ? 'STALE' : sellQuality?.completeness === 'partial' ? 'PARTIAL' : sellQuality?.completeness === 'empty' ? 'EMPTY' : 'VALID');
+    // --- PHASE 2C: FOUR-PILLARS OPPORTUNITY CERTIFICATION ---
+    // Pillar 1: MarketData Evaluation (via FailureSemantics)
+    const healthSource: DataHealthStatus = buyQuality?.health_status || (buyQuality ? FailureSemantics.evaluateHealth(buyQuality) : 'UNKNOWN');
+    const healthDest: DataHealthStatus = sellQuality?.health_status || (sellQuality ? FailureSemantics.evaluateHealth(sellQuality) : 'UNKNOWN');
 
+    const buyDataState: DataState = buyQuality?.data_state || FailureSemantics.healthToDataState(healthSource, totalSourceVolume);
+    const sellDataState: DataState = sellQuality?.data_state || FailureSemantics.healthToDataState(healthDest, totalDestVolume);
+
+    let marketDataPillarStatus: 'PASS' | 'DEGRADED' | 'FAIL' = 'PASS';
+    let marketDataDetail = 'Données de marché complètes et fraîches.';
+    if (healthSource === 'ERROR' || healthDest === 'ERROR' || healthSource === 'UNKNOWN' || healthDest === 'UNKNOWN' || buyDataState === 'ERROR' || sellDataState === 'ERROR') {
+      marketDataPillarStatus = 'FAIL';
+      marketDataDetail = 'Données de marché sources ou destination manquantes, inconnues ou en erreur.';
+    } else if (
+      healthSource === 'STALE' ||
+      healthDest === 'STALE' ||
+      healthSource === 'PARTIAL' ||
+      healthDest === 'PARTIAL' ||
+      buyDataState === 'STALE' ||
+      sellDataState === 'STALE' ||
+      buyDataState === 'PARTIAL' ||
+      sellDataState === 'PARTIAL'
+    ) {
+      marketDataPillarStatus = 'DEGRADED';
+      marketDataDetail = 'Données de marché partielles ou obsolètes (stale).';
+    }
+
+    // Pillar 2: Catalog Evaluation
+    const typeResolution = CatalogRepository.getInstance().resolveType(item.type_id);
+    let catalogPillarStatus: 'PASS' | 'DEGRADED' | 'FAIL' = 'PASS';
+    let catalogDetail = `Type ${item.name} (#${item.type_id}) certifié au catalogue officiel.`;
+    if (typeResolution.status === 'TYPE_UNKNOWN' || !typeResolution.type) {
+      catalogPillarStatus = 'FAIL';
+      catalogDetail = `Type inconnu (#${item.type_id}) dans le référentiel de catalogue.`;
+    } else if (typeResolution.status === 'RESOLVED_DYNAMIC' || typeResolution.status === 'RESOLVED_ESI') {
+      catalogPillarStatus = 'DEGRADED';
+      catalogDetail = `Type ${item.name} (#${item.type_id}) issu d'une résolution dynamique non canonique.`;
+    }
+
+    // Pillar 3: Universe Evaluation
+    const sourceLocRes = UniverseRepository.getInstance().resolveLocationSync(buyHub.station_id);
+    const destLocRes = UniverseRepository.getInstance().resolveLocationSync(sellHub.station_id);
+    let universePillarStatus: 'PASS' | 'DEGRADED' | 'FAIL' = 'PASS';
+    let universeDetail = `Stations et route Highsec validées (${route.jumps} sauts).`;
+    if (sourceLocRes.status === 'LOCATION_UNKNOWN' || destLocRes.status === 'LOCATION_UNKNOWN' || route.jumps < 0) {
+      universePillarStatus = 'FAIL';
+      universeDetail = 'Localisation introuvable ou route impossible entre les hubs.';
+    } else if (
+      !route.is_highsec_only ||
+      sourceLocRes.is_structure ||
+      destLocRes.is_structure ||
+      sourceLocRes.status === 'LOCATION_FALLBACK' ||
+      destLocRes.status === 'LOCATION_FALLBACK' ||
+      sourceLocRes.status === 'RESOLVED_ESI' ||
+      destLocRes.status === 'RESOLVED_ESI'
+    ) {
+      universePillarStatus = 'DEGRADED';
+      universeDetail = `Route passant par des systèmes non sécurisés (${route.jumps} sauts, Highsec: ${route.is_highsec_only ? 'oui' : 'non'}) ou structure privée.`;
+    }
+
+    // Pillar 4: Financial Engine Evaluation
     const isViableFinal = hardRejection.is_viable && scoringEvaluation.isViable;
-    const isDegraded = buyDataState === 'PARTIAL' || sellDataState === 'PARTIAL' || buyDataState === 'STALE' || sellDataState === 'STALE' || overallConfidence < 0.8;
+    let financialPillarStatus: 'PASS' | 'DEGRADED' | 'FAIL' = 'PASS';
+    let financialDetail = `Rentabilité confirmée (Net: ${costs.net_profit.toLocaleString()} ISK, ROI: ${(costs.roi * 100).toFixed(1)}%).`;
+    if (!isViableFinal || costs.net_profit <= 0 || actualQuantity <= 0) {
+      financialPillarStatus = 'FAIL';
+      financialDetail = `Arbitrage non viable ou perte nette: ${hardRejection.rejection_reasons.concat(scoringEvaluation.rejectionReasons).join(', ') || 'profit nul ou négatif'}`;
+    } else if (
+      costs.roi < (config.min_roi || 0.03) ||
+      isAnomalous ||
+      overallConfidence < 0.8 ||
+      scoringEvaluation.scores.overall_score < 40
+    ) {
+      financialPillarStatus = 'DEGRADED';
+      financialDetail = `Marges ou indice de confiance réduits (ROI: ${(costs.roi * 100).toFixed(1)}%, anomalie: ${isAnomalous ? 'oui' : 'non'}, score: ${scoringEvaluation.scores.overall_score}).`;
+    }
+
+    // 4-Pillar Synthesis: CERTIFIED | DEGRADED | REJECTED
+    let certificationStatus: 'CERTIFIED' | 'DEGRADED' | 'REJECTED' = 'CERTIFIED';
+    let isActionable = true;
+
+    if (
+      marketDataPillarStatus === 'FAIL' ||
+      catalogPillarStatus === 'FAIL' ||
+      universePillarStatus === 'FAIL' ||
+      financialPillarStatus === 'FAIL'
+    ) {
+      certificationStatus = 'REJECTED';
+      isActionable = false;
+    } else if (
+      marketDataPillarStatus === 'DEGRADED' ||
+      catalogPillarStatus === 'DEGRADED' ||
+      universePillarStatus === 'DEGRADED' ||
+      financialPillarStatus === 'DEGRADED'
+    ) {
+      certificationStatus = 'DEGRADED';
+      isActionable = false;
+    }
+
+    const blockingReasons = Array.from(
+      new Set([
+        ...hardRejection.rejection_reasons,
+        ...scoringEvaluation.rejectionReasons,
+        ...(marketDataPillarStatus === 'FAIL' ? [marketDataDetail] : []),
+        ...(catalogPillarStatus === 'FAIL' ? [catalogDetail] : []),
+        ...(universePillarStatus === 'FAIL' ? [universeDetail] : []),
+        ...(financialPillarStatus === 'FAIL' ? [financialDetail] : []),
+      ])
+    );
+
+    const warnings = Array.from(
+      new Set([
+        ...hardRejection.anomaly_reasons,
+        ...scoringEvaluation.anomalyReasons,
+        ...(marketDataPillarStatus === 'DEGRADED' ? [marketDataDetail] : []),
+        ...(catalogPillarStatus === 'DEGRADED' ? [catalogDetail] : []),
+        ...(universePillarStatus === 'DEGRADED' ? [universeDetail] : []),
+        ...(financialPillarStatus === 'DEGRADED' ? [financialDetail] : []),
+      ])
+    );
 
     const certification: OpportunityCertification = {
-      status: !isViableFinal ? 'REJECTED' : isDegraded ? 'DEGRADED' : 'CERTIFIED',
-      is_actionable: isViableFinal && !isDegraded,
+      status: certificationStatus,
+      is_actionable: isActionable,
       data_state_source: buyDataState,
       data_state_dest: sellDataState,
+      health_state_source: healthSource,
+      health_state_dest: healthDest,
+      catalog_status: typeResolution.status,
+      universe_status_source: sourceLocRes.status,
+      universe_status_dest: destLocRes.status,
+      financial_status: financialPillarStatus === 'PASS' ? 'VIABLE' : financialPillarStatus === 'DEGRADED' ? 'DEGRADED' : 'UNVIABLE',
       confidence: overallConfidence,
-      warnings: Array.from(new Set([...hardRejection.anomaly_reasons, ...scoringEvaluation.anomalyReasons])),
-      blocking_reasons: Array.from(new Set([...hardRejection.rejection_reasons, ...scoringEvaluation.rejectionReasons])),
+      warnings,
+      blocking_reasons: blockingReasons,
       certified_at: new Date().toISOString(),
-    };
-
-    const typeResolution: TypeResolutionResult = {
-      status: 'RESOLVED_CATALOG',
-      type: item,
-      type_id: item.type_id,
-      name: item.name,
-      volume: item.volume,
-      group_id: item.group_id,
-      category_id: item.category_id,
-      source: 'catalog_ready',
-      catalog_version: '2026.09.20.1',
-      catalog_checksum: 'canonical',
-      is_verified: true,
-      confidence: 1.0,
+      pillar_evaluations: {
+        market_data: {
+          status: marketDataPillarStatus,
+          health_source: healthSource,
+          health_dest: healthDest,
+          detail: marketDataDetail,
+        },
+        catalog: {
+          status: catalogPillarStatus,
+          type_id: item.type_id,
+          status_code: typeResolution.status,
+          detail: catalogDetail,
+        },
+        universe: {
+          status: universePillarStatus,
+          source_station_id: buyHub.station_id,
+          dest_station_id: sellHub.station_id,
+          detail: universeDetail,
+        },
+        financial_engine: {
+          status: financialPillarStatus,
+          net_profit: costs.net_profit,
+          roi: costs.roi,
+          detail: financialDetail,
+        },
+      },
     };
 
     const sourceProvenance: DataProvenance | undefined = buyQuality ? {
       source: buyQuality.source,
       freshness: buyQuality.freshness,
       data_state: buyDataState,
+      health_status: healthSource,
       completeness: buyQuality.completeness,
       validation_status: buyQuality.validation_status,
       fetched_at: buyQuality.fetched_at,
@@ -868,6 +1004,7 @@ export class InterRegionalFinancialEngine {
       source: sellQuality.source,
       freshness: sellQuality.freshness,
       data_state: sellDataState,
+      health_status: healthDest,
       completeness: sellQuality.completeness,
       validation_status: sellQuality.validation_status,
       fetched_at: sellQuality.fetched_at,
@@ -888,8 +1025,11 @@ export class InterRegionalFinancialEngine {
       source_market_provenance: sourceProvenance,
       dest_market_provenance: destProvenance,
       type_resolution: typeResolution,
-      catalog_version: '2026.09.20.1',
-      catalog_checksum: 'canonical',
+      source_location_resolution: sourceLocRes,
+      dest_location_resolution: destLocRes,
+      route_resolution: route,
+      catalog_version: typeResolution.catalog_version || '2026.09.20.1',
+      catalog_checksum: typeResolution.catalog_checksum || 'canonical',
       calculation_timestamp: new Date().toISOString(),
     };
 
@@ -942,7 +1082,7 @@ export class InterRegionalFinancialEngine {
         overall_completeness: buyQuality?.completeness === 'partial' || sellQuality?.completeness === 'partial' ? 'partial' : 'complete',
         is_verified_esi: true,
         confidence_score: overallConfidence,
-        status_label: isViableFinal ? (isDegraded ? 'Dégradé (Données partielles/stale)' : 'Valide & Exécutable') : 'Rejeté',
+        status_label: certificationStatus === 'CERTIFIED' ? 'Valide & Exécutable' : certificationStatus === 'DEGRADED' ? 'Dégradé (Données partielles/stale)' : 'Rejeté',
       },
       detected_at: new Date().toISOString(),
     };

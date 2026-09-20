@@ -2,12 +2,21 @@ export type MarketDataSource = 'esi' | 'cache' | 'mock' | 'unavailable' | 'esi_p
 export type MarketDataFreshness = 'fresh' | 'recent' | 'stale' | 'expired' | 'unknown';
 export type MarketDataCompleteness = 'complete' | 'partial' | 'empty' | 'corrupted' | 'unknown';
 export type MarketDataValidationStatus = 'valid' | 'suspicious' | 'invalid' | 'unvalidated';
-export type DataState = 'VALID' | 'PARTIAL' | 'STALE' | 'EMPTY' | 'ERROR' | 'UNKNOWN';
+
+/**
+ * Phase 2B Failure Semantics — Canonical Data Health States.
+ * Imposes strict failure categories: LIVE | CACHE | STALE | PARTIAL | UNKNOWN | ERROR.
+ * Completely replaces silent catch {} and empty fallbacks.
+ */
+export type DataHealthStatus = 'LIVE' | 'CACHE' | 'STALE' | 'PARTIAL' | 'UNKNOWN' | 'ERROR';
+
+export type DataState = 'VALID' | 'PARTIAL' | 'STALE' | 'EMPTY' | 'ERROR' | 'UNKNOWN' | 'LIVE' | 'CACHE';
 
 export interface DataProvenance {
   source: MarketDataSource;
   freshness: MarketDataFreshness;
   data_state: DataState;
+  health_status?: DataHealthStatus;
   completeness: MarketDataCompleteness;
   validation_status: MarketDataValidationStatus;
   fetched_at: string;
@@ -32,6 +41,7 @@ export interface MarketDataQuality {
   completeness: MarketDataCompleteness;
   validation_status: MarketDataValidationStatus;
   data_state?: DataState;
+  health_status?: DataHealthStatus;
   fetched_at: string;
   age_seconds: number;
   pages_fetched: number;
@@ -64,15 +74,100 @@ export interface TypeResolutionResult {
   error?: string;
 }
 
+export type LocationResolutionStatus =
+  | 'RESOLVED_HUB'
+  | 'RESOLVED_STATION'
+  | 'RESOLVED_STRUCTURE'
+  | 'RESOLVED_ESI'
+  | 'LOCATION_FALLBACK'
+  | 'LOCATION_UNKNOWN';
+
+export interface LocationResolutionResult {
+  status: LocationResolutionStatus;
+  location_id: number;
+  name: string;
+  system_id?: number;
+  system_name?: string;
+  region_id?: number;
+  region_name?: string;
+  security_status?: number;
+  is_structure: boolean;
+  is_hub: boolean;
+  hub_id?: string;
+  source: 'hub' | 'static_npc' | 'structure_cache' | 'esi_resolved' | 'fallback';
+  is_verified: boolean;
+  confidence: number;
+  error?: string;
+}
+
+export type SystemResolutionStatus = 'RESOLVED_SYSTEM' | 'SYSTEM_UNKNOWN';
+
+export interface SystemResolutionResult {
+  status: SystemResolutionStatus;
+  system_id: number;
+  name: string;
+  region_id?: number;
+  region_name?: string;
+  security_status?: number;
+  is_verified: boolean;
+  confidence: number;
+  source: 'static_universe' | 'hub' | 'inferred' | 'fallback';
+  error?: string;
+}
+
+export type RegionResolutionStatus = 'RESOLVED_REGION' | 'REGION_UNKNOWN';
+
+export interface RegionResolutionResult {
+  status: RegionResolutionStatus;
+  region_id: number;
+  name: string;
+  is_verified: boolean;
+  confidence: number;
+  source: 'static_universe' | 'hub' | 'fallback';
+  error?: string;
+}
+
 export interface OpportunityCertification {
   status: 'CERTIFIED' | 'DEGRADED' | 'REJECTED';
   is_actionable: boolean;
   data_state_source: DataState;
   data_state_dest: DataState;
+  health_state_source?: DataHealthStatus;
+  health_state_dest?: DataHealthStatus;
+  catalog_status?: TypeResolutionStatus;
+  universe_status_source?: LocationResolutionStatus;
+  universe_status_dest?: LocationResolutionStatus;
+  financial_status?: 'VIABLE' | 'DEGRADED' | 'UNVIABLE';
   confidence: number;
   warnings: string[];
   blocking_reasons: string[];
   certified_at: string;
+  pillar_evaluations?: {
+    market_data: {
+      status: 'PASS' | 'DEGRADED' | 'FAIL';
+      health_source: DataHealthStatus;
+      health_dest: DataHealthStatus;
+      detail: string;
+    };
+    catalog: {
+      status: 'PASS' | 'DEGRADED' | 'FAIL';
+      type_id: number;
+      status_code: TypeResolutionStatus;
+      detail: string;
+    };
+    universe: {
+      status: 'PASS' | 'DEGRADED' | 'FAIL';
+      source_station_id: number;
+      dest_station_id: number;
+      detail: string;
+    };
+    financial_engine: {
+      status: 'PASS' | 'DEGRADED' | 'FAIL';
+      net_profit: number;
+      roi: number;
+      detail: string;
+    };
+  };
 }
 
 export interface OpportunityProvenance {
@@ -80,6 +175,9 @@ export interface OpportunityProvenance {
   dest_market_provenance?: DataProvenance;
   jita_benchmark_provenance?: DataProvenance;
   type_resolution: TypeResolutionResult;
+  source_location_resolution?: LocationResolutionResult;
+  dest_location_resolution?: LocationResolutionResult;
+  route_resolution?: JumpRoute;
   catalog_version: string;
   catalog_checksum: string;
   calculation_timestamp: string;

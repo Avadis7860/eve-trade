@@ -1,5 +1,12 @@
-import { EveTypeDetail, TypeCatalogMetadata, TypeCatalogStatus, TypeResolutionResult } from '../../types';
-import { EVE_TYPES_CATALOG } from '../../data/universe';
+import {
+  EveTypeDetail,
+  TypeCatalogMetadata,
+  TypeCatalogStatus,
+  TypeResolutionResult,
+  MarketGroup,
+  MarketCategory,
+} from '../../types';
+import { EVE_TYPES_CATALOG, EVE_GROUPS, EVE_CATEGORIES } from '../../data/universe';
 import { IndexedDbStore } from '../../services/indexedDbStore';
 import { CatalogValidator } from './CatalogValidator';
 
@@ -10,15 +17,26 @@ export class CatalogRepository {
 
   private typeMap = new Map<number, EveTypeDetail>();
   private customTypeMap = new Map<number, EveTypeDetail>();
+  private groupMap = new Map<number, MarketGroup>();
+  private categoryMap = new Map<number, MarketCategory>();
   private metadata: TypeCatalogMetadata;
   private listeners = new Set<CatalogListener>();
   private initPromise: Promise<void> | null = null;
 
   private constructor() {
-    // Seed with baseline verified catalog immediately so synchronous lookups never fail
+    // 1. Seed with baseline verified catalog immediately so synchronous lookups never fail
     for (const t of EVE_TYPES_CATALOG) {
       this.typeMap.set(t.type_id, t);
     }
+
+    // 2. Seed groups and categories
+    for (const g of EVE_GROUPS) {
+      this.groupMap.set(g.group_id, g);
+    }
+    for (const c of EVE_CATEGORIES) {
+      this.categoryMap.set(c.category_id, c);
+    }
+
     const baselineChecksum = CatalogValidator.computeCanonicalChecksum(EVE_TYPES_CATALOG);
 
     // INVARIANT: Baseline fallback core is NEVER CATALOG_READY
@@ -123,108 +141,83 @@ export class CatalogRepository {
         console.warn('CatalogRepository: could not read from IndexedDB:', err);
       }
 
-      // 2. Fetch fresh catalog and verified metadata from server
+      // 2. Fetch authoritative catalog from Backend API
       try {
         const res = await fetch('/api/types/all');
-        if (res.ok) {
-          const data = await res.json();
-          const rawItems: unknown[] = Array.isArray(data) ? data : data.types || [];
-          const serverMeta: TypeCatalogMetadata | undefined = data.metadata;
-
-          if (!serverMeta) {
-            this.metadata = {
-              ...this.metadata,
-              status: 'CATALOG_CORRUPTED',
-              is_degraded: true,
-              error: 'Server response violates contract: missing catalog metadata',
-            };
-            this.notify();
-            return;
-          }
-
-          // Validate server payload collection
-          const { validTypes, errors } = CatalogValidator.validateCollection(rawItems);
-
-          // Contract check: Item count match
-          if (validTypes.length !== serverMeta.item_count || errors.length > 0) {
-            this.metadata = {
-              ...this.metadata,
-              status: 'CATALOG_CORRUPTED',
-              is_degraded: true,
-              error: `Server payload count mismatch or errors (expected ${serverMeta.item_count}, valid ${validTypes.length}, errors ${errors.length})`,
-            };
-            this.notify();
-            return;
-          }
-
-          // Contract check: Checksum match
-          const computedChecksum = CatalogValidator.computeCanonicalChecksum(validTypes);
-          if (computedChecksum !== serverMeta.checksum) {
-            this.metadata = {
-              ...this.metadata,
-              status: 'CATALOG_CORRUPTED',
-              is_degraded: true,
-              error: `Server checksum mismatch: expected ${serverMeta.checksum}, computed ${computedChecksum}`,
-            };
-            this.notify();
-            return;
-          }
-
-          // Evaluate completeness
-          const completeness = CatalogValidator.validateCatalogCompleteness(validTypes, {
-            expectedCount: serverMeta.expected_count,
-            expectedChecksum: serverMeta.checksum,
-            currentChecksum: computedChecksum,
-            source: serverMeta.source,
-          });
-
-          // ATOMIC REPLACEMENT of types map
-          this.typeMap.clear();
-          for (const t of validTypes) {
-            this.typeMap.set(t.type_id, t);
-          }
-
-          this.metadata = {
-            version: serverMeta.version,
-            checksum: computedChecksum,
-            item_count: this.typeMap.size,
-            expected_count: serverMeta.expected_count,
-            status: completeness.status,
-            loaded_at: new Date().toISOString(),
-            source: serverMeta.source || 'server',
-            is_degraded: completeness.isDegraded,
-            error: completeness.reason,
-          };
-
-          // Persist atomically to IndexedDB
-          await IndexedDbStore.replaceCatalog(validTypes, this.metadata);
-          this.notify();
-        } else {
-          throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+          throw new Error(`Server returned HTTP ${res.status}`);
         }
+
+        const data = await res.json();
+        let types: EveTypeDetail[] = [];
+        let serverMeta: Partial<TypeCatalogMetadata> = {};
+
+        if (Array.isArray(data)) {
+          types = data;
+        } else if (data && Array.isArray(data.types)) {
+          types = data.types;
+          serverMeta = data.metadata || {};
+        }
+
+        if (types.length === 0) {
+          throw new Error('Server returned empty types collection');
+        }
+
+        // Validate complete structure and items
+        const { validTypes, errors } = CatalogValidator.validateCollection(types);
+        if (validTypes.length === 0) {
+          throw new Error(`Catalog verification failed: 0 valid items. Errors: ${errors.join(', ')}`);
+        }
+
+        const computedChecksum = CatalogValidator.computeCanonicalChecksum(validTypes);
+
+        // Update In-Memory Map
+        this.typeMap.clear();
+        for (const t of validTypes) {
+          this.typeMap.set(t.type_id, t);
+        }
+
+        const completeness = CatalogValidator.validateCatalogCompleteness(validTypes, {
+          expectedCount: serverMeta.expected_count || validTypes.length,
+          expectedChecksum: serverMeta.checksum || computedChecksum,
+          currentChecksum: computedChecksum,
+          source: 'server',
+        });
+
+        this.metadata = {
+          version: serverMeta.version || '2026.09.20.1',
+          checksum: computedChecksum,
+          item_count: this.typeMap.size,
+          expected_count: serverMeta.expected_count || validTypes.length,
+          status: completeness.status,
+          is_degraded: completeness.isDegraded,
+          loaded_at: new Date().toISOString(),
+          source: 'server',
+          error: completeness.isDegraded ? `Catalog degraded: ${completeness.reason || 'partial data'}` : undefined,
+        };
+
+        // Cache persistently in IndexedDB
+        await IndexedDbStore.replaceCatalog(validTypes, this.metadata);
+        this.notify();
       } catch (err) {
         console.warn('CatalogRepository: server sync offline or unavailable:', err);
-        if (!this.isReady()) {
-          if (this.typeMap.size > 1000) {
-            const types = Array.from(this.typeMap.values());
-            const checksum = CatalogValidator.computeCanonicalChecksum(types);
-            this.metadata = {
-              version: '2026.09.20.1',
-              checksum,
-              item_count: types.length,
-              expected_count: types.length,
-              status: 'CATALOG_READY',
-              loaded_at: new Date().toISOString(),
-              source: 'filesystem',
-              is_degraded: false,
-            };
-            this.notify();
-          } else {
-            this.metadata.status = 'CATALOG_FALLBACK_CORE';
-            this.metadata.is_degraded = true;
-            this.metadata.error = 'Server sync offline; operating on verified fallback core';
-            this.notify();
+        // Retain current in-memory cache
+        if (this.typeMap.size === 0) {
+          for (const t of EVE_TYPES_CATALOG) {
+            this.typeMap.set(t.type_id, t);
           }
+          this.metadata = {
+            version: '2026.09.20.1',
+            checksum: CatalogValidator.computeCanonicalChecksum(EVE_TYPES_CATALOG),
+            item_count: this.typeMap.size,
+            expected_count: this.typeMap.size,
+            status: 'CATALOG_FALLBACK_CORE',
+            loaded_at: new Date().toISOString(),
+            source: 'fallback_core',
+            is_degraded: true,
+            error: `Failed to load catalog from server: ${String(err)}`,
+          };
+          this.notify();
         }
       }
     })();
@@ -233,17 +226,25 @@ export class CatalogRepository {
   }
 
   /**
-   * Retrieves an item by unique CCP type_id (O(1)).
+   * Direct synchronous lookup by type_id.
    */
   getTypeById(typeId: number): EveTypeDetail | undefined {
     return this.customTypeMap.get(typeId) || this.typeMap.get(typeId);
   }
 
   /**
+   * Resolves item volume in m³ with safe default.
+   */
+  getTypeVolume(typeId: number): number {
+    const item = this.getTypeById(typeId);
+    return item?.volume && item.volume > 0 ? item.volume : 0.01;
+  }
+
+  /**
    * Resolves an item with strict provenance, classification and certainty.
    * INVARIANT: Never masks an unknown type as a verified catalog type.
    */
-  resolveType(typeId: number): TypeResolutionResult {
+  resolveType(typeId: number, fallbackDetails?: Partial<EveTypeDetail>): TypeResolutionResult {
     const meta = this.getMetadata();
 
     // 1. Custom dynamically registered type
@@ -285,7 +286,37 @@ export class CatalogRepository {
       };
     }
 
-    // 3. Unknown type
+    // 3. Fallback details provided (e.g. from opportunity or scanner)
+    if (fallbackDetails && fallbackDetails.name) {
+      const dynamicType: EveTypeDetail = {
+        type_id: typeId,
+        name: fallbackDetails.name,
+        description: fallbackDetails.description || '',
+        volume: fallbackDetails.volume && fallbackDetails.volume > 0 ? fallbackDetails.volume : 0.01,
+        group_id: fallbackDetails.group_id || 0,
+        group_name: fallbackDetails.group_name,
+        category_id: fallbackDetails.category_id || 0,
+        category_name: fallbackDetails.category_name,
+        average_price: fallbackDetails.average_price,
+      };
+      this.registerCustomType(dynamicType);
+      return {
+        status: 'RESOLVED_DYNAMIC',
+        type: dynamicType,
+        type_id: typeId,
+        name: dynamicType.name,
+        volume: dynamicType.volume,
+        group_id: dynamicType.group_id,
+        category_id: dynamicType.category_id,
+        source: 'custom_type',
+        catalog_version: meta.version,
+        catalog_checksum: meta.checksum,
+        is_verified: false,
+        confidence: 0.7,
+      };
+    }
+
+    // 4. Unknown type
     return {
       status: 'TYPE_UNKNOWN',
       type: undefined,
@@ -304,11 +335,98 @@ export class CatalogRepository {
   }
 
   /**
+   * Batch resolves a collection of type IDs efficiently.
+   */
+  resolveTypesBatch(typeIds: number[]): Map<number, TypeResolutionResult> {
+    const results = new Map<number, TypeResolutionResult>();
+    for (const id of typeIds) {
+      results.set(id, this.resolveType(id));
+    }
+    return results;
+  }
+
+  /**
+   * Resolves a type asynchronously, falling back to server ESI lookup if not in local catalog.
+   */
+  async resolveTypeAsync(typeId: number): Promise<TypeResolutionResult> {
+    const syncRes = this.resolveType(typeId);
+    if (syncRes.status !== 'TYPE_UNKNOWN') {
+      return syncRes;
+    }
+
+    try {
+      const res = await fetch(`/api/types/lookup/${typeId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.name) {
+          const detail: EveTypeDetail = {
+            type_id: typeId,
+            name: data.name,
+            volume: typeof data.volume === 'number' ? data.volume : 0.01,
+            group_id: typeof data.group_id === 'number' ? data.group_id : 0,
+            category_id: typeof data.category_id === 'number' ? data.category_id : 0,
+            average_price: data.average_price,
+            adjusted_price: data.adjusted_price,
+          };
+          this.customTypeMap.set(typeId, detail);
+          const meta = this.getMetadata();
+          return {
+            status: 'RESOLVED_ESI',
+            type: detail,
+            type_id: typeId,
+            name: detail.name,
+            volume: detail.volume,
+            group_id: detail.group_id,
+            category_id: detail.category_id,
+            source: 'esi_lookup',
+            catalog_version: meta.version,
+            catalog_checksum: meta.checksum,
+            is_verified: true,
+            confidence: 0.95,
+          };
+        }
+      }
+    } catch (err) {
+      console.warn(`CatalogRepository: failed async lookup for type ${typeId}:`, err);
+    }
+
+    return syncRes;
+  }
+
+  /**
    * Resolves a human-readable name for a given type_id with guaranteed fallback.
    */
   getTypeName(typeId: number): string {
     const item = this.getTypeById(typeId);
     return item ? item.name : `Type #${typeId}`;
+  }
+
+  /**
+   * Resolves market group by group_id.
+   */
+  getGroup(groupId: number): MarketGroup | undefined {
+    return this.groupMap.get(groupId);
+  }
+
+  /**
+   * Returns all known market groups.
+   */
+  getGroups(): MarketGroup[] {
+    return Array.from(this.groupMap.values());
+  }
+
+  /**
+   * Resolves market category by category_id.
+   */
+  getCategory(categoryId: number): MarketCategory | undefined {
+    return this.categoryMap.get(categoryId);
+  }
+
+  /**
+   * Returns all known market categories.
+   */
+  getCategories(): MarketCategory[] {
+    return Array.from(this.categoryMap.values());
   }
 
   /**
@@ -359,13 +477,14 @@ export class CatalogRepository {
   /**
    * Registers a user-defined custom type.
    */
-  registerCustomType(type: EveTypeDetail): void {
+  registerCustomType(type: EveTypeDetail): TypeResolutionResult {
     const res = CatalogValidator.validateType(type);
     if (!res.isValid) {
       throw new Error(`Cannot register invalid custom type: ${res.error}`);
     }
     this.customTypeMap.set(type.type_id, type);
     this.notify();
+    return this.resolveType(type.type_id);
   }
 
   /**

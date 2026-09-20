@@ -66,7 +66,6 @@ const AppShell: React.FC = () => {
   const [isCharactersModalOpen, setIsCharactersModalOpen] = useState<boolean>(false);
   const [isGlobalSyncModalOpen, setIsGlobalSyncModalOpen] = useState<boolean>(false);
   const [isMobileCatalogOpen, setIsMobileCatalogOpen] = useState<boolean>(false);
-  const [customTypes, setCustomTypes] = useState<EveTypeDetail[]>([]);
 
   // Market Data (Live ESI & cached books)
   const {
@@ -113,28 +112,17 @@ const AppShell: React.FC = () => {
   );
 
   const handleSelectOpportunityForCockpit = (opp: UniverseWideOpportunity) => {
-    const found =
-      CatalogRepository.getInstance().getTypeById(opp.type_id) ||
-      customTypes.find((t) => t.type_id === opp.type_id);
+    const resolution = CatalogRepository.getInstance().resolveType(opp.type_id, {
+      name: opp.item_name,
+      volume: opp.total_cargo_volume / (opp.quantity_tradable || 1),
+      group_name: opp.group_name,
+      category_name: opp.category_name,
+      average_price: opp.effective_buy_price,
+    });
 
-    if (found) {
-      setSelectedType(found);
-    } else {
-      const genericType: EveTypeDetail = {
-        type_id: opp.type_id,
-        name: opp.item_name,
-        description: '',
-        volume: opp.total_cargo_volume / (opp.quantity_tradable || 1),
-        group_id: 0,
-        group_name: opp.group_name,
-        category_id: 0,
-        category_name: opp.category_name,
-        average_price: opp.effective_buy_price,
-      };
-      setCustomTypes((prev) => [...prev, genericType]);
-      setSelectedType(genericType);
+    if (resolution.type) {
+      setSelectedType(resolution.type);
     }
-
     setSelectedOpportunity(opp);
     setCurrentView('cockpit');
   };
@@ -146,13 +134,11 @@ const AppShell: React.FC = () => {
       setSelectedType(found);
       setCurrentView('cockpit');
     } else {
-      EsiService.lookupTypeById(typeId).then((detail) => {
-        if (detail) {
-          const mDetail: EveTypeDetail = { ...detail, category_id: 0 };
-          catalogRepo.registerCustomType(mDetail);
-          setSelectedType(mDetail);
-          setCurrentView('cockpit');
+      catalogRepo.resolveTypeAsync(typeId).then((res) => {
+        if (res.type) {
+          setSelectedType(res.type);
         }
+        setCurrentView('cockpit');
       });
     }
   };
@@ -175,8 +161,6 @@ const AppShell: React.FC = () => {
           favorites={favorites}
           onToggleFavorite={toggleFavorite}
           recentTypeIds={recentTypeIds}
-          customTypes={customTypes}
-          onAddCustomType={(t) => setCustomTypes((prev) => [...prev, t])}
         />
       </aside>
 
@@ -209,8 +193,6 @@ const AppShell: React.FC = () => {
                 favorites={favorites}
                 onToggleFavorite={toggleFavorite}
                 recentTypeIds={recentTypeIds}
-                customTypes={customTypes}
-                onAddCustomType={(t) => setCustomTypes((prev) => [...prev, t])}
               />
             </div>
           </div>
@@ -366,7 +348,6 @@ const AppShell: React.FC = () => {
         hubs={hubs}
         config={config}
         strategy={strategy}
-        customItems={customTypes}
         onOpenOpportunity={(opp) => handleSelectOpportunityForCockpit(opp)}
         onGoToGlobalScanner={() => setCurrentView('global')}
       />

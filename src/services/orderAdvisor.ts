@@ -6,8 +6,8 @@ import {
   HistoricalStats,
   FinancialConfig,
 } from '../types';
-import { MAJOR_MARKET_HUBS, getJumpRoute } from '../data/universe';
 import { CatalogRepository } from '../domain/catalog/CatalogRepository';
+import { UniverseRepository } from '../domain/universe/UniverseRepository';
 import { MarketDataStore } from './marketDataStore';
 import { FeeEngine } from '../engine/fee';
 
@@ -163,7 +163,10 @@ export class OrderAdvisorService {
       jumps: number;
     } | null = null;
 
-    for (const targetHub of MAJOR_MARKET_HUBS.filter((h) => h.active)) {
+    const universe = UniverseRepository.getInstance();
+    const activeHubs = universe.getHubs().filter((h) => h.active);
+
+    for (const targetHub of activeHubs) {
       if (targetHub.region_id === myRegionId) continue; // Skip same region
 
       const targetRegionalOrders =
@@ -186,9 +189,9 @@ export class OrderAdvisorService {
       // Price must be at least 8% higher than our current price (or at least 15% above local lowest sell)
       if (targetLowestSell > order.price * 1.08 && targetDailyVol >= 5) {
         // Compute logistics and fee friction
-        const myHubMatch = MAJOR_MARKET_HUBS.find((h) => h.region_id === myRegionId);
+        const myHubMatch = universe.getHubs().find((h) => h.region_id === myRegionId);
         const sourceSystemId = myHubMatch ? myHubMatch.system_id : 30000142;
-        const route = getJumpRoute(sourceSystemId, targetHub.system_id);
+        const route = universe.getRoute(sourceSystemId, targetHub.system_id);
 
         const totalM3 = unitVolume * order.volume_remain;
         const targetGross = targetLowestSell * order.volume_remain;

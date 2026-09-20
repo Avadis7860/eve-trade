@@ -137,6 +137,128 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
             </div>
           )}
 
+          {/* Phase 2C: 4-Pillars Opportunity Certification (MarketData + Catalog + Universe + Financial Engine) */}
+          {opportunity.certification && (
+            <div className={`p-3.5 rounded-lg border space-y-2.5 ${
+              opportunity.certification.status === 'CERTIFIED'
+                ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-100'
+                : opportunity.certification.status === 'DEGRADED'
+                ? 'bg-amber-950/30 border-amber-500/40 text-amber-100'
+                : 'bg-red-950/30 border-red-500/40 text-red-100'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className={`w-4 h-4 ${
+                    opportunity.certification.status === 'CERTIFIED'
+                      ? 'text-emerald-400'
+                      : opportunity.certification.status === 'DEGRADED'
+                      ? 'text-amber-400'
+                      : 'text-red-400'
+                  }`} />
+                  <span className="font-bold text-xs uppercase tracking-wider">
+                    Certification 4 Piliers :
+                  </span>
+                  <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase font-mono ${
+                    opportunity.certification.status === 'CERTIFIED'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                      : opportunity.certification.status === 'DEGRADED'
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                      : 'bg-red-500/20 text-red-300 border border-red-500/40'
+                  }`}>
+                    {opportunity.certification.status === 'CERTIFIED' ? 'CERTIFIÉ (Actionnable)' : opportunity.certification.status === 'DEGRADED' ? 'DÉGRADÉ (Prudence)' : 'REJETÉ (Non Actionnable)'}
+                  </span>
+                </div>
+                <span className="text-[10px] text-[#808495] font-mono">
+                  Confiance : {(opportunity.certification.confidence * 100).toFixed(0)}%
+                </span>
+              </div>
+
+              {/* 4 Pillars Status Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-[10px] font-mono">
+                {/* Pillar 1: MarketData */}
+                <div className="bg-[#0e1117]/80 p-2 rounded border border-[#262730]">
+                  <span className="text-[#808495] block text-[9px] uppercase">1. MarketData</span>
+                  <span className={`font-bold uppercase ${
+                    opportunity.certification.pillar_evaluations?.market_data.status === 'PASS'
+                      ? 'text-emerald-400'
+                      : opportunity.certification.pillar_evaluations?.market_data.status === 'DEGRADED'
+                      ? 'text-amber-400'
+                      : 'text-red-400'
+                  }`}>
+                    {opportunity.certification.pillar_evaluations?.market_data.status || 'PASS'}
+                  </span>
+                  <div className="text-[9px] text-[#808495] truncate mt-0.5">
+                    Src: {opportunity.certification.health_state_source || 'LIVE'} / Dst: {opportunity.certification.health_state_dest || 'LIVE'}
+                  </div>
+                </div>
+
+                {/* Pillar 2: Catalog */}
+                <div className="bg-[#0e1117]/80 p-2 rounded border border-[#262730]">
+                  <span className="text-[#808495] block text-[9px] uppercase">2. Catalog</span>
+                  <span className={`font-bold uppercase ${
+                    opportunity.certification.pillar_evaluations?.catalog.status === 'PASS'
+                      ? 'text-emerald-400'
+                      : opportunity.certification.pillar_evaluations?.catalog.status === 'DEGRADED'
+                      ? 'text-amber-400'
+                      : 'text-red-400'
+                  }`}>
+                    {opportunity.certification.pillar_evaluations?.catalog.status || 'PASS'}
+                  </span>
+                  <div className="text-[9px] text-[#808495] truncate mt-0.5">
+                    {opportunity.certification.catalog_status || 'RESOLVED_CATALOG'}
+                  </div>
+                </div>
+
+                {/* Pillar 3: Universe */}
+                <div className="bg-[#0e1117]/80 p-2 rounded border border-[#262730]">
+                  <span className="text-[#808495] block text-[9px] uppercase">3. Universe</span>
+                  <span className={`font-bold uppercase ${
+                    opportunity.certification.pillar_evaluations?.universe.status === 'PASS'
+                      ? 'text-emerald-400'
+                      : opportunity.certification.pillar_evaluations?.universe.status === 'DEGRADED'
+                      ? 'text-amber-400'
+                      : 'text-red-400'
+                  }`}>
+                    {opportunity.certification.pillar_evaluations?.universe.status || 'PASS'}
+                  </span>
+                  <div className="text-[9px] text-[#808495] truncate mt-0.5">
+                    {route.jumps} sauts {route.is_highsec_only ? '(Highsec)' : '(Risque)'}
+                  </div>
+                </div>
+
+                {/* Pillar 4: Financial Engine */}
+                <div className="bg-[#0e1117]/80 p-2 rounded border border-[#262730]">
+                  <span className="text-[#808495] block text-[9px] uppercase">4. Financial</span>
+                  <span className={`font-bold uppercase ${
+                    opportunity.certification.pillar_evaluations?.financial_engine.status === 'PASS'
+                      ? 'text-emerald-400'
+                      : opportunity.certification.pillar_evaluations?.financial_engine.status === 'DEGRADED'
+                      ? 'text-amber-400'
+                      : 'text-red-400'
+                  }`}>
+                    {opportunity.certification.pillar_evaluations?.financial_engine.status || 'PASS'}
+                  </span>
+                  <div className="text-[9px] text-[#808495] truncate mt-0.5">
+                    ROI: {(costs.roi * 100).toFixed(1)}% | Marge: {(costs.margin * 100).toFixed(1)}%
+                  </div>
+                </div>
+              </div>
+
+              {opportunity.certification.warnings && opportunity.certification.warnings.length > 0 && (
+                <div className="text-[10px] text-amber-300/90 pt-1 border-t border-[#262730]/50">
+                  <span className="font-semibold text-amber-400">Avertissements : </span>
+                  {opportunity.certification.warnings.join(' • ')}
+                </div>
+              )}
+              {opportunity.certification.blocking_reasons && opportunity.certification.blocking_reasons.length > 0 && (
+                <div className="text-[10px] text-red-300/90 pt-1 border-t border-[#262730]/50">
+                  <span className="font-semibold text-red-400">Raisons de blocage : </span>
+                  {opportunity.certification.blocking_reasons.join(' • ')}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Anomaly / Warning Badges */}
           {is_anomalous && (
             <div className="p-3 rounded-lg bg-amber-950/40 border border-amber-600/50 text-amber-200 flex items-start gap-2.5">

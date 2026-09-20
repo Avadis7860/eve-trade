@@ -130,6 +130,9 @@ export interface RegionResolutionResult {
 export interface OpportunityCertification {
   status: 'CERTIFIED' | 'DEGRADED' | 'REJECTED';
   is_actionable: boolean;
+  certification_version: string;
+  evidence_hash?: string;
+  evidence?: OpportunityEvidence;
   data_state_source: DataState;
   data_state_dest: DataState;
   health_state_source?: DataHealthStatus;
@@ -168,6 +171,114 @@ export interface OpportunityCertification {
       detail: string;
     };
   };
+}
+
+export interface MarketSnapshotReference {
+  type_id: number;
+  region_id: number;
+  timestamp: number;
+  orders_count: number;
+  health_status: DataHealthStatus;
+  data_state: DataState;
+  market_hash?: string;
+  source: MarketDataSource;
+  freshness: MarketDataFreshness;
+  completeness: MarketDataCompleteness;
+  confidence: number;
+  age_seconds: number;
+}
+
+export interface FinancialInputsEvidence {
+  available_capital: number;
+  max_cargo_m3: number;
+  broker_fee: number;
+  sales_tax: number;
+  enable_transport_costs: boolean;
+  transport_cost_per_m3: number;
+  transport_cost_per_jump: number;
+  min_roi: number;
+  min_net_profit: number;
+  unit_volume: number;
+  strategy: TradeStrategy;
+  accounting_level?: number;
+  broker_relations_level?: number;
+  advanced_broker_relations_level?: number;
+}
+
+export interface FinancialOutputsEvidence {
+  quantity: number;
+  effective_buy_price: number;
+  effective_sell_price: number;
+  gross_purchase_cost: number;
+  buy_broker_fee_cost: number;
+  transport_cost: number;
+  total_acquisition_cost: number;
+  gross_revenue: number;
+  sales_tax_cost: number;
+  sell_broker_fee_cost: number;
+  total_exit_fees: number;
+  net_revenue: number;
+  net_profit: number;
+  profit_per_unit: number;
+  roi: number;
+  margin: number;
+  capital_locked: number;
+  bottleneck: 'capital' | 'cargo' | 'source_market' | 'destination_market';
+  is_viable: boolean;
+}
+
+export interface OpportunityEvidence {
+  opportunity_id: string;
+  detected_at: string;
+  certification_version: string;
+  certification_status: 'CERTIFIED' | 'DEGRADED' | 'REJECTED';
+  is_actionable: boolean;
+  type_id: number;
+  source_market: MarketSnapshotReference;
+  dest_market: MarketSnapshotReference;
+  source_market_provenance?: DataProvenance;
+  dest_market_provenance?: DataProvenance;
+  source_market_hash?: string;
+  dest_market_hash?: string;
+  catalog_version: string;
+  catalog_checksum: string;
+  type_resolution: TypeResolutionResult;
+  source_location_resolution: LocationResolutionResult;
+  dest_location_resolution: LocationResolutionResult;
+  route_resolution: JumpRoute;
+  financial_inputs: FinancialInputsEvidence;
+  financial_outputs: FinancialOutputsEvidence;
+  strategy: TradeStrategy;
+  confidence: number;
+  warnings: string[];
+  blocking_reasons: string[];
+  pillar_evaluations: {
+    market_data: {
+      status: 'PASS' | 'DEGRADED' | 'FAIL';
+      health_source: DataHealthStatus;
+      health_dest: DataHealthStatus;
+      detail: string;
+    };
+    catalog: {
+      status: 'PASS' | 'DEGRADED' | 'FAIL';
+      type_id: number;
+      status_code: TypeResolutionStatus;
+      detail: string;
+    };
+    universe: {
+      status: 'PASS' | 'DEGRADED' | 'FAIL';
+      source_station_id: number;
+      dest_station_id: number;
+      detail: string;
+    };
+    financial_engine: {
+      status: 'PASS' | 'DEGRADED' | 'FAIL';
+      net_profit: number;
+      roi: number;
+      detail: string;
+    };
+  };
+  evidence_hash: string;
 }
 
 export interface OpportunityProvenance {
@@ -605,6 +716,7 @@ export interface InterRegionalOpportunity {
   // Phase 1 Certification & Traceable Provenance Contract
   certification?: OpportunityCertification;
   provenance?: OpportunityProvenance;
+  evidence?: OpportunityEvidence;
 
   detected_at: string;
 }
@@ -1116,6 +1228,12 @@ export interface OpportunityObservation {
   is_anomalous: boolean;
   anomaly_reasons?: string[];
   bottleneck: string;
+  
+  // Phase 2C Audit & Verifiable Evidence Snapshot
+  certification?: OpportunityCertification;
+  evidence?: OpportunityEvidence;
+  evidence_hash?: string;
+  certification_version?: string;
   
   // Future outcome tracking
   outcomes?: Record<string, OpportunityOutcomeSnapshot>; // '1h' | '6h' | '24h' | '3d' | '7d'

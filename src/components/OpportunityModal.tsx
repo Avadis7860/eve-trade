@@ -146,8 +146,8 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
                 ? 'bg-amber-950/30 border-amber-500/40 text-amber-100'
                 : 'bg-red-950/30 border-red-500/40 text-red-100'
             }`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <ShieldCheck className={`w-4 h-4 ${
                     opportunity.certification.status === 'CERTIFIED'
                       ? 'text-emerald-400'
@@ -156,7 +156,7 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
                       : 'text-red-400'
                   }`} />
                   <span className="font-bold text-xs uppercase tracking-wider">
-                    Certification 4 Piliers :
+                    Chaîne de Preuve 4 Piliers :
                   </span>
                   <span className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase font-mono ${
                     opportunity.certification.status === 'CERTIFIED'
@@ -167,11 +167,34 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
                   }`}>
                     {opportunity.certification.status === 'CERTIFIED' ? 'CERTIFIÉ (Actionnable)' : opportunity.certification.status === 'DEGRADED' ? 'DÉGRADÉ (Prudence)' : 'REJETÉ (Non Actionnable)'}
                   </span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#0e1117] border border-[#262730] text-[#cfd3dc]">
+                    {opportunity.certification.certification_version || '4-pillars-v1'}
+                  </span>
                 </div>
-                <span className="text-[10px] text-[#808495] font-mono">
-                  Confiance : {(opportunity.certification.confidence * 100).toFixed(0)}%
-                </span>
+                <div className="flex items-center gap-3 text-[10px] text-[#808495] font-mono">
+                  <span>
+                    Confiance : {(opportunity.certification.confidence * 100).toFixed(0)}%
+                  </span>
+                  {opportunity.certification.certified_at && (
+                    <span>
+                      T : {new Date(opportunity.certification.certified_at).toLocaleTimeString('fr-FR')}
+                    </span>
+                  )}
+                </div>
               </div>
+
+              {/* Cryptographic SHA-256 Evidence Hash Banner */}
+              {opportunity.certification.evidence_hash && (
+                <div className="flex items-center justify-between text-[10px] font-mono bg-[#0e1117]/90 px-2.5 py-1.5 rounded border border-[#262730]">
+                  <span className="text-[#808495] flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-emerald-400" />
+                    Preuve Cryptographique (SHA-256) :
+                  </span>
+                  <span className="text-emerald-400 select-all" title={opportunity.certification.evidence_hash}>
+                    {opportunity.certification.evidence_hash}
+                  </span>
+                </div>
+              )}
 
               {/* 4 Pillars Status Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-[10px] font-mono">

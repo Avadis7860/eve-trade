@@ -16,8 +16,11 @@ Ce document constitue la **source de vérité absolue** pour tout agent d'intell
   * *Transport Cost* : Si `enable_transport_costs === false`, le coût doit valoir **strictement 0.00 ISK**.
 * **Déduplication stricte des carnets d'ordres :** Toujours dédupliquer sur `order_id` (identifiant unique CCP).
 
-### 2. Architecture des Données, Observations & Persistance
-* **Centralisation & Entrepôt Immuable :** Toutes les données de marché synchronisées sont stockées et notifiées via `src/services/marketDataStore.ts` et archivées de façon immuable dans `src/services/indexedDbStore.ts` (IndexedDB v2).
+### 2. Architecture des Données, Observations, Preuves & Persistance
+* **Chaîne de Preuve & Certification 4 Piliers Immuable :** Chaque opportunité générée par `InterRegionalFinancialEngine` est accompagnée d'un instantané cryptographique `OpportunityEvidence` (`4-pillars-v1`).
+  * Empreinte déterministe SHA-256 (`evidence_hash`) calculée par `OpportunityEvidenceEngine` via sérialisation canonique.
+  * Auditabilité complète : vérification en temps réel des 4 piliers (`MarketData`, `Catalog`, `Universe`, `FinancialEngine`).
+* **Centralisation & Entrepôt Immuable :** Toutes les données de marché synchronisées sont stockées et notifiées via `src/services/marketDataStore.ts` et archivées de façon immuable dans `src/services/indexedDbStore.ts` (IndexedDB v3).
 * **Sécurité des Tokens EVE SSO :**
   * Les tokens d'accès JWT expirent au bout de 20 minutes (1200 secondes).
   * Toujours vérifier `AuthService.isTokenExpiredOrExpiringSoon(session)` avant d'exécuter un appel nécessitant une authentification.
@@ -65,6 +68,7 @@ npm run build
 │   │   ├── features.ts       # Feature engineering temporel (momentum, accélération)
 │   │   ├── prediction.ts     # Modélisation prédictive & probabilité de survie/profit
 │   │   ├── interRegional.ts  # Pipeline d'arbitrage spatialisé directionnel
+│   │   ├── evidence.ts       # Moteur de preuve d'opportunité & hachage déterministe SHA-256
 │   │   ├── portfolio.ts      # Optimiseur de portefeuille et limites de concentration
 │   │   ├── money.ts          # Formatage monétaire ISK et conversions
 │   │   └── __tests__/        # Suites de tests automatisés

@@ -28,6 +28,7 @@ import { MarketFeatureEngine } from './features';
 import { PredictionEngine } from './prediction';
 import { roundIsk, safeDiv } from './money';
 import { FailureSemantics } from './failureSemantics';
+import { OpportunityEvidenceEngine, CURRENT_CERTIFICATION_VERSION } from './evidence';
 import { CatalogRepository } from '../domain/catalog/CatalogRepository';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
 
@@ -936,46 +937,33 @@ export class InterRegionalFinancialEngine {
       ])
     );
 
-    const certification: OpportunityCertification = {
-      status: certificationStatus,
-      is_actionable: isActionable,
-      data_state_source: buyDataState,
-      data_state_dest: sellDataState,
-      health_state_source: healthSource,
-      health_state_dest: healthDest,
-      catalog_status: typeResolution.status,
-      universe_status_source: sourceLocRes.status,
-      universe_status_dest: destLocRes.status,
-      financial_status: financialPillarStatus === 'PASS' ? 'VIABLE' : financialPillarStatus === 'DEGRADED' ? 'DEGRADED' : 'UNVIABLE',
-      confidence: overallConfidence,
-      warnings,
-      blocking_reasons: blockingReasons,
-      certified_at: new Date().toISOString(),
-      pillar_evaluations: {
-        market_data: {
-          status: marketDataPillarStatus,
-          health_source: healthSource,
-          health_dest: healthDest,
-          detail: marketDataDetail,
-        },
-        catalog: {
-          status: catalogPillarStatus,
-          type_id: item.type_id,
-          status_code: typeResolution.status,
-          detail: catalogDetail,
-        },
-        universe: {
-          status: universePillarStatus,
-          source_station_id: buyHub.station_id,
-          dest_station_id: sellHub.station_id,
-          detail: universeDetail,
-        },
-        financial_engine: {
-          status: financialPillarStatus,
-          net_profit: costs.net_profit,
-          roi: costs.roi,
-          detail: financialDetail,
-        },
+    const sourceSnapshotHash = OpportunityEvidenceEngine.computeMarketSnapshotHash(buyRegionOrders);
+    const destSnapshotHash = OpportunityEvidenceEngine.computeMarketSnapshotHash(sellRegionOrders);
+
+    const pillarEvaluations = {
+      market_data: {
+        status: marketDataPillarStatus,
+        health_source: healthSource,
+        health_dest: healthDest,
+        detail: marketDataDetail,
+      },
+      catalog: {
+        status: catalogPillarStatus,
+        type_id: item.type_id,
+        status_code: typeResolution.status,
+        detail: catalogDetail,
+      },
+      universe: {
+        status: universePillarStatus,
+        source_station_id: buyHub.station_id,
+        dest_station_id: sellHub.station_id,
+        detail: universeDetail,
+      },
+      financial_engine: {
+        status: financialPillarStatus,
+        net_profit: costs.net_profit,
+        roi: costs.roi,
+        detail: financialDetail,
       },
     };
 
@@ -1033,6 +1021,119 @@ export class InterRegionalFinancialEngine {
       calculation_timestamp: new Date().toISOString(),
     };
 
+    const opportunityId = `${item.type_id}_${buyHub.id}_${sellHub.id}_${strategy}`;
+    const detectedTimestamp = new Date().toISOString();
+
+    const evidence = OpportunityEvidenceEngine.buildEvidence({
+      opportunity_id: opportunityId,
+      detected_at: detectedTimestamp,
+      certification_version: CURRENT_CERTIFICATION_VERSION,
+      certification_status: certificationStatus,
+      is_actionable: isActionable,
+      type_id: item.type_id,
+      source_market: {
+        type_id: item.type_id,
+        region_id: buyHub.region_id,
+        timestamp: buyQuality?.fetched_at ? new Date(buyQuality.fetched_at).getTime() : Date.now(),
+        orders_count: buyRegionOrders.length,
+        health_status: healthSource,
+        data_state: buyDataState,
+        market_hash: sourceSnapshotHash,
+        source: buyQuality?.source || 'esi',
+        freshness: buyQuality?.freshness || 'fresh',
+        completeness: buyQuality?.completeness || 'complete',
+        confidence: buyQuality?.confidence ?? 1.0,
+        age_seconds: buyQuality?.age_seconds ?? 0,
+      },
+      dest_market: {
+        type_id: item.type_id,
+        region_id: sellHub.region_id,
+        timestamp: sellQuality?.fetched_at ? new Date(sellQuality.fetched_at).getTime() : Date.now(),
+        orders_count: sellRegionOrders.length,
+        health_status: healthDest,
+        data_state: sellDataState,
+        market_hash: destSnapshotHash,
+        source: sellQuality?.source || 'esi',
+        freshness: sellQuality?.freshness || 'fresh',
+        completeness: sellQuality?.completeness || 'complete',
+        confidence: sellQuality?.confidence ?? 1.0,
+        age_seconds: sellQuality?.age_seconds ?? 0,
+      },
+      source_market_provenance: sourceProvenance,
+      dest_market_provenance: destProvenance,
+      source_market_hash: sourceSnapshotHash,
+      dest_market_hash: destSnapshotHash,
+      catalog_version: typeResolution.catalog_version || '2026.09.20.1',
+      catalog_checksum: typeResolution.catalog_checksum || 'canonical',
+      type_resolution: typeResolution,
+      source_location_resolution: sourceLocRes,
+      dest_location_resolution: destLocRes,
+      route_resolution: route,
+      financial_inputs: {
+        available_capital: config.available_capital,
+        max_cargo_m3: config.max_cargo_m3,
+        broker_fee: config.broker_fee,
+        sales_tax: config.sales_tax,
+        enable_transport_costs: Boolean(config.enable_transport_costs),
+        transport_cost_per_m3: config.transport_cost_per_m3 || 0,
+        transport_cost_per_jump: config.transport_cost_per_jump || 0,
+        min_roi: config.min_roi || 0.03,
+        min_net_profit: config.min_net_profit || 1000,
+        unit_volume: item.volume,
+        strategy,
+        accounting_level: config.accounting_level,
+        broker_relations_level: config.broker_relations_level,
+        advanced_broker_relations_level: config.advanced_broker_relations_level,
+      },
+      financial_outputs: {
+        quantity: actualQuantity,
+        effective_buy_price: buyFill.effective_price,
+        effective_sell_price: sellFill.effective_price,
+        gross_purchase_cost: costs.purchase_cost,
+        buy_broker_fee_cost: costs.buy_broker_fee,
+        transport_cost: costs.transport_cost,
+        total_acquisition_cost: costs.total_acquisition_cost,
+        gross_revenue: costs.gross_revenue,
+        sales_tax_cost: costs.sales_tax,
+        sell_broker_fee_cost: costs.sell_broker_fee,
+        total_exit_fees: costs.total_exit_fees,
+        net_revenue: costs.net_revenue,
+        net_profit: costs.net_profit,
+        profit_per_unit: costs.profit_per_unit,
+        roi: costs.roi,
+        margin: costs.margin,
+        capital_locked: costs.capital_locked,
+        bottleneck: tradableDetails.bottleneck,
+        is_viable: isViableFinal,
+      },
+      strategy,
+      confidence: overallConfidence,
+      warnings,
+      blocking_reasons: blockingReasons,
+      pillar_evaluations: pillarEvaluations,
+    });
+
+    const certification: OpportunityCertification = {
+      status: certificationStatus,
+      is_actionable: isActionable,
+      certification_version: CURRENT_CERTIFICATION_VERSION,
+      evidence_hash: evidence.evidence_hash,
+      evidence,
+      data_state_source: buyDataState,
+      data_state_dest: sellDataState,
+      health_state_source: healthSource,
+      health_state_dest: healthDest,
+      catalog_status: typeResolution.status,
+      universe_status_source: sourceLocRes.status,
+      universe_status_dest: destLocRes.status,
+      financial_status: financialPillarStatus === 'PASS' ? 'VIABLE' : financialPillarStatus === 'DEGRADED' ? 'DEGRADED' : 'UNVIABLE',
+      confidence: overallConfidence,
+      warnings,
+      blocking_reasons: blockingReasons,
+      certified_at: detectedTimestamp,
+      pillar_evaluations: pillarEvaluations,
+    };
+
     return {
       id: `${item.type_id}_${buyHub.id}_${sellHub.id}_${strategy}`,
       type_id: item.type_id,
@@ -1074,6 +1175,7 @@ export class InterRegionalFinancialEngine {
       is_viable: isViableFinal,
       certification,
       provenance,
+      evidence,
       data_quality: {
         buy_hub_quality: buyQuality,
         sell_hub_quality: sellQuality,

@@ -314,7 +314,7 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
 
                       {/* Item Details */}
                       <td className="p-3.5">
-                        <div className="font-bold text-[#fafafa] text-xs flex items-center gap-1.5">
+                        <div className="font-bold text-[#fafafa] text-xs flex items-center gap-1.5 flex-wrap">
                           <span>{opp.item_name}</span>
                           {opp.certification && (
                             <span
@@ -325,28 +325,33 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
                                   ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
                                   : 'bg-red-500/20 text-red-300 border border-red-500/40'
                               }`}
-                              title={
-                                opp.certification.status === 'CERTIFIED'
-                                  ? 'Certifié 4 Piliers (MarketData + Catalog + Universe + Financial)'
-                                  : opp.certification.warnings?.join(', ') ||
-                                    opp.certification.blocking_reasons?.join(', ') ||
-                                    opp.certification.status
-                              }
+                              title={`Certification ${opp.certification.certification_version || '4-pillars-v1'} | Preuve SHA-256: ${opp.certification.evidence_hash || 'non hashé'} | Confiance: ${((opp.certification.confidence || 1) * 100).toFixed(0)}%`}
                             >
                               {opp.certification.status === 'CERTIFIED'
-                                ? '✓ CERTIFIÉ'
+                                ? `✓ CERTIFIÉ (${opp.certification.certification_version || 'v1'})`
                                 : opp.certification.status === 'DEGRADED'
-                                ? '⚠ DÉGRADÉ'
+                                ? `⚠ DÉGRADÉ (${opp.certification.certification_version || 'v1'})`
                                 : '✕ REJETÉ'}
                             </span>
                           )}
                         </div>
-                        <div className="text-[10px] text-[#808495] flex items-center gap-1 mt-0.5">
+                        <div className="text-[10px] text-[#808495] flex items-center gap-1 mt-0.5 flex-wrap">
                           <span className="px-1.5 py-0.2 rounded bg-[#0e1117] border border-[#262730]">
                             {opp.category_name || 'Item'}
                           </span>
                           <span>&bull;</span>
                           <span>{opp.group_name}</span>
+                          {opp.certification?.evidence_hash && (
+                            <>
+                              <span>&bull;</span>
+                              <span
+                                className="font-mono text-[9px] text-[#606475] bg-[#0e1117] px-1 py-0.2 rounded border border-[#202330]"
+                                title={`Preuve SHA-256 : ${opp.certification.evidence_hash}`}
+                              >
+                                sha256:{opp.certification.evidence_hash.slice(0, 8)}…
+                              </span>
+                            </>
+                          )}
                         </div>
                       </td>
 

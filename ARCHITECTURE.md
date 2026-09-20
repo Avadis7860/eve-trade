@@ -83,6 +83,32 @@ L'architecture est découpée en **cinq couches orthogonales** à responsabilit�
 
 ---
 
+## 🛡️ Chaîne de Preuve Auditable & Certification 4 Piliers (`OpportunityEvidence`)
+
+L'architecture EVE Trade répond de manière déterministe et vérifiable à la question : **« Pourquoi cette opportunité a-t-elle été considérée comme actionnable à cet instant précis ? »**.
+
+### 1. Modèle de Preuve Immuable (`OpportunityEvidence`)
+Chaque opportunité produite par `InterRegionalFinancialEngine` est liée de façon indissociable à un instantané complet de preuve contenant :
+* **Identifiant & Horodatage :** `opportunity_id`, `detected_at`.
+* **Version du protocole de certification :** `certification_version` (`4-pillars-v1`).
+* **Statut de certification :** `certification_status` (`CERTIFIED`, `DEGRADED`, `REJECTED`).
+* **Prouvance des Données de Marché :** Snapshots de carnet source/destination, empreintes d'ordres (`source_market_hash`, `dest_market_hash`), statuts de santé (`HEALTHY`, `STALE`, `PARTIAL`, `ERROR`).
+* **Prouvance du Catalogue :** Version de catalogue, checksum SHA-256 du catalogue, statut de résolution du type (`RESOLVED_CATALOG`, `RESOLVED_DYNAMIC`, `TYPE_UNKNOWN`).
+* **Prouvance Spatiale de l'Univers :** Résolution des stations/structures source et destination, validation de la route de saut (`JumpRoute`) avec cohérence des systèmes solaires.
+* **Intrants et Extrants Financiers Déterministes :** Quantité exécutable, prix effectifs slippage-adjusted, taxes, frais de courtage, fret, profit net, ROI et goulot d'étranglement (`capital`, `cargo`, `source_market`, `destination_market`).
+* **Évaluations Détaillées des 4 Piliers :** Statuts explicites `PASS`, `DEGRADED` ou `FAIL` pour chacun des 4 piliers.
+
+### 2. Hachage Déterministe & Sérialisation Canonique (`OpportunityEvidenceEngine`)
+* **Canonicalisation :** Clés d'objets triées lexicographiquement, tableaux de chaînes normalisés, nombres à virgule flottante arrondis à 6 décimales pour éliminer toute variation d'arrondi binaire.
+* **Calcul SHA-256 :** Empreinte hexadécimale de 64 caractères (`evidence_hash`) calculée sur la sérialisation canonique (excluant le champ récursif `evidence_hash`).
+* **Auditabilité & Détection d'Altération :** La méthode statique `OpportunityEvidenceEngine.verifyEvidence(evidence)` recalcule l'empreinte et vérifie l'intégrité logique des 4 piliers. Toute altération des prix, des statuts ou des données d'entrée invalide immédiatement la preuve.
+
+### 3. Persistance & Restitution
+* **Persistance IndexedDB :** Les instantanés de preuve sont archivés de façon immuable dans l'object store `opportunity_observations` et consultables via `IndexedDbStore.getOpportunityEvidence(idOrHash)`.
+* **Traçabilité UI :** La table du scanner global et le modal d'opportunité affichent l'empreinte SHA-256, la version du protocole et la décomposition des 4 piliers pour une traçabilité totale par l'utilisateur.
+
+---
+
 ## 💾 Entrepôt de Données Persistant & Observations Immuables (`IndexedDbStore` v3)
 
 Pour pallier le caractère volatile du `localStorage` (limité à 5 Mo) et garantir la non-pollution des données de marché, le stockage durable repose sur **IndexedDB v3** (`eve_trade_db`) avec 9 object stores spécialisés :

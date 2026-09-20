@@ -4,6 +4,7 @@ import {
   UniverseWideOpportunity,
   MarketObservation,
   OpportunityObservation,
+  OpportunityEvidence,
   DailyMarketHistory,
   EveTypeDetail,
   TypeCatalogMetadata,
@@ -640,6 +641,48 @@ export class IndexedDbStore {
         req.onerror = () => resolve(memoryMatches);
       } catch {
         resolve(memoryMatches);
+      }
+    });
+  }
+
+  /**
+   * Retrieves full auditable OpportunityEvidence snapshot by observationId or evidenceHash
+   */
+  static async getOpportunityEvidence(
+    observationIdOrHash: string
+  ): Promise<OpportunityEvidence | null> {
+    const memoryMatch = this.memoryOpportunityObservations.find(
+      (o) =>
+        o.observation_id === observationIdOrHash ||
+        o.opportunity_id === observationIdOrHash ||
+        o.evidence_hash === observationIdOrHash ||
+        o.evidence?.evidence_hash === observationIdOrHash
+    );
+    if (memoryMatch?.evidence) return memoryMatch.evidence;
+
+    const isReady = await this.init();
+    if (!isReady || !this.db) return null;
+
+    return new Promise((resolve) => {
+      try {
+        const tx = this.db!.transaction('opportunity_observations', 'readonly');
+        const store = tx.objectStore('opportunity_observations');
+        const req = store.getAll();
+
+        req.onsuccess = () => {
+          const results = (req.result as OpportunityObservation[]) || [];
+          const matched = results.find(
+            (o) =>
+              o.observation_id === observationIdOrHash ||
+              o.opportunity_id === observationIdOrHash ||
+              o.evidence_hash === observationIdOrHash ||
+              o.evidence?.evidence_hash === observationIdOrHash
+          );
+          resolve(matched?.evidence || null);
+        };
+        req.onerror = () => resolve(null);
+      } catch {
+        resolve(null);
       }
     });
   }

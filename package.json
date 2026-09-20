@@ -7,7 +7,7 @@
     "dev": "tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "lint": "tsc --noEmit",
-    "test": "tsx src/engine/__tests__/engine.test.ts && tsx src/engine/__tests__/financial_engine.test.ts && tsx src/engine/__tests__/security_and_advisory.test.ts && tsx src/engine/__tests__/market_data_quality.test.ts && tsx src/engine/__tests__/execution_simulation.test.ts && tsx src/engine/__tests__/scoring_and_prediction.test.ts && tsx src/engine/__tests__/property_invariants.test.ts && tsx src/engine/__tests__/type_catalog.test.ts && tsx src/engine/__tests__/domain_repositories.test.ts && tsx src/engine/__tests__/catalog_integrity.test.ts && tsx src/engine/__tests__/systemic_certification.test.ts",
+    "test": "tsx src/engine/__tests__/engine.test.ts && tsx src/engine/__tests__/financial_engine.test.ts && tsx src/engine/__tests__/security_and_advisory.test.ts && tsx src/engine/__tests__/market_data_quality.test.ts && tsx src/engine/__tests__/execution_simulation.test.ts && tsx src/engine/__tests__/scoring_and_prediction.test.ts && tsx src/engine/__tests__/property_invariants.test.ts && tsx src/engine/__tests__/type_catalog.test.ts && tsx src/engine/__tests__/domain_repositories.test.ts && tsx src/engine/__tests__/catalog_integrity.test.ts && tsx src/engine/__tests__/systemic_certification.test.ts && tsx src/engine/__tests__/data_contracts_and_provenance.test.ts",
     "start": "node dist/server.cjs",
     "preview": "vite preview --host 0.0.0.0 --port 3000"
   },

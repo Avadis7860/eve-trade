@@ -1,13 +1,37 @@
-export type MarketDataSource = 'esi' | 'cache' | 'mock' | 'unavailable';
-export type MarketDataFreshness = 'fresh' | 'recent' | 'stale' | 'expired';
-export type MarketDataCompleteness = 'complete' | 'partial' | 'empty';
-export type MarketDataValidationStatus = 'valid' | 'suspicious' | 'invalid';
+export type MarketDataSource = 'esi' | 'cache' | 'mock' | 'unavailable' | 'esi_paginated' | 'indexeddb' | 'memory';
+export type MarketDataFreshness = 'fresh' | 'recent' | 'stale' | 'expired' | 'unknown';
+export type MarketDataCompleteness = 'complete' | 'partial' | 'empty' | 'corrupted' | 'unknown';
+export type MarketDataValidationStatus = 'valid' | 'suspicious' | 'invalid' | 'unvalidated';
+export type DataState = 'VALID' | 'PARTIAL' | 'STALE' | 'EMPTY' | 'ERROR' | 'UNKNOWN';
+
+export interface DataProvenance {
+  source: MarketDataSource;
+  freshness: MarketDataFreshness;
+  data_state: DataState;
+  completeness: MarketDataCompleteness;
+  validation_status: MarketDataValidationStatus;
+  fetched_at: string;
+  age_seconds: number;
+  catalog_version?: string;
+  catalog_checksum?: string;
+  pages_fetched?: number;
+  expected_pages?: number;
+  orders_fetched?: number;
+  orders_valid?: number;
+  duplicate_orders_removed?: number;
+  rejected_orders_count?: number;
+  error_count?: number;
+  last_error?: string;
+  confidence: number; // 0.0 to 1.0
+  sync_duration_ms?: number;
+}
 
 export interface MarketDataQuality {
   source: MarketDataSource;
   freshness: MarketDataFreshness;
   completeness: MarketDataCompleteness;
   validation_status: MarketDataValidationStatus;
+  data_state?: DataState;
   fetched_at: string;
   age_seconds: number;
   pages_fetched: number;
@@ -20,6 +44,45 @@ export interface MarketDataQuality {
   last_error?: string;
   confidence: number; // 0.0 to 1.0
   sync_duration_ms: number;
+}
+
+export type TypeResolutionStatus = 'RESOLVED_CATALOG' | 'RESOLVED_DYNAMIC' | 'RESOLVED_ESI' | 'TYPE_UNKNOWN';
+
+export interface TypeResolutionResult {
+  status: TypeResolutionStatus;
+  type?: EveTypeDetail;
+  type_id: number;
+  name: string;
+  volume: number;
+  group_id: number;
+  category_id: number;
+  source: 'catalog_ready' | 'fallback_core' | 'custom_type' | 'esi_lookup' | 'none';
+  catalog_version: string;
+  catalog_checksum: string;
+  is_verified: boolean;
+  confidence: number;
+  error?: string;
+}
+
+export interface OpportunityCertification {
+  status: 'CERTIFIED' | 'DEGRADED' | 'REJECTED';
+  is_actionable: boolean;
+  data_state_source: DataState;
+  data_state_dest: DataState;
+  confidence: number;
+  warnings: string[];
+  blocking_reasons: string[];
+  certified_at: string;
+}
+
+export interface OpportunityProvenance {
+  source_market_provenance?: DataProvenance;
+  dest_market_provenance?: DataProvenance;
+  jita_benchmark_provenance?: DataProvenance;
+  type_resolution: TypeResolutionResult;
+  catalog_version: string;
+  catalog_checksum: string;
+  calculation_timestamp: string;
 }
 
 export interface MarketDataSnapshot {
@@ -440,6 +503,10 @@ export interface InterRegionalOpportunity {
   // Statistical Prediction & Dynamic Feature Engineering
   prediction?: PredictionForecast;
   features?: MarketFeatureVector;
+
+  // Phase 1 Certification & Traceable Provenance Contract
+  certification?: OpportunityCertification;
+  provenance?: OpportunityProvenance;
 
   detected_at: string;
 }

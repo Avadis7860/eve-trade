@@ -249,6 +249,7 @@ export class EsiService {
         freshness: 'expired',
         completeness: 'empty',
         validation_status: 'invalid',
+        data_state: 'ERROR',
         fetched_at: new Date().toISOString(),
         age_seconds: 0,
         pages_fetched: 0,
@@ -339,13 +340,15 @@ export class EsiService {
     }
 
     const durationMs = Date.now() - startTime;
-    const completeness = pagesFetched >= expectedPages ? 'complete' : pagesFetched > 0 ? 'partial' : 'empty';
+    const completeness = pagesFetched >= expectedPages ? (validOrders.length === 0 ? 'empty' : 'complete') : pagesFetched > 0 ? 'partial' : 'empty';
     const confidence = expectedPages > 0 ? Number((pagesFetched / expectedPages).toFixed(2)) : 1.0;
+    const dataState = completeness === 'partial' ? 'PARTIAL' : validOrders.length === 0 ? 'EMPTY' : 'VALID';
 
     const quality: MarketDataQuality = {
       source: 'esi',
       freshness: 'fresh',
       completeness,
+      data_state: dataState,
       validation_status: errorCount === 0 && rejectedCount === 0 ? 'valid' : 'suspicious',
       fetched_at: new Date().toISOString(),
       age_seconds: 0,

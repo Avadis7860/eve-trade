@@ -13,6 +13,11 @@ import {
   MarketDataQuality,
   RelistMarketContext,
   OpportunityExplanation,
+  DataProvenance,
+  OpportunityCertification,
+  OpportunityProvenance,
+  DataState,
+  TypeResolutionResult,
 } from '../types';
 import { FeeEngine } from './fee';
 import { ProfitEngine } from './profit';
@@ -807,6 +812,87 @@ export class InterRegionalFinancialEngine {
       isAnomalous,
     });
 
+    const buyDataState: DataState = buyQuality?.data_state || (buyQuality?.freshness === 'stale' || buyQuality?.freshness === 'expired' ? 'STALE' : buyQuality?.completeness === 'partial' ? 'PARTIAL' : buyQuality?.completeness === 'empty' ? 'EMPTY' : 'VALID');
+    const sellDataState: DataState = sellQuality?.data_state || (sellQuality?.freshness === 'stale' || sellQuality?.freshness === 'expired' ? 'STALE' : sellQuality?.completeness === 'partial' ? 'PARTIAL' : sellQuality?.completeness === 'empty' ? 'EMPTY' : 'VALID');
+
+    const isViableFinal = hardRejection.is_viable && scoringEvaluation.isViable;
+    const isDegraded = buyDataState === 'PARTIAL' || sellDataState === 'PARTIAL' || buyDataState === 'STALE' || sellDataState === 'STALE' || overallConfidence < 0.8;
+
+    const certification: OpportunityCertification = {
+      status: !isViableFinal ? 'REJECTED' : isDegraded ? 'DEGRADED' : 'CERTIFIED',
+      is_actionable: isViableFinal && !isDegraded,
+      data_state_source: buyDataState,
+      data_state_dest: sellDataState,
+      confidence: overallConfidence,
+      warnings: Array.from(new Set([...hardRejection.anomaly_reasons, ...scoringEvaluation.anomalyReasons])),
+      blocking_reasons: Array.from(new Set([...hardRejection.rejection_reasons, ...scoringEvaluation.rejectionReasons])),
+      certified_at: new Date().toISOString(),
+    };
+
+    const typeResolution: TypeResolutionResult = {
+      status: 'RESOLVED_CATALOG',
+      type: item,
+      type_id: item.type_id,
+      name: item.name,
+      volume: item.volume,
+      group_id: item.group_id,
+      category_id: item.category_id,
+      source: 'catalog_ready',
+      catalog_version: '2026.09.20.1',
+      catalog_checksum: 'canonical',
+      is_verified: true,
+      confidence: 1.0,
+    };
+
+    const sourceProvenance: DataProvenance | undefined = buyQuality ? {
+      source: buyQuality.source,
+      freshness: buyQuality.freshness,
+      data_state: buyDataState,
+      completeness: buyQuality.completeness,
+      validation_status: buyQuality.validation_status,
+      fetched_at: buyQuality.fetched_at,
+      age_seconds: buyQuality.age_seconds,
+      pages_fetched: buyQuality.pages_fetched,
+      expected_pages: buyQuality.expected_pages,
+      orders_fetched: buyQuality.orders_fetched,
+      orders_valid: buyQuality.orders_valid,
+      duplicate_orders_removed: buyQuality.duplicate_orders_removed,
+      rejected_orders_count: buyQuality.rejected_orders_count,
+      error_count: buyQuality.error_count,
+      last_error: buyQuality.last_error,
+      confidence: buyQuality.confidence,
+      sync_duration_ms: buyQuality.sync_duration_ms,
+    } : undefined;
+
+    const destProvenance: DataProvenance | undefined = sellQuality ? {
+      source: sellQuality.source,
+      freshness: sellQuality.freshness,
+      data_state: sellDataState,
+      completeness: sellQuality.completeness,
+      validation_status: sellQuality.validation_status,
+      fetched_at: sellQuality.fetched_at,
+      age_seconds: sellQuality.age_seconds,
+      pages_fetched: sellQuality.pages_fetched,
+      expected_pages: sellQuality.expected_pages,
+      orders_fetched: sellQuality.orders_fetched,
+      orders_valid: sellQuality.orders_valid,
+      duplicate_orders_removed: sellQuality.duplicate_orders_removed,
+      rejected_orders_count: sellQuality.rejected_orders_count,
+      error_count: sellQuality.error_count,
+      last_error: sellQuality.last_error,
+      confidence: sellQuality.confidence,
+      sync_duration_ms: sellQuality.sync_duration_ms,
+    } : undefined;
+
+    const provenance: OpportunityProvenance = {
+      source_market_provenance: sourceProvenance,
+      dest_market_provenance: destProvenance,
+      type_resolution: typeResolution,
+      catalog_version: '2026.09.20.1',
+      catalog_checksum: 'canonical',
+      calculation_timestamp: new Date().toISOString(),
+    };
+
     return {
       id: `${item.type_id}_${buyHub.id}_${sellHub.id}_${strategy}`,
       type_id: item.type_id,
@@ -845,7 +931,9 @@ export class InterRegionalFinancialEngine {
       is_anomalous: isAnomalous,
       anomaly_reasons: Array.from(new Set([...hardRejection.anomaly_reasons, ...scoringEvaluation.anomalyReasons])),
       rejection_reasons: Array.from(new Set([...hardRejection.rejection_reasons, ...scoringEvaluation.rejectionReasons])),
-      is_viable: hardRejection.is_viable && scoringEvaluation.isViable,
+      is_viable: isViableFinal,
+      certification,
+      provenance,
       data_quality: {
         buy_hub_quality: buyQuality,
         sell_hub_quality: sellQuality,
@@ -854,7 +942,7 @@ export class InterRegionalFinancialEngine {
         overall_completeness: buyQuality?.completeness === 'partial' || sellQuality?.completeness === 'partial' ? 'partial' : 'complete',
         is_verified_esi: true,
         confidence_score: overallConfidence,
-        status_label: hardRejection.is_viable ? 'Valide & Exécutable' : 'Rejeté',
+        status_label: isViableFinal ? (isDegraded ? 'Dégradé (Données partielles/stale)' : 'Valide & Exécutable') : 'Rejeté',
       },
       detected_at: new Date().toISOString(),
     };

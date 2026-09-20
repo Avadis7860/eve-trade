@@ -20,6 +20,20 @@ export interface StorageStats {
   estimated_bytes: number;
   db_ready: boolean;
   last_persisted_at: string | null;
+  last_write_status: StorageWriteStatus;
+  write_success_count: number;
+  write_failure_count: number;
+}
+
+export type StorageWriteStatus = 'IDLE' | 'WRITE_SUCCESS' | 'WRITE_FAILED' | 'WRITE_PENDING';
+
+export interface StorageWriteRecord {
+  status: StorageWriteStatus;
+  error: string | null;
+  attempts: number;
+  successes: number;
+  failures: number;
+  last_write_at: string | null;
 }
 
 export interface EsiHttpCacheEntry {
@@ -47,6 +61,43 @@ export class IndexedDbStore {
   private static memoryTypes = new Map<number, EveTypeDetail>();
   private static memoryCatalogMetadata: TypeCatalogMetadata | null = null;
   private static lastPersistedAt: string | null = null;
+
+  // Storage Write Audit Tracking
+  private static lastWriteStatus: StorageWriteStatus = 'IDLE';
+  private static lastWriteError: string | null = null;
+  private static writeAttemptsCount = 0;
+  private static writeSuccessesCount = 0;
+  private static writeFailuresCount = 0;
+
+  static getLastWriteStatus(): StorageWriteRecord {
+    return {
+      status: this.lastWriteStatus,
+      error: this.lastWriteError,
+      attempts: this.writeAttemptsCount,
+      successes: this.writeSuccessesCount,
+      failures: this.writeFailuresCount,
+      last_write_at: this.lastPersistedAt,
+    };
+  }
+
+  private static recordWriteAttempt(): void {
+    this.writeAttemptsCount++;
+    this.lastWriteStatus = 'WRITE_PENDING';
+  }
+
+  private static recordWriteSuccess(): void {
+    this.writeSuccessesCount++;
+    this.lastWriteStatus = 'WRITE_SUCCESS';
+    this.lastWriteError = null;
+    this.lastPersistedAt = new Date().toISOString();
+  }
+
+  private static recordWriteFailure(err: unknown): void {
+    this.writeFailuresCount++;
+    this.lastWriteStatus = 'WRITE_FAILED';
+    this.lastWriteError = err instanceof Error ? err.message : String(err);
+    console.warn('[IndexedDB] Write failed:', this.lastWriteError);
+  }
 
   /**
    * Initializes the IndexedDB database schema
@@ -871,6 +922,9 @@ export class IndexedDbStore {
       estimated_bytes: jsonLength,
       db_ready: Boolean(this.db),
       last_persisted_at: this.lastPersistedAt,
+      last_write_status: this.lastWriteStatus,
+      write_success_count: this.writeSuccessesCount,
+      write_failure_count: this.writeFailuresCount,
     };
   }
 

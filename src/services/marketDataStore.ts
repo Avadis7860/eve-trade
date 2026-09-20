@@ -228,6 +228,19 @@ export class MarketDataStore {
       snap.quality.freshness = 'fresh';
     }
 
+    // Explicit normalized data_state assignment
+    if (snap.quality.source === 'unavailable' || snap.quality.validation_status === 'invalid') {
+      snap.quality.data_state = 'ERROR';
+    } else if (snap.quality.freshness === 'stale' || snap.quality.freshness === 'expired') {
+      snap.quality.data_state = 'STALE';
+    } else if (snap.quality.completeness === 'partial') {
+      snap.quality.data_state = 'PARTIAL';
+    } else if (snap.quality.completeness === 'empty' || (snap.orders && snap.orders.length === 0)) {
+      snap.quality.data_state = 'EMPTY';
+    } else {
+      snap.quality.data_state = 'VALID';
+    }
+
     return snap;
   }
 

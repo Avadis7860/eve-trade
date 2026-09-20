@@ -1,4 +1,4 @@
-import { EveTypeDetail, TypeCatalogMetadata, TypeCatalogStatus } from '../../types';
+import { EveTypeDetail, TypeCatalogMetadata, TypeCatalogStatus, TypeResolutionResult } from '../../types';
 import { EVE_TYPES_CATALOG } from '../../data/universe';
 import { IndexedDbStore } from '../../services/indexedDbStore';
 import { CatalogValidator } from './CatalogValidator';
@@ -237,6 +237,70 @@ export class CatalogRepository {
    */
   getTypeById(typeId: number): EveTypeDetail | undefined {
     return this.customTypeMap.get(typeId) || this.typeMap.get(typeId);
+  }
+
+  /**
+   * Resolves an item with strict provenance, classification and certainty.
+   * INVARIANT: Never masks an unknown type as a verified catalog type.
+   */
+  resolveType(typeId: number): TypeResolutionResult {
+    const meta = this.getMetadata();
+
+    // 1. Custom dynamically registered type
+    const custom = this.customTypeMap.get(typeId);
+    if (custom) {
+      return {
+        status: 'RESOLVED_DYNAMIC',
+        type: custom,
+        type_id: custom.type_id,
+        name: custom.name,
+        volume: custom.volume,
+        group_id: custom.group_id,
+        category_id: custom.category_id,
+        source: 'custom_type',
+        catalog_version: meta.version,
+        catalog_checksum: meta.checksum,
+        is_verified: true,
+        confidence: 1.0,
+      };
+    }
+
+    // 2. Canonical catalog type
+    const catalogItem = this.typeMap.get(typeId);
+    if (catalogItem) {
+      const isFallback = this.metadata.status === 'CATALOG_FALLBACK_CORE' || this.metadata.source === 'fallback_core';
+      return {
+        status: 'RESOLVED_CATALOG',
+        type: catalogItem,
+        type_id: catalogItem.type_id,
+        name: catalogItem.name,
+        volume: catalogItem.volume,
+        group_id: catalogItem.group_id,
+        category_id: catalogItem.category_id,
+        source: isFallback ? 'fallback_core' : 'catalog_ready',
+        catalog_version: meta.version,
+        catalog_checksum: meta.checksum,
+        is_verified: !isFallback,
+        confidence: isFallback ? 0.85 : 1.0,
+      };
+    }
+
+    // 3. Unknown type
+    return {
+      status: 'TYPE_UNKNOWN',
+      type: undefined,
+      type_id: typeId,
+      name: `Type #${typeId}`,
+      volume: 0.01,
+      group_id: 0,
+      category_id: 0,
+      source: 'none',
+      catalog_version: meta.version,
+      catalog_checksum: meta.checksum,
+      is_verified: false,
+      confidence: 0.0,
+      error: `Type ID ${typeId} is not present in local catalog or custom registrations`,
+    };
   }
 
   /**

@@ -413,7 +413,7 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
                     Risque : {opportunity.prediction.risk_level}
                   </span>
                   <span className="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-mono font-bold">
-                    Confiance : {(opportunity.prediction.prediction_confidence * 100).toFixed(0)}%
+                    Confiance : {(opportunity.prediction.prediction_confidence > 1 ? opportunity.prediction.prediction_confidence : opportunity.prediction.prediction_confidence * 100).toFixed(0)}%
                   </span>
                 </div>
               </div>
@@ -422,7 +422,7 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
                 <div className="p-2.5 bg-[#161821] rounded border border-[#262730]">
                   <div className="text-[#808495] text-[10px]">Survie du Spread</div>
                   <div className="text-base font-bold text-emerald-400">
-                    {(opportunity.prediction.survival_probability * 100).toFixed(0)}%
+                    {(opportunity.prediction.survival_probability > 1 ? opportunity.prediction.survival_probability : opportunity.prediction.survival_probability * 100).toFixed(0)}%
                   </div>
                   <div className="text-[9px] text-[#808495]">Maintien de rentabilité</div>
                 </div>
@@ -430,7 +430,7 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
                 <div className="p-2.5 bg-[#161821] rounded border border-[#262730]">
                   <div className="text-[#808495] text-[10px]">Réalisation du Profit</div>
                   <div className="text-base font-bold text-purple-300">
-                    {(opportunity.prediction.profit_realization_probability * 100).toFixed(0)}%
+                    {(opportunity.prediction.profit_realization_probability > 1 ? opportunity.prediction.profit_realization_probability : opportunity.prediction.profit_realization_probability * 100).toFixed(0)}%
                   </div>
                   <div className="text-[9px] text-[#808495]">{fmtIsk(opportunity.prediction.expected_realized_profit)} espéré</div>
                 </div>

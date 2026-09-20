@@ -7,7 +7,7 @@
 [![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.4-38B2AC.svg)]()
 [![EVE Online ESI](https://img.shields.io/badge/EVE_Online-ESI_Compliant-orange.svg)](https://esi.evetech.net/)
 
-**EVE Trade** est une plateforme professionnelle d'intelligence commerciale, d'arbitrage inter-régional et de gestion d'ordres pour **EVE Online**. Conçue pour les négociants spatiaux, industriels et logisticiens de New Eden, elle combine des moteurs de calcul financier haute précision, une intégration native avec l'API CCP ESI et EVE SSO v2, et des algorithmes d'aide à la décision pour optimiser le retour sur investissement (ROI) et la rotation du capital.
+**EVE Trade** est une plateforme professionnelle d'intelligence commerciale, d'arbitrage inter-régional, de modélisation prédictive et de gestion d'ordres pour **EVE Online**. Conçue pour les négociants spatiaux, industriels et logisticiens de New Eden, elle combine des moteurs de calcul financier haute précision, une intégration native avec l'API CCP ESI et EVE SSO v2, un entrepôt d'observations immuables sur IndexedDB et des algorithmes d'analyse prédictive pour optimiser le retour sur investissement (ROI) et la rotation du capital.
 
 ---
 
@@ -31,33 +31,43 @@
 * **Consommation de Profondeur de Carnet (Price Ladder Engine)** : Simulation réaliste de l'épuisement des ordres par palier de prix et calcul précis du slippage.
 * **Résolution des Goulots d'Étranglement** : Détection mathématique de la contrainte limitante (Capital, Cargo $m^3$, Volume source ou Volume destination).
 
-### 3. 🛡️ Conseiller d'Ordres Intelligent (Order Advisor)
+### 3. 🔮 Moteurs de Feature Engineering & Prédiction Statistique
+* **Extraction de Descripteurs Dynamiques (`MarketFeatureEngine`)** :
+  * *Spread Momentum (1h & 24h)* : Détection de la compression ou de l'expansion du différentiel de prix.
+  * *Volume Acceleration* : Ratio de demande 7j vs 30j.
+  * *Competition Velocity & Depth Velocity* : Vitesse d'apparition de nouveaux ordres concurrents et flux de volume visible.
+  * *Spread Persistence* : Pourcentage du temps où le spread est resté profitable.
+* **Modélisation Déterministe du Risque (`PredictionEngine`)** :
+  * *Probabilité de Survie du Spread ($P_{survival}$)* : Évaluation de la pérennité du spread sur la durée du transport.
+  * *Probabilité de Réalisation du Profit ($P_{realization}$)* : Facteur d'amortissement prenant en compte slippage, relisting et stratégie.
+  * *Découplage Score vs Confiance* : Distinction claire entre l'attractivité brute (Score 0-100) et la certitude statistique des données (Confiance 0-100%).
+  * *Niveaux de Risque Hiérarchisés* : Classification objective (`low`, `moderate`, `elevated`, `speculative`).
+
+### 4. 🛡️ Conseiller d'Ordres Intelligent (Order Advisor)
 * **Surveillance en Temps Réel des Ordres Actifs du Personnage** via EVE SSO.
 * **Recommandations Actionnables Déterministes** :
   * *Ajuster le Prix* : Réalignement en tête de gondole tout en calculant le profit net et le ROI résiduels ($ROI \ge 4\%$).
   * *Déplacer vers un Hub Plus Lucratif* : Calcul du gain net après déduction des frais de saut, de transport et de re-dépôt.
   * *Annuler l'Ordre* : Détection des marchés morts ($\le 0.2$ u/jour) ou des guerres de prix destructrices de capital.
 
-### 4. 📊 Portefeuille & Optimisation du Risque
+### 5. 📊 Portefeuille & Optimisation du Risque
 * **Allocation de Capital Optimisée** : Répartition gloutonne pondérée par le score global et la vitesse de rotation du capital.
 * **Plafonds de Concentration** : Limite paramétrable par type d'article (ex. max 35%) et par groupe de marché (ex. max 50%).
 * **Diversification Multidimensionnelle** : Visualisation de l'exposition par Catégorie, par Groupe d'objets et par Route commerciale.
 
-### 5. 📜 Historique Réalisé & Journal de Trading (FIFO P&L)
+### 6. 📜 Historique Réalisé & Journal de Trading (FIFO P&L)
 * **Traçabilité Chronologique FIFO** des transactions d'achat et de vente réelles via ESI.
 * **Indicateurs de Performance Trader** : P&L net réalisé, Taux de réussite (Win Rate %), ROI moyen effectif, Temps moyen de détention (*Hold Days*), Frais de courtage totaux versés.
 * **Calibration Personnalisée du Risque** : Attribution de bonus ou de pénalités de confiance sur les opportunités selon l'historique personnel du joueur.
 
-### 6. 🔐 Gestion Multi-Personnages & Sécurité SSO Durcie
-* **Support Multi-Comptes / Multi-Personnages** : Ajout et bascule instantanée entre plusieurs traders EVE Online via `AuthService` avec persistance `safeStorage`.
-* **Protection CSRF & State Cryptographique** : Jetons d'état OAuth 2.0 générés cryptographiquement avec expiration TTL (10 min) et consommation unique strictly-once.
-* **Verrouillage Atomique des Rafraîchissements (Refresh Lock)** : Déduplication concurrente des appels `refresh_token` pour éviter toute invalidation de jeton CCP.
-* **Résolution Prioritaire de Callback EVE SSO** : Priorité absolue à `EVE_CALLBACK_URL` configurable, avec détection contextuelle en fallback.
+### 7. 💾 Entrepôt Durable IndexedDB & Observations Immuables
+* **8 Magasins d'Objets Spécialisés** : Stockage persistant des snapshots, historiques bruts quotidiens ESI, observations immuables et types résolus.
+* **Modèle Append-Only Dédupliqué** : Sauvegarde continue des états de marché pour le suivi des prédictions rétrospectives (*Outcome Tracking* à 1h, 6h, 24h, 3j, 7j).
 
-### 7. 📚 Catalogue de Types EVE Déterministe & Intégrité des Données
+### 8. 📚 Catalogue Universel des 15 801+ Types & Intégrité
 * **`TypeCatalogService` & Checksum SHA-256** : Chargement validé et vérification d'empreinte cryptographique des items de marché avec métadonnées (`CATALOG_LOADED`, `CATALOG_FALLBACK_CORE`, `CATALOG_CORRUPTED`, `CATALOG_UNAVAILABLE`).
+* **Résolution Hybride Universelle** : Recherche instantanée combinant le catalogue local et le point d'accès ESI `/universe/ids/`.
 * **Contrats "Fail-Loud" Sans Faux Zéro** : Respect strict du principe `NO DATA ≠ ZERO DATA`. Aucune transformation silencieuse d'erreur réseau ou de catalogue en tableau vide.
-* **Observabilité & Healthchecks Structurés** : Endpoints `/api/health` et `/api/types/status` avec métriques en temps réel et journalisation structurée.
 
 ---
 
@@ -72,12 +82,14 @@
         ┌───────────────────┴───────────────────┐
         ▼                                       ▼
 ┌───────────────────────────────┐   ┌───────────────────────────┐
-│     Core Trading Engines      │   │     Frontend Services     │
+│     Core Trading Engines      │   │  Persistence & Services   │
 │  - FeeEngine (Taxes & Fees)   │   │  - AuthService (SSO Multi)│
-│  - PriceLadder (Order Books)  │   │  - EsiService (CCP API)   │
-│  - TradableQuantity (Limits)  │   │  - MarketDataStore        │
-│  - ProfitEngine (Breakdown)   │   │  - OrderAdvisorService    │
-│  - ScoringEngine (Scoring)    │   │  - TraderAnalyticsService │
+│  - PriceLadder (Order Books)  │   │  - IndexedDbStore (8 DBs) │
+│  - TradableQuantity (Limits)  │   │  - EsiService (CCP API)   │
+│  - ProfitEngine (Breakdown)   │   │  - MarketDataStore        │
+│  - ScoringEngine (Scoring)    │   │  - OrderAdvisorService    │
+│  - MarketFeatureEngine (Feat) │   │  - TraderAnalyticsService │
+│  - PredictionEngine (ML/Risk) │   │  - TypeCatalogService     │
 │  - InterRegional (Arbitrage)  │   │  - GlobalMarketSync       │
 │  - PortfolioOptimizer (Alloc) │   └─────────────┬─────────────┘
 └───────────────────────────────┘                 │
@@ -86,7 +98,8 @@
                                     │    Express Server / API   │
                                     │  - SSO Token Exchange     │
                                     │  - ESI Proxy & Rate Limit │
-                                    │  - Types Catalog (15.8k)  │
+                                    │  - Types Search (15.8k)   │
+                                    │  - Health & Status        │
                                     └─────────────┬─────────────┘
                                                   ▼
                                     ┌───────────────────────────┐
@@ -105,7 +118,8 @@
 ├── docs/                                  # 📚 Documentation technique & audits détaillés
 │   ├── algorithms_and_engine_audit.md     # Audit mathématique complet de tous les moteurs
 │   ├── api_and_esi_integration.md         # Spécifications ESI, proxy, OAuth & rate-limiting
-│   └── agent_workflow_and_guidelines.md   # Guide de prise en main pour les agents IA
+│   ├── agent_workflow_and_guidelines.md   # Guide de prise en main pour les agents IA
+│   └── master_plan_predictive_and_data_architecture.md # Plan de travail et spécifications
 ├── src/
 │   ├── components/                        # 🎨 Composants React modulaires
 │   │   ├── CarnetChart.tsx                # Visualiseur de carnet d'ordres (Profondeur)
@@ -123,6 +137,7 @@
 │   │   └── TraderPerformanceModal.tsx     # Métriques de performance et statistiques
 │   ├── data/
 │   │   ├── universe.ts                    # Hubs, régions, systèmes, routes & catalogue
+│   │   ├── allMarketTypes.json            # 250+ articles clés pré-indexés
 │   │   └── mockData.ts                    # Données de secours réalistes
 │   ├── engine/                            # ⚙️ Moteurs mathématiques purs (sans effet de bord)
 │   │   ├── fee.ts                         # Moteur de taxes, courtage et transport
@@ -130,6 +145,8 @@
 │   │   ├── quantity.ts                    # Moteur de calcul de quantité maximale
 │   │   ├── profit.ts                      # Moteur de rentabilité et de décomposition
 │   │   ├── scoring.ts                     # Moteur de notation multicritère (0-100)
+│   │   ├── features.ts                    # Moteur de feature engineering temporel
+│   │   ├── prediction.ts                  # Moteur de prévision statistique et de confiance
 │   │   ├── interRegional.ts               # Moteur d'arbitrage directionnel
 │   │   ├── portfolio.ts                   # Moteur d'optimisation de portefeuille
 │   │   ├── money.ts                       # Formatage monétaire ISK et pourcentages
@@ -138,10 +155,12 @@
 │   │   ├── authService.ts                 # Gestion des sessions et tokens SSO
 │   │   ├── esi.ts                         # Client ESI et résolution d'entités
 │   │   ├── globalMarketSync.ts            # Gestionnaire de synchronisation globale
-│   │   ├── marketDataStore.ts             # Cache dédupliqué en mémoire
+│   │   ├── indexedDbStore.ts              # Persistance durable IndexedDB v2
+│   │   ├── marketDataStore.ts             # Cache réactif d'ordres et d'historique
 │   │   ├── orderAdvisor.ts                # Moteur d'analyse et conseil d'ordres
 │   │   ├── scanner.ts                     # Orchestrateur de scan inter-hubs
-│   │   └── traderAnalytics.ts             # Calculateur FIFO P&L et métriques
+│   │   ├── traderAnalytics.ts             # Calculateur FIFO P&L et métriques
+│   │   └── typeCatalog.ts                 # Service de validation du catalogue
 │   ├── types.ts                           # Déclarations TypeScript partagées
 │   ├── App.tsx                            # Composant racine
 │   ├── main.tsx                           # Point d'entrée React
@@ -150,6 +169,7 @@
 ├── AGENTS.md                              # 🤖 Directives & invariants stricts pour Agents IA
 ├── ARCHITECTURE.md                        # 🏗️ Description détaillée de l'architecture
 ├── CONTRIBUTING.md                        # 🤝 Guide de contribution et standards de code
+├── GEMINI.md                              # 🤖 Directives spécifiques Google AI Studio
 ├── package.json                           # Dépendances et scripts
 └── tsconfig.json                          # Configuration TypeScript
 ```
@@ -222,7 +242,8 @@ Pour aller plus loin, consultez les documents techniques dans le dossier `/docs/
 * [**Audit et Traçabilité des Algorithmes**](./docs/algorithms_and_engine_audit.md) — Décomposition mathématique pas à pas de chaque formule, variables, contraintes et cas limites.
 * [**Intégration API & ESI**](./docs/api_and_esi_integration.md) — Spécification des routes ESI, gestion du cache, rate limits et flux SSO.
 * [**Guide & Protocole pour Agents IA**](./docs/agent_workflow_and_guidelines.md) — Règles architecturales et checklist de validation pour les modèles d'IA.
-* [**Architecture Globale**](./ARCHITECTURE.md) — Flux de données, sécurité et réactivité.
+* [**Plan Directeur de l'Architecture Prédictive**](./docs/master_plan_predictive_and_data_architecture.md) — Feuille de route d'ingénierie et architecture des observations.
+* [**Architecture Globale**](./ARCHITECTURE.md) — Flux de données, persistance et sécurité.
 * [**Guide de Contribution**](./CONTRIBUTING.md) — Standards de code et processus de pull request.
 
 ---
@@ -230,3 +251,4 @@ Pour aller plus loin, consultez les documents techniques dans le dossier `/docs/
 ## ⚖️ Licence & Clause de non-responsabilité
 
 EVE Online et le logo EVE sont des marques déposées de **CCP hf.** Ce projet est développé sous licence **MIT** dans le respect des conditions d'utilisation de l'API CCP ESI pour les outils communautaires de tierce partie.
+

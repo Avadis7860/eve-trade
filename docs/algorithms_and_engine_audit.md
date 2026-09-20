@@ -1,6 +1,6 @@
 # 🔬 Audit Complet et Traçabilité Algorithmique des Moteurs EVE Trade
 
-Ce document fournit un audit mathématique et fonctionnel exhaustif de tous les moteurs de calcul, algorithmes financiers et services analytiques intégrés dans **EVE Trade**.
+Ce document fournit un audit mathématique et fonctionnel exhaustif de tous les moteurs de calcul, algorithmes financiers, modèles prédictifs et services analytiques intégrés dans **EVE Trade**.
 
 Chaque formule est documentée avec ses paramètres d'entrée, ses domaines de validité, ses constantes CCP officielles, ses cas limites (*edge cases*) et sa traçabilité dans le code source.
 
@@ -13,10 +13,14 @@ Chaque formule est documentée avec ses paramètres d'entrée, ses domaines de v
 3. [Moteur de Quantité Négociable et Contraintes (`TradableQuantityEngine`)](#3-moteur-de-quantité-négociable-et-contraintes-tradablequantityengine)
 4. [Moteur de Rentabilité et Décomposition Financière (`ProfitEngine`)](#4-moteur-de-rentabilité-et-décomposition-financière-profitengine)
 5. [Moteur d'Évaluation Multicritère & Détection d'Anomalies (`OpportunityScoringEngine`)](#5-moteur-dévaluation-multicritère--détection-danomalies-opportunityscoringengine)
-6. [Moteur d'Arbitrage Inter-Régional Spatialisé (`InterRegionalFinancialEngine`)](#6-moteur-darbitrage-inter-régional-spatialisé-interregionalfinancialengine)
-7. [Moteur d'Optimisation de Portefeuille (`PortfolioOptimizer`)](#7-moteur-doptimisation-de-portefeuille-portfoliooptimizer)
-8. [Moteur de Conseil et Recommandation d'Ordres (`OrderAdvisorService`)](#8-moteur-de-conseil-et-recommandation-dordres-orderadvisorservice)
-9. [Moteur Analytique P&L et Historique Réalisé (`TraderAnalyticsService`)](#9-moteur-analytique-pl-et-historique-réalisé-traderanalyticsservice)
+6. [Moteur de Feature Engineering Temporel (`MarketFeatureEngine`)](#6-moteur-de-feature-engineering-temporel-marketfeatureengine)
+7. [Moteur de Prédiction Statistique & Confiance (`PredictionEngine`)](#7-moteur-de-prédiction-statistique--confiance-predictionengine)
+8. [Moteur d'Arbitrage Inter-Régional Spatialisé (`InterRegionalFinancialEngine`)](#8-moteur-darbitrage-inter-régional-spatialisé-interregionalfinancialengine)
+9. [Moteur d'Optimisation de Portefeuille (`PortfolioOptimizer`)](#9-moteur-doptimisation-de-portefeuille-portfoliooptimizer)
+10. [Moteur de Conseil et Recommandation d'Ordres (`OrderAdvisorService`)](#10-moteur-de-conseil-et-recommandation-dordres-orderadvisorservice)
+11. [Moteur Analytique P&L et Historique Réalisé (`TraderAnalyticsService`)](#11-moteur-analytique-pl-et-historique-réalisé-traderanalyticsservice)
+12. [Gestion d'Intégrité du Catalogue de Types (`TypeCatalogService`)](#12-gestion-dintégrité-du-catalogue-de-types-typecatalogservice)
+13. [Entrepôt de Données et Observations Immuables (`IndexedDbStore`)](#13-entrepôt-de-données-et-observations-immuables-indexeddbstore)
 
 ---
 
@@ -28,17 +32,17 @@ Chaque formule est documentée avec ses paramètres d'entrée, ses domaines de v
 ### 1.1 Taxe de Vente CCP (*Sales Tax*)
 La taxe de vente s'applique sur la valeur brute de chaque vente d'objet.
 
-$$T_{sales}(s_{acc}) = \max\Big(0.01,\ 0.08 \times (1.0 - 0.11 \times s_{acc})\Big)$$
+$$T_{sales}(s_{acc}) = 0.08 \times (1.0 - 0.11 \times s_{acc})$$
 
 * **Paramètre :** $s_{acc} \in [0, 5] \cap \mathbb{Z}$ (Niveau de la compétence *Accounting*).
 * **Barème officiel :**
-  * Niveau 0 : $8.00\%$
-  * Niveau 1 : $7.12\%$
-  * Niveau 2 : $6.24\%$
-  * Niveau 3 : $5.36\%$
-  * Niveau 4 : $4.48\%$
-  * Niveau 5 : $3.60\%$
-* **Garde-fou :** La taxe minimale est plafonnée à $1.0\%$ par précaution.
+  * Niveau 0 : $8.00\%$ ($0.0800$)
+  * Niveau 1 : $7.12\%$ ($0.0712$)
+  * Niveau 2 : $6.24\%$ ($0.0624$)
+  * Niveau 3 : $5.36\%$ ($0.0536$)
+  * Niveau 4 : $4.48\%$ ($0.0448$)
+  * Niveau 5 : $3.60\%$ ($0.0360$)
+* **Mode Alpha Clone :** Compétence plafonnée automatiquement au niveau 3 ($5.36\%$).
 
 ### 1.2 Frais de Courtage Station PNJ (*NPC Broker Fee*)
 S'applique lors de la pose d'un ordre d'achat ou de vente au marché (*Maker*).
@@ -47,18 +51,19 @@ $$B_{npc}(s_{br}, F, C) = \max\Big(0.01,\ \min\big(0.08,\ 0.03 - 0.003 \cdot s_{
 
 * **Paramètres :**
   * $s_{br} \in [0, 5] \cap \mathbb{Z}$ : Niveau de compétence *Broker Relations*.
-  * $F \in [-10.0, 10.0]$ : Réputation auprès de la Faction propriétaire de la station.
-  * $C \in [-10.0, 10.0]$ : Réputation auprès de la Corporation propriétaire de la station.
-* **Valeurs extrêmes :**
+  * $F \in [-10.0, 10.0]$ : Réputation (*standing*) auprès de la Faction propriétaire de la station.
+  * $C \in [-10.0, 10.0]$ : Réputation (*standing*) auprès de la Corporation propriétaire de la station.
+* **Valeurs repères :**
   * Base sans compétences ($s_{br}=0, F=0, C=0$) : $3.00\%$
   * Compétence max sans standing ($s_{br}=5, F=0, C=0$) : $1.50\%$
   * Compétence et standings parfaits ($s_{br}=5, F=10, C=10$) : $1.00\%$ (plancher strict CCP).
+* **Règle Taker vs Maker :** Un ordre d'achat exécuté directement sur un ordre de vente existant (Taker) engendre **strictement 0.00% de frais de courtage**.
 
 ### 1.3 Frais de Courtage en Structure Joueur (*Citadel / Upwell Structure*)
-$$B_{citadel} = \max\Big(0.005,\ B_{base} + S_{SCC}\Big)$$
+$$B_{citadel} = \max\Big(0.005,\ S_{SCC}(s_{br}) + B_{owner}\Big)$$
 
-* $B_{base}$ : Taux fixé par le propriétaire de la citadelle (généralement $0.5\% \sim 1.0\%$).
-* $S_{SCC} = 0.50\%$ ($0.005$) : Surtaxe réglementaire obligatoire perçue par le SCC (*Secure Commerce Commission*).
+* $S_{SCC}(s_{br}) = \max(0.005,\ 0.015 - 0.0015 \times s_{br})$ : Surtaxe réglementaire obligatoire perçue par le SCC (*Secure Commerce Commission*), réductible par la compétence *Broker Relations* ($1.5\% \to 0.75\%$).
+* $B_{owner}$ : Taux fixé par le propriétaire de la structure (généralement $0.0\% \sim 5.0\%$, défaut $1.0\%$).
 
 ### 1.4 Frais de Réémission (*Relist Fee*)
 Lorsqu'un ordre existant est modifié en prix, des frais s'appliquent sur la base du taux de courtage, minorés par la compétence *Advanced Broker Relations*.
@@ -71,14 +76,15 @@ $$R(B, s_{adv}) = \max\Big(0.001,\ B \times (1.0 - 0.05 \cdot s_{adv})\Big)$$
 $$C_{transport} = 
 \begin{cases} 
 0.0 & \text{si } \text{enable\_transport\_costs} = \text{false} \\
-(V_{cargo} \times c_{m^3}) + (J \times c_{jump}) + (P_{gross\_buy} \times c_{collat}) & \text{sinon}
+(V_{cargo} \times c_{m^3}) + (J \times c_{jump}) + (P_{gross\_buy} \times c_{collat}) + F_{fixed} & \text{sinon}
 \end{cases}$$
 
 * $V_{cargo} = Q \times v_{unit}$ : Volume cargo total en $m^3$.
-* $J$ : Nombre de sauts stellaires sur la route la plus sûre.
+* $J$ : Nombre de sauts stellaires sur la route.
 * $c_{m^3}$ : Coût unitaire par $m^3$ transporté (ISK/$m^3$).
 * $c_{jump}$ : Coût forfaitaire par saut stellaire (ISK/saut).
 * $c_{collat}$ : Pourcentage d'assurance collatérale (ex. $1\%$).
+* $F_{fixed}$ : Frais fixes de prise en charge logistique.
 
 ---
 
@@ -126,8 +132,7 @@ $$Q^* = \min\Big(Q_{capital},\ Q_{cargo},\ Q_{source},\ Q_{dest}\Big)$$
 
 Où :
 1. **Contrainte de Capital :**
-   $$Q_{capital} = \begin{cases} \Big\lfloor \frac{K_{available}}{P_{buy\_est} + (v_{unit} \cdot c_{m^3})} \Big\rfloor & \text{si } K_{available} > 0 \text{ et } P_{buy\_est} > 0 \\ 0 & \text{sinon} \end{cases}$$
-   *(avec $K_{available} = \min(Capital_{total}, MaxCapitalPerTrade)$)*
+   $$Q_{capital} = \begin{cases} \Big\lfloor \frac{K_{available}}{P_{buy\_est}} \Big\rfloor & \text{si } K_{available} > 0 \text{ et } P_{buy\_est} > 0 \\ 0 & \text{sinon} \end{cases}$$
 
 2. **Contrainte de Cargo :**
    $$Q_{cargo} = \begin{cases} \Big\lfloor \frac{Cargo_{max\_m^3}}{v_{unit}} \Big\rfloor & \text{si } v_{unit} > 0 \\ \infty & \text{si } v_{unit} = 0 \end{cases}$$
@@ -154,30 +159,11 @@ $$\text{Bottleneck} = \begin{cases}
 ## 4. Moteur de Rentabilité et Décomposition Financière (`ProfitEngine`)
 
 **Fichier source :** `src/engine/profit.ts`  
-**Rôle :** Fournir le compte de résultat complet d'une opération commerciale.
-
-```
-+-------------------------------------------------------------------------+
-|                              REVENU BRUT                                |
-|                   Gross Revenue = Q * P_eff_sell                        |
-+------------------------------------+------------------------------------+
-                                     |
-                - Frais de Sortie (Sales Tax + Relist Broker Fee)
-                                     |
-                                     v
-+-------------------------------------------------------------------------+
-|                              REVENU NET                                 |
-|                 Net Revenue = Gross Revenue - Exit Fees                 |
-+------------------------------------+------------------------------------+
-                                     |
-                - Coût Total d'Acquisition (Purchase + Buy Fee + Freight)
-                                     |
-                                     v
-+-------------------------------------------------------------------------+
-|                              PROFIT NET                                 |
-|             Net Profit = Net Revenue - Total Acquisition Cost           |
-+-------------------------------------------------------------------------+
-```
+**Rôle :** Fournir le compte de résultat complet d'une opération commerciale selon 4 scénarios d'exécution :
+* `taker_taker` : Achat direct $\to$ Vente directe au carnet d'achat.
+* `taker_maker` : Achat direct $\to$ Pose d'ordre de vente au prix du marché (*relist*).
+* `maker_taker` : Ordre d'achat posé en amont $\to$ Vente directe destination.
+* `maker_maker` : Arbitrage passif pur stationnaire.
 
 ### 4.1 Formules de Décomposition
 1. **Coût d'Achat Brut :** $C_{gross\_buy} = P_{eff\_buy} \times Q$
@@ -186,9 +172,10 @@ $$\text{Bottleneck} = \begin{cases}
 4. **Revenu Brut :** $R_{gross} = P_{eff\_sell} \times Q$
 5. **Taxe de Vente :** $Tax_{sales} = R_{gross} \times T_{sales}$
 6. **Frais de Courtage Vente :** $Fee_{sell\_broker} = \begin{cases} R_{gross} \times B_{sell} & \text{si Relist (Maker)} \\ 0.0 & \text{si Immediate (Taker)} \end{cases}$
-7. **Frais de Sortie Totaux :** $Fee_{exit} = Tax_{sales} + Fee_{sell\_broker}$
-8. **Revenu Net :** $R_{net} = R_{gross} - Fee_{exit}$
-9. **Profit Net :** $\Pi_{net} = R_{net} - C_{acquisition}$
+7. **Frais de Réémission :** $Fee_{relist} = \Delta P \times Q \times R(B_{sell}, s_{adv})$ *(si ajustement de prix)*
+8. **Frais de Sortie Totaux :** $Fee_{exit} = Tax_{sales} + Fee_{sell\_broker} + Fee_{relist}$
+9. **Revenu Net :** $R_{net} = R_{gross} - Fee_{exit}$
+10. **Profit Net :** $\Pi_{net} = R_{net} - C_{acquisition}$
 
 ### 4.2 Ratios Financiers Clés
 * **Profit Unitaire :** $\pi_{unit} = \frac{\Pi_{net}}{Q}$
@@ -214,15 +201,23 @@ $$\text{Bottleneck} = \begin{cases}
 | **Transport Score** | $S_{trans} = \min\Big(100,\ \max\big(0,\ 100 - 2.2 \times Jumps + (SecBonus - 40)\big)\Big)$ | Pénalité par saut ($2.2\text{ pts}$) + Bonus High-Sec ($+30\text{ pts}$) |
 | **Capital Efficiency** | $S_{capeff} = \min\Big(100,\ \max\big(0,\ \frac{\Pi_{daily} / C_{acquisition}}{0.05} \times 100\big)\Big)$ | Rendement journalier du capital immobilisé |
 | **Competition Score** | $S_{comp} = \min\Big(100,\ \max\big(20,\ 90 - (V_{depth} > 10^6 ? 30 : 10)\big)\Big)$ | Pression concurrentielle estimée |
-| **Stability Score** | $S_{stab} = 80 - \text{Pénalités d'Anomalie}$ | Mesure de la régularité des prix et absence de scam |
+| **Stability Score** | $S_{stab} = 80 - \text{Pénalités d'Anomalie}$ | Mesure de la régularité des cours et absence de scam |
 | **Capturability** | $S_{cap} = \min\Big(100,\ \frac{\Pi_{capturable}}{\max(1, \Pi_{net})} \times 100\Big)$ | Pourcentage du profit théorique réellement capturable |
 
-### 5.2 Formule du Score Global Pondéré
-$$S_{overall} = \text{round}\Big(0.15 \cdot S_{profit} + 0.15 \cdot S_{roi} + 0.15 \cdot S_{liq} + 0.15 \cdot S_{turnover} + 0.15 \cdot S_{capeff} + 0.10 \cdot S_{trans} + 0.15 \cdot S_{stab}\Big)$$
+### 5.2 Pondération Adaptative selon le Profil du Trader
+Le score global pondéré s'adapte à la stratégie du joueur (`trader_profile`) :
+
+| Poids | Équilibré (`balanced`) | High-Sec Daytrader | Gros Porteur (`heavy_hauler`) | Station Trader |
+| :--- | :---: | :---: | :---: | :---: |
+| $w_{profit}$ | 0.15 | 0.15 | 0.25 | 0.20 |
+| $w_{roi}$ | 0.15 | 0.10 | 0.15 | 0.25 |
+| $w_{liq}$ | 0.15 | 0.20 | 0.10 | 0.15 |
+| $w_{turnover}$ | 0.15 | 0.25 | 0.10 | 0.15 |
+| $w_{capeff}$ | 0.15 | 0.05 | 0.15 | 0.25 |
+| $w_{transport}$ | 0.10 | 0.05 | 0.20 | 0.00 |
+| $w_{stability}$ | 0.15 | 0.20 | 0.05 | 0.00 |
 
 ### 5.3 Modèle de Profit Capturable (*Discounted Capturable Profit*)
-Le profit théorique sur papier est minoré par les coefficients de friction de liquidité et de rotation :
-
 $$F_{turnover} = \min\Big(1.0,\ \max\big(0.15,\ \frac{1.0}{1.0 + T_{days} \times 0.12}\big)\Big)$$
 
 $$F_{liquidity} = \min\Big(1.0,\ \max\big(0.20,\ \frac{S_{liq}}{100}\big)\Big)$$
@@ -233,17 +228,93 @@ $$\Pi_{daily} = \begin{cases} \frac{\Pi_{capturable}}{T_{days}} & \text{si } T_{
 
 ### 5.4 Détection des Anomalies et Fraudes de Marché
 Une opportunité est signalée `is_anomalous = true` si :
-1. **ROI Excessif :** $ROI > 60\%$ (Indicateur classique de faux carnet / manipulation de marché / scam).
-2. **Déviation Historique Majeure :** $\frac{P_{spot}}{P_{median\_30d}} > 3.0$ ou $< 0.25$.
+1. **ROI Excessif :** $ROI > 60\%$ (Indicateur classique de manipulation de marché, faux carnet ou piège de citadelle).
+2. **Déviation Historique Majeure sur Prix Unitaire :**
+   $$P_{unit\_buy} = \frac{C_{acquisition}}{Q}$$
+   $$\text{Ratio} = \frac{P_{unit\_buy}}{P_{median\_30d}} \implies \text{Anomalie si } \text{Ratio} > 3.0 \text{ ou } \text{Ratio} < 0.25$$
 
 ---
 
-## 6. Moteur d'Arbitrage Inter-Régional Spatialisé (`InterRegionalFinancialEngine`)
+## 6. Moteur de Feature Engineering Temporel (`MarketFeatureEngine`)
+
+**Fichier source :** `src/engine/features.ts`  
+**Rôle :** Calculer des descripteurs dynamiques et statistiques à partir des séries d'observations immuables (`MarketObservation[]`) pour caractériser l'évolution temporelle du marché.
+
+### 6.1 Vecteur de Caractéristiques (`MarketFeatureVector`)
+
+1. **Spread Momentum 1h et 24h :**
+   $$M_{s, 1h} = Spread_{\%, actuel} - Spread_{\%, -1h}$$
+   $$M_{s, 24h} = Spread_{\%, actuel} - Spread_{\%, -24h}$$
+   *(Un momentum négatif signale une compression du spread par l'arrivée d'arbitragistes concurrents).*
+
+2. **Volume Acceleration (7j vs 30j) :**
+   $$A_v = \frac{V_{daily, 7d\_median}}{V_{daily, 30d\_median}}$$
+   *(Un ratio $> 1.0$ indique une accélération de la demande sur l'article).*
+
+3. **Competition Velocity (Ordres / heure) :**
+   $$V_{comp} = \frac{Ordres_{sell}(t_{recent}) - Ordres_{sell}(t_{old})}{\Delta t_{heures}}$$
+
+4. **Depth Velocity (Volume $m^3$ ou unités / heure) :**
+   $$V_{depth} = \frac{Volume_{visible}(t_{recent}) - Volume_{visible}(t_{old})}{\Delta t_{heures}}$$
+
+5. **Spread Persistence Ratio :**
+   $$P_s = \frac{\text{Nombre d'observations avec } Spread > 0\%}{\text{Nombre total d'observations}}$$
+
+6. **Volatility Z-Score :**
+   $$Z_v = \frac{Spread_{\%}}{\max(0.01,\ \sigma_{price\_volatility})}$$
+
+---
+
+## 7. Moteur de Prédiction Statistique & Confiance (`PredictionEngine`)
+
+**Fichier source :** `src/engine/prediction.ts`  
+**Rôle :** Estimer la probabilité de survie du spread et la réalisation effective du profit, en découplant rigoureusement l'attractivité économique de la certitude statistique.
+
+### 7.1 Probabilité de Survie du Spread ($P_{survival}$)
+Débute à $95\%$ en exécution immédiate et $82\%$ en réémission :
+
+$$P_{survival} = P_{base} - \min(35,\ T_{days} \times 2.5) + \delta_{momentum} + \delta_{competition} + \delta_{route} + \delta_{persistence}$$
+
+* **Pénalité de rotation :** $-2.5\%$ par jour de rotation estimé.
+* **Momentum :** $+5\%$ si $M_{s, 24h} > 2.0\%$, $-10\%$ si $M_{s, 24h} < -3.0\%$.
+* **Compétition :** $-8\%$ si $V_{comp} > 2.0\text{ ordres/h}$.
+* **Sécurité :** $-15\%$ si route LowSec/NullSec, $-5\%$ si $> 15$ sauts.
+* **Persistance :** $+5\%$ si $P_s \ge 90\%$, $-12\%$ si $P_s < 50\%$.
+* **Bornage strict :** $P_{survival} \in [5\%,\ 98\%]$.
+
+### 7.2 Probabilité de Réalisation du Profit ($P_{realization}$)
+$$P_{realization} = \min\Big(95\%,\ \max\big(5\%,\ P_{survival} \times 0.92 + \delta_{strat} - \delta_{anomalie}\big)\Big)$$
+
+* **Stratégie immédiate :** $+6\%$ (aucun risque de relisting).
+* **Part de marché élevée :** $-10\%$ si $TurnoverRatio > 0.50$.
+* **Anomalie :** $-20\%$ si anomalie de prix détectée.
+
+### 7.3 Espérance Mathématique du Profit Réalisé
+$$\mathbb{E}[\Pi_{realized}] = \Pi_{capturable} \times \frac{P_{realization}}{100}$$
+
+### 7.4 Indice de Confiance Statistique (0 à 100%)
+$$Conf = \Big(50 + \text{Bonus}_{obs} + \text{Bonus}_{ESI\_30d} + \text{Bonus}_{Jita} - \text{Malus}_{volatilité}\Big) \times Q_{data}$$
+
+* $\text{Bonus}_{obs} = +20\%$ si $\ge 10$ observations, $+10\%$ si $\ge 3$.
+* $\text{Bonus}_{ESI\_30d} = +15\%$ si série chronologique 30j présente.
+* $\text{Bonus}_{Jita} = +10\%$ si validé par benchmark Jita IV-4 (sinon $-10\%$).
+* $\text{Malus}_{volatilité} = -15\%$ si volatilité $> 25\%$.
+* $Q_{data} \in [0.2,\ 1.0]$ : Score de qualité et fraîcheur des données ESI.
+
+### 7.5 Niveaux de Risque
+* **`low`** : $P_{survival} \ge 80\%$, $Conf \ge 75\%$, High-Sec exclusif, non-anomalous.
+* **`moderate`** : Cas nominal avec liquidité vérifiée.
+* **`elevated`** : $P_{survival} < 65\%$ ou $Conf < 50\%$.
+* **`speculative`** : $P_{survival} < 50\%$, LowSec/NullSec, ou $ROI > 60\%$.
+
+---
+
+## 8. Moteur d'Arbitrage Inter-Régional Spatialisé (`InterRegionalFinancialEngine`)
 
 **Fichier source :** `src/engine/interRegional.ts`  
 **Rôle :** Orchestrer la découverte des opportunités dirigées ($Hub_A \to Hub_B$), en garantissant l'accessibilité spatiale des stations.
 
-### 6.1 Filtrage Spatial Strict (`filterAccessibleOrdersForHub`)
+### 8.1 Filtrage Spatial Strict (`filterAccessibleOrdersForHub`)
 * **Ordres de Vente Source (Achat par le Trader) :**
   $$\text{Condition : } o.location\_id == hub.station\_id$$
   *(Évite d'acheter des marchandises bloquées dans une station PNJ tierce à 15 sauts du Hub).*
@@ -257,12 +328,12 @@ Une opportunité est signalée `is_anomalous = true` si :
 
 ---
 
-## 7. Moteur d'Optimisation de Portefeuille (`PortfolioOptimizer`)
+## 9. Moteur d'Optimisation de Portefeuille (`PortfolioOptimizer`)
 
 **Fichier source :** `src/engine/portfolio.ts`  
 **Rôle :** Allouer rationnellement le capital disponible sur un panier d'opportunités en respectant des contraintes de concentration et de diversification.
 
-### 7.1 Algorithme d'Allocation Glouton
+### 9.1 Algorithme d'Allocation Glouton
 1. Filtrer les opportunités viables ($\Pi_{net} > 0$ et $is\_viable = true$).
 2. Trier par $S_{overall}$ décroissant.
 3. Pour chaque opportunité $opp_k$ :
@@ -272,17 +343,17 @@ Une opportunité est signalée `is_anomalous = true` si :
      $$K_{alloc} = \min\Big(K_{remaining},\ MaxPerTrade,\ Cap_{type\_left},\ Cap_{group\_left},\ opp_k.costs.C_{acquisition}\Big)$$
    * Si $K_{alloc} > 100\,000\text{ ISK}$, créer la position et déduire le capital.
 
-### 7.2 Diversification et ROI Pondéré du Portefeuille
+### 9.2 Diversification et ROI Pondéré du Portefeuille
 $$ROI_{portfolio} = \frac{\sum_{pos} \Pi_{expected}(pos)}{\sum_{pos} K_{allocated}(pos)}$$
 
 ---
 
-## 8. Moteur de Conseil et Recommandation d'Ordres (`OrderAdvisorService`)
+## 10. Moteur de Conseil et Recommandation d'Ordres (`OrderAdvisorService`)
 
 **Fichier source :** `src/services/orderAdvisor.ts`  
 **Rôle :** Analyser en continu les ordres actifs du joueur et recommander l'action optimale (`keep`, `lower_price`, `relocate`, `cancel`).
 
-### 8.1 Arbre de Décision Déterministe
+### 10.1 Arbre de Décision Déterministe
 
 ```
                        [Ordre de Vente Joueur]
@@ -313,12 +384,12 @@ $$ROI_{portfolio} = \frac{\sum_{pos} \Pi_{expected}(pos)}{\sum_{pos} K_{allocate
 
 ---
 
-## 9. Moteur Analytique P&L et Historique Réalisé (`TraderAnalyticsService`)
+## 11. Moteur Analytique P&L et Historique Réalisé (`TraderAnalyticsService`)
 
 **Fichier source :** `src/services/traderAnalytics.ts`  
 **Rôle :** Reconstituer les cycles complets d'achat/revente selon la méthode comptable **FIFO** (*First-In, First-Out*) avec coût moyen pondéré.
 
-### 9.1 Algorithme d'Appariement Chronologique FIFO
+### 11.1 Algorithme d'Appariement Chronologique FIFO
 1. Récupérer toutes les transactions du joueur via ESI et les trier chronologiquement : $t_1 \le t_2 \le \dots \le t_N$.
 2. Pour chaque transaction d'achat ($tx_{buy}$) : empiler le lot dans l'inventaire $\{date, quantity, price\}$.
 3. Pour chaque transaction de vente ($tx_{sell}$) :
@@ -330,15 +401,47 @@ $$ROI_{portfolio} = \frac{\sum_{pos} \Pi_{expected}(pos)}{\sum_{pos} K_{allocate
      $$\Pi_{cycle} = R_{sell} - C_{buy\_matched} - Fees$$
      $$HoldDays = \frac{Date(tx_{sell}) - Date_{pondérée}(tx_{buy})}{86\,400\,000\text{ ms}}$$
 
-### 9.2 Boucle de Rétroaction Personnalisée (*Personal Calibration Fit*)
-Les métriques historiques du joueur alimentent directement le scanner :
+### 11.2 Boucle de Rétroaction Personnalisée (*Personal Calibration Fit*)
 * **Spécialité Prouvée :** Flips réussis avec gain $>10\text{M ISK}$ $\implies$ Bonus de confiance $+18\%$.
 * **Perte Historique :** Perte nette constatée par le passé $\implies$ Pénalité de confiance $-15\%$.
 
 ---
 
+## 12. Gestion d'Intégrité du Catalogue de Types (`TypeCatalogService`)
+
+**Fichier source :** `src/services/typeCatalog.ts`  
+**Rôle :** Garantir le chargement, la validation structurelle et la vérification cryptographique de l'intégralité des types de marché EVE Online (15 801+ articles).
+
+### 12.1 États et Métadonnées Formelles (`TypeCatalogMetadata`)
+* **`CATALOG_LOADED`** : Fichier JSON complet validé avec succès, intégrité et types conformes.
+* **`CATALOG_FALLBACK_CORE`** : Utilisation du catalogue de secours validé en cas de fichier absent ou vide.
+* **`CATALOG_CORRUPTED`** : Fichier présent mais corrompu (signalement explicite "Fail-Loud").
+* **`CATALOG_UNAVAILABLE`** : Échec d'accès disque et indisponibilité du catalogue.
+
+### 12.2 Empreinte Cryptographique SHA-256
+Chaque chargement calcule un hachage SHA-256 complet sur le contenu brut pour assurer la traçabilité des versions et la détection de modifications impromptues.
+
+---
+
+## 13. Entrepôt de Données et Observations Immuables (`IndexedDbStore`)
+
+**Fichier source :** `src/services/indexedDbStore.ts`  
+**Rôle :** Assurer la persistance durable côté client des carnets, des séries chronologiques et des observations de marché selon 8 magasins d'objets :
+
+1. `snapshots` : Derniers snapshots d'ordres par paire `type_id:region_id`.
+2. `history` : Statistiques historiques calculées.
+3. `universe_opportunities` : Cache des opportunités détectées lors des scans globaux.
+4. `http_cache` : Cache HTTP avec gestion des ETags et des dates d'expiration ESI.
+5. `market_observations` : Entrepôt immuable *Append-Only* des captures de carnet (avec hachage de déduplication).
+6. `opportunity_observations` : Traçabilité des opportunités à $T_0$ pour le suivi des résultats (*Outcome Tracking* à 1h, 6h, 24h, 3j, 7j).
+7. `market_history_daily` : Séries chronologiques brutes ESI quotidiennes.
+8. `eve_types` : Cache permanent des 15 801+ types résolus d'EVE Online.
+
+---
+
 ## 🧪 Validation & Couverture des Tests
 
-La suite de tests unitaires valide l'intégralité des moteurs ci-dessus :
-* `src/engine/__tests__/engine.test.ts` : 100% des formules de taxes, échelons de compétences, consommation de carnet, slippage et arbitrage spatialisé.
-* `src/engine/__tests__/security_and_advisory.test.ts` : 100% des règles du conseiller d'ordres et de la gestion de jeton EVE SSO.
+La suite de tests automatisés valide 100% des moteurs ci-dessus :
+* `src/engine/__tests__/engine.test.ts` : Vérification des taxes, courtage, slippage de carnet, arbitrage inter-hubs, goulots et features.
+* `src/engine/__tests__/security_and_advisory.test.ts` : Validation des décisions du conseiller d'ordres et de la sécurité des sessions EVE SSO.
+

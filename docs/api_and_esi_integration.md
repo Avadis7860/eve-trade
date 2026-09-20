@@ -1,6 +1,6 @@
 # 🌐 Intégration API EVE Online (ESI & SSO v2)
 
-Ce document décrit en détail les points de terminaison (endpoints) CCP Games ESI utilisés par **EVE Trade**, la gestion du proxy backend, la gestion des limites de requêtes (*rate-limiting*) et le cycle de vie des jetons d'authentification.
+Ce document décrit en détail les points de terminaison (endpoints) CCP Games ESI utilisés par **EVE Trade**, la gestion du proxy backend, la gestion des limites de requêtes (*rate-limiting*), les routes de l'API locale Express et le cycle de vie des jetons d'authentification.
 
 ---
 
@@ -19,6 +19,24 @@ Ce document décrit en détail les points de terminaison (endpoints) CCP Games E
 | **Univers (Stations)** | `/universe/stations/{station_id}/` | `GET` | *Public* | Résolution des noms et systèmes stellaires des stations PNJ. |
 | **Univers (Citadelles)** | `/universe/structures/{structure_id}/` | `GET` | `publicData` | Résolution des noms des structures Upwell privées. |
 | **Univers (Types)** | `/universe/types/{type_id}/` | `GET` | *Public* | Résolution des noms et volumes unitaires ($m^3$) des objets. |
+| **Résolution d'IDs** | `/universe/ids/` | `POST` | *Public* | Résolution universelle du nom des 35 000+ types d'objets. |
+
+---
+
+## 🖥️ Endpoints Backend Express (`server.ts`)
+
+Le backend local Express fait office de proxy sécurisé, de gestionnaire de session et de contrôleur d'intégrité :
+
+| Endpoint Backend | Méthode | Paramètres / Corps | Rôle & Traitement |
+| :--- | :--- | :--- | :--- |
+| `/api/health` | `GET` | Aucun | Diagnostic de santé, mémoire Node.js, statut du catalogue et sessions. |
+| `/api/types/status` | `GET` | Aucun | État du catalogue, nombre de types indexés, source et checksum SHA-256. |
+| `/api/types/all` | `GET` | Aucun | Retourne le catalogue complet validé (250+ articles clés ou complet). |
+| `/api/types/search` | `GET` | `?q=terme` | Recherche hybride (catalogue local + proxy ESI `/universe/ids/`). |
+| `/api/auth/url` | `GET` | `?redirect_uri=...` | Génère l'URL d'autorisation EVE SSO v2 avec jeton CSRF `state`. |
+| `/api/auth/token` | `POST` | `{ code, state }` | Échange sécurisé du code d'autorisation contre les tokens JWT. |
+| `/api/auth/refresh` | `POST` | `{ refresh_token }` | Renouvellement atomique avec verrouillage anti-concurrence. |
+| `/api/character/:id/*` | `GET` | En-tête `Authorization` | Proxy authentifié vers les endpoints ESI privés du personnage. |
 
 ---
 
@@ -30,7 +48,7 @@ Ce document décrit en détail les points de terminaison (endpoints) CCP Games E
        ├── 1. Clic sur "Connecter mon Personnage EVE"
        │
        ▼
-[/api/auth/url] ──> Génère l'URL d'autorisation EVE SSO v2
+[/api/auth/url] ──> Génère l'URL d'autorisation EVE SSO v2 avec State CSRF
        │
        ▼
 [Page de Connexion CCP Games] (login.eveonline.com)
@@ -38,17 +56,17 @@ Ce document décrit en détail les points de terminaison (endpoints) CCP Games E
        ├── 2. Le joueur s'authentifie et choisit son personnage
        │
        ▼
-[/auth/callback?code=AUTH_CODE]
+[/auth/callback?code=AUTH_CODE&state=STATE]
        │
-       ├── 3. Le serveur échange AUTH_CODE contre access_token + refresh_token
-       │      via Basic Auth (CLIENT_ID:CLIENT_SECRET)
+       ├── 3. Le serveur valide le jeton State et échange AUTH_CODE
+       │      contre access_token + refresh_token via Basic Auth
        │
        ├── 4. Décodage du JWT payload (CharacterID, CharacterName)
        │
        ▼
 [Client React]
        │
-       └── 5. Stockage sécurisé de la session dans `localStorage`
+       └── 5. Stockage sécurisé de la session dans `safeStorage` (IndexedDB / localStorage)
               et synchronisation automatique des ordres/compétences
 ```
 
@@ -76,3 +94,4 @@ CCP ESI utilise un système d'**Error Budget** strict (100 erreurs autorisées p
   const freshToken = await AuthService.getFreshToken(characterId);
   ```
   Le renouvellement est transparent pour l'utilisateur. En cas d'échec du refresh token (révocation par le joueur), la session est marquée comme expirée et invite à une reconnexion.
+

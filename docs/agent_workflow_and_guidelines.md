@@ -44,3 +44,7 @@ npm run build
 | **Plafond de concentration portefeuille** | Vérifier les limites par type et par groupe avant d'allouer du capital. |
 | **Filtrage des stations distantes** | Ne jamais supprimer le filtre `o.location_id === hub.station_id` lors de l'évaluation d'un hub. |
 | **Formatage des montants ISK** | Utiliser systématiquement `formatIsk()`, `formatCompactIsk()` ou `formatPercent()` de `src/engine/money.ts`. |
+| **Confusion Score vs Confiance** | Ne jamais amalgamer le score d'opportunité (attractivité 0-100) et la confiance statistique (certitude 0-100%). |
+| **Masquage d'erreurs en faux zéro** | Respecter strictement `NO DATA ≠ ZERO DATA`. Lever des erreurs explicites (`CATALOG_CORRUPTED`, `CATALOG_UNAVAILABLE`). |
+| **Persistance des observations** | Enregistrer les observations de façon immuable dans `IndexedDbStore` sans écraser les données historiques. |
+

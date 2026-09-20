@@ -1,7 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
-  EVE_CATEGORIES,
-  EVE_GROUPS,
   EVE_TYPES_CATALOG,
   MAJOR_MARKET_HUBS,
 } from './data/universe';
@@ -21,13 +19,15 @@ import {
 } from './types';
 import { InterRegionalScanner } from './services/scanner';
 import { PortfolioOptimizer } from './engine/portfolio';
-import { generateMockOrders } from './data/mockData';
 import { EsiService } from './services/esi';
 import { AuthService } from './services/authService';
 import { GlobalMarketSyncService } from './services/globalMarketSync';
 import { MarketDataStore } from './services/marketDataStore';
-import { fmtIsk, fmtPct, fmtNumber } from './engine/money';
+import { CatalogRepository } from './domain/catalog/CatalogRepository';
+import { CharacterRepository } from './domain/character/CharacterRepository';
 import { MarketTree } from './components/MarketTree';
+import { HeaderNav } from './components/HeaderNav';
+import { CockpitView } from './components/CockpitView';
 import { OpportunityModal } from './components/OpportunityModal';
 import { PortfolioView } from './components/PortfolioView';
 import { TradeJournal } from './components/TradeJournal';
@@ -36,30 +36,19 @@ import { MyOrdersView } from './components/MyOrdersView';
 import { ConnectedCharactersModal } from './components/ConnectedCharactersModal';
 import { GlobalMarketSyncModal } from './components/GlobalMarketSyncModal';
 import { GlobalScannerView } from './components/GlobalScannerView';
-import {
-  TrendingUp,
-  Sliders,
-  PieChart,
-  BookOpen,
-  ArrowRight,
-  Filter,
-  CheckCircle,
-  AlertTriangle,
-  Zap,
-  Globe,
-  RefreshCw,
-  ShoppingBag,
-  Award,
-  Users,
-  Sparkles,
-} from 'lucide-react';
 
 export const App: React.FC = () => {
   // Navigation & Catalog state
-  const [selectedType, setSelectedType] = useState<EveTypeDetail>(EVE_TYPES_CATALOG[0]); // Tritanium
+  const [selectedType, setSelectedType] = useState<EveTypeDetail>(() => {
+    return CatalogRepository.getInstance().getTypeById(34) || EVE_TYPES_CATALOG[0];
+  });
   const [favorites, setFavorites] = useState<number[]>(() => {
-    const saved = localStorage.getItem('eve_trade_favs');
-    return saved ? JSON.parse(saved) : [34, 37, 40519, 44992];
+    try {
+      const saved = localStorage.getItem('eve_trade_favs');
+      return saved ? JSON.parse(saved) : [34, 37, 40519, 44992];
+    } catch {
+      return [34, 37, 40519, 44992];
+    }
   });
   const [recentTypeIds, setRecentTypeIds] = useState<number[]>([34, 37, 40519]);
   const [customTypes, setCustomTypes] = useState<EveTypeDetail[]>([]);
@@ -103,6 +92,7 @@ export const App: React.FC = () => {
   const [selectedOpportunity, setSelectedOpportunity] = useState<InterRegionalOpportunity | null>(null);
   const [isCharactersModalOpen, setIsCharactersModalOpen] = useState<boolean>(false);
   const [isGlobalSyncModalOpen, setIsGlobalSyncModalOpen] = useState<boolean>(false);
+  const [isMobileCatalogOpen, setIsMobileCatalogOpen] = useState<boolean>(false);
 
   // Global Sync Live State
   const [globalSyncProgress, setGlobalSyncProgress] = useState<GlobalSyncProgress>(GlobalMarketSyncService.getProgress());
@@ -116,8 +106,12 @@ export const App: React.FC = () => {
 
   // Trade Journal
   const [tradeExecutions, setTradeExecutions] = useState<RecordedTradeExecution[]>(() => {
-    const saved = localStorage.getItem('eve_trade_journal');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('eve_trade_journal');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
   });
 
   // Market Orders & History Cache: keyed by region_id
@@ -148,28 +142,18 @@ export const App: React.FC = () => {
   ) => {
     setIsLoadingOrders(true);
     try {
-      // 1. Fetch wallet balance
       const balance = await EsiService.fetchCharacterWallet(charId, token);
-
-      // 2. Fetch skills
       const skills = await EsiService.fetchCharacterSkills(charId, token);
-
-      // 3. Fetch active character orders
       const rawOrders = await EsiService.fetchCharacterOrders(charId, token);
 
-      // Trigger background synchronization of live market data across all hubs for character orders
       const orderTypeIds = Array.from(new Set(rawOrders.map((o) => o.type_id)));
       if (orderTypeIds.length > 0) {
         MarketDataStore.syncCharacterOrdersMarketData(orderTypeIds, hubs).catch(() => {});
       }
 
-      // 4. Enrich orders with item names & outbid calculation & live location names
       const enrichedOrders: EveCharacterOrder[] = [];
       for (const o of rawOrders) {
-        const knownType = EVE_TYPES_CATALOG.find((t) => t.type_id === o.type_id)
-          || customTypes.find((t) => t.type_id === o.type_id);
-        const typeName = knownType ? knownType.name : `Type #${o.type_id}`;
-        
+        const typeName = CatalogRepository.getInstance().getTypeName(o.type_id);
         const locName = await EsiService.resolveLocationName(o.location_id, token);
 
         const regOrders = MarketDataStore.getOrders(o.type_id, o.region_id) || orderBooks[o.region_id] || [];
@@ -183,12 +167,8 @@ export const App: React.FC = () => {
           const buyOrders = sameTypeOrders.filter((ro) => ro.is_buy_order);
           const sellOrders = sameTypeOrders.filter((ro) => !ro.is_buy_order);
 
-          if (buyOrders.length > 0) {
-            highestBuy = Math.max(...buyOrders.map((b) => b.price));
-          }
-          if (sellOrders.length > 0) {
-            lowestSell = Math.min(...sellOrders.map((s) => s.price));
-          }
+          if (buyOrders.length > 0) highestBuy = Math.max(...buyOrders.map((b) => b.price));
+          if (sellOrders.length > 0) lowestSell = Math.min(...sellOrders.map((s) => s.price));
 
           if (o.is_buy_order) {
             if (highestBuy > o.price) {
@@ -218,7 +198,13 @@ export const App: React.FC = () => {
 
       setCharacterOrders(enrichedOrders);
 
-      // Calculate skills fee benefits
+      CharacterRepository.getInstance().saveSnapshot(charId, {
+        wallet_balance: balance,
+        skills: skills || { accounting: 5, broker_relations: 5 },
+        active_orders: enrichedOrders,
+        source: 'server_proxy',
+      });
+
       const accountingLvl = skills ? skills.accounting : 5;
       const brokerRelLvl = skills ? skills.broker_relations : 5;
       const calculatedBrokerFee = Math.max(0.01, 0.03 - (brokerRelLvl * 0.003));
@@ -240,7 +226,6 @@ export const App: React.FC = () => {
       AuthService.saveCharacter(sessionObj, true);
       setCharacterSession(sessionObj);
 
-      // Auto-update capital & skills in config
       setConfig((prev) => ({
         ...prev,
         available_capital: (balance && balance > 0) ? balance : prev.available_capital,
@@ -254,7 +239,7 @@ export const App: React.FC = () => {
     } finally {
       setIsLoadingOrders(false);
     }
-  }, [orderBooks, customTypes]);
+  }, [orderBooks, hubs]);
 
   // Initial URL check (handle SSO redirect callback in main window)
   useEffect(() => {
@@ -264,7 +249,6 @@ export const App: React.FC = () => {
       const state = urlParams.get('state');
       if (code) {
         try {
-          // Clean URL without reload
           window.history.replaceState({}, document.title, window.location.pathname);
           const session = await AuthService.exchangeCodeForSession(code, undefined, state || undefined);
           await loadCharacterData(session.access_token, session.character_id, session.character_name, session);
@@ -293,7 +277,7 @@ export const App: React.FC = () => {
             character_name,
             access_token: token,
             refresh_token,
-            expires_at: expires_in ? Date.now() + expires_in * 1000 : Date.now() + 20 * 60 * 1000,
+            expires_at: expires_in ? Date.now() + expires_in * 1000 : 0,
             portrait_url: `https://images.evetech.net/characters/${character_id}/portrait?size=128`,
             last_sync: new Date().toISOString(),
             is_active: true,
@@ -319,15 +303,24 @@ export const App: React.FC = () => {
 
   // Subscribe to AuthService session changes & periodic token maintenance
   useEffect(() => {
-    // 1. Listen for storage / background refresh updates
     const unsubscribe = AuthService.subscribe((updatedSession) => {
       setCharacterSession(updatedSession);
+      if (updatedSession) {
+        const snap = CharacterRepository.getInstance().getSnapshot(updatedSession.character_id);
+        if (snap && snap.active_orders.length > 0 && characterOrders.length === 0) {
+          setCharacterOrders(snap.active_orders);
+        }
+      }
     });
 
-    // 2. Initial load
     const checkAndRefresh = async () => {
       const activeChar = AuthService.getActiveCharacter();
       if (activeChar) {
+        const snap = CharacterRepository.getInstance().getSnapshot(activeChar.character_id);
+        if (snap && snap.active_orders.length > 0) {
+          setCharacterOrders(snap.active_orders);
+        }
+
         try {
           const validSession = await AuthService.ensureValidToken(activeChar);
           setCharacterSession(validSession);
@@ -347,7 +340,6 @@ export const App: React.FC = () => {
 
     checkAndRefresh();
 
-    // Check token health every 90s proactively
     const interval = setInterval(() => {
       const activeChar = AuthService.getActiveCharacter();
       if (activeChar && !activeChar.is_token_expired) {
@@ -372,7 +364,6 @@ export const App: React.FC = () => {
       const data = await response.json();
       const authUrl = data.url;
 
-      // Popup window
       const width = 600;
       const height = 750;
       const left = window.screen.width / 2 - width / 2;
@@ -399,17 +390,23 @@ export const App: React.FC = () => {
 
   // Direct Token Input
   const handleDirectTokenInput = async (token: string, characterId: number, characterName: string) => {
+    const claims = AuthService.parseJwtClaims(token.trim());
+    const realExpiresAt = claims?.exp ? claims.exp * 1000 : 0;
+
     const session: EveCharacterSession = {
-      character_id: characterId,
-      character_name: characterName,
-      access_token: token,
-      expires_at: Date.now() + 20 * 60 * 1000,
-      portrait_url: `https://images.evetech.net/characters/${characterId}/portrait?size=128`,
+      character_id: characterId || (claims?.sub ? Number(claims.sub.split(':').pop()) || 0 : 0),
+      character_name: characterName || claims?.name || `Character #${characterId}`,
+      access_token: token.trim(),
+      expires_at: realExpiresAt,
+      portrait_url: characterId ? `https://images.evetech.net/characters/${characterId}/portrait?size=128` : '',
       last_sync: new Date().toISOString(),
       is_active: true,
+      session_version: 2,
+      auth_status: realExpiresAt && realExpiresAt > Date.now() ? 'SESSION_VALID' : 'SESSION_EXPIRED',
+      last_validated_at: new Date().toISOString(),
     };
     AuthService.saveCharacter(session, true);
-    await loadCharacterData(token, characterId, characterName, session);
+    await loadCharacterData(token, session.character_id, session.character_name, session);
   };
 
   // Logout Character
@@ -423,8 +420,8 @@ export const App: React.FC = () => {
 
   // Jump from an order to arbitrage cockpit
   const handleSelectTypeForArbitrage = (typeId: number) => {
-    const found = EVE_TYPES_CATALOG.find((t) => t.type_id === typeId)
-      || customTypes.find((t) => t.type_id === typeId);
+    const catalogRepo = CatalogRepository.getInstance();
+    const found = catalogRepo.getTypeById(typeId);
     if (found) {
       handleSelectType(found);
       setCurrentView('cockpit');
@@ -432,7 +429,7 @@ export const App: React.FC = () => {
       EsiService.lookupTypeById(typeId).then((detail) => {
         if (detail) {
           const mDetail: EveTypeDetail = { ...detail, category_id: 0 };
-          setCustomTypes((prev) => [...prev, mDetail]);
+          catalogRepo.registerCustomType(mDetail);
           handleSelectType(mDetail);
           setCurrentView('cockpit');
         }
@@ -440,7 +437,7 @@ export const App: React.FC = () => {
     }
   };
 
-  // Subscribe to MarketDataStore updates to keep Cockpit order books and history in sync with Global Sync
+  // Subscribe to MarketDataStore updates to keep Cockpit order books and history in sync
   useEffect(() => {
     const unsub = MarketDataStore.subscribe(() => {
       const books = MarketDataStore.getOrdersForType(selectedType.type_id, hubs);
@@ -458,7 +455,6 @@ export const App: React.FC = () => {
     setOrderBooks(books);
     setHistoryCache(hist);
 
-    // If not in cache or stale, fetch live in background
     MarketDataStore.fetchLiveItemData(selectedType.type_id, hubs, false)
       .then((res) => {
         setOrderBooks(res.orderBooks);
@@ -467,27 +463,26 @@ export const App: React.FC = () => {
       .catch(() => {});
   }, [selectedType.type_id, hubs]);
 
-  // Toggle favorite
   const handleToggleFavorite = (typeId: number) => {
     setFavorites((prev) => {
       const next = prev.includes(typeId) ? prev.filter((id) => id !== typeId) : [...prev, typeId];
-      localStorage.setItem('eve_trade_favs', JSON.stringify(next));
+      try {
+        localStorage.setItem('eve_trade_favs', JSON.stringify(next));
+      } catch {}
       return next;
     });
   };
 
-  // Select item from market tree
   const handleSelectType = (type: EveTypeDetail) => {
     setSelectedType(type);
+    setIsMobileCatalogOpen(false);
     setRecentTypeIds((prev) => [type.type_id, ...prev.filter((id) => id !== type.type_id)].slice(0, 10));
 
-    // Instantly load from MarketDataStore (if discovered in Global Sync, it's immediately available with real ESI orders!)
     const books = MarketDataStore.getOrdersForType(type.type_id, hubs);
     const hist = MarketDataStore.getHistoryForType(type.type_id);
     setOrderBooks(books);
     setHistoryCache(hist);
 
-    // Auto-fetch fresh ESI if needed
     MarketDataStore.fetchLiveItemData(type.type_id, hubs, false)
       .then((res) => {
         setOrderBooks(res.orderBooks);
@@ -496,20 +491,19 @@ export const App: React.FC = () => {
       .catch(() => {});
   };
 
-  // Toggle Hub active status
   const handleToggleHub = (hubId: string) => {
     setHubs((prev) =>
       prev.map((h) => (h.id === hubId ? { ...h, active: !h.active } : h))
     );
   };
 
-  // Save Config
   const handleUpdateConfig = (newConfig: FinancialConfig) => {
     setConfig(newConfig);
-    localStorage.setItem('eve_trade_config', JSON.stringify(newConfig));
+    try {
+      localStorage.setItem('eve_trade_config', JSON.stringify(newConfig));
+    } catch {}
   };
 
-  // Synchronize Live ESI orders for all hubs for the selected item (Force refresh)
   const handleSyncLiveESI = async () => {
     setIsSyncingLiveEsi(true);
     setSyncStatusMsg(`Synchronisation CCP ESI pour ${selectedType.name} sur les 5 hubs...`);
@@ -532,7 +526,7 @@ export const App: React.FC = () => {
     }
   };
 
-  // Scan inter-regional opportunities for single item (Cockpit)
+  // Opportunities calculation for Cockpit
   const opportunities = useMemo(() => {
     const qualities = MarketDataStore.getQualitiesForType(selectedType.type_id, hubs);
     return InterRegionalScanner.scanItemAcrossHubs(
@@ -546,7 +540,6 @@ export const App: React.FC = () => {
     );
   }, [selectedType, hubs, strategy, config, orderBooks, historyCache]);
 
-  // Filtered and sorted opportunities
   const sortedOpportunities = useMemo(() => {
     return opportunities
       .filter((opp) => {
@@ -567,12 +560,10 @@ export const App: React.FC = () => {
       });
   }, [opportunities, sortBy, filterRoute, highSecOnly]);
 
-  // Run portfolio simulation
   const portfolioSimulation = useMemo(() => {
     return PortfolioOptimizer.optimize(opportunities, config);
   }, [opportunities, config]);
 
-  // Execute trade -> Add to Journal
   const handleExecuteTrade = (opp: InterRegionalOpportunity) => {
     const entry: RecordedTradeExecution = {
       id: `${Date.now()}_${opp.id}`,
@@ -593,18 +584,21 @@ export const App: React.FC = () => {
 
     const next = [entry, ...tradeExecutions];
     setTradeExecutions(next);
-    localStorage.setItem('eve_trade_journal', JSON.stringify(next));
+    try {
+      localStorage.setItem('eve_trade_journal', JSON.stringify(next));
+    } catch {}
   };
 
   const handleUpdateExecution = (updated: RecordedTradeExecution) => {
     const next = tradeExecutions.map((x) => (x.id === updated.id ? updated : x));
     setTradeExecutions(next);
-    localStorage.setItem('eve_trade_journal', JSON.stringify(next));
+    try {
+      localStorage.setItem('eve_trade_journal', JSON.stringify(next));
+    } catch {}
   };
 
-  // Jump from Global opportunity to Cockpit
   const handleSelectOpportunityForCockpit = (opp: UniverseWideOpportunity) => {
-    const found = EVE_TYPES_CATALOG.find((t) => t.type_id === opp.type_id)
+    const found = CatalogRepository.getInstance().getTypeById(opp.type_id)
       || customTypes.find((t) => t.type_id === opp.type_id);
 
     if (found) {
@@ -631,7 +625,7 @@ export const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-[#0e1117] text-[#fafafa] overflow-hidden font-sans">
-      {/* 1. Left Nav: Market Browser Tree (Category -> Group -> Type) */}
+      {/* 1. Left Nav: Market Browser Tree */}
       <aside className="w-80 flex-shrink-0 h-full hidden lg:block">
         <MarketTree
           selectedTypeId={selectedType.type_id}
@@ -644,155 +638,56 @@ export const App: React.FC = () => {
         />
       </aside>
 
+      {/* Mobile Catalog Drawer (< lg) */}
+      {isMobileCatalogOpen && (
+        <div className="fixed inset-0 z-50 flex lg:hidden">
+          <div
+            className="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity"
+            onClick={() => setIsMobileCatalogOpen(false)}
+          />
+          <div className="relative w-80 max-w-[85vw] h-full bg-[#0e1117] shadow-2xl z-10 flex flex-col border-r border-[#262730]">
+            <div className="p-3 bg-[#161821] border-b border-[#262730] flex items-center justify-between">
+              <span className="font-bold text-sm text-[#fafafa] flex items-center gap-2">
+                📦 Catalogue d'Objets
+              </span>
+              <button
+                onClick={() => setIsMobileCatalogOpen(false)}
+                className="px-2.5 py-1 rounded bg-[#262730] hover:bg-[#31333f] text-xs text-[#808495] hover:text-[#fafafa] transition-colors"
+              >
+                Fermer
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <MarketTree
+                selectedTypeId={selectedType.type_id}
+                onSelectType={handleSelectType}
+                favorites={favorites}
+                onToggleFavorite={handleToggleFavorite}
+                recentTypeIds={recentTypeIds}
+                customTypes={customTypes}
+                onAddCustomType={(t) => setCustomTypes((prev) => [...prev, t])}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 2. Main Content Area */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Top Navbar */}
-        <header className="bg-[#161821] border-b border-[#262730] px-5 py-2.5 flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <h1 className="text-base font-bold tracking-tight text-[#fafafa] flex items-center gap-2">
-              <span className="text-xl">🚀</span> EVE Trade — Moteur Inter-Régions
-            </h1>
-            <div className="hidden xl:flex items-center gap-1.5 text-xs bg-[#0e1117] px-2.5 py-1 rounded-lg border border-[#262730]">
-              <span className="text-[#808495]">Objet actif :</span>
-              <span className="font-bold text-[#fafafa]">{selectedType.name}</span>
-              <span className="text-[10px] text-[#808495] font-mono">({selectedType.volume} m³)</span>
-            </div>
-          </div>
-
-          {/* View Switcher Tabs & Actions */}
-          <div className="flex items-center gap-2">
-            <nav className="flex items-center bg-[#0e1117] p-1 rounded-lg border border-[#262730] text-xs">
-              <button
-                onClick={() => setCurrentView('cockpit')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-colors ${
-                  currentView === 'cockpit'
-                    ? 'bg-[#262730] text-[#fafafa] shadow'
-                    : 'text-[#808495] hover:text-[#fafafa]'
-                }`}
-              >
-                <TrendingUp className="w-3.5 h-3.5 text-[#ff4b4b]" />
-                <span>Cockpit</span>
-              </button>
-
-              <button
-                onClick={() => setCurrentView('global')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-colors ${
-                  currentView === 'global'
-                    ? 'bg-purple-600/30 text-purple-300 border border-purple-500/40 shadow'
-                    : 'text-[#808495] hover:text-purple-300'
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                <span>Découverte Globale</span>
-              </button>
-
-              <button
-                onClick={() => setCurrentView('orders')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-colors ${
-                  currentView === 'orders'
-                    ? 'bg-[#262730] text-[#fafafa] shadow'
-                    : 'text-[#808495] hover:text-[#fafafa]'
-                }`}
-              >
-                <ShoppingBag className={`w-3.5 h-3.5 ${characterSession ? 'text-[#ff4b4b]' : 'text-[#808495]'}`} />
-                <span>Mes Ordres</span>
-                {characterSession ? (
-                  <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-green-500/20 text-green-400 font-bold">
-                    {characterOrders.length}
-                  </span>
-                ) : (
-                  <span className="ml-1 text-[10px] text-amber-400 font-mono">SSO</span>
-                )}
-              </button>
-
-              <button
-                onClick={() => setCurrentView('portfolio')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-colors ${
-                  currentView === 'portfolio'
-                    ? 'bg-[#262730] text-[#fafafa] shadow'
-                    : 'text-[#808495] hover:text-[#fafafa]'
-                }`}
-              >
-                <PieChart className="w-3.5 h-3.5 text-amber-400" />
-                <span>Portefeuille ({portfolioSimulation.positions.length})</span>
-              </button>
-
-              <button
-                onClick={() => setCurrentView('journal')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-colors ${
-                  currentView === 'journal'
-                    ? 'bg-[#262730] text-[#fafafa] shadow'
-                    : 'text-[#808495] hover:text-[#fafafa]'
-                }`}
-              >
-                <BookOpen className="w-3.5 h-3.5 text-green-400" />
-                <span>Journal ({tradeExecutions.length})</span>
-              </button>
-
-              <button
-                onClick={() => setCurrentView('config')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-colors ${
-                  currentView === 'config'
-                    ? 'bg-[#262730] text-[#fafafa] shadow'
-                    : 'text-[#808495] hover:text-[#fafafa]'
-                }`}
-              >
-                <Sliders className="w-3.5 h-3.5 text-blue-400" />
-                <span>Paramètres</span>
-              </button>
-            </nav>
-
-            {/* Global Market Sync Button with Progress Badge */}
-            <button
-              onClick={() => setIsGlobalSyncModalOpen(true)}
-              className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600/30 to-blue-600/30 hover:from-purple-600/40 hover:to-blue-600/40 text-purple-200 border border-purple-500/40 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-sm"
-              title="Lancer une synchronisation globale du catalogue complet"
-            >
-              <Globe className={`w-3.5 h-3.5 ${globalSyncProgress.is_running ? 'animate-spin text-purple-300' : 'text-purple-400'}`} />
-              <span>
-                {globalSyncProgress.is_running
-                  ? `Sync Globale (${globalSyncProgress.percent}%)`
-                  : 'Sync Globale ESI'}
-              </span>
-            </button>
-
-            {/* Character & Multi-account pill */}
-            <button
-              onClick={() => setIsCharactersModalOpen(true)}
-              className="flex items-center gap-2 bg-[#0e1117] hover:bg-[#1f2330] border border-[#262730] px-2.5 py-1 rounded-lg transition-colors text-left"
-              title="Gérer vos personnages et comptes EVE liés"
-            >
-              {characterSession ? (
-                <>
-                  <img
-                    src={characterSession.portrait_url}
-                    alt={characterSession.character_name}
-                    className="w-5 h-5 rounded-full border border-green-500/50 bg-[#161821] object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src =
-                        'https://images.evetech.net/characters/1/portrait?size=64';
-                    }}
-                  />
-                  <div className="flex flex-col">
-                    <span className="text-[11px] font-bold text-[#fafafa] leading-tight truncate max-w-[90px]">
-                      {characterSession.character_name}
-                    </span>
-                    {characterSession.wallet_balance !== undefined && (
-                      <span className="text-[10px] font-mono text-amber-400 leading-tight">
-                        {fmtIsk(characterSession.wallet_balance)}
-                      </span>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div className="flex items-center gap-1.5 text-xs text-[#808495] hover:text-[#fafafa]">
-                  <Users className="w-3.5 h-3.5 text-blue-400" />
-                  <span>Comptes SSO</span>
-                </div>
-              )}
-            </button>
-          </div>
-        </header>
+        <HeaderNav
+          currentView={currentView}
+          onViewChange={setCurrentView}
+          selectedType={selectedType}
+          characterSession={characterSession}
+          characterOrdersCount={characterOrders.length}
+          portfolioPositionsCount={portfolioSimulation.positions.length}
+          tradeExecutionsCount={tradeExecutions.length}
+          globalSyncProgress={globalSyncProgress}
+          onOpenGlobalSync={() => setIsGlobalSyncModalOpen(true)}
+          onOpenCharactersModal={() => setIsCharactersModalOpen(true)}
+          onToggleCatalogDrawer={() => setIsMobileCatalogOpen((prev) => !prev)}
+        />
 
         {/* Sync notification banner */}
         {syncStatusMsg && (
@@ -862,236 +757,20 @@ export const App: React.FC = () => {
               onChangeStrategy={setStrategy}
             />
           ) : (
-            /* COCKPIT VIEW */
-            <div className="space-y-6">
-              {/* Cockpit Overview Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div className="bg-[#161821] border border-[#262730] rounded-xl p-4">
-                  <div className="text-xs text-[#808495] font-medium mb-1">Paires de Hubs Analysées</div>
-                  <div className="text-2xl font-bold font-mono text-[#fafafa]">
-                    {hubs.filter((h) => h.active).length * (hubs.filter((h) => h.active).length - 1)} routes
-                  </div>
-                  <div className="text-[11px] text-[#808495] mt-1">
-                    Directionnel A &harr; B exhaustif
-                  </div>
-                </div>
-
-                <div className="bg-[#161821] border border-[#262730] rounded-xl p-4">
-                  <div className="text-xs text-[#808495] font-medium mb-1">Opportunités Viables</div>
-                  <div className="text-2xl font-bold font-mono text-green-400">
-                    {opportunities.filter((o) => o.is_viable).length}
-                  </div>
-                  <div className="text-[11px] text-[#808495] mt-1">
-                    {opportunities.filter((o) => !o.is_viable).length} rejetées (filtres stricts)
-                  </div>
-                </div>
-
-                <div className="bg-[#161821] border border-[#262730] rounded-xl p-4">
-                  <div className="text-xs text-[#808495] font-medium mb-1">Meilleur Profit / Jour</div>
-                  <div className="text-2xl font-bold font-mono text-amber-400">
-                    {fmtIsk(opportunities[0]?.profit_per_day || 0)}
-                  </div>
-                  <div className="text-[11px] text-[#808495] mt-1">
-                    Pondéré rotation du capital
-                  </div>
-                </div>
-
-                <div className="bg-[#161821] border border-[#262730] rounded-xl p-4">
-                  <div className="text-xs text-[#808495] font-medium mb-1">Stratégie en Cours</div>
-                  <div className="text-xl font-bold font-mono text-[#ff4b4b] uppercase">
-                    {strategy === 'relist' ? 'Buy & Relist' : 'Immédiate'}
-                  </div>
-                  <div className="text-[11px] text-[#808495] mt-1">
-                    Frais bilatéraux inclus
-                  </div>
-                </div>
-              </div>
-
-              {/* Filters & Sorters Toolbar */}
-              <div className="bg-[#161821] border border-[#262730] rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[#808495]">Trier par :</span>
-                    <select
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value as any)}
-                      className="bg-[#0e1117] border border-[#31333f] text-[#fafafa] rounded-lg px-2.5 py-1 text-xs cursor-pointer focus:outline-none focus:border-[#ff4b4b]"
-                    >
-                      <option value="score">Score Global Composite</option>
-                      <option value="profit_day">Profit / Jour (Rotation)</option>
-                      <option value="profit">Profit Net Total</option>
-                      <option value="roi">ROI (%)</option>
-                      <option value="turnover">Jours de Vente (Croissant)</option>
-                    </select>
-                  </div>
-
-                  <label className="flex items-center gap-1.5 cursor-pointer text-[#808495] hover:text-[#fafafa]">
-                    <input
-                      type="checkbox"
-                      checked={highSecOnly}
-                      onChange={(e) => setHighSecOnly(e.target.checked)}
-                      className="rounded bg-[#0e1117] text-[#ff4b4b] focus:ring-0"
-                    />
-                    <span>100% High-Sec uniquement</span>
-                  </label>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  {MarketDataStore.isLiveEsi(selectedType.type_id, 10000002) ? (
-                    <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-1 rounded font-mono">
-                      <CheckCircle className="w-3 h-3 text-green-400" />
-                      ESI Tranquility Live
-                    </span>
-                  ) : null}
-
-                  <button
-                    onClick={handleSyncLiveESI}
-                    disabled={isSyncingLiveEsi}
-                    className="flex items-center gap-1.5 bg-[#ff4b4b]/15 hover:bg-[#ff4b4b]/25 text-[#ff4b4b] border border-[#ff4b4b]/30 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
-                  >
-                    <Globe className={`w-3.5 h-3.5 ${isSyncingLiveEsi ? 'animate-spin' : ''}`} />
-                    <span>{isSyncingLiveEsi ? 'Sync ESI...' : 'Actualiser Live ESI'}</span>
-                  </button>
-
-                  <div className="text-[11px] text-[#808495]">
-                    Affichage de <strong className="text-[#fafafa]">{sortedOpportunities.length}</strong> opportunités pour{' '}
-                    <span className="text-[#fafafa] font-semibold">{selectedType.name}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Opportunities Matrix Table */}
-              <div className="bg-[#161821] border border-[#262730] rounded-xl overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left font-mono text-xs">
-                    <thead className="bg-[#0e1117] text-[#808495] uppercase tracking-wider text-[11px] border-b border-[#262730]">
-                      <tr>
-                        <th className="p-3.5">Route Commerciale</th>
-                        <th className="p-3.5 text-right">Prix Achat (Moyen)</th>
-                        <th className="p-3.5 text-right">Prix Vente (Moyen)</th>
-                        <th className="p-3.5 text-right">Qté Tradable</th>
-                        <th className="p-3.5 text-right">Profit Net</th>
-                        <th className="p-3.5 text-right">Capturable</th>
-                        <th className="p-3.5 text-right">Profit / Jour</th>
-                        <th className="p-3.5 text-right">ROI</th>
-                        <th className="p-3.5 text-right">Jours Vente</th>
-                        <th className="p-3.5 text-right">Score</th>
-                        <th className="p-3.5 text-center">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#262730]">
-                      {sortedOpportunities.length === 0 ? (
-                        <tr>
-                          <td colSpan={11} className="p-8 text-center text-[#808495]">
-                            Aucune opportunité rentable trouvée pour {selectedType.name} avec les filtres actuels.
-                          </td>
-                        </tr>
-                      ) : (
-                        sortedOpportunities.map((opp) => {
-                          const isAnom = opp.is_anomalous;
-                          const isViable = opp.is_viable;
-
-                          return (
-                            <tr
-                              key={opp.id}
-                              onClick={() => setSelectedOpportunity(opp)}
-                              className={`hover:bg-[#1a1d29] cursor-pointer transition-colors ${
-                                isAnom ? 'bg-amber-950/10' : !isViable ? 'opacity-60' : ''
-                              }`}
-                            >
-                              <td className="p-3.5">
-                                <div className="flex items-center gap-1.5 font-bold text-[#fafafa]">
-                                  <span>{opp.buy_hub.name}</span>
-                                  <ArrowRight className="w-3.5 h-3.5 text-[#808495]" />
-                                  <span>{opp.sell_hub.name}</span>
-                                </div>
-                                <div className="text-[10px] text-[#808495] flex items-center gap-2 mt-0.5">
-                                  <span>{opp.route.jumps} sauts</span>
-                                  <span>· {opp.strategy === 'relist' ? 'Relist' : 'Direct'}</span>
-                                  {opp.jita_price_benchmark?.is_jita_verified && (
-                                    <span
-                                      className="text-amber-400/90 flex items-center gap-0.5"
-                                      title={opp.jita_price_benchmark.reliability_assessment}
-                                    >
-                                      <Award className="w-2.5 h-2.5" />
-                                      <span>Jita Ref</span>
-                                    </span>
-                                  )}
-                                  {isAnom && (
-                                    <span className="text-amber-400 font-bold">⚠️ anomalie</span>
-                                  )}
-                                </div>
-                              </td>
-
-                              <td className="p-3.5 text-right text-[#4d8dff]">
-                                {fmtIsk(opp.effective_buy_price)}
-                              </td>
-
-                              <td className="p-3.5 text-right text-green-400">
-                                {fmtIsk(opp.effective_sell_price)}
-                              </td>
-
-                              <td className="p-3.5 text-right text-[#fafafa]">
-                                {fmtNumber(opp.quantity_tradable)}
-                                <div className="text-[10px] text-[#808495]">
-                                  {fmtNumber(opp.total_cargo_volume)} m³
-                                </div>
-                              </td>
-
-                              <td className="p-3.5 text-right font-bold text-green-400">
-                                {fmtIsk(opp.costs.net_profit)}
-                              </td>
-
-                              <td className="p-3.5 text-right text-purple-300">
-                                {fmtIsk(opp.capturable_profit)}
-                              </td>
-
-                              <td className="p-3.5 text-right font-bold text-amber-400">
-                                {fmtIsk(opp.profit_per_day)}
-                              </td>
-
-                              <td className="p-3.5 text-right text-green-400 font-semibold">
-                                {fmtPct(opp.costs.roi)}
-                              </td>
-
-                              <td className="p-3.5 text-right text-[#808495]">
-                                {opp.expected_days_to_sell.toFixed(1)} j
-                              </td>
-
-                              <td className="p-3.5 text-right">
-                                <span
-                                  className={`px-2 py-0.5 rounded-md font-bold text-xs ${
-                                    opp.scores.overall_score >= 65
-                                      ? 'bg-green-950/60 text-green-300 border border-green-700/50'
-                                      : opp.scores.overall_score >= 40
-                                      ? 'bg-amber-950/60 text-amber-300 border border-amber-700/50'
-                                      : 'bg-red-950/60 text-red-300 border border-red-700/50'
-                                  }`}
-                                >
-                                  {opp.scores.overall_score}
-                                </span>
-                              </td>
-
-                              <td className="p-3.5 text-center">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedOpportunity(opp);
-                                  }}
-                                  className="px-2.5 py-1 rounded bg-[#262730] hover:bg-[#31333f] text-[#fafafa] text-[11px] font-medium transition-colors"
-                                >
-                                  Détail
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
+            <CockpitView
+              selectedType={selectedType}
+              hubs={hubs}
+              strategy={strategy}
+              opportunities={opportunities}
+              sortedOpportunities={sortedOpportunities}
+              sortBy={sortBy}
+              onSortChange={setSortBy}
+              highSecOnly={highSecOnly}
+              onToggleHighSec={setHighSecOnly}
+              isSyncingLiveEsi={isSyncingLiveEsi}
+              onSyncLiveESI={handleSyncLiveESI}
+              onSelectOpportunity={setSelectedOpportunity}
+            />
           )}
         </main>
       </div>

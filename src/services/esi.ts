@@ -9,6 +9,7 @@ import {
   TypeCatalogMetadata,
 } from '../types';
 import { KNOWN_STATION_NAMES } from '../data/universe';
+import { UniverseRepository } from '../domain/universe/UniverseRepository';
 import { AuthService } from './authService';
 
 export interface EsiFetchOrdersResult {
@@ -689,37 +690,11 @@ export class EsiService {
   }
 
   /**
-   * Resolves any New Eden station or structure ID to a clean name
+   * Resolves any New Eden station or structure ID to a clean name via UniverseRepository
    */
   static async resolveLocationName(locationId: number, accessToken?: string): Promise<string> {
-    if (this.locationNameCache.has(locationId)) {
-      return this.locationNameCache.get(locationId)!;
-    }
-
-    // Check universe static dictionary
-    if (KNOWN_STATION_NAMES[locationId]) {
-      const name = KNOWN_STATION_NAMES[locationId];
-      this.locationNameCache.set(locationId, name);
-      return name;
-    }
-
-    try {
-      const headers: Record<string, string> = {};
-      if (accessToken) headers['Authorization'] = `Bearer ${accessToken}`;
-
-      const res = await fetch(`/api/universe/location/${locationId}`, { headers });
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.name) {
-          this.locationNameCache.set(locationId, data.name);
-          return data.name;
-        }
-      }
-    } catch {}
-
-    const fallback = `Station #${locationId}`;
-    this.locationNameCache.set(locationId, fallback);
-    return fallback;
+    const loc = await UniverseRepository.getInstance().resolveLocation(locationId, accessToken);
+    return loc.name;
   }
 
   /**

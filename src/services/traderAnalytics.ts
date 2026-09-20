@@ -7,7 +7,8 @@ import {
   PersonalCalibrationFit,
   EveTypeDetail,
 } from '../types';
-import { EVE_TYPES_CATALOG, EVE_CATEGORIES } from '../data/universe';
+import { EVE_CATEGORIES } from '../data/universe';
+import { CatalogRepository } from '../domain/catalog/CatalogRepository';
 import { FeeEngine } from '../engine/fee';
 
 const STORAGE_KEY_PREFIX = 'eve_trader_analytics_';
@@ -60,10 +61,10 @@ export class TraderAnalyticsService {
     const brokerFeeRate = FeeEngine.calculateNpcBrokerFeeRate(brokerRelationsLevel, 0, 0);
 
     for (const tx of sortedTx) {
-      const typeInfo = EVE_TYPES_CATALOG.find((t) => t.type_id === tx.type_id);
+      const typeInfo = CatalogRepository.getInstance().getTypeById(tx.type_id);
       const typeName = tx.type_name || typeInfo?.name || `Objet #${tx.type_id}`;
       const categoryInfo = typeInfo ? EVE_CATEGORIES.find((c) => c.category_id === typeInfo.category_id) : null;
-      const categoryName = categoryInfo?.name || 'Général';
+      const categoryName = typeInfo?.category_name || categoryInfo?.name || 'Général';
 
       // Track location metrics
       const locId = tx.location_id;
@@ -185,7 +186,7 @@ export class TraderAnalyticsService {
     if (completedCycles.length === 0 && orderHistory.length > 0) {
       const fulfilledOrders = orderHistory.filter((o) => o.state === 'fulfilled');
       for (const order of fulfilledOrders) {
-        const typeInfo = EVE_TYPES_CATALOG.find((t) => t.type_id === order.type_id);
+        const typeInfo = CatalogRepository.getInstance().getTypeById(order.type_id);
         const typeName = order.type_name || typeInfo?.name || `Item #${order.type_id}`;
         const orderVolIsk = order.price * order.volume_total;
         if (order.is_buy_order) totalBuyVolumeIsk += orderVolIsk;

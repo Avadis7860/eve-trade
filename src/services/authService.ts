@@ -1,4 +1,5 @@
 import { EveCharacterSession, SessionAuthStatus } from '../types';
+import { CharacterRepository } from '../domain/character/CharacterRepository';
 
 const STORAGE_KEY_CHARACTERS = 'eve_linked_characters';
 const STORAGE_KEY_ACTIVE_CHAR_ID = 'eve_active_character_id';
@@ -41,6 +42,7 @@ export class AuthService {
 
   /**
    * Deterministically computes the formal SessionAuthStatus for any character session.
+   * Zero data invention: missing expiration triggers expiration/refresh, never forged.
    */
   static computeSessionStatus(session: Partial<EveCharacterSession>): SessionAuthStatus {
     if (!session || !session.character_id || !session.access_token) {
@@ -61,8 +63,8 @@ export class AuthService {
     if (session.is_token_expired) {
       return 'SESSION_EXPIRED';
     }
-    if (!session.expires_at) {
-      return session.refresh_token ? 'SESSION_EXPIRING' : 'SESSION_VALID';
+    if (!session.expires_at || session.expires_at <= 0) {
+      return session.refresh_token ? 'SESSION_EXPIRING' : 'SESSION_EXPIRED';
     }
     const diff = session.expires_at - Date.now();
     if (diff <= 0) {
@@ -75,20 +77,48 @@ export class AuthService {
   }
 
   /**
-   * Normalizes an existing session to v2 standards.
+   * Safely parses JWT claims without relying on any external library.
+   * Never fabricates exp if absent.
+   */
+  static parseJwtClaims(token: string): { exp?: number; sub?: string; name?: string; [key: string]: any } | null {
+    try {
+      if (!token || typeof token !== 'string') return null;
+      const parts = token.split('.');
+      if (parts.length !== 3) return null;
+      const base64Url = parts[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = typeof atob === 'function'
+        ? decodeURIComponent(
+            atob(base64)
+              .split('')
+              .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+              .join('')
+          )
+        : Buffer.from(base64, 'base64').toString('utf8');
+      return JSON.parse(jsonPayload);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Normalizes an existing session to strict standards without inventing expiration timestamps.
    */
   static normalizeSession(session: any): EveCharacterSession {
-    const status = this.computeSessionStatus(session);
+    const rawExpiresAt = Number(session.expires_at) || 0;
+    const status = this.computeSessionStatus({ ...session, expires_at: rawExpiresAt });
+    const isExpired = session.is_token_expired ?? (status === 'SESSION_EXPIRED' || status === 'SESSION_REVOKED' || rawExpiresAt <= 0);
+
     return {
       character_id: Number(session.character_id),
       character_name: session.character_name || `Character #${session.character_id}`,
       portrait_url: session.portrait_url || `https://images.evetech.net/characters/${session.character_id}/portrait?size=128`,
       access_token: session.access_token || '',
       refresh_token: session.refresh_token || '',
-      expires_at: session.expires_at || (Date.now() + 1200 * 1000),
+      expires_at: rawExpiresAt,
       last_sync: session.last_sync || new Date().toISOString(),
       is_active: Boolean(session.is_active),
-      is_token_expired: session.is_token_expired ?? (status === 'SESSION_EXPIRED' || status === 'SESSION_REVOKED'),
+      is_token_expired: isExpired,
       auth_error: session.auth_error,
       session_version: 2,
       auth_status: status,
@@ -118,136 +148,48 @@ export class AuthService {
 
   /**
    * Retrieves all linked EVE characters from persistent storage.
-   * Migrates legacy single-character format and v1 sessions seamlessly.
+   * Migrates seamlessly to CharacterRepository V3.
    */
   static getLinkedCharacters(): EveCharacterSession[] {
-    try {
-      const raw = safeStorage.getItem(STORAGE_KEY_CHARACTERS);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          return parsed.map((item) => this.normalizeSession(item));
-        }
-      }
-
-      // Legacy fallback
-      const legacyRaw = safeStorage.getItem(LEGACY_STORAGE_KEY);
-      if (legacyRaw) {
-        const legacyChar = JSON.parse(legacyRaw) as EveCharacterSession;
-        if (legacyChar && legacyChar.character_id) {
-          const list = [this.normalizeSession({ ...legacyChar, is_active: true })];
-          safeStorage.setItem(STORAGE_KEY_CHARACTERS, JSON.stringify(list));
-          safeStorage.setItem(STORAGE_KEY_ACTIVE_CHAR_ID, String(legacyChar.character_id));
-          return list;
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to parse linked characters from storage:', e);
-    }
-    return [];
+    return CharacterRepository.getInstance().getLinkedCharacters();
   }
 
   /**
    * Returns the currently active character session or null.
    */
   static getActiveCharacter(): EveCharacterSession | null {
-    const list = this.getLinkedCharacters();
-    if (list.length === 0) return null;
-
-    const activeIdStr = safeStorage.getItem(STORAGE_KEY_ACTIVE_CHAR_ID);
-    if (activeIdStr) {
-      const activeId = Number(activeIdStr);
-      const found = list.find((c) => c.character_id === activeId);
-      if (found) return found;
-    }
-
-    // Default to the first character marked is_active, or simply the first one
-    return list.find((c) => c.is_active) || list[0];
+    return CharacterRepository.getInstance().getActiveCharacter();
   }
 
   /**
    * Saves or updates a character session in the persistent registry.
-   * If it is the first character or marked active, makes it active.
    */
   static saveCharacter(session: EveCharacterSession, makeActive: boolean = true): EveCharacterSession[] {
-    const list = this.getLinkedCharacters();
-    const existingIndex = list.findIndex((c) => c.character_id === session.character_id);
-
-    const normalized = this.normalizeSession({
-      ...session,
-      is_active: makeActive,
-      last_sync: new Date().toISOString(),
-    });
-
-    let updatedList: EveCharacterSession[];
-
-    if (existingIndex >= 0) {
-      // Merge with existing session to preserve any missing fields
-      updatedList = list.map((c, idx) =>
-        idx === existingIndex
-          ? { ...c, ...normalized, refresh_token: session.refresh_token || c.refresh_token }
-          : makeActive ? { ...c, is_active: false } : c
-      );
-    } else {
-      updatedList = makeActive
-        ? [...list.map((c) => ({ ...c, is_active: false })), normalized]
-        : [...list, normalized];
-    }
-
-    safeStorage.setItem(STORAGE_KEY_CHARACTERS, JSON.stringify(updatedList));
-    if (makeActive) {
-      safeStorage.setItem(STORAGE_KEY_ACTIVE_CHAR_ID, String(session.character_id));
-      safeStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(normalized));
-      this.notifyListeners(normalized);
-    }
-
-    return updatedList;
+    const list = CharacterRepository.getInstance().saveCharacter(session, makeActive);
+    const active = CharacterRepository.getInstance().getActiveCharacter();
+    this.notifyListeners(active);
+    return list;
   }
 
   /**
    * Sets a specific character as active.
    */
   static setActiveCharacter(characterId: number): EveCharacterSession | null {
-    const list = this.getLinkedCharacters();
-    const target = list.find((c) => c.character_id === characterId);
-    if (!target) return null;
-
-    const updatedList = list.map((c) => ({
-      ...c,
-      is_active: c.character_id === characterId,
-    }));
-
-    safeStorage.setItem(STORAGE_KEY_CHARACTERS, JSON.stringify(updatedList));
-    safeStorage.setItem(STORAGE_KEY_ACTIVE_CHAR_ID, String(characterId));
-    const activeObj = { ...target, is_active: true };
-    safeStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(activeObj));
-    this.notifyListeners(activeObj);
-
-    return activeObj;
+    const active = CharacterRepository.getInstance().setActiveCharacter(characterId);
+    this.notifyListeners(active);
+    return active;
   }
 
   /**
    * Removes a character from the registry.
    */
   static removeCharacter(characterId: number): EveCharacterSession[] {
-    const list = this.getLinkedCharacters();
-    const updatedList = list.filter((c) => c.character_id !== characterId);
-
-    safeStorage.setItem(STORAGE_KEY_CHARACTERS, JSON.stringify(updatedList));
-
-    const activeIdStr = safeStorage.getItem(STORAGE_KEY_ACTIVE_CHAR_ID);
-    if (activeIdStr === String(characterId)) {
-      if (updatedList.length > 0) {
-        this.setActiveCharacter(updatedList[0].character_id);
-      } else {
-        safeStorage.removeItem(STORAGE_KEY_ACTIVE_CHAR_ID);
-        safeStorage.removeItem(LEGACY_STORAGE_KEY);
-        this.notifyListeners(null);
-      }
-    }
-
-    return updatedList;
+    const list = CharacterRepository.getInstance().removeCharacter(characterId);
+    const active = CharacterRepository.getInstance().getActiveCharacter();
+    this.notifyListeners(active);
+    return list;
   }
+
 
   /**
    * Checks if an access token is expired or close to expiration (< 2 minutes).

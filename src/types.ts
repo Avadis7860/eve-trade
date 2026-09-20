@@ -986,6 +986,7 @@ export interface PredictionForecast {
 // ==========================================
 
 export type TypeCatalogStatus =
+  | 'CATALOG_LOADING'
   | 'CATALOG_LOADED'
   | 'CATALOG_UNAVAILABLE'
   | 'CATALOG_CORRUPTED'
@@ -998,7 +999,7 @@ export interface TypeCatalogMetadata {
   item_count: number;
   status: TypeCatalogStatus;
   loaded_at: string;
-  source: 'filesystem' | 'fallback_core' | 'esi_synced';
+  source: 'filesystem' | 'fallback_core' | 'esi_synced' | 'indexeddb' | 'server' | 'uninitialized';
   error?: string;
   file_path?: string;
 }

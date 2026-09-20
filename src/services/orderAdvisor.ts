@@ -6,7 +6,8 @@ import {
   HistoricalStats,
   FinancialConfig,
 } from '../types';
-import { MAJOR_MARKET_HUBS, getJumpRoute, EVE_TYPES_CATALOG } from '../data/universe';
+import { MAJOR_MARKET_HUBS, getJumpRoute } from '../data/universe';
+import { CatalogRepository } from '../domain/catalog/CatalogRepository';
 import { MarketDataStore } from './marketDataStore';
 import { FeeEngine } from '../engine/fee';
 
@@ -21,7 +22,7 @@ export class OrderAdvisorService {
     historyStatsByRegion: Record<number, HistoricalStats> = {},
     config?: Partial<FinancialConfig>
   ): OrderAdvisorRecommendation {
-    const typeInfo = EVE_TYPES_CATALOG.find((t) => t.type_id === order.type_id);
+    const typeInfo = CatalogRepository.getInstance().getTypeById(order.type_id);
     const typeName = order.type_name || typeInfo?.name || `Objet #${order.type_id}`;
     const unitVolume = typeInfo?.volume || 0.1;
 

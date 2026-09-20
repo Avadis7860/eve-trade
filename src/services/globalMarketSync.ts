@@ -3,7 +3,8 @@ import { InterRegionalScanner } from './scanner';
 import { TraderAnalyticsService } from './traderAnalytics';
 import { MarketDataStore } from './marketDataStore';
 import { IndexedDbStore } from './indexedDbStore';
-import { EVE_TYPES_CATALOG, MAJOR_MARKET_HUBS } from '../data/universe';
+import { CatalogRepository } from '../domain/catalog/CatalogRepository';
+import { MAJOR_MARKET_HUBS } from '../data/universe';
 import {
   EveTypeDetail,
   MarketHub,
@@ -199,31 +200,17 @@ export class GlobalMarketSyncService {
       ? TraderAnalyticsService.getCachedMetrics(options.character_id)
       : null;
 
-    // 1. Build Item List to sync: combine standard catalog, IndexedDB types, and custom items
-    let knownTypes: EveTypeDetail[] = [];
-    try {
-      const dbTypes = await IndexedDbStore.getEveTypes();
-      if (dbTypes && dbTypes.length > 0) {
-        knownTypes = dbTypes as EveTypeDetail[];
-      } else {
-        const fetched = await EsiService.fetchAllMarketTypes();
-        if (fetched && fetched.length > 0) {
-          knownTypes = fetched as EveTypeDetail[];
-          IndexedDbStore.saveEveTypes(fetched).catch(() => {});
-        }
+    // 1. Build Item List to sync: Single Source of Truth via CatalogRepository
+    const catalogRepo = CatalogRepository.getInstance();
+    if (customItems && customItems.length > 0) {
+      for (const ci of customItems) {
+        try {
+          catalogRepo.registerCustomType(ci);
+        } catch {}
       }
-    } catch (e) {
-      console.warn('Could not load known types for global sync:', e);
     }
 
-    let targetItems: EveTypeDetail[] = [...EVE_TYPES_CATALOG, ...knownTypes, ...customItems];
-
-    // Deduplicate
-    const itemMap = new Map<number, EveTypeDetail>();
-    for (const it of targetItems) {
-      itemMap.set(it.type_id, it);
-    }
-    targetItems = Array.from(itemMap.values());
+    let targetItems: EveTypeDetail[] = catalogRepo.getAllTypes();
 
     // Apply specific category_id filter if provided
     if (options.category_id_filter && options.category_id_filter > 0) {

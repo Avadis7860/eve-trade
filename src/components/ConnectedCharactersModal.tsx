@@ -138,16 +138,20 @@ export const ConnectedCharactersModal: React.FC<ConnectedCharactersModalProps> =
     try {
       const charId = Number(manualCharId) || 0;
       const charName = manualCharName.trim() || `Character #${charId}`;
+      const tokenStr = manualToken.trim();
+      const claims = AuthService.parseJwtClaims(tokenStr);
+      const realExpiresAt = claims?.exp ? claims.exp * 1000 : 0;
+
       const session: EveCharacterSession = {
-        character_id: charId,
-        character_name: charName,
+        character_id: charId || (claims?.sub ? Number(claims.sub.split(':').pop()) || 0 : 0),
+        character_name: charName || claims?.name || `Character #${charId}`,
         portrait_url: charId ? `https://images.evetech.net/characters/${charId}/portrait?size=128` : '',
-        access_token: manualToken.trim(),
-        expires_at: Date.now() + (20 * 60 * 1000),
+        access_token: tokenStr,
+        expires_at: realExpiresAt,
         last_sync: new Date().toISOString(),
         is_active: true,
         session_version: 2,
-        auth_status: 'SESSION_VALID',
+        auth_status: realExpiresAt && realExpiresAt > Date.now() ? 'SESSION_VALID' : 'SESSION_EXPIRED',
         last_validated_at: new Date().toISOString(),
       };
 

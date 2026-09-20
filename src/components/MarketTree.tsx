@@ -2,11 +2,10 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
   EVE_CATEGORIES,
   EVE_GROUPS,
-  EVE_TYPES_CATALOG,
 } from '../data/universe';
-import { EveTypeDetail } from '../types';
+import { EveTypeDetail, TypeCatalogMetadata } from '../types';
 import { EsiService } from '../services/esi';
-import { IndexedDbStore } from '../services/indexedDbStore';
+import { CatalogRepository } from '../domain/catalog/CatalogRepository';
 import { fmtIsk } from '../engine/money';
 import {
   ChevronRight,
@@ -20,6 +19,8 @@ import {
   Loader2,
   Plus,
   Sparkles,
+  ShieldCheck,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface MarketTreeProps {
@@ -52,74 +53,57 @@ export const MarketTree: React.FC<MarketTreeProps> = ({
   const [activeTab, setActiveTab] = useState<'tree' | 'favs' | 'recents'>('tree');
   const [isSearchingEsi, setIsSearchingEsi] = useState(false);
   const [esiSearchResults, setEsiSearchResults] = useState<EveTypeDetail[]>([]);
-  const [allMarketCatalog, setAllMarketCatalog] = useState<EveTypeDetail[]>([]);
+  const [catalogMeta, setCatalogMeta] = useState<TypeCatalogMetadata>(CatalogRepository.getInstance().getMetadata());
+  const [allAvailableTypes, setAllAvailableTypes] = useState<EveTypeDetail[]>(CatalogRepository.getInstance().getAllTypes());
   const [isLoadingAllTypes, setIsLoadingAllTypes] = useState(false);
-  const [catalogWarning, setCatalogWarning] = useState<string | null>(null);
 
-  // Fetch and hydrate market types with persistent IndexedDB caching
+  // Subscribe to central CatalogRepository SSOT
   useEffect(() => {
-    let active = true;
-    const loadTypes = async () => {
-      setIsLoadingAllTypes(true);
-      try {
-        // 1. Instant local load from IndexedDB
-        const cached = await IndexedDbStore.getEveTypes();
-        if (active && cached && cached.length > 0) {
-          setAllMarketCatalog(cached as EveTypeDetail[]);
-        }
+    const catalogRepo = CatalogRepository.getInstance();
+    
+    // Initial sync
+    setCatalogMeta(catalogRepo.getMetadata());
+    setAllAvailableTypes(catalogRepo.getAllTypes());
 
-        // 2. Refresh from server/ESI
-        const types = await EsiService.fetchAllMarketTypes();
-        if (active && types && types.length > 0) {
-          setAllMarketCatalog(types as EveTypeDetail[]);
-          setCatalogWarning(null);
-          // Persist to IndexedDB
-          await IndexedDbStore.saveEveTypes(types);
-        }
-      } catch (err) {
-        console.warn('Could not load all market types:', err);
-        if (active) {
-          setCatalogWarning('Catalogue hors-ligne / Dégradé');
-        }
-      } finally {
-        if (active) setIsLoadingAllTypes(false);
-      }
-    };
-    loadTypes();
+    const unsubscribe = catalogRepo.subscribe((meta) => {
+      setCatalogMeta(meta);
+      setAllAvailableTypes(catalogRepo.getAllTypes());
+      setIsLoadingAllTypes(meta.status === 'CATALOG_LOADING');
+    });
+
+    setIsLoadingAllTypes(true);
+    catalogRepo.init().finally(() => {
+      setIsLoadingAllTypes(false);
+      setCatalogMeta(catalogRepo.getMetadata());
+      setAllAvailableTypes(catalogRepo.getAllTypes());
+    });
+
     return () => {
-      active = false;
+      unsubscribe();
     };
   }, []);
 
-  // Combined catalog (EVE_TYPES_CATALOG + all 15,801 types + custom user types)
-  const allAvailableTypes = useMemo(() => {
-    const map = new Map<number, EveTypeDetail>();
-    for (const t of EVE_TYPES_CATALOG) map.set(t.type_id, t);
-    for (const t of allMarketCatalog) {
-      if (!map.has(t.type_id)) {
-        map.set(t.type_id, t);
-      } else {
-        const existing = map.get(t.type_id)!;
-        if (t.average_price && !existing.average_price) {
-          existing.average_price = t.average_price;
-          existing.adjusted_price = t.adjusted_price;
-        }
+  // Register custom user types if supplied
+  useEffect(() => {
+    if (customTypes && customTypes.length > 0) {
+      const catalogRepo = CatalogRepository.getInstance();
+      for (const t of customTypes) {
+        try {
+          catalogRepo.registerCustomType(t);
+        } catch {}
       }
     }
-    for (const t of customTypes) map.set(t.type_id, t);
-    return Array.from(map.values());
-  }, [allMarketCatalog, customTypes]);
+  }, [customTypes]);
 
-  // Fast text search filter across all 15,801 types, groups, and categories
+  // Fast text search filter across verified types, groups, and categories
   const filteredTypes = useMemo(() => {
     if (!searchTerm.trim()) return null;
     const term = searchTerm.toLowerCase();
     const isNum = /^\d+$/.test(term);
 
-    // Exact ID match at the very top
     if (isNum) {
       const num = Number(term);
-      const exact = allAvailableTypes.find((t) => t.type_id === num);
+      const exact = CatalogRepository.getInstance().getTypeById(num);
       const rest = allAvailableTypes.filter(
         (t) => t.type_id !== num && (t.type_id.toString().includes(term) || t.name.toLowerCase().includes(term))
       );
@@ -155,6 +139,7 @@ export const MarketTree: React.FC<MarketTreeProps> = ({
             category_id: 0,
           };
           setEsiSearchResults([detail]);
+          CatalogRepository.getInstance().registerCustomType(detail);
           if (onAddCustomType) onAddCustomType(detail);
         }
       } else {
@@ -190,20 +175,22 @@ export const MarketTree: React.FC<MarketTreeProps> = ({
             Catalogue Marché
           </span>
           <div className="flex items-center gap-1.5">
-            {catalogWarning && (
-              <span className="text-[10px] bg-amber-950/80 text-amber-300 border border-amber-600/40 px-1.5 py-0.5 rounded font-mono" title={catalogWarning}>
-                Hors-ligne
+            {catalogMeta.status === 'CATALOG_FALLBACK_CORE' && (
+              <span className="text-[10px] bg-amber-950/80 text-amber-300 border border-amber-600/40 px-1.5 py-0.5 rounded font-mono flex items-center gap-1" title="Mode secours actif : catalogue de base vérifié">
+                <AlertTriangle className="w-3 h-3 text-amber-400" />
+                Secours ({allAvailableTypes.length})
               </span>
             )}
-            {isLoadingAllTypes ? (
+            {catalogMeta.status === 'CATALOG_LOADED' && (
+              <span className="text-[10px] bg-emerald-950/80 text-emerald-300 border border-emerald-600/40 px-1.5 py-0.5 rounded font-mono flex items-center gap-1" title="Catalogue complet vérifié">
+                <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                {allAvailableTypes.length.toLocaleString()} vérifiés
+              </span>
+            )}
+            {isLoadingAllTypes && (
               <span className="text-[10px] text-amber-400 flex items-center gap-1 font-mono">
                 <Loader2 className="w-3 h-3 animate-spin" />
-                Chargement...
-              </span>
-            ) : (
-              <span className="text-[11px] text-green-400 font-mono flex items-center gap-1" title="Types de marché EVE Online">
-                <Sparkles className="w-3 h-3 text-amber-400" />
-                {allAvailableTypes.length.toLocaleString()} types
+                Actualisation...
               </span>
             )}
           </div>
@@ -214,7 +201,7 @@ export const MarketTree: React.FC<MarketTreeProps> = ({
           <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-[#808495]" />
           <input
             type="text"
-            placeholder="Rechercher parmi 15 801 types (ex: 34 ou Machariel)..."
+            placeholder={`Rechercher parmi ${allAvailableTypes.length.toLocaleString()} types (ex: 34 ou Machariel)...`}
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);

@@ -4,6 +4,7 @@ import { TraderAnalyticsService } from './traderAnalytics';
 import { MarketDataStore } from './marketDataStore';
 import { IndexedDbStore } from './indexedDbStore';
 import { CatalogRepository } from '../domain/catalog/CatalogRepository';
+import { MarketGroupRepository } from '../domain/catalog/MarketGroupRepository';
 import { MAJOR_MARKET_HUBS } from '../data/universe';
 import {
   EveTypeDetail,
@@ -37,7 +38,9 @@ export interface GlobalSyncOptions {
     | 'apparel'
     | string;
   category_id_filter?: number;
-  item_limit?: number; // 25, 50, 100, 250, 500, or all
+  market_group_id?: number;
+  market_group_ids?: number[];
+  item_limit?: number; // 25, 50, 100, 250, 500, or all (0)
   fetch_history?: boolean; // also fetch 30-day ESI history
   concurrency?: number; // parallel requests (default 4)
   character_id?: number; // for personal trade history calibration
@@ -211,54 +214,97 @@ export class GlobalMarketSyncService {
     }
 
     let targetItems: EveTypeDetail[] = catalogRepo.getAllTypes();
+    const marketGroupRepo = MarketGroupRepository.getInstance();
 
-    // Apply specific category_id filter if provided
-    if (options.category_id_filter && options.category_id_filter > 0) {
+    // 1. Direct market group ID filter
+    if (options.market_group_id && options.market_group_id > 0) {
+      const allowedTypeIds = new Set(marketGroupRepo.getAllTypesForGroup(options.market_group_id));
+      targetItems = targetItems.filter((i) => allowedTypeIds.has(i.type_id));
+    }
+    // 2. Multiple market group IDs filter
+    else if (options.market_group_ids && options.market_group_ids.length > 0) {
+      const allowedTypeIds = new Set<number>();
+      for (const gid of options.market_group_ids) {
+        for (const tid of marketGroupRepo.getAllTypesForGroup(gid)) {
+          allowedTypeIds.add(tid);
+        }
+      }
+      targetItems = targetItems.filter((i) => allowedTypeIds.has(i.type_id));
+    }
+    // 3. Category ID filter
+    else if (options.category_id_filter && options.category_id_filter > 0) {
       targetItems = targetItems.filter((i) => i.category_id === options.category_id_filter);
     }
-    // Apply named category filter
+    // 4. Named category filter
     else if (options.category_filter && options.category_filter !== 'all') {
       const filterKey = options.category_filter;
+      const getGids = (gids: number[]) => {
+        const set = new Set<number>();
+        for (const g of gids) {
+          for (const t of marketGroupRepo.getAllTypesForGroup(g)) set.add(t);
+        }
+        return set;
+      };
+
       if (filterKey === 'ships') {
-        targetItems = targetItems.filter((i) => i.category_id === 6);
+        const allowed = getGids([4]); // Ships root market group
+        targetItems = targetItems.filter((i) => allowed.has(i.type_id) || i.category_id === 6);
       } else if (filterKey === 'modules') {
-        targetItems = targetItems.filter((i) => i.category_id === 7);
+        const allowed = getGids([9, 955, 2202, 2203]); // Ship Equipment + Modifications + Structures
+        targetItems = targetItems.filter((i) => allowed.has(i.type_id) || i.category_id === 7 || i.category_id === 32);
       } else if (filterKey === 'minerals_materials') {
-        targetItems = targetItems.filter((i) => i.category_id === 4 || i.category_id === 25);
+        const allowed = getGids([475]); // Manufacture & Research root group
+        targetItems = targetItems.filter((i) => allowed.has(i.type_id) || i.category_id === 4 || i.category_id === 25);
       } else if (filterKey === 'planetary_industry') {
+        const allowed = getGids([1320]); // Planetary Infrastructure
         targetItems = targetItems.filter(
-          (i) => i.category_id === 41 || i.category_id === 42 || i.category_id === 43
+          (i) => allowed.has(i.type_id) || i.category_id === 41 || i.category_id === 42 || i.category_id === 43
         );
       } else if (filterKey === 'blueprints_reactions') {
-        targetItems = targetItems.filter((i) => i.category_id === 9 || i.category_id === 24);
+        const allowed = getGids([2]); // Blueprints & Reactions
+        targetItems = targetItems.filter((i) => allowed.has(i.type_id) || i.category_id === 9 || i.category_id === 24);
       } else if (filterKey === 'skills') {
-        targetItems = targetItems.filter((i) => i.category_id === 16);
+        const allowed = getGids([150]); // Skills
+        targetItems = targetItems.filter((i) => allowed.has(i.type_id) || i.category_id === 16);
       } else if (filterKey === 'implants_boosters') {
-        targetItems = targetItems.filter((i) => i.category_id === 20);
+        const allowed = getGids([24]); // Implants & Boosters
+        targetItems = targetItems.filter((i) => allowed.has(i.type_id) || i.category_id === 20);
       } else if (filterKey === 'ammunition_charges') {
-        targetItems = targetItems.filter((i) => i.category_id === 8);
+        const allowed = getGids([11]); // Ammunition & Charges
+        targetItems = targetItems.filter((i) => allowed.has(i.type_id) || i.category_id === 8);
       } else if (filterKey === 'drones_fighters') {
-        targetItems = targetItems.filter((i) => i.category_id === 18 || i.category_id === 87);
+        const allowed = getGids([157]); // Drones
+        targetItems = targetItems.filter((i) => allowed.has(i.type_id) || i.category_id === 18 || i.category_id === 87);
       } else if (filterKey === 'trade_goods_plex') {
-        targetItems = targetItems.filter((i) => i.category_id === 17);
+        const allowed = getGids([19, 1922]); // Trade Goods + Pilot's Services
+        targetItems = targetItems.filter((i) => allowed.has(i.type_id) || i.category_id === 17);
       } else if (filterKey === 'structures_citadels') {
+        const allowed = getGids([477, 2202, 2203]); // Structures
         targetItems = targetItems.filter(
-          (i) => i.category_id === 65 || i.category_id === 66 || i.category_id === 23 || i.category_id === 40
+          (i) => allowed.has(i.type_id) || i.category_id === 65 || i.category_id === 66 || i.category_id === 23 || i.category_id === 40
         );
       } else if (filterKey === 'subsystems_rigs') {
-        targetItems = targetItems.filter((i) => i.category_id === 32 || i.group_id === 772 || i.group_id === 773);
+        const allowed = getGids([955]); // Ship modifications & rigs
+        targetItems = targetItems.filter((i) => allowed.has(i.type_id) || i.category_id === 32 || i.group_id === 772 || i.group_id === 773);
       } else if (filterKey === 'deployables') {
         targetItems = targetItems.filter((i) => i.category_id === 22);
       } else if (filterKey === 'relics_exploration') {
         targetItems = targetItems.filter((i) => i.category_id === 34 || i.category_id === 35);
       } else if (filterKey === 'apparel') {
-        targetItems = targetItems.filter((i) => i.category_id === 30);
+        const allowed = getGids([1396, 1954, 3628]); // Apparel + Skins + Personalization
+        targetItems = targetItems.filter((i) => allowed.has(i.type_id) || i.category_id === 30);
       }
     }
 
-    // Apply item limit if specified
-    if (options.item_limit && options.item_limit > 0) {
-      targetItems = targetItems.slice(0, options.item_limit);
+    // Apply item limit if specified and less than total
+    if (options.item_limit && options.item_limit > 0 && options.item_limit < targetItems.length) {
+      // Prioritize items with known market prices / significant volume to maximize discovery value
+      const prioritized = [...targetItems].sort((a, b) => {
+        const pA = a.average_price || 0;
+        const pB = b.average_price || 0;
+        return pB - pA;
+      });
+      targetItems = prioritized.slice(0, options.item_limit);
     }
 
     const activeHubs = hubs.filter((h) => h.active);

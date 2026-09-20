@@ -1,5 +1,6 @@
 import { MarketHub } from '../../types';
 import { MAJOR_MARKET_HUBS, KNOWN_STATION_NAMES } from '../../data/universe';
+import universeDataRaw from '../../data/universeData.json';
 
 export interface LocationResolution {
   location_id: number;
@@ -25,36 +26,60 @@ export interface RegionInfo {
   name: string;
 }
 
+interface UniverseDataFormat {
+  regions: Record<string, string>;
+  systems: Record<string, { name: string; region_id: number; security: number }>;
+  stations: Record<string, { name: string; system_id: number; type_id?: number }>;
+}
+
+const universeData = universeDataRaw as unknown as UniverseDataFormat;
+
 export class UniverseRepository {
   private static instance: UniverseRepository;
   private locationCache = new Map<number, LocationResolution>();
   private hubMap = new Map<string, MarketHub>();
   private stationToHubMap = new Map<number, MarketHub>();
   private systemToHubMap = new Map<number, MarketHub>();
-
-  private regionMap = new Map<number, string>([
-    [10000002, 'The Forge'],
-    [10000043, 'Domain'],
-    [10000032, 'Sinq Laison'],
-    [10000030, 'Heimatar'],
-    [10000042, 'Metropolis'],
-    [10000068, 'Verge Vendor'],
-    [10000016, 'Lonetrek'],
-    [10000033, 'The Citadel'],
-    [10000020, 'Tash-Murkon'],
-    [10000064, 'Essence'],
-    [10000037, 'Everyshore'],
-    [10000048, 'Placid'],
-    [10000067, 'Genesis'],
-    [10000065, 'Kor-Azor'],
-    [10000036, 'Devoid'],
-    [10000038, 'Bleak Lands'],
-    [10000052, 'Kador'],
-    [10000069, 'Black Rise'],
-  ]);
+  private regionMap = new Map<number, string>();
+  private systemMap = new Map<number, { name: string; region_id: number; security: number }>();
+  private stationMap = new Map<number, { name: string; system_id: number; type_id?: number }>();
 
   private constructor() {
-    // Seed Hubs
+    // 1. Seed All 114 Regions
+    if (universeData && universeData.regions) {
+      for (const [ridStr, rName] of Object.entries(universeData.regions)) {
+        this.regionMap.set(Number(ridStr), rName);
+      }
+    }
+
+    // 2. Seed All 8,490 Solar Systems
+    if (universeData && universeData.systems) {
+      for (const [sidStr, sInfo] of Object.entries(universeData.systems)) {
+        this.systemMap.set(Number(sidStr), sInfo);
+      }
+    }
+
+    // 3. Seed All 5,210 NPC Stations
+    if (universeData && universeData.stations) {
+      for (const [stIdStr, stInfo] of Object.entries(universeData.stations)) {
+        const stId = Number(stIdStr);
+        this.stationMap.set(stId, stInfo);
+        const sys = this.systemMap.get(stInfo.system_id);
+        const rName = sys ? this.regionMap.get(sys.region_id) : undefined;
+        this.locationCache.set(stId, {
+          location_id: stId,
+          name: stInfo.name,
+          system_id: stInfo.system_id,
+          system_name: sys?.name,
+          region_id: sys?.region_id,
+          region_name: rName,
+          is_structure: false,
+          source: 'static_npc',
+        });
+      }
+    }
+
+    // 4. Seed Hubs (Overriding / prioritizing hub references)
     for (const hub of MAJOR_MARKET_HUBS) {
       this.hubMap.set(hub.id, hub);
       this.stationToHubMap.set(hub.station_id, hub);
@@ -71,10 +96,13 @@ export class UniverseRepository {
       });
     }
 
-    // Seed Known NPC Stations
+    // 5. Known station names overlay
     for (const [stIdStr, name] of Object.entries(KNOWN_STATION_NAMES)) {
       const stId = Number(stIdStr);
-      if (!this.locationCache.has(stId)) {
+      const existing = this.locationCache.get(stId);
+      if (existing) {
+        existing.name = name;
+      } else {
         this.locationCache.set(stId, {
           location_id: stId,
           name: name,
@@ -90,6 +118,13 @@ export class UniverseRepository {
       UniverseRepository.instance = new UniverseRepository();
     }
     return UniverseRepository.instance;
+  }
+
+  /**
+   * Resets the repository instance (primarily for isolated test executions).
+   */
+  static resetInstance(): void {
+    UniverseRepository.instance = new UniverseRepository();
   }
 
   /**
@@ -118,7 +153,11 @@ export class UniverseRepository {
    */
   getStationNameSync(stationId: number): string {
     const loc = this.locationCache.get(stationId);
-    return loc ? loc.name : `Station #${stationId}`;
+    if (loc && loc.name) return loc.name;
+    const st = this.stationMap.get(stationId);
+    if (st && st.name) return st.name;
+    const isStructure = stationId >= 1000000000000;
+    return isStructure ? `Structure #${stationId}` : `Station #${stationId}`;
   }
 
   /**
@@ -128,10 +167,28 @@ export class UniverseRepository {
     const cached = this.locationCache.get(locationId);
     if (cached) return cached;
 
-    const isStructure = locationId > 100000000;
+    const st = this.stationMap.get(locationId);
+    if (st) {
+      const sys = this.systemMap.get(st.system_id);
+      const rName = sys ? this.regionMap.get(sys.region_id) : undefined;
+      const res: LocationResolution = {
+        location_id: locationId,
+        name: st.name,
+        system_id: st.system_id,
+        system_name: sys?.name,
+        region_id: sys?.region_id,
+        region_name: rName,
+        is_structure: false,
+        source: 'static_npc',
+      };
+      this.locationCache.set(locationId, res);
+      return res;
+    }
+
+    const isStructure = locationId >= 1000000000000;
     const fallback: LocationResolution = {
       location_id: locationId,
-      name: isStructure ? `Citadel #${locationId}` : `Station #${locationId}`,
+      name: isStructure ? `Structure #${locationId}` : `Station #${locationId}`,
       is_structure: isStructure,
       source: 'fallback',
     };
@@ -184,6 +241,16 @@ export class UniverseRepository {
         security_status: hub.security_status,
       };
     }
+    const sys = this.systemMap.get(systemId);
+    if (sys) {
+      return {
+        system_id: systemId,
+        name: sys.name,
+        region_id: sys.region_id,
+        region_name: this.regionMap.get(sys.region_id),
+        security_status: sys.security,
+      };
+    }
     for (const loc of this.locationCache.values()) {
       if (loc.system_id === systemId) {
         return {
@@ -198,6 +265,13 @@ export class UniverseRepository {
       system_id: systemId,
       name: `System #${systemId}`,
     };
+  }
+
+  /**
+   * Resolves solar system name synchronously.
+   */
+  getSystemName(systemId: number): string {
+    return this.getSystem(systemId).name;
   }
 
   /**
@@ -223,7 +297,7 @@ export class UniverseRepository {
    */
   async resolveLocation(locationId: number, accessToken?: string): Promise<LocationResolution> {
     const cached = this.locationCache.get(locationId);
-    if (cached) return cached;
+    if (cached && cached.source !== 'fallback') return cached;
 
     const isStructure = locationId > 100000000;
 
@@ -254,7 +328,7 @@ export class UniverseRepository {
 
     const fallback: LocationResolution = {
       location_id: locationId,
-      name: isStructure ? `Citadel #${locationId}` : `Station #${locationId}`,
+      name: isStructure ? `Structure #${locationId}` : `Station #${locationId}`,
       is_structure: isStructure,
       source: 'fallback',
     };
@@ -262,3 +336,4 @@ export class UniverseRepository {
     return fallback;
   }
 }
+

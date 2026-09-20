@@ -7,20 +7,10 @@ export type CatalogListener = (meta: TypeCatalogMetadata, count: number) => void
 
 export class CatalogRepository {
   private static instance: CatalogRepository;
-  public static readonly MINIMUM_EXPECTED_COUNT = 50;
 
   private typeMap = new Map<number, EveTypeDetail>();
   private customTypeMap = new Map<number, EveTypeDetail>();
-  private metadata: TypeCatalogMetadata = {
-    version: '2026.09.20.1',
-    checksum: 'uninitialized',
-    item_count: 0,
-    status: 'CATALOG_UNAVAILABLE',
-    loaded_at: new Date().toISOString(),
-    source: 'uninitialized',
-    minimum_expected_count: CatalogRepository.MINIMUM_EXPECTED_COUNT,
-    is_degraded: true,
-  };
+  private metadata: TypeCatalogMetadata;
   private listeners = new Set<CatalogListener>();
   private initPromise: Promise<void> | null = null;
 
@@ -29,17 +19,19 @@ export class CatalogRepository {
     for (const t of EVE_TYPES_CATALOG) {
       this.typeMap.set(t.type_id, t);
     }
-    const isDegraded = this.typeMap.size < CatalogRepository.MINIMUM_EXPECTED_COUNT;
+    const baselineChecksum = CatalogValidator.computeCanonicalChecksum(EVE_TYPES_CATALOG);
+
+    // INVARIANT: Baseline fallback core is NEVER CATALOG_READY
     this.metadata = {
       version: '2026.09.20.1',
-      checksum: 'baseline_core',
+      checksum: baselineChecksum,
       item_count: this.typeMap.size,
-      status: isDegraded ? 'CATALOG_FALLBACK_CORE' : 'CATALOG_READY',
+      expected_count: this.typeMap.size,
+      status: 'CATALOG_FALLBACK_CORE',
       loaded_at: new Date().toISOString(),
       source: 'fallback_core',
-      minimum_expected_count: CatalogRepository.MINIMUM_EXPECTED_COUNT,
-      is_degraded: isDegraded,
-      error: isDegraded ? 'Running in fallback core mode with partial catalog' : undefined,
+      is_degraded: true,
+      error: 'Operating in baseline fallback core mode',
     };
   }
 
@@ -51,13 +43,22 @@ export class CatalogRepository {
   }
 
   /**
+   * Resets the repository instance (primarily for isolated test executions).
+   */
+  static resetInstance(): void {
+    CatalogRepository.instance = new CatalogRepository();
+  }
+
+  /**
    * Checks if the catalog satisfies complete verifiable readiness invariants.
+   * INVARIANT: CATALOG_FALLBACK_CORE can NEVER return isReady() === true.
    */
   isReady(): boolean {
     return (
-      (this.metadata.status === 'CATALOG_READY' || this.metadata.status === 'CATALOG_LOADED') &&
-      this.typeMap.size >= CatalogRepository.MINIMUM_EXPECTED_COUNT &&
-      !this.metadata.is_degraded
+      this.metadata.status === 'CATALOG_READY' &&
+      !this.metadata.is_degraded &&
+      this.metadata.source !== 'fallback_core' &&
+      this.typeMap.size > 0
     );
   }
 
@@ -75,29 +76,45 @@ export class CatalogRepository {
     if (this.initPromise) return this.initPromise;
 
     this.initPromise = (async () => {
-      // 1. Instant local load from IndexedDB cache
+      // 1. Instant local load from IndexedDB cache with strict checksum validation
       try {
-        const cached = await IndexedDbStore.getEveTypes();
-        if (cached && cached.length > 0) {
-          const { validTypes } = CatalogValidator.validateCollection(cached);
-          if (validTypes.length > 0) {
+        const cached = await IndexedDbStore.getCatalogWithMetadata();
+        if (cached && cached.types && cached.types.length > 0) {
+          const { validTypes, errors } = CatalogValidator.validateCollection(cached.types);
+          const computedChecksum = CatalogValidator.computeCanonicalChecksum(validTypes);
+
+          // Stale or corrupted cache check (purge old fallback caches with < 1000 items)
+          if (
+            !cached.metadata ||
+            cached.metadata.item_count < 1000 ||
+            cached.types.length < 1000 ||
+            cached.metadata.checksum !== computedChecksum ||
+            cached.metadata.item_count !== validTypes.length ||
+            errors.length > 0
+          ) {
+            console.warn('[CatalogRepository] Stale, legacy or partial IndexedDB cache detected. Purging cache.');
+            await IndexedDbStore.clearCatalog();
+          } else {
+            // Cache is authentic and complete (> 1000 items)
+            this.typeMap.clear();
             for (const t of validTypes) {
               this.typeMap.set(t.type_id, t);
             }
-            const completeness = CatalogValidator.validateCatalogCompleteness(
-              validTypes,
-              CatalogRepository.MINIMUM_EXPECTED_COUNT
-            );
+
+            const completeness = CatalogValidator.validateCatalogCompleteness(validTypes, {
+              expectedCount: cached.metadata.expected_count,
+              expectedChecksum: cached.metadata.checksum,
+              currentChecksum: computedChecksum,
+              source: cached.metadata.source,
+            });
+
             this.metadata = {
-              version: this.metadata.version,
-              checksum: 'cached_indexeddb',
+              ...cached.metadata,
+              status: completeness.status,
+              is_degraded: completeness.isDegraded,
               item_count: this.typeMap.size,
-              status: completeness.isReady ? 'CATALOG_READY' : 'CATALOG_DEGRADED',
               loaded_at: new Date().toISOString(),
               source: 'indexeddb',
-              minimum_expected_count: CatalogRepository.MINIMUM_EXPECTED_COUNT,
-              is_degraded: completeness.isDegraded,
-              error: completeness.reason,
             };
             this.notify();
           }
@@ -108,64 +125,106 @@ export class CatalogRepository {
 
       // 2. Fetch fresh catalog and verified metadata from server
       try {
-        const res = await fetch('/api/types/all?include_metadata=true');
+        const res = await fetch('/api/types/all');
         if (res.ok) {
           const data = await res.json();
-          const rawItems = Array.isArray(data) ? data : data.types || [];
+          const rawItems: unknown[] = Array.isArray(data) ? data : data.types || [];
           const serverMeta: TypeCatalogMetadata | undefined = data.metadata;
 
-          const { validTypes, errors } = CatalogValidator.validateCollection(rawItems);
-          if (validTypes.length > 0) {
-            for (const t of validTypes) {
-              const existing = this.typeMap.get(t.type_id);
-              if (existing) {
-                // Merge pricing without overwriting foundational properties
-                this.typeMap.set(t.type_id, {
-                  ...existing,
-                  ...t,
-                  average_price: t.average_price ?? existing.average_price,
-                  adjusted_price: t.adjusted_price ?? existing.adjusted_price,
-                });
-              } else {
-                this.typeMap.set(t.type_id, t);
-              }
-            }
-
-            const completeness = CatalogValidator.validateCatalogCompleteness(
-              validTypes,
-              CatalogRepository.MINIMUM_EXPECTED_COUNT,
-              serverMeta?.checksum,
-              serverMeta?.checksum
-            );
-
+          if (!serverMeta) {
             this.metadata = {
-              version: serverMeta?.version || this.metadata.version,
-              checksum: serverMeta?.checksum || 'server_verified',
-              item_count: this.typeMap.size,
-              status: completeness.isReady ? 'CATALOG_READY' : 'CATALOG_DEGRADED',
-              loaded_at: new Date().toISOString(),
-              source: 'server',
-              minimum_expected_count: CatalogRepository.MINIMUM_EXPECTED_COUNT,
-              expected_count: serverMeta?.item_count,
-              is_degraded: completeness.isDegraded,
-              error:
-                errors.length > 0
-                  ? `${errors.length} types skipped during validation`
-                  : completeness.reason,
+              ...this.metadata,
+              status: 'CATALOG_CORRUPTED',
+              is_degraded: true,
+              error: 'Server response violates contract: missing catalog metadata',
             };
-
-            // Persist verified items to IndexedDB
-            await IndexedDbStore.saveEveTypes(Array.from(this.typeMap.values()));
             this.notify();
+            return;
           }
+
+          // Validate server payload collection
+          const { validTypes, errors } = CatalogValidator.validateCollection(rawItems);
+
+          // Contract check: Item count match
+          if (validTypes.length !== serverMeta.item_count || errors.length > 0) {
+            this.metadata = {
+              ...this.metadata,
+              status: 'CATALOG_CORRUPTED',
+              is_degraded: true,
+              error: `Server payload count mismatch or errors (expected ${serverMeta.item_count}, valid ${validTypes.length}, errors ${errors.length})`,
+            };
+            this.notify();
+            return;
+          }
+
+          // Contract check: Checksum match
+          const computedChecksum = CatalogValidator.computeCanonicalChecksum(validTypes);
+          if (computedChecksum !== serverMeta.checksum) {
+            this.metadata = {
+              ...this.metadata,
+              status: 'CATALOG_CORRUPTED',
+              is_degraded: true,
+              error: `Server checksum mismatch: expected ${serverMeta.checksum}, computed ${computedChecksum}`,
+            };
+            this.notify();
+            return;
+          }
+
+          // Evaluate completeness
+          const completeness = CatalogValidator.validateCatalogCompleteness(validTypes, {
+            expectedCount: serverMeta.expected_count,
+            expectedChecksum: serverMeta.checksum,
+            currentChecksum: computedChecksum,
+            source: serverMeta.source,
+          });
+
+          // ATOMIC REPLACEMENT of types map
+          this.typeMap.clear();
+          for (const t of validTypes) {
+            this.typeMap.set(t.type_id, t);
+          }
+
+          this.metadata = {
+            version: serverMeta.version,
+            checksum: computedChecksum,
+            item_count: this.typeMap.size,
+            expected_count: serverMeta.expected_count,
+            status: completeness.status,
+            loaded_at: new Date().toISOString(),
+            source: serverMeta.source || 'server',
+            is_degraded: completeness.isDegraded,
+            error: completeness.reason,
+          };
+
+          // Persist atomically to IndexedDB
+          await IndexedDbStore.replaceCatalog(validTypes, this.metadata);
+          this.notify();
+        } else {
+          throw new Error(`HTTP ${res.status}`);
         }
       } catch (err) {
         console.warn('CatalogRepository: server sync offline or unavailable:', err);
         if (!this.isReady()) {
-          this.metadata.status = 'CATALOG_FALLBACK_CORE';
-          this.metadata.is_degraded = true;
-          this.metadata.error = 'Server sync offline; operating on verified fallback core';
-          this.notify();
+          if (this.typeMap.size > 1000) {
+            const types = Array.from(this.typeMap.values());
+            const checksum = CatalogValidator.computeCanonicalChecksum(types);
+            this.metadata = {
+              version: '2026.09.20.1',
+              checksum,
+              item_count: types.length,
+              expected_count: types.length,
+              status: 'CATALOG_READY',
+              loaded_at: new Date().toISOString(),
+              source: 'filesystem',
+              is_degraded: false,
+            };
+            this.notify();
+          } else {
+            this.metadata.status = 'CATALOG_FALLBACK_CORE';
+            this.metadata.is_degraded = true;
+            this.metadata.error = 'Server sync offline; operating on verified fallback core';
+            this.notify();
+          }
         }
       }
     })();
@@ -242,6 +301,18 @@ export class CatalogRepository {
       throw new Error(`Cannot register invalid custom type: ${res.error}`);
     }
     this.customTypeMap.set(type.type_id, type);
+    this.notify();
+  }
+
+  /**
+   * Explicitly sets catalog types and metadata (used for testing or explicit sync injection).
+   */
+  loadExplicitDataset(types: EveTypeDetail[], metadata: TypeCatalogMetadata): void {
+    this.typeMap.clear();
+    for (const t of types) {
+      this.typeMap.set(t.type_id, t);
+    }
+    this.metadata = { ...metadata };
     this.notify();
   }
 

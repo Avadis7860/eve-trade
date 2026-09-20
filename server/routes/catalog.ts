@@ -1,8 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { TypeCatalogService } from '../../src/services/typeCatalog';
 import { logEvent } from '../utils/logger';
+import { EveTypeDetail } from '../../src/types';
 
 export const catalogRouter = Router();
+
+// Dynamic ESI discovery registry - completely isolated from the immutable canonical catalog
+const dynamicTypesRegistry = new Map<number, EveTypeDetail>();
 
 const getMarketTypes = () => TypeCatalogService.getTypes();
 
@@ -11,7 +15,7 @@ catalogRouter.get('/lookup/:id', async (req: Request, res: Response) => {
   const { id } = req.params;
   const numId = Number(id);
 
-  // First check local in-memory DB of types
+  // First check local canonical catalog
   const local = getMarketTypes().find((t) => t.type_id === numId);
   if (local) {
     return res.json({
@@ -23,6 +27,12 @@ catalogRouter.get('/lookup/:id', async (req: Request, res: Response) => {
       average_price: local.average_price,
       adjusted_price: local.adjusted_price,
     });
+  }
+
+  // Check dynamic discovery registry
+  const dynamic = dynamicTypesRegistry.get(numId);
+  if (dynamic) {
+    return res.json(dynamic);
   }
 
   try {
@@ -48,7 +58,8 @@ catalogRouter.get('/status', (req: Request, res: Response) => {
   res.json(TypeCatalogService.getMetadata());
 });
 
-// 3. All tradeable market types endpoint with validation headers
+// 3. All tradeable market types endpoint with strict architectural contract
+// INVARIANT: Response always contains { metadata, types } with canonical checksum and count
 catalogRouter.get('/all', (req: Request, res: Response) => {
   const meta = TypeCatalogService.getMetadata();
   const types = TypeCatalogService.getTypes();
@@ -68,10 +79,13 @@ catalogRouter.get('/all', (req: Request, res: Response) => {
     return res.status(503).json({ error: 'CATALOG_UNAVAILABLE', metadata: meta, types: [] });
   }
 
-  if (req.query.include_metadata === 'true') {
-    return res.json({ metadata: meta, types });
+  // Canonical contract: { metadata, types }
+  // Allow format=flat only when explicitly requested for legacy scripting
+  if (req.query.format === 'flat') {
+    return res.json(types);
   }
-  res.json(types);
+
+  return res.json({ metadata: meta, types });
 });
 
 // 4. Fast search across market types with live ESI fallback
@@ -87,15 +101,25 @@ catalogRouter.get('/search', async (req: Request, res: Response) => {
   const isNumeric = /^\d+$/.test(query);
   if (isNumeric) {
     const numId = Number(query);
-    const exact = types.find((t) => t.type_id === numId);
+    const exact = types.find((t) => t.type_id === numId) || dynamicTypesRegistry.get(numId);
     if (exact) return res.json([exact]);
   }
 
-  const results: typeof types = [];
+  const results: EveTypeDetail[] = [];
   for (const t of types) {
     if (t.name.toLowerCase().includes(query) || String(t.type_id) === query) {
       results.push(t);
       if (results.length >= limit) break;
+    }
+  }
+
+  // Also search dynamic types
+  for (const d of dynamicTypesRegistry.values()) {
+    if (results.length >= limit) break;
+    if (d.name.toLowerCase().includes(query) || String(d.type_id) === query) {
+      if (!results.some((r) => r.type_id === d.type_id)) {
+        results.push(d);
+      }
     }
   }
 
@@ -125,7 +149,7 @@ catalogRouter.get('/search', async (req: Request, res: Response) => {
                 if (typeRes.ok) {
                   const tData = await typeRes.json();
                   if (tData.published) {
-                    const newType = {
+                    const newType: EveTypeDetail = {
                       type_id: tData.type_id,
                       name: tData.name,
                       group_id: tData.group_id,
@@ -135,7 +159,8 @@ catalogRouter.get('/search', async (req: Request, res: Response) => {
                       adjusted_price: 0,
                     };
                     results.push(newType);
-                    getMarketTypes().push(newType);
+                    // Register into dynamic registry without mutating canonical catalog SSOT
+                    dynamicTypesRegistry.set(newType.type_id, newType);
                   }
                 }
               } catch {}

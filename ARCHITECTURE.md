@@ -20,14 +20,17 @@ L'architecture est découpée en **cinq couches orthogonales** à responsabilit�
                                     │
                                     ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│                     2. COUCHE SERVICES & PERSISTANCE                   │
+│                     2. COUCHE DOMAINE, SERVICES & PERSISTANCE          │
+│   - CatalogRepository       : SSOT du catalogue, états stricts & cache │
+│   - CatalogValidator        : Validation de schéma, déduplication & intégrité
+│   - CatalogHashing          : Sérialisation canonique & SHA-256 déterministe
 │   - AuthService             : Session SSO, Refresh Token, Multi-Comptes│
 │   - MarketDataStore         : Store réactif d'ordres & historique      │
-│   - IndexedDbStore          : 8 Object Stores (Observations, Historique)│
+│   - IndexedDbStore (v3)     : 9 Object Stores atomiques (avec metadata)│
 │   - Scanner                 : Orchestrateur de découverte d'arbitrage  │
 │   - OrderAdvisorService     : Analyseur d'ordres & recommandations     │
 │   - TraderAnalyticsService  : Appariement FIFO & métriques de gain     │
-│   - TypeCatalogService      : Intégrité SHA-256 & 15 801+ types        │
+│   - TypeCatalogService      : Service backend de validation catalogue  │
 │   - GlobalMarketSync        : Synchronisation massive inter-hubs       │
 └──────────────────┬─────────────────────────────────┬───────────────────┘
                    │                                 │
@@ -37,7 +40,7 @@ L'architecture est découpée en **cinq couches orthogonales** à responsabilit�
 │       & PRÉDICTION STATISTIQUE       │ │           (server.ts)         │
 │  - FeeEngine (Taxes & Courtage)      │ │  - /api/health (Santé & Status)│
 │  - PriceLadderEngine (Profondeur)    │ │  - /api/types/status          │
-│  - TradableQuantityEngine (Goulots)  │ │  - /api/types/all (Catalogue) │
+│  - TradableQuantityEngine (Goulots)  │ │  - /api/types/all (Contrat {meta, types})
 │  - ProfitEngine (Décomposition)      │ │  - /api/types/search (Hybride)│
 │  - OpportunityScoringEngine (Scores) │ │  - /api/auth/url              │
 │  - MarketFeatureEngine (Momentum)    │ │  - /api/auth/token            │
@@ -57,61 +60,32 @@ L'architecture est découpée en **cinq couches orthogonales** à responsabilit�
 
 ---
 
-## 🔄 Flux de Données & Cycle de Vie d'une Opportunité
+## 📚 Vérité Architecturale sur le Catalogue EVE & Déterminisme
 
-Voici la séquence exacte suivie lors de la recherche, de l'évaluation et de la prévision d'une opportunité d'arbitrage :
+### 1. Vérité sur les Données Embarquées
+* Le jeu EVE Online compte plus de 15 801 types échangeables sur le marché.
+* Le référentiel statique embarqué dans le dépôt (`src/data/allMarketTypes.json`) contient une collection noyau vérifiée de **53 types de base** (minéraux majeurs, PLEX, injecteurs, coques de combat emblématiques).
+* **Invariant de Transparence :** Ce jeu de 53 types est explicitement typé `CATALOG_FALLBACK_CORE`. L'architecture **interdit formellement** de prétendre qu'un catalogue de secours est un catalogue universel complet (`CATALOG_READY`). Le frontend affiche un badge ambré transparent "Noyau (53)" et un bandeau de mode dégradé explicite.
 
-```
-1. Synchronisation des Ordres & Séries Historiques
-   [ESI API] ──> [EsiService / Server Proxy] ──> [IndexedDbStore + MarketDataStore]
-                                                      │
-                                                      ├──> Enregistrement MarketObservation (Append-Only)
-                                                      └──> Mise en cache DailyMarketHistory[]
+### 2. Hachage Déterministe Canonique (`CatalogHashing`)
+* L'empreinte cryptographique (`checksum`) ne dépend jamais du formatage du fichier, des retours à la ligne ou de l'ordre d'insertion.
+* Chaque enregistrement est normalisé selon une projection stricte (`type_id`, `name`, `group_id`, `category_id`, `volume`, `packaged_volume`, `portion_size`, `average_price`, `adjusted_price`).
+* Les enregistrements sont triés par `type_id` croissant de façon déterministe avant la sérialisation JSON canonique et le calcul SHA-256.
 
-2. Pipeline de Calcul Financier & Goulots d'Étranglement
-   [Scanner] 
-      │
-      ├──> [Universe Data] : Définition des Hubs (ex: Jita IV-4 -> Amarr VIII)
-      │
-      ├──> [InterRegionalFinancialEngine.filterAccessibleOrdersForHub]
-      │       * Élimine les ordres hors stations ou hors portée
-      │
-      ├──> [PriceLadderEngine.buildSellLadder & buildBuyLadder]
-      │       * Agrège les ordres par palier de prix
-      │
-      ├──> [TradableQuantityEngine.calculateMaxTradableQuantity]
-      │       * Résout : min(Capital, Cargo, Source Depth, Destination Depth)
-      │       * Identifie le goulot d'étranglement déterministe
-      │
-      ├──> [PriceLadderEngine.simulateFill]
-      │       * Simule l'achat et la vente réels avec slippage
-      │       * Calcule P_effective_buy et P_effective_sell
-      │
-      ├──> [ProfitEngine.calculateProfit]
-      │       * Applique Sales Tax, Broker Fees (NPC / Upwell) et Coûts de Fret
-      │       * Calcule le Profit Net, ROI et Marge
-      │
-      ├──> [OpportunityScoringEngine.scoreOpportunity]
-      │       * Évalue les 10 dimensions de performance selon le profil trader
-      │       * Applique la décote de rotation et liquidité (Capturable Profit)
-      │       * Contrôle les anomalies de prix unitaire (> 60% ROI ou hors médiane 30j)
-      │
-      ├──> [MarketFeatureEngine.extractFeatures]
-      │       * Calcule le momentum du spread (1h, 24h), l'accélération du volume,
-      │         la vélocité concurrentielle et la persistance
-      │
-      └──> [PredictionEngine.predictOpportunity]
-              * Calcule la probabilité de survie du spread P_survival (%)
-              * Calcule la probabilité de réalisation du profit P_realization (%)
-              * Établit l'espérance de profit réalisé et le niveau de risque (low, moderate, elevated, speculative)
-              * Découple le score d'opportunité (attractivité) de la confiance statistique
-```
+### 3. Validation de Contrat & Déduplication (`CatalogValidator`)
+* Tout élément possédant un `type_id` non entier ou $\le 0$, un nom vide, ou un volume négatif/NaN est rejeté immédiatement avec motif traçable.
+* En cas de doublon sur `type_id`, l'enregistrement le plus récent est conservé et une anomalie est consignée.
+* Un catalogue est classifié `CATALOG_CORRUPTED` si son empreinte calculée diverge de l'empreinte contractuelle déclarée ou si le nombre d'éléments diverge.
+
+### 4. Isolation de la Découverte Dynamique ESI
+* Lorsque des types hors-catalogue sont recherchés via `/api/types/search` et résolus via l'endpoint ESI `/universe/ids/`, ils sont enregistrés dans un registre séparé (`dynamicTypesRegistry`).
+* Le catalogue canonique immuable n'est **jamais muté en mémoire**.
 
 ---
 
-## 💾 Entrepôt de Données Persistant & Observations Immuables (`IndexedDbStore`)
+## 💾 Entrepôt de Données Persistant & Observations Immuables (`IndexedDbStore` v3)
 
-Pour pallier le caractère volatile du `localStorage` (limité à 5 Mo) et permettre l'apprentissage statistique sur séries temporelles, le stockage durable repose sur **IndexedDB v2** (`eve_trade_db`) avec fallback en mémoire :
+Pour pallier le caractère volatile du `localStorage` (limité à 5 Mo) et garantir la non-pollution des données de marché, le stockage durable repose sur **IndexedDB v3** (`eve_trade_db`) avec 9 object stores spécialisés :
 
 1. **`snapshots`** : Derniers snapshots d'ordres par paire `type_id:region_id`.
 2. **`history`** : Statistiques historiques calculées par paire `type_id:region_id`.
@@ -119,8 +93,15 @@ Pour pallier le caractère volatile du `localStorage` (limité à 5 Mo) et perme
 4. **`http_cache`** : Cache des réponses HTTP ESI avec ETags et en-têtes d'expiration.
 5. **`market_observations`** : Flux immuable *Append-Only* horodaté de captures de carnets (avec clé de déduplication `observation_hash`).
 6. **`opportunity_observations`** : Snapshots complets des opportunités au moment de leur détection ($T_0$) pour l'évaluation rétrospective à $T+1\text{h}$, $T+6\text{h}$, $T+24\text{h}$, $T+3\text{j}$, $T+7\text{j}$.
-7. **`market_history_daily`** : Séries chronologiques brutes ESI quotidiennes (date, volume, moyenne, haut, bas, nombre d'ordres).
-8. **`eve_types`** : Référentiel permanent des 15 801+ types d'objets résolus.
+7. **`market_history_daily`** : Séries chronologiques brutes ESI quotidiennes.
+8. **`eve_types`** : Référentiel des types résolus et validés.
+9. **`catalog_metadata`** : Métadonnées d'intégrité du catalogue (version, checksum SHA-256, count, source, date de persistance).
+
+### Invariant de Remplacement Atomique (`replaceCatalog`)
+Afin d'éviter l'accumulation silencieuse de types orphelins ou périmés issue d'anciennes versions, toute mise à jour du catalogue dans IndexedDB exécute une transaction atomique :
+* `typesStore.clear()` : Purge intégrale de la table existante.
+* Écriture unitaire de la collection validée.
+* Enregistrement synchrone des métadonnées cryptographiques dans `catalog_metadata`.
 
 ---
 
@@ -128,11 +109,6 @@ Pour pallier le caractère volatile du `localStorage` (limité à 5 Mo) et perme
 
 ### 1. Authentification OAuth 2.0 (EVE SSO v2)
 L'authentification utilise le protocole officiel **EVE Online Single Sign-On (SSO) v2** avec jetons JWT signés :
-* **Scopes demandés :**
-  * `esi-markets.read_character_orders.v1` (Lecture des ordres actifs)
-  * `esi-wallet.read_character_wallet.v1` (Solde du portefeuille et transactions)
-  * `esi-skills.read_skills.v1` (Niveaux de compétences *Accounting* & *Broker Relations*)
-  * `publicData`
 * **Protection des secrets :** L'échange `authorization_code` $\to$ `tokens` s'effectue exclusivement côté serveur dans `server.ts` via l'en-tête `Authorization: Basic base64(CLIENT_ID:CLIENT_SECRET)`.
 * **Protection CSRF & State Cryptographique :** Chaque session de connexion génère un `state` cryptographique aléatoire de 32 octets stocké en mémoire côté serveur avec TTL de 10 minutes (`activeOAuthStates`). La validation consomme le jeton immédiatement pour interdire toute réutilisation.
 * **Support Multi-Comptes & Persistance Hybride :** `AuthService` maintient la liste des personnages (`EveCharacterSession[]`) via `safeStorage` (supportant le navigateur et l'environnement Node.js/tests).
@@ -140,22 +116,14 @@ L'authentification utilise le protocole officiel **EVE Online Single Sign-On (SS
 
 ---
 
-## ⚡ Performance, Intégrité du Catalogue & "Fail-Loud"
+## ⚡ Performance, Observabilité & Fail-Loud
 
-1. **Service Centralisé de Catalogue (`TypeCatalogService`) :**
-   * Chargement déterministe avec validation structurelle de chaque type.
-   * Calcul d'empreinte cryptographique SHA-256 (`checksum`) sur les données brutes.
-   * Gestion d'états formelle : `CATALOG_LOADED`, `CATALOG_FALLBACK_CORE`, `CATALOG_CORRUPTED`, `CATALOG_UNAVAILABLE`.
-   * Fallback de secours vérifié (`EVE_TYPES_CATALOG`) pour garantir la disponibilité en cas de corruption ou d'absence du fichier.
-2. **Résolution Universelle des Types (15 801+ Articles) :**
-   * Recherche hybride locale / distante `/api/types/search` s'appuyant sur le catalogue embarqué et l'endpoint ESI `/universe/ids/`.
-   * Mise en cache transparente dans IndexedDB (`eve_types`).
-3. **Contrats "Fail-Loud" (Principe `NO DATA ≠ ZERO DATA`) :**
-   * Aucune transformation silencieuse d'erreur de requête ou de catalogue en tableau vide.
+1. **Contrats "Fail-Loud" (Principe `NO DATA ≠ ZERO DATA`) :**
+   * Aucune transformation silencieuse d'erreur réseau ou de catalogue en tableau vide ou zéros artificiels.
    * L'API backend et `EsiService` propagent des erreurs explicites avec statuts HTTP appropriés (503, 502, 400).
    * L'interface utilisateur affiche des indicateurs de santé du catalogue avec badge d'avertissement lorsque le mode de secours est activé.
-4. **Observabilité & Diagnostic :**
-   * Endpoint de santé `/api/health` fournissant l'état du serveur, la mémoire, le statut du catalogue et les sessions actives.
-   * Endpoint dédié `/api/types/status` pour la traçabilité de version et du checksum.
+2. **Observabilité & Diagnostic :**
+   * Endpoint `/api/health` fournissant l'état du serveur, la mémoire, le statut du catalogue et les sessions actives.
+   * Endpoint `/api/types/status` pour la traçabilité de version et du checksum.
+   * Endpoint `/api/types/all` exposant le contrat strict `{ metadata, types }`.
    * Journalisation structurée unifiée (`logEvent`) traçant les événements de cycle de vie et les erreurs.
-

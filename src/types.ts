@@ -49,6 +49,7 @@ export interface EveTypeDetail {
   group_name?: string;
   category_id: number;
   category_name?: string;
+  market_group_id?: number;
   name: string;
   volume: number; // in m³
   packaged_volume?: number;

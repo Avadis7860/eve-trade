@@ -1,0 +1,5084 @@
+{
+  "12": {
+    "group_id": 12,
+    "category_id": 2,
+    "name": "Cargo Container",
+    "published": true
+  },
+  "18": {
+    "group_id": 18,
+    "category_id": 4,
+    "name": "Mineral",
+    "published": true
+  },
+  "25": {
+    "group_id": 25,
+    "category_id": 6,
+    "name": "Frigate",
+    "published": true
+  },
+  "26": {
+    "group_id": 26,
+    "category_id": 6,
+    "name": "Cruiser",
+    "published": true
+  },
+  "27": {
+    "group_id": 27,
+    "category_id": 6,
+    "name": "Battleship",
+    "published": true
+  },
+  "28": {
+    "group_id": 28,
+    "category_id": 6,
+    "name": "Hauler",
+    "published": true
+  },
+  "30": {
+    "group_id": 30,
+    "category_id": 6,
+    "name": "Titan",
+    "published": true
+  },
+  "31": {
+    "group_id": 31,
+    "category_id": 6,
+    "name": "Shuttle",
+    "published": true
+  },
+  "38": {
+    "group_id": 38,
+    "category_id": 7,
+    "name": "Shield Extender",
+    "published": true
+  },
+  "39": {
+    "group_id": 39,
+    "category_id": 7,
+    "name": "Shield Recharger",
+    "published": true
+  },
+  "40": {
+    "group_id": 40,
+    "category_id": 7,
+    "name": "Shield Booster",
+    "published": true
+  },
+  "41": {
+    "group_id": 41,
+    "category_id": 7,
+    "name": "Remote Shield Booster",
+    "published": true
+  },
+  "43": {
+    "group_id": 43,
+    "category_id": 7,
+    "name": "Capacitor Recharger",
+    "published": true
+  },
+  "46": {
+    "group_id": 46,
+    "category_id": 7,
+    "name": "Propulsion Module",
+    "published": true
+  },
+  "47": {
+    "group_id": 47,
+    "category_id": 7,
+    "name": "Cargo Scanner",
+    "published": true
+  },
+  "48": {
+    "group_id": 48,
+    "category_id": 7,
+    "name": "Ship Scanner",
+    "published": true
+  },
+  "49": {
+    "group_id": 49,
+    "category_id": 7,
+    "name": "Mining Survey Chipset",
+    "published": true
+  },
+  "52": {
+    "group_id": 52,
+    "category_id": 7,
+    "name": "Warp Scrambler",
+    "published": true
+  },
+  "53": {
+    "group_id": 53,
+    "category_id": 7,
+    "name": "Energy Weapon",
+    "published": true
+  },
+  "54": {
+    "group_id": 54,
+    "category_id": 7,
+    "name": "Mining Laser",
+    "published": true
+  },
+  "55": {
+    "group_id": 55,
+    "category_id": 7,
+    "name": "Projectile Weapon",
+    "published": true
+  },
+  "57": {
+    "group_id": 57,
+    "category_id": 7,
+    "name": "Shield Power Relay",
+    "published": true
+  },
+  "59": {
+    "group_id": 59,
+    "category_id": 7,
+    "name": "Gyrostabilizer",
+    "published": true
+  },
+  "60": {
+    "group_id": 60,
+    "category_id": 7,
+    "name": "Damage Control",
+    "published": true
+  },
+  "61": {
+    "group_id": 61,
+    "category_id": 7,
+    "name": "Capacitor Battery",
+    "published": true
+  },
+  "62": {
+    "group_id": 62,
+    "category_id": 7,
+    "name": "Armor Repair Unit",
+    "published": true
+  },
+  "63": {
+    "group_id": 63,
+    "category_id": 7,
+    "name": "Hull Repair Unit",
+    "published": true
+  },
+  "65": {
+    "group_id": 65,
+    "category_id": 7,
+    "name": "Stasis Web",
+    "published": true
+  },
+  "67": {
+    "group_id": 67,
+    "category_id": 7,
+    "name": "Remote Capacitor Transmitter",
+    "published": true
+  },
+  "68": {
+    "group_id": 68,
+    "category_id": 7,
+    "name": "Energy Nosferatu",
+    "published": true
+  },
+  "71": {
+    "group_id": 71,
+    "category_id": 7,
+    "name": "Energy Neutralizer",
+    "published": true
+  },
+  "72": {
+    "group_id": 72,
+    "category_id": 7,
+    "name": "Smart Bomb",
+    "published": true
+  },
+  "74": {
+    "group_id": 74,
+    "category_id": 7,
+    "name": "Hybrid Weapon",
+    "published": true
+  },
+  "76": {
+    "group_id": 76,
+    "category_id": 7,
+    "name": "Capacitor Booster",
+    "published": true
+  },
+  "77": {
+    "group_id": 77,
+    "category_id": 7,
+    "name": "Shield Hardener",
+    "published": true
+  },
+  "78": {
+    "group_id": 78,
+    "category_id": 7,
+    "name": "Reinforced Bulkhead",
+    "published": true
+  },
+  "80": {
+    "group_id": 80,
+    "category_id": 7,
+    "name": "Burst Jammer",
+    "published": true
+  },
+  "82": {
+    "group_id": 82,
+    "category_id": 7,
+    "name": "Passive Targeting System",
+    "published": true
+  },
+  "83": {
+    "group_id": 83,
+    "category_id": 8,
+    "name": "Projectile Ammo",
+    "published": true
+  },
+  "85": {
+    "group_id": 85,
+    "category_id": 8,
+    "name": "Hybrid Charge",
+    "published": true
+  },
+  "86": {
+    "group_id": 86,
+    "category_id": 8,
+    "name": "Frequency Crystal",
+    "published": true
+  },
+  "87": {
+    "group_id": 87,
+    "category_id": 8,
+    "name": "Capacitor Booster Charge",
+    "published": true
+  },
+  "88": {
+    "group_id": 88,
+    "category_id": 8,
+    "name": "Defender Missiles",
+    "published": true
+  },
+  "89": {
+    "group_id": 89,
+    "category_id": 8,
+    "name": "Torpedo",
+    "published": true
+  },
+  "90": {
+    "group_id": 90,
+    "category_id": 8,
+    "name": "Bomb",
+    "published": true
+  },
+  "96": {
+    "group_id": 96,
+    "category_id": 7,
+    "name": "Automated Targeting System",
+    "published": true
+  },
+  "98": {
+    "group_id": 98,
+    "category_id": 7,
+    "name": "Armor Coating",
+    "published": true
+  },
+  "100": {
+    "group_id": 100,
+    "category_id": 18,
+    "name": "Combat Drone",
+    "published": true
+  },
+  "101": {
+    "group_id": 101,
+    "category_id": 18,
+    "name": "Mining Drone",
+    "published": true
+  },
+  "105": {
+    "group_id": 105,
+    "category_id": 9,
+    "name": "Frigate Blueprint",
+    "published": true
+  },
+  "106": {
+    "group_id": 106,
+    "category_id": 9,
+    "name": "Cruiser Blueprint",
+    "published": true
+  },
+  "107": {
+    "group_id": 107,
+    "category_id": 9,
+    "name": "Battleship Blueprint",
+    "published": true
+  },
+  "108": {
+    "group_id": 108,
+    "category_id": 9,
+    "name": "Hauler Blueprint",
+    "published": true
+  },
+  "110": {
+    "group_id": 110,
+    "category_id": 9,
+    "name": "Titan Blueprint",
+    "published": true
+  },
+  "111": {
+    "group_id": 111,
+    "category_id": 9,
+    "name": "Shuttle Blueprint",
+    "published": true
+  },
+  "118": {
+    "group_id": 118,
+    "category_id": 9,
+    "name": "Shield Extender Blueprint",
+    "published": true
+  },
+  "119": {
+    "group_id": 119,
+    "category_id": 9,
+    "name": "Shield Recharger Blueprint",
+    "published": true
+  },
+  "120": {
+    "group_id": 120,
+    "category_id": 9,
+    "name": "Shield Booster Blueprint",
+    "published": true
+  },
+  "121": {
+    "group_id": 121,
+    "category_id": 9,
+    "name": "Remote Shield Booster Blueprint",
+    "published": true
+  },
+  "123": {
+    "group_id": 123,
+    "category_id": 9,
+    "name": "Capacitor Recharger Blueprint",
+    "published": true
+  },
+  "126": {
+    "group_id": 126,
+    "category_id": 9,
+    "name": "Propulsion Module Blueprint",
+    "published": true
+  },
+  "127": {
+    "group_id": 127,
+    "category_id": 9,
+    "name": "Cargo Scanner Blueprint",
+    "published": true
+  },
+  "128": {
+    "group_id": 128,
+    "category_id": 9,
+    "name": "Ship Scanner Blueprint",
+    "published": true
+  },
+  "129": {
+    "group_id": 129,
+    "category_id": 9,
+    "name": "Mining Survey Chipset Blueprint",
+    "published": true
+  },
+  "130": {
+    "group_id": 130,
+    "category_id": 9,
+    "name": "ECM Blueprint",
+    "published": true
+  },
+  "132": {
+    "group_id": 132,
+    "category_id": 9,
+    "name": "Warp Scrambler Blueprint",
+    "published": true
+  },
+  "133": {
+    "group_id": 133,
+    "category_id": 9,
+    "name": "Energy Weapon Blueprint",
+    "published": true
+  },
+  "134": {
+    "group_id": 134,
+    "category_id": 9,
+    "name": "Mining Laser Blueprint",
+    "published": true
+  },
+  "135": {
+    "group_id": 135,
+    "category_id": 9,
+    "name": "Projectile Weapon Blueprint",
+    "published": true
+  },
+  "136": {
+    "group_id": 136,
+    "category_id": 9,
+    "name": "Missile Launcher Blueprint",
+    "published": true
+  },
+  "137": {
+    "group_id": 137,
+    "category_id": 9,
+    "name": "Power Manager Blueprint",
+    "published": true
+  },
+  "139": {
+    "group_id": 139,
+    "category_id": 9,
+    "name": "Gunnery Upgrade Blueprint",
+    "published": true
+  },
+  "140": {
+    "group_id": 140,
+    "category_id": 9,
+    "name": "Damage Control Blueprint",
+    "published": true
+  },
+  "141": {
+    "group_id": 141,
+    "category_id": 9,
+    "name": "Capacitor Battery Blueprint",
+    "published": true
+  },
+  "142": {
+    "group_id": 142,
+    "category_id": 9,
+    "name": "Armor Repair Unit Blueprint",
+    "published": true
+  },
+  "143": {
+    "group_id": 143,
+    "category_id": 9,
+    "name": "Hull Repair Unit Blueprint",
+    "published": true
+  },
+  "145": {
+    "group_id": 145,
+    "category_id": 9,
+    "name": "Stasis Web Blueprint",
+    "published": true
+  },
+  "147": {
+    "group_id": 147,
+    "category_id": 9,
+    "name": "Remote Capacitor Transmitter Blueprint",
+    "published": true
+  },
+  "148": {
+    "group_id": 148,
+    "category_id": 9,
+    "name": "Energy Nosferatu Blueprint",
+    "published": true
+  },
+  "151": {
+    "group_id": 151,
+    "category_id": 9,
+    "name": "Energy Neutralizer Blueprint",
+    "published": true
+  },
+  "152": {
+    "group_id": 152,
+    "category_id": 9,
+    "name": "Smart Bomb Blueprint",
+    "published": true
+  },
+  "154": {
+    "group_id": 154,
+    "category_id": 9,
+    "name": "Hybrid Weapon Blueprint",
+    "published": true
+  },
+  "156": {
+    "group_id": 156,
+    "category_id": 9,
+    "name": "Capacitor Booster Blueprint",
+    "published": true
+  },
+  "157": {
+    "group_id": 157,
+    "category_id": 9,
+    "name": "Shield Hardener Blueprint",
+    "published": true
+  },
+  "158": {
+    "group_id": 158,
+    "category_id": 9,
+    "name": "Hull Mods Blueprint",
+    "published": true
+  },
+  "160": {
+    "group_id": 160,
+    "category_id": 9,
+    "name": "Burst Jammer Blueprint",
+    "published": true
+  },
+  "161": {
+    "group_id": 161,
+    "category_id": 9,
+    "name": "Passive Targeting System Blueprint",
+    "published": true
+  },
+  "162": {
+    "group_id": 162,
+    "category_id": 9,
+    "name": "Automated Targeting System Blueprint",
+    "published": true
+  },
+  "163": {
+    "group_id": 163,
+    "category_id": 9,
+    "name": "Armor Coating Blueprint",
+    "published": true
+  },
+  "165": {
+    "group_id": 165,
+    "category_id": 9,
+    "name": "Projectile Ammo Blueprint",
+    "published": true
+  },
+  "166": {
+    "group_id": 166,
+    "category_id": 9,
+    "name": "Missile Blueprint",
+    "published": true
+  },
+  "167": {
+    "group_id": 167,
+    "category_id": 9,
+    "name": "Hybrid Charge Blueprint",
+    "published": true
+  },
+  "168": {
+    "group_id": 168,
+    "category_id": 9,
+    "name": "Frequency Crystal Blueprint",
+    "published": true
+  },
+  "169": {
+    "group_id": 169,
+    "category_id": 9,
+    "name": "Capacitor Booster Charge Blueprint",
+    "published": true
+  },
+  "170": {
+    "group_id": 170,
+    "category_id": 9,
+    "name": "Defender Missile Blueprint",
+    "published": true
+  },
+  "172": {
+    "group_id": 172,
+    "category_id": 9,
+    "name": "Bomb Blueprint",
+    "published": true
+  },
+  "176": {
+    "group_id": 176,
+    "category_id": 9,
+    "name": "Combat Drone Blueprint",
+    "published": true
+  },
+  "177": {
+    "group_id": 177,
+    "category_id": 9,
+    "name": "Mining Drone Blueprint",
+    "published": true
+  },
+  "201": {
+    "group_id": 201,
+    "category_id": 7,
+    "name": "ECM",
+    "published": true
+  },
+  "202": {
+    "group_id": 202,
+    "category_id": 7,
+    "name": "ECCM",
+    "published": true
+  },
+  "203": {
+    "group_id": 203,
+    "category_id": 7,
+    "name": "Sensor Backup Array",
+    "published": true
+  },
+  "205": {
+    "group_id": 205,
+    "category_id": 7,
+    "name": "Heat Sink",
+    "published": true
+  },
+  "208": {
+    "group_id": 208,
+    "category_id": 7,
+    "name": "Sensor Dampener",
+    "published": true
+  },
+  "209": {
+    "group_id": 209,
+    "category_id": 7,
+    "name": "Remote Tracking Computer",
+    "published": true
+  },
+  "210": {
+    "group_id": 210,
+    "category_id": 7,
+    "name": "Signal Amplifier",
+    "published": true
+  },
+  "211": {
+    "group_id": 211,
+    "category_id": 7,
+    "name": "Tracking Enhancer",
+    "published": true
+  },
+  "212": {
+    "group_id": 212,
+    "category_id": 7,
+    "name": "Sensor Booster",
+    "published": true
+  },
+  "213": {
+    "group_id": 213,
+    "category_id": 7,
+    "name": "Tracking Computer",
+    "published": true
+  },
+  "218": {
+    "group_id": 218,
+    "category_id": 9,
+    "name": "Heat Sink Blueprint",
+    "published": true
+  },
+  "223": {
+    "group_id": 223,
+    "category_id": 9,
+    "name": "Sensor Booster Blueprint",
+    "published": true
+  },
+  "224": {
+    "group_id": 224,
+    "category_id": 9,
+    "name": "Tracking Computer Blueprint",
+    "published": true
+  },
+  "237": {
+    "group_id": 237,
+    "category_id": 6,
+    "name": "Corvette",
+    "published": true
+  },
+  "255": {
+    "group_id": 255,
+    "category_id": 16,
+    "name": "Gunnery",
+    "published": true
+  },
+  "256": {
+    "group_id": 256,
+    "category_id": 16,
+    "name": "Missiles",
+    "published": true
+  },
+  "257": {
+    "group_id": 257,
+    "category_id": 16,
+    "name": "Spaceship Command",
+    "published": true
+  },
+  "258": {
+    "group_id": 258,
+    "category_id": 16,
+    "name": "Fleet Support",
+    "published": true
+  },
+  "266": {
+    "group_id": 266,
+    "category_id": 16,
+    "name": "Corporation Management",
+    "published": true
+  },
+  "268": {
+    "group_id": 268,
+    "category_id": 16,
+    "name": "Production",
+    "published": true
+  },
+  "269": {
+    "group_id": 269,
+    "category_id": 16,
+    "name": "Rigging",
+    "published": true
+  },
+  "270": {
+    "group_id": 270,
+    "category_id": 16,
+    "name": "Science",
+    "published": true
+  },
+  "272": {
+    "group_id": 272,
+    "category_id": 16,
+    "name": "Electronic Systems",
+    "published": true
+  },
+  "273": {
+    "group_id": 273,
+    "category_id": 16,
+    "name": "Drones",
+    "published": true
+  },
+  "274": {
+    "group_id": 274,
+    "category_id": 16,
+    "name": "Trade",
+    "published": true
+  },
+  "275": {
+    "group_id": 275,
+    "category_id": 16,
+    "name": "Navigation",
+    "published": true
+  },
+  "278": {
+    "group_id": 278,
+    "category_id": 16,
+    "name": "Social",
+    "published": true
+  },
+  "280": {
+    "group_id": 280,
+    "category_id": 17,
+    "name": "General",
+    "published": true
+  },
+  "281": {
+    "group_id": 281,
+    "category_id": 17,
+    "name": "Frozen",
+    "published": true
+  },
+  "282": {
+    "group_id": 282,
+    "category_id": 17,
+    "name": "Radioactive",
+    "published": true
+  },
+  "283": {
+    "group_id": 283,
+    "category_id": 17,
+    "name": "Livestock",
+    "published": true
+  },
+  "284": {
+    "group_id": 284,
+    "category_id": 17,
+    "name": "Biohazard",
+    "published": true
+  },
+  "285": {
+    "group_id": 285,
+    "category_id": 7,
+    "name": "CPU Enhancer",
+    "published": true
+  },
+  "289": {
+    "group_id": 289,
+    "category_id": 7,
+    "name": "Projected ECCM",
+    "published": true
+  },
+  "290": {
+    "group_id": 290,
+    "category_id": 7,
+    "name": "Remote Sensor Booster",
+    "published": true
+  },
+  "291": {
+    "group_id": 291,
+    "category_id": 7,
+    "name": "Weapon Disruptor",
+    "published": true
+  },
+  "295": {
+    "group_id": 295,
+    "category_id": 7,
+    "name": "Shield Resistance Amplifier",
+    "published": true
+  },
+  "296": {
+    "group_id": 296,
+    "category_id": 9,
+    "name": "Shield Resistance Amplifier Blueprint",
+    "published": true
+  },
+  "300": {
+    "group_id": 300,
+    "category_id": 20,
+    "name": "Cyberimplant",
+    "published": true
+  },
+  "302": {
+    "group_id": 302,
+    "category_id": 7,
+    "name": "Magnetic Field Stabilizer",
+    "published": true
+  },
+  "303": {
+    "group_id": 303,
+    "category_id": 20,
+    "name": "Booster",
+    "published": true
+  },
+  "307": {
+    "group_id": 307,
+    "category_id": 2,
+    "name": "Construction Platform",
+    "published": true
+  },
+  "311": {
+    "group_id": 311,
+    "category_id": 23,
+    "name": "Reprocessing Array",
+    "published": true
+  },
+  "313": {
+    "group_id": 313,
+    "category_id": 17,
+    "name": "Drugs",
+    "published": true
+  },
+  "314": {
+    "group_id": 314,
+    "category_id": 17,
+    "name": "Miscellaneous",
+    "published": true
+  },
+  "315": {
+    "group_id": 315,
+    "category_id": 7,
+    "name": "Warp Core Stabilizer",
+    "published": true
+  },
+  "316": {
+    "group_id": 316,
+    "category_id": 7,
+    "name": "Gang Coordinator",
+    "published": false
+  },
+  "324": {
+    "group_id": 324,
+    "category_id": 6,
+    "name": "Assault Frigate",
+    "published": true
+  },
+  "325": {
+    "group_id": 325,
+    "category_id": 7,
+    "name": "Remote Armor Repairer",
+    "published": true
+  },
+  "326": {
+    "group_id": 326,
+    "category_id": 7,
+    "name": "Energized Armor Membrane",
+    "published": true
+  },
+  "328": {
+    "group_id": 328,
+    "category_id": 7,
+    "name": "Armor Hardener",
+    "published": true
+  },
+  "329": {
+    "group_id": 329,
+    "category_id": 7,
+    "name": "Armor Plate",
+    "published": true
+  },
+  "330": {
+    "group_id": 330,
+    "category_id": 7,
+    "name": "Cloaking Device",
+    "published": true
+  },
+  "332": {
+    "group_id": 332,
+    "category_id": 17,
+    "name": "Tool",
+    "published": true
+  },
+  "333": {
+    "group_id": 333,
+    "category_id": 17,
+    "name": "Datacores",
+    "published": true
+  },
+  "334": {
+    "group_id": 334,
+    "category_id": 17,
+    "name": "Construction Components",
+    "published": true
+  },
+  "338": {
+    "group_id": 338,
+    "category_id": 7,
+    "name": "Shield Boost Amplifier",
+    "published": true
+  },
+  "339": {
+    "group_id": 339,
+    "category_id": 7,
+    "name": "Auxiliary Power Core",
+    "published": true
+  },
+  "340": {
+    "group_id": 340,
+    "category_id": 2,
+    "name": "Secure Cargo Container",
+    "published": true
+  },
+  "342": {
+    "group_id": 342,
+    "category_id": 9,
+    "name": "Anti Warp Scrambler Blueprint",
+    "published": true
+  },
+  "343": {
+    "group_id": 343,
+    "category_id": 9,
+    "name": "Weapon Disruptor Blueprint",
+    "published": true
+  },
+  "344": {
+    "group_id": 344,
+    "category_id": 9,
+    "name": "Tracking Enhancer Blueprint",
+    "published": true
+  },
+  "345": {
+    "group_id": 345,
+    "category_id": 9,
+    "name": "Remote Tracking Computer Blueprint",
+    "published": true
+  },
+  "346": {
+    "group_id": 346,
+    "category_id": 9,
+    "name": "Co-Processor Blueprint",
+    "published": true
+  },
+  "347": {
+    "group_id": 347,
+    "category_id": 9,
+    "name": "Signal Amplifier Blueprint",
+    "published": true
+  },
+  "348": {
+    "group_id": 348,
+    "category_id": 9,
+    "name": "Armor Hardener Blueprint",
+    "published": true
+  },
+  "349": {
+    "group_id": 349,
+    "category_id": 9,
+    "name": "Armor Plate Blueprint",
+    "published": true
+  },
+  "350": {
+    "group_id": 350,
+    "category_id": 9,
+    "name": "Remote Armor Repairer Blueprint",
+    "published": true
+  },
+  "352": {
+    "group_id": 352,
+    "category_id": 9,
+    "name": "Auxiliary Power Core Blueprint",
+    "published": true
+  },
+  "355": {
+    "group_id": 355,
+    "category_id": 17,
+    "name": "Refinables",
+    "published": true
+  },
+  "356": {
+    "group_id": 356,
+    "category_id": 9,
+    "name": "Tool Blueprint",
+    "published": true
+  },
+  "358": {
+    "group_id": 358,
+    "category_id": 6,
+    "name": "Heavy Assault Cruiser",
+    "published": true
+  },
+  "360": {
+    "group_id": 360,
+    "category_id": 9,
+    "name": "Shield Boost Amplifier Blueprint",
+    "published": true
+  },
+  "361": {
+    "group_id": 361,
+    "category_id": 22,
+    "name": "Mobile Warp Disruptor",
+    "published": true
+  },
+  "363": {
+    "group_id": 363,
+    "category_id": 23,
+    "name": "Ship Maintenance Array",
+    "published": true
+  },
+  "365": {
+    "group_id": 365,
+    "category_id": 23,
+    "name": "Control Tower",
+    "published": true
+  },
+  "367": {
+    "group_id": 367,
+    "category_id": 7,
+    "name": "Ballistic Control System",
+    "published": true
+  },
+  "370": {
+    "group_id": 370,
+    "category_id": 17,
+    "name": "Criminal Tags",
+    "published": true
+  },
+  "371": {
+    "group_id": 371,
+    "category_id": 9,
+    "name": "Mobile Warp Disruptor Blueprint",
+    "published": true
+  },
+  "372": {
+    "group_id": 372,
+    "category_id": 8,
+    "name": "Advanced Autocannon Ammo",
+    "published": true
+  },
+  "373": {
+    "group_id": 373,
+    "category_id": 8,
+    "name": "Advanced Railgun Charge",
+    "published": true
+  },
+  "374": {
+    "group_id": 374,
+    "category_id": 8,
+    "name": "Advanced Beam Laser Crystal",
+    "published": true
+  },
+  "375": {
+    "group_id": 375,
+    "category_id": 8,
+    "name": "Advanced Pulse Laser Crystal",
+    "published": true
+  },
+  "376": {
+    "group_id": 376,
+    "category_id": 8,
+    "name": "Advanced Artillery Ammo",
+    "published": true
+  },
+  "377": {
+    "group_id": 377,
+    "category_id": 8,
+    "name": "Advanced Blaster Charge",
+    "published": true
+  },
+  "379": {
+    "group_id": 379,
+    "category_id": 7,
+    "name": "Target Painter",
+    "published": true
+  },
+  "380": {
+    "group_id": 380,
+    "category_id": 6,
+    "name": "Deep Space Transport",
+    "published": true
+  },
+  "384": {
+    "group_id": 384,
+    "category_id": 8,
+    "name": "Light Missile",
+    "published": true
+  },
+  "385": {
+    "group_id": 385,
+    "category_id": 8,
+    "name": "Heavy Missile",
+    "published": true
+  },
+  "386": {
+    "group_id": 386,
+    "category_id": 8,
+    "name": "Cruise Missile",
+    "published": true
+  },
+  "387": {
+    "group_id": 387,
+    "category_id": 8,
+    "name": "Rocket",
+    "published": true
+  },
+  "394": {
+    "group_id": 394,
+    "category_id": 8,
+    "name": "Auto-Targeting Light Missile",
+    "published": true
+  },
+  "395": {
+    "group_id": 395,
+    "category_id": 8,
+    "name": "Auto-Targeting Heavy Missile",
+    "published": true
+  },
+  "396": {
+    "group_id": 396,
+    "category_id": 8,
+    "name": "Auto-Targeting Cruise Missile",
+    "published": true
+  },
+  "397": {
+    "group_id": 397,
+    "category_id": 23,
+    "name": "Assembly Array",
+    "published": true
+  },
+  "400": {
+    "group_id": 400,
+    "category_id": 9,
+    "name": "Ballistic Control System Blueprint",
+    "published": true
+  },
+  "401": {
+    "group_id": 401,
+    "category_id": 9,
+    "name": "Cloaking Device Blueprint",
+    "published": true
+  },
+  "404": {
+    "group_id": 404,
+    "category_id": 23,
+    "name": "Silo",
+    "published": true
+  },
+  "407": {
+    "group_id": 407,
+    "category_id": 7,
+    "name": "Fighter Support Unit",
+    "published": true
+  },
+  "408": {
+    "group_id": 408,
+    "category_id": 9,
+    "name": "Drone Upgrade Blueprint",
+    "published": true
+  },
+  "409": {
+    "group_id": 409,
+    "category_id": 17,
+    "name": "Empire Insignia Drops",
+    "published": true
+  },
+  "413": {
+    "group_id": 413,
+    "category_id": 23,
+    "name": "Laboratory",
+    "published": true
+  },
+  "416": {
+    "group_id": 416,
+    "category_id": 23,
+    "name": "Moon Mining",
+    "published": true
+  },
+  "417": {
+    "group_id": 417,
+    "category_id": 23,
+    "name": "Mobile Missile Sentry",
+    "published": true
+  },
+  "419": {
+    "group_id": 419,
+    "category_id": 6,
+    "name": "Combat Battlecruiser",
+    "published": true
+  },
+  "420": {
+    "group_id": 420,
+    "category_id": 6,
+    "name": "Destroyer",
+    "published": true
+  },
+  "423": {
+    "group_id": 423,
+    "category_id": 4,
+    "name": "Ice Product",
+    "published": true
+  },
+  "426": {
+    "group_id": 426,
+    "category_id": 23,
+    "name": "Mobile Projectile Sentry",
+    "published": true
+  },
+  "427": {
+    "group_id": 427,
+    "category_id": 4,
+    "name": "Moon Materials",
+    "published": true
+  },
+  "428": {
+    "group_id": 428,
+    "category_id": 4,
+    "name": "Intermediate Materials",
+    "published": true
+  },
+  "429": {
+    "group_id": 429,
+    "category_id": 4,
+    "name": "Composite",
+    "published": true
+  },
+  "430": {
+    "group_id": 430,
+    "category_id": 23,
+    "name": "Mobile Laser Sentry",
+    "published": true
+  },
+  "436": {
+    "group_id": 436,
+    "category_id": 24,
+    "name": "Simple Reaction",
+    "published": true
+  },
+  "438": {
+    "group_id": 438,
+    "category_id": 23,
+    "name": "Mobile Reactor",
+    "published": true
+  },
+  "439": {
+    "group_id": 439,
+    "category_id": 23,
+    "name": "Electronic Warfare Battery",
+    "published": true
+  },
+  "440": {
+    "group_id": 440,
+    "category_id": 23,
+    "name": "Sensor Dampening Battery",
+    "published": true
+  },
+  "441": {
+    "group_id": 441,
+    "category_id": 23,
+    "name": "Stasis Webification Battery",
+    "published": true
+  },
+  "443": {
+    "group_id": 443,
+    "category_id": 23,
+    "name": "Warp Scrambling Battery",
+    "published": true
+  },
+  "444": {
+    "group_id": 444,
+    "category_id": 23,
+    "name": "Shield Hardening Array",
+    "published": true
+  },
+  "447": {
+    "group_id": 447,
+    "category_id": 9,
+    "name": "Construction Component Blueprints",
+    "published": true
+  },
+  "448": {
+    "group_id": 448,
+    "category_id": 2,
+    "name": "Audit Log Secure Container",
+    "published": true
+  },
+  "449": {
+    "group_id": 449,
+    "category_id": 23,
+    "name": "Mobile Hybrid Sentry",
+    "published": true
+  },
+  "450": {
+    "group_id": 450,
+    "category_id": 25,
+    "name": "Arkonor",
+    "published": true
+  },
+  "451": {
+    "group_id": 451,
+    "category_id": 25,
+    "name": "Bistot",
+    "published": true
+  },
+  "452": {
+    "group_id": 452,
+    "category_id": 25,
+    "name": "Crokite",
+    "published": true
+  },
+  "453": {
+    "group_id": 453,
+    "category_id": 25,
+    "name": "Dark Ochre",
+    "published": true
+  },
+  "454": {
+    "group_id": 454,
+    "category_id": 25,
+    "name": "Hedbergite",
+    "published": true
+  },
+  "455": {
+    "group_id": 455,
+    "category_id": 25,
+    "name": "Hemorphite",
+    "published": true
+  },
+  "456": {
+    "group_id": 456,
+    "category_id": 25,
+    "name": "Jaspet",
+    "published": true
+  },
+  "457": {
+    "group_id": 457,
+    "category_id": 25,
+    "name": "Kernite",
+    "published": true
+  },
+  "458": {
+    "group_id": 458,
+    "category_id": 25,
+    "name": "Plagioclase",
+    "published": true
+  },
+  "459": {
+    "group_id": 459,
+    "category_id": 25,
+    "name": "Pyroxeres",
+    "published": true
+  },
+  "460": {
+    "group_id": 460,
+    "category_id": 25,
+    "name": "Scordite",
+    "published": true
+  },
+  "461": {
+    "group_id": 461,
+    "category_id": 25,
+    "name": "Spodumain",
+    "published": true
+  },
+  "462": {
+    "group_id": 462,
+    "category_id": 25,
+    "name": "Veldspar",
+    "published": true
+  },
+  "463": {
+    "group_id": 463,
+    "category_id": 6,
+    "name": "Mining Barge",
+    "published": true
+  },
+  "464": {
+    "group_id": 464,
+    "category_id": 7,
+    "name": "Strip Miner",
+    "published": true
+  },
+  "465": {
+    "group_id": 465,
+    "category_id": 25,
+    "name": "Ice",
+    "published": true
+  },
+  "467": {
+    "group_id": 467,
+    "category_id": 25,
+    "name": "Gneiss",
+    "published": true
+  },
+  "468": {
+    "group_id": 468,
+    "category_id": 25,
+    "name": "Mercoxit",
+    "published": true
+  },
+  "469": {
+    "group_id": 469,
+    "category_id": 25,
+    "name": "Omber",
+    "published": true
+  },
+  "471": {
+    "group_id": 471,
+    "category_id": 23,
+    "name": "Corporate Hangar Array",
+    "published": true
+  },
+  "474": {
+    "group_id": 474,
+    "category_id": 17,
+    "name": "Acceleration Gate Keys",
+    "published": true
+  },
+  "476": {
+    "group_id": 476,
+    "category_id": 8,
+    "name": "XL Torpedo",
+    "published": true
+  },
+  "477": {
+    "group_id": 477,
+    "category_id": 9,
+    "name": "Mining Barge Blueprint",
+    "published": true
+  },
+  "479": {
+    "group_id": 479,
+    "category_id": 8,
+    "name": "Scanner Probe",
+    "published": true
+  },
+  "481": {
+    "group_id": 481,
+    "category_id": 7,
+    "name": "Scan Probe Launcher",
+    "published": true
+  },
+  "482": {
+    "group_id": 482,
+    "category_id": 8,
+    "name": "Mining Crystal",
+    "published": true
+  },
+  "483": {
+    "group_id": 483,
+    "category_id": 7,
+    "name": "Frequency Mining Laser",
+    "published": true
+  },
+  "484": {
+    "group_id": 484,
+    "category_id": 24,
+    "name": "Complex Reactions",
+    "published": true
+  },
+  "485": {
+    "group_id": 485,
+    "category_id": 6,
+    "name": "Dreadnought",
+    "published": true
+  },
+  "486": {
+    "group_id": 486,
+    "category_id": 9,
+    "name": "Scan Probe Blueprint",
+    "published": true
+  },
+  "487": {
+    "group_id": 487,
+    "category_id": 9,
+    "name": "Destroyer Blueprint",
+    "published": true
+  },
+  "489": {
+    "group_id": 489,
+    "category_id": 9,
+    "name": "Battlecruiser Blueprint",
+    "published": true
+  },
+  "490": {
+    "group_id": 490,
+    "category_id": 9,
+    "name": "Strip Miner Blueprint",
+    "published": true
+  },
+  "492": {
+    "group_id": 492,
+    "category_id": 8,
+    "name": "Survey Probe",
+    "published": true
+  },
+  "493": {
+    "group_id": 493,
+    "category_id": 17,
+    "name": "Overseer Personal Effects",
+    "published": true
+  },
+  "500": {
+    "group_id": 500,
+    "category_id": 8,
+    "name": "Festival Charges",
+    "published": true
+  },
+  "501": {
+    "group_id": 501,
+    "category_id": 7,
+    "name": "Festival Launcher",
+    "published": true
+  },
+  "503": {
+    "group_id": 503,
+    "category_id": 9,
+    "name": "Elite Hauler Blueprint",
+    "published": true
+  },
+  "504": {
+    "group_id": 504,
+    "category_id": 9,
+    "name": "Target Painter Blueprint",
+    "published": true
+  },
+  "506": {
+    "group_id": 506,
+    "category_id": 7,
+    "name": "Missile Launcher Cruise",
+    "published": true
+  },
+  "507": {
+    "group_id": 507,
+    "category_id": 7,
+    "name": "Missile Launcher Rocket",
+    "published": true
+  },
+  "508": {
+    "group_id": 508,
+    "category_id": 7,
+    "name": "Missile Launcher Torpedo",
+    "published": true
+  },
+  "509": {
+    "group_id": 509,
+    "category_id": 7,
+    "name": "Missile Launcher Light",
+    "published": true
+  },
+  "510": {
+    "group_id": 510,
+    "category_id": 7,
+    "name": "Missile Launcher Heavy",
+    "published": true
+  },
+  "511": {
+    "group_id": 511,
+    "category_id": 7,
+    "name": "Missile Launcher Rapid Light",
+    "published": true
+  },
+  "512": {
+    "group_id": 512,
+    "category_id": 7,
+    "name": "Missile Launcher Defender",
+    "published": true
+  },
+  "513": {
+    "group_id": 513,
+    "category_id": 6,
+    "name": "Freighter",
+    "published": true
+  },
+  "514": {
+    "group_id": 514,
+    "category_id": 7,
+    "name": "ECM Stabilizer",
+    "published": true
+  },
+  "515": {
+    "group_id": 515,
+    "category_id": 7,
+    "name": "Siege Module",
+    "published": true
+  },
+  "516": {
+    "group_id": 516,
+    "category_id": 9,
+    "name": "Siege Module Blueprint",
+    "published": true
+  },
+  "524": {
+    "group_id": 524,
+    "category_id": 7,
+    "name": "Missile Launcher XL Torpedo",
+    "published": true
+  },
+  "525": {
+    "group_id": 525,
+    "category_id": 9,
+    "name": "Freighter Blueprint",
+    "published": true
+  },
+  "526": {
+    "group_id": 526,
+    "category_id": 17,
+    "name": "Commodities",
+    "published": true
+  },
+  "528": {
+    "group_id": 528,
+    "category_id": 17,
+    "name": "Artifacts and Prototypes",
+    "published": true
+  },
+  "530": {
+    "group_id": 530,
+    "category_id": 17,
+    "name": "Materials and Compounds",
+    "published": true
+  },
+  "532": {
+    "group_id": 532,
+    "category_id": 9,
+    "name": "Gang Coordinator Blueprint",
+    "published": true
+  },
+  "536": {
+    "group_id": 536,
+    "category_id": 17,
+    "name": "Structure Components",
+    "published": true
+  },
+  "537": {
+    "group_id": 537,
+    "category_id": 9,
+    "name": "Dreadnought Blueprint",
+    "published": true
+  },
+  "538": {
+    "group_id": 538,
+    "category_id": 7,
+    "name": "Data Miners",
+    "published": true
+  },
+  "540": {
+    "group_id": 540,
+    "category_id": 6,
+    "name": "Command Ship",
+    "published": true
+  },
+  "541": {
+    "group_id": 541,
+    "category_id": 6,
+    "name": "Interdictor",
+    "published": true
+  },
+  "543": {
+    "group_id": 543,
+    "category_id": 6,
+    "name": "Exhumer",
+    "published": true
+  },
+  "544": {
+    "group_id": 544,
+    "category_id": 18,
+    "name": "Energy Neutralizer Drone",
+    "published": true
+  },
+  "546": {
+    "group_id": 546,
+    "category_id": 7,
+    "name": "Mining Upgrade",
+    "published": true
+  },
+  "547": {
+    "group_id": 547,
+    "category_id": 6,
+    "name": "Carrier",
+    "published": true
+  },
+  "548": {
+    "group_id": 548,
+    "category_id": 8,
+    "name": "Interdiction Probe",
+    "published": true
+  },
+  "585": {
+    "group_id": 585,
+    "category_id": 7,
+    "name": "Remote Hull Repairer",
+    "published": true
+  },
+  "588": {
+    "group_id": 588,
+    "category_id": 7,
+    "name": "Super Weapon",
+    "published": true
+  },
+  "589": {
+    "group_id": 589,
+    "category_id": 7,
+    "name": "Interdiction Sphere Launcher",
+    "published": true
+  },
+  "590": {
+    "group_id": 590,
+    "category_id": 7,
+    "name": "Jump Portal Generator",
+    "published": true
+  },
+  "639": {
+    "group_id": 639,
+    "category_id": 18,
+    "name": "Electronic Warfare Drone",
+    "published": true
+  },
+  "640": {
+    "group_id": 640,
+    "category_id": 18,
+    "name": "Logistic Drone",
+    "published": true
+  },
+  "641": {
+    "group_id": 641,
+    "category_id": 18,
+    "name": "Stasis Webifying Drone",
+    "published": true
+  },
+  "643": {
+    "group_id": 643,
+    "category_id": 9,
+    "name": "Carrier Blueprint",
+    "published": true
+  },
+  "644": {
+    "group_id": 644,
+    "category_id": 7,
+    "name": "Drone Navigation Computer",
+    "published": true
+  },
+  "645": {
+    "group_id": 645,
+    "category_id": 7,
+    "name": "Drone Damage Modules",
+    "published": true
+  },
+  "646": {
+    "group_id": 646,
+    "category_id": 7,
+    "name": "Drone Tracking Modules",
+    "published": true
+  },
+  "647": {
+    "group_id": 647,
+    "category_id": 7,
+    "name": "Drone Control Range Module",
+    "published": true
+  },
+  "648": {
+    "group_id": 648,
+    "category_id": 8,
+    "name": "Advanced Rocket",
+    "published": true
+  },
+  "649": {
+    "group_id": 649,
+    "category_id": 2,
+    "name": "Freight Container",
+    "published": true
+  },
+  "650": {
+    "group_id": 650,
+    "category_id": 7,
+    "name": "Tractor Beam",
+    "published": true
+  },
+  "651": {
+    "group_id": 651,
+    "category_id": 9,
+    "name": "Super Weapon Blueprint",
+    "published": true
+  },
+  "652": {
+    "group_id": 652,
+    "category_id": 17,
+    "name": "Lease",
+    "published": true
+  },
+  "653": {
+    "group_id": 653,
+    "category_id": 8,
+    "name": "Advanced Light Missile",
+    "published": true
+  },
+  "654": {
+    "group_id": 654,
+    "category_id": 8,
+    "name": "Advanced Heavy Assault Missile",
+    "published": true
+  },
+  "655": {
+    "group_id": 655,
+    "category_id": 8,
+    "name": "Advanced Heavy Missile",
+    "published": true
+  },
+  "656": {
+    "group_id": 656,
+    "category_id": 8,
+    "name": "Advanced Cruise Missile",
+    "published": true
+  },
+  "657": {
+    "group_id": 657,
+    "category_id": 8,
+    "name": "Advanced Torpedo",
+    "published": true
+  },
+  "658": {
+    "group_id": 658,
+    "category_id": 7,
+    "name": "Cynosural Field Generator",
+    "published": true
+  },
+  "659": {
+    "group_id": 659,
+    "category_id": 6,
+    "name": "Supercarrier",
+    "published": true
+  },
+  "661": {
+    "group_id": 661,
+    "category_id": 24,
+    "name": "Simple Biochemical Reactions",
+    "published": true
+  },
+  "662": {
+    "group_id": 662,
+    "category_id": 24,
+    "name": "Complex Biochemical Reactions",
+    "published": true
+  },
+  "663": {
+    "group_id": 663,
+    "category_id": 8,
+    "name": "Mercoxit Mining Crystal",
+    "published": true
+  },
+  "707": {
+    "group_id": 707,
+    "category_id": 23,
+    "name": "Jump Portal Array",
+    "published": true
+  },
+  "709": {
+    "group_id": 709,
+    "category_id": 23,
+    "name": "Scanner Array",
+    "published": true
+  },
+  "711": {
+    "group_id": 711,
+    "category_id": 2,
+    "name": "Harvestable Cloud",
+    "published": true
+  },
+  "712": {
+    "group_id": 712,
+    "category_id": 4,
+    "name": "Biochemical Material",
+    "published": true
+  },
+  "716": {
+    "group_id": 716,
+    "category_id": 17,
+    "name": "Data Interfaces",
+    "published": true
+  },
+  "723": {
+    "group_id": 723,
+    "category_id": 9,
+    "name": "Tractor Beam Blueprint",
+    "published": true
+  },
+  "727": {
+    "group_id": 727,
+    "category_id": 9,
+    "name": "Mining Crystal Blueprint",
+    "published": true
+  },
+  "728": {
+    "group_id": 728,
+    "category_id": 35,
+    "name": "Decryptors - Amarr",
+    "published": true
+  },
+  "729": {
+    "group_id": 729,
+    "category_id": 35,
+    "name": "Decryptors - Minmatar",
+    "published": true
+  },
+  "730": {
+    "group_id": 730,
+    "category_id": 35,
+    "name": "Decryptors - Gallente",
+    "published": true
+  },
+  "731": {
+    "group_id": 731,
+    "category_id": 35,
+    "name": "Decryptors - Caldari",
+    "published": true
+  },
+  "732": {
+    "group_id": 732,
+    "category_id": 17,
+    "name": "Decryptors - Sleepers",
+    "published": true
+  },
+  "733": {
+    "group_id": 733,
+    "category_id": 17,
+    "name": "Decryptors - Yan Jung",
+    "published": true
+  },
+  "734": {
+    "group_id": 734,
+    "category_id": 17,
+    "name": "Decryptors - Takmahl",
+    "published": true
+  },
+  "735": {
+    "group_id": 735,
+    "category_id": 17,
+    "name": "Decryptors - Talocan",
+    "published": true
+  },
+  "737": {
+    "group_id": 737,
+    "category_id": 7,
+    "name": "Gas Cloud Scoops",
+    "published": true
+  },
+  "738": {
+    "group_id": 738,
+    "category_id": 20,
+    "name": "Cyber Armor",
+    "published": true
+  },
+  "739": {
+    "group_id": 739,
+    "category_id": 20,
+    "name": "Cyber Drones",
+    "published": true
+  },
+  "740": {
+    "group_id": 740,
+    "category_id": 20,
+    "name": "Cyber Electronic Systems",
+    "published": true
+  },
+  "741": {
+    "group_id": 741,
+    "category_id": 20,
+    "name": "Cyber Engineering",
+    "published": true
+  },
+  "742": {
+    "group_id": 742,
+    "category_id": 20,
+    "name": "Cyber Gunnery",
+    "published": true
+  },
+  "743": {
+    "group_id": 743,
+    "category_id": 20,
+    "name": "Cyber Production",
+    "published": true
+  },
+  "744": {
+    "group_id": 744,
+    "category_id": 20,
+    "name": "Cyber Leadership",
+    "published": true
+  },
+  "745": {
+    "group_id": 745,
+    "category_id": 20,
+    "name": "Cyber Learning",
+    "published": true
+  },
+  "746": {
+    "group_id": 746,
+    "category_id": 20,
+    "name": "Cyber Missile",
+    "published": true
+  },
+  "747": {
+    "group_id": 747,
+    "category_id": 20,
+    "name": "Cyber Navigation",
+    "published": true
+  },
+  "748": {
+    "group_id": 748,
+    "category_id": 20,
+    "name": "Cyber Science",
+    "published": true
+  },
+  "749": {
+    "group_id": 749,
+    "category_id": 20,
+    "name": "Cyber Shields",
+    "published": true
+  },
+  "754": {
+    "group_id": 754,
+    "category_id": 4,
+    "name": "Salvaged Materials",
+    "published": true
+  },
+  "762": {
+    "group_id": 762,
+    "category_id": 7,
+    "name": "Inertial Stabilizer",
+    "published": true
+  },
+  "763": {
+    "group_id": 763,
+    "category_id": 7,
+    "name": "Nanofiber Internal Structure",
+    "published": true
+  },
+  "764": {
+    "group_id": 764,
+    "category_id": 7,
+    "name": "Overdrive Injector System",
+    "published": true
+  },
+  "765": {
+    "group_id": 765,
+    "category_id": 7,
+    "name": "Expanded Cargohold",
+    "published": true
+  },
+  "766": {
+    "group_id": 766,
+    "category_id": 7,
+    "name": "Power Diagnostic System",
+    "published": true
+  },
+  "767": {
+    "group_id": 767,
+    "category_id": 7,
+    "name": "Capacitor Power Relay",
+    "published": true
+  },
+  "768": {
+    "group_id": 768,
+    "category_id": 7,
+    "name": "Capacitor Flux Coil",
+    "published": true
+  },
+  "769": {
+    "group_id": 769,
+    "category_id": 7,
+    "name": "Reactor Control Unit",
+    "published": true
+  },
+  "770": {
+    "group_id": 770,
+    "category_id": 7,
+    "name": "Shield Flux Coil",
+    "published": true
+  },
+  "771": {
+    "group_id": 771,
+    "category_id": 7,
+    "name": "Missile Launcher Heavy Assault",
+    "published": true
+  },
+  "772": {
+    "group_id": 772,
+    "category_id": 8,
+    "name": "Heavy Assault Missile",
+    "published": true
+  },
+  "773": {
+    "group_id": 773,
+    "category_id": 7,
+    "name": "Rig Armor",
+    "published": true
+  },
+  "774": {
+    "group_id": 774,
+    "category_id": 7,
+    "name": "Rig Shield",
+    "published": true
+  },
+  "775": {
+    "group_id": 775,
+    "category_id": 7,
+    "name": "Rig Energy Weapon",
+    "published": true
+  },
+  "776": {
+    "group_id": 776,
+    "category_id": 7,
+    "name": "Rig Hybrid Weapon",
+    "published": true
+  },
+  "777": {
+    "group_id": 777,
+    "category_id": 7,
+    "name": "Rig Projectile Weapon",
+    "published": true
+  },
+  "778": {
+    "group_id": 778,
+    "category_id": 7,
+    "name": "Rig Drones",
+    "published": true
+  },
+  "779": {
+    "group_id": 779,
+    "category_id": 7,
+    "name": "Rig Launcher",
+    "published": true
+  },
+  "781": {
+    "group_id": 781,
+    "category_id": 7,
+    "name": "Rig Core",
+    "published": true
+  },
+  "782": {
+    "group_id": 782,
+    "category_id": 7,
+    "name": "Rig Navigation",
+    "published": true
+  },
+  "783": {
+    "group_id": 783,
+    "category_id": 20,
+    "name": "Cyber X Specials",
+    "published": true
+  },
+  "786": {
+    "group_id": 786,
+    "category_id": 7,
+    "name": "Rig Electronic Systems",
+    "published": true
+  },
+  "787": {
+    "group_id": 787,
+    "category_id": 9,
+    "name": "Rig Blueprint",
+    "published": true
+  },
+  "815": {
+    "group_id": 815,
+    "category_id": 7,
+    "name": "Clone Vat Bay",
+    "published": true
+  },
+  "830": {
+    "group_id": 830,
+    "category_id": 6,
+    "name": "Covert Ops",
+    "published": true
+  },
+  "831": {
+    "group_id": 831,
+    "category_id": 6,
+    "name": "Interceptor",
+    "published": true
+  },
+  "832": {
+    "group_id": 832,
+    "category_id": 6,
+    "name": "Logistics",
+    "published": true
+  },
+  "833": {
+    "group_id": 833,
+    "category_id": 6,
+    "name": "Force Recon Ship",
+    "published": true
+  },
+  "834": {
+    "group_id": 834,
+    "category_id": 6,
+    "name": "Stealth Bomber",
+    "published": true
+  },
+  "837": {
+    "group_id": 837,
+    "category_id": 23,
+    "name": "Energy Neutralizing Battery",
+    "published": true
+  },
+  "838": {
+    "group_id": 838,
+    "category_id": 23,
+    "name": "Cynosural Generator Array",
+    "published": true
+  },
+  "839": {
+    "group_id": 839,
+    "category_id": 23,
+    "name": "Cynosural System Jammer",
+    "published": true
+  },
+  "841": {
+    "group_id": 841,
+    "category_id": 9,
+    "name": "Starbase - Control Tower Blueprints",
+    "published": true
+  },
+  "842": {
+    "group_id": 842,
+    "category_id": 7,
+    "name": "Burst Projectors",
+    "published": true
+  },
+  "853": {
+    "group_id": 853,
+    "category_id": 9,
+    "name": "Starbase - Laser Battery Blueprints",
+    "published": true
+  },
+  "854": {
+    "group_id": 854,
+    "category_id": 9,
+    "name": "Starbase - Projectile Battery Blueprints",
+    "published": true
+  },
+  "855": {
+    "group_id": 855,
+    "category_id": 9,
+    "name": "Starbase - Hybrid Battery Blueprints",
+    "published": true
+  },
+  "856": {
+    "group_id": 856,
+    "category_id": 9,
+    "name": "Starbase - ECM Jamming Array Blueprints",
+    "published": true
+  },
+  "857": {
+    "group_id": 857,
+    "category_id": 9,
+    "name": "Starbase - Warp Scrambling Battery Blueprints",
+    "published": true
+  },
+  "858": {
+    "group_id": 858,
+    "category_id": 9,
+    "name": "Starbase - Stasis Webification Battery Blueprints",
+    "published": true
+  },
+  "860": {
+    "group_id": 860,
+    "category_id": 9,
+    "name": "Starbase - Energy Neutralizing Battery Blueprints",
+    "published": true
+  },
+  "862": {
+    "group_id": 862,
+    "category_id": 7,
+    "name": "Missile Launcher Bomb",
+    "published": true
+  },
+  "863": {
+    "group_id": 863,
+    "category_id": 8,
+    "name": "Bomb ECM",
+    "published": true
+  },
+  "864": {
+    "group_id": 864,
+    "category_id": 8,
+    "name": "Bomb Energy",
+    "published": true
+  },
+  "870": {
+    "group_id": 870,
+    "category_id": 9,
+    "name": "Remote Hull Repairer Blueprint",
+    "published": true
+  },
+  "871": {
+    "group_id": 871,
+    "category_id": 9,
+    "name": "Starbase - Missile Battery Blueprints",
+    "published": true
+  },
+  "873": {
+    "group_id": 873,
+    "category_id": 17,
+    "name": "Capital Construction Components",
+    "published": true
+  },
+  "879": {
+    "group_id": 879,
+    "category_id": 17,
+    "name": "Slave Reception",
+    "published": true
+  },
+  "880": {
+    "group_id": 880,
+    "category_id": 17,
+    "name": "Sleeper Components",
+    "published": true
+  },
+  "883": {
+    "group_id": 883,
+    "category_id": 6,
+    "name": "Capital Industrial Ship",
+    "published": true
+  },
+  "886": {
+    "group_id": 886,
+    "category_id": 4,
+    "name": "Rogue Drone Components",
+    "published": true
+  },
+  "893": {
+    "group_id": 893,
+    "category_id": 6,
+    "name": "Electronic Attack Ship",
+    "published": true
+  },
+  "894": {
+    "group_id": 894,
+    "category_id": 6,
+    "name": "Heavy Interdiction Cruiser",
+    "published": true
+  },
+  "898": {
+    "group_id": 898,
+    "category_id": 6,
+    "name": "Black Ops",
+    "published": true
+  },
+  "899": {
+    "group_id": 899,
+    "category_id": 7,
+    "name": "Warp Disrupt Field Generator",
+    "published": true
+  },
+  "900": {
+    "group_id": 900,
+    "category_id": 6,
+    "name": "Marauder",
+    "published": true
+  },
+  "902": {
+    "group_id": 902,
+    "category_id": 6,
+    "name": "Jump Freighter",
+    "published": true
+  },
+  "906": {
+    "group_id": 906,
+    "category_id": 6,
+    "name": "Combat Recon Ship",
+    "published": true
+  },
+  "907": {
+    "group_id": 907,
+    "category_id": 8,
+    "name": "Tracking Script",
+    "published": true
+  },
+  "908": {
+    "group_id": 908,
+    "category_id": 8,
+    "name": "Warp Disruption Script",
+    "published": true
+  },
+  "909": {
+    "group_id": 909,
+    "category_id": 8,
+    "name": "Tracking Disruption Script",
+    "published": true
+  },
+  "910": {
+    "group_id": 910,
+    "category_id": 8,
+    "name": "Sensor Booster Script",
+    "published": true
+  },
+  "911": {
+    "group_id": 911,
+    "category_id": 8,
+    "name": "Sensor Dampener Script",
+    "published": true
+  },
+  "912": {
+    "group_id": 912,
+    "category_id": 9,
+    "name": "Script Blueprint",
+    "published": true
+  },
+  "913": {
+    "group_id": 913,
+    "category_id": 17,
+    "name": "Advanced Capital Construction Components",
+    "published": true
+  },
+  "914": {
+    "group_id": 914,
+    "category_id": 9,
+    "name": "Advanced Capital Construction Component Blueprints",
+    "published": true
+  },
+  "915": {
+    "group_id": 915,
+    "category_id": 9,
+    "name": "Capital Construction Blueprints",
+    "published": true
+  },
+  "916": {
+    "group_id": 916,
+    "category_id": 8,
+    "name": "Nanite Repair Paste",
+    "published": true
+  },
+  "917": {
+    "group_id": 917,
+    "category_id": 9,
+    "name": "Data Miner Blueprint",
+    "published": true
+  },
+  "918": {
+    "group_id": 918,
+    "category_id": 9,
+    "name": "Scan Probe Launcher Blueprint",
+    "published": true
+  },
+  "941": {
+    "group_id": 941,
+    "category_id": 6,
+    "name": "Industrial Command Ship",
+    "published": true
+  },
+  "943": {
+    "group_id": 943,
+    "category_id": 5,
+    "name": "Legacy Currency",
+    "published": true
+  },
+  "944": {
+    "group_id": 944,
+    "category_id": 9,
+    "name": "Capital Industrial Ship Blueprint",
+    "published": true
+  },
+  "945": {
+    "group_id": 945,
+    "category_id": 9,
+    "name": "Industrial Command Ship Blueprint",
+    "published": true
+  },
+  "954": {
+    "group_id": 954,
+    "category_id": 32,
+    "name": "Defensive Subsystem",
+    "published": true
+  },
+  "955": {
+    "group_id": 955,
+    "category_id": 17,
+    "name": "Depricated Subsystems",
+    "published": false
+  },
+  "956": {
+    "group_id": 956,
+    "category_id": 32,
+    "name": "Offensive Subsystem",
+    "published": true
+  },
+  "957": {
+    "group_id": 957,
+    "category_id": 32,
+    "name": "Propulsion Subsystem",
+    "published": true
+  },
+  "958": {
+    "group_id": 958,
+    "category_id": 32,
+    "name": "Core Subsystem",
+    "published": true
+  },
+  "963": {
+    "group_id": 963,
+    "category_id": 6,
+    "name": "Strategic Cruiser",
+    "published": true
+  },
+  "964": {
+    "group_id": 964,
+    "category_id": 17,
+    "name": "Hybrid Tech Components",
+    "published": true
+  },
+  "965": {
+    "group_id": 965,
+    "category_id": 9,
+    "name": "Hybrid Component Blueprints",
+    "published": true
+  },
+  "966": {
+    "group_id": 966,
+    "category_id": 4,
+    "name": "Ancient Salvage",
+    "published": true
+  },
+  "971": {
+    "group_id": 971,
+    "category_id": 34,
+    "name": "Sleeper Propulsion Relics",
+    "published": true
+  },
+  "974": {
+    "group_id": 974,
+    "category_id": 4,
+    "name": "Hybrid Polymers",
+    "published": true
+  },
+  "976": {
+    "group_id": 976,
+    "category_id": 63,
+    "name": "Festival Charges Expired",
+    "published": true
+  },
+  "977": {
+    "group_id": 977,
+    "category_id": 24,
+    "name": "Hybrid Reactions",
+    "published": true
+  },
+  "979": {
+    "group_id": 979,
+    "category_id": 35,
+    "name": "Decryptors - Hybrid",
+    "published": true
+  },
+  "990": {
+    "group_id": 990,
+    "category_id": 34,
+    "name": "Sleeper Electronics Relics",
+    "published": true
+  },
+  "991": {
+    "group_id": 991,
+    "category_id": 34,
+    "name": "Sleeper Offensive Relics",
+    "published": true
+  },
+  "992": {
+    "group_id": 992,
+    "category_id": 34,
+    "name": "Sleeper Engineering Relics",
+    "published": true
+  },
+  "993": {
+    "group_id": 993,
+    "category_id": 34,
+    "name": "Sleeper Defensive Relics",
+    "published": true
+  },
+  "997": {
+    "group_id": 997,
+    "category_id": 34,
+    "name": "Sleeper Hull Relics",
+    "published": true
+  },
+  "1003": {
+    "group_id": 1003,
+    "category_id": 40,
+    "name": "Territorial Claim Unit",
+    "published": true
+  },
+  "1005": {
+    "group_id": 1005,
+    "category_id": 40,
+    "name": "Sovereignty Blockade Unit",
+    "published": false
+  },
+  "1012": {
+    "group_id": 1012,
+    "category_id": 40,
+    "name": "Sovereignty Hub",
+    "published": true
+  },
+  "1013": {
+    "group_id": 1013,
+    "category_id": 9,
+    "name": "Supercarrier Blueprints",
+    "published": true
+  },
+  "1016": {
+    "group_id": 1016,
+    "category_id": 39,
+    "name": "Infrastructure Hub Strategic Upgrades",
+    "published": true
+  },
+  "1019": {
+    "group_id": 1019,
+    "category_id": 8,
+    "name": "XL Cruise Missile",
+    "published": true
+  },
+  "1020": {
+    "group_id": 1020,
+    "category_id": 39,
+    "name": "Infrastructure Hub Industrial Upgrades",
+    "published": true
+  },
+  "1021": {
+    "group_id": 1021,
+    "category_id": 39,
+    "name": "Infrastructure Hub Military Upgrades",
+    "published": true
+  },
+  "1022": {
+    "group_id": 1022,
+    "category_id": 6,
+    "name": "Prototype Exploration Ship",
+    "published": true
+  },
+  "1025": {
+    "group_id": 1025,
+    "category_id": 46,
+    "name": "Orbital Infrastructure",
+    "published": false
+  },
+  "1027": {
+    "group_id": 1027,
+    "category_id": 41,
+    "name": "Command Centers",
+    "published": true
+  },
+  "1032": {
+    "group_id": 1032,
+    "category_id": 42,
+    "name": "Planet Solid - Raw Resource",
+    "published": true
+  },
+  "1033": {
+    "group_id": 1033,
+    "category_id": 42,
+    "name": "Planet Liquid-Gas - Raw Resource",
+    "published": true
+  },
+  "1034": {
+    "group_id": 1034,
+    "category_id": 43,
+    "name": "Refined Commodities - Tier 2",
+    "published": true
+  },
+  "1035": {
+    "group_id": 1035,
+    "category_id": 42,
+    "name": "Planet Organic - Raw Resource",
+    "published": true
+  },
+  "1040": {
+    "group_id": 1040,
+    "category_id": 43,
+    "name": "Specialized Commodities - Tier 3",
+    "published": true
+  },
+  "1041": {
+    "group_id": 1041,
+    "category_id": 43,
+    "name": "Advanced Commodities - Tier 4",
+    "published": true
+  },
+  "1042": {
+    "group_id": 1042,
+    "category_id": 43,
+    "name": "Basic Commodities - Tier 1",
+    "published": true
+  },
+  "1045": {
+    "group_id": 1045,
+    "category_id": 9,
+    "name": "Sovereignty Structure Blueprint",
+    "published": true
+  },
+  "1048": {
+    "group_id": 1048,
+    "category_id": 9,
+    "name": "Starbase Blueprint",
+    "published": true
+  },
+  "1083": {
+    "group_id": 1083,
+    "category_id": 30,
+    "name": "Eyewear",
+    "published": true
+  },
+  "1084": {
+    "group_id": 1084,
+    "category_id": 30,
+    "name": "Tattoos",
+    "published": true
+  },
+  "1088": {
+    "group_id": 1088,
+    "category_id": 30,
+    "name": "Outer",
+    "published": true
+  },
+  "1089": {
+    "group_id": 1089,
+    "category_id": 30,
+    "name": "Tops",
+    "published": true
+  },
+  "1090": {
+    "group_id": 1090,
+    "category_id": 30,
+    "name": "Bottoms",
+    "published": true
+  },
+  "1091": {
+    "group_id": 1091,
+    "category_id": 30,
+    "name": "Footwear",
+    "published": true
+  },
+  "1092": {
+    "group_id": 1092,
+    "category_id": 30,
+    "name": "Headwear",
+    "published": true
+  },
+  "1106": {
+    "group_id": 1106,
+    "category_id": 46,
+    "name": "Orbital Construction Platform",
+    "published": true
+  },
+  "1122": {
+    "group_id": 1122,
+    "category_id": 7,
+    "name": "Salvager",
+    "published": true
+  },
+  "1123": {
+    "group_id": 1123,
+    "category_id": 9,
+    "name": "Salvager Blueprint",
+    "published": true
+  },
+  "1136": {
+    "group_id": 1136,
+    "category_id": 4,
+    "name": "Fuel Block",
+    "published": true
+  },
+  "1137": {
+    "group_id": 1137,
+    "category_id": 9,
+    "name": "Fuel Block Blueprint",
+    "published": true
+  },
+  "1139": {
+    "group_id": 1139,
+    "category_id": 9,
+    "name": "Mining Laser Upgrade Blueprint",
+    "published": true
+  },
+  "1142": {
+    "group_id": 1142,
+    "category_id": 9,
+    "name": "Energy Neutralizer Drone Blueprint",
+    "published": true
+  },
+  "1143": {
+    "group_id": 1143,
+    "category_id": 9,
+    "name": "Electronic Warfare Drone Blueprint",
+    "published": true
+  },
+  "1144": {
+    "group_id": 1144,
+    "category_id": 9,
+    "name": "Logistic Drone Blueprint",
+    "published": true
+  },
+  "1145": {
+    "group_id": 1145,
+    "category_id": 9,
+    "name": "Heavy Fighter Blueprint",
+    "published": true
+  },
+  "1146": {
+    "group_id": 1146,
+    "category_id": 9,
+    "name": "Light Fighter Blueprint",
+    "published": true
+  },
+  "1147": {
+    "group_id": 1147,
+    "category_id": 9,
+    "name": "Stasis Webifying Drone Blueprint",
+    "published": true
+  },
+  "1149": {
+    "group_id": 1149,
+    "category_id": 22,
+    "name": "Mobile Jump Disruptor",
+    "published": false
+  },
+  "1150": {
+    "group_id": 1150,
+    "category_id": 7,
+    "name": "Armor Resistance Shift Hardener",
+    "published": true
+  },
+  "1151": {
+    "group_id": 1151,
+    "category_id": 9,
+    "name": "Armor Resistance Shift Hardener Blueprint",
+    "published": true
+  },
+  "1152": {
+    "group_id": 1152,
+    "category_id": 9,
+    "name": "Drone Damage Module Blueprint",
+    "published": true
+  },
+  "1154": {
+    "group_id": 1154,
+    "category_id": 7,
+    "name": "Signature Suppressor",
+    "published": true
+  },
+  "1156": {
+    "group_id": 1156,
+    "category_id": 7,
+    "name": "Ancillary Shield Booster",
+    "published": true
+  },
+  "1158": {
+    "group_id": 1158,
+    "category_id": 8,
+    "name": "Heavy Defender Missile",
+    "published": false
+  },
+  "1159": {
+    "group_id": 1159,
+    "category_id": 18,
+    "name": "Salvage Drone",
+    "published": true
+  },
+  "1160": {
+    "group_id": 1160,
+    "category_id": 9,
+    "name": "Survey Probe Blueprints",
+    "published": true
+  },
+  "1162": {
+    "group_id": 1162,
+    "category_id": 9,
+    "name": "Container Blueprints",
+    "published": true
+  },
+  "1189": {
+    "group_id": 1189,
+    "category_id": 7,
+    "name": "Micro Jump Drive",
+    "published": true
+  },
+  "1190": {
+    "group_id": 1190,
+    "category_id": 9,
+    "name": "Salvage Drone Blueprint",
+    "published": true
+  },
+  "1194": {
+    "group_id": 1194,
+    "category_id": 63,
+    "name": "Special Edition Commodities",
+    "published": true
+  },
+  "1195": {
+    "group_id": 1195,
+    "category_id": 63,
+    "name": "Tournament Cards: New Eden Open YC 114",
+    "published": true
+  },
+  "1197": {
+    "group_id": 1197,
+    "category_id": 9,
+    "name": "Special Edition Commodity Blueprints",
+    "published": true
+  },
+  "1199": {
+    "group_id": 1199,
+    "category_id": 7,
+    "name": "Ancillary Armor Repairer",
+    "published": true
+  },
+  "1201": {
+    "group_id": 1201,
+    "category_id": 6,
+    "name": "Attack Battlecruiser",
+    "published": true
+  },
+  "1202": {
+    "group_id": 1202,
+    "category_id": 6,
+    "name": "Blockade Runner",
+    "published": true
+  },
+  "1206": {
+    "group_id": 1206,
+    "category_id": 17,
+    "name": "Security Tags",
+    "published": true
+  },
+  "1209": {
+    "group_id": 1209,
+    "category_id": 16,
+    "name": "Shields",
+    "published": true
+  },
+  "1210": {
+    "group_id": 1210,
+    "category_id": 16,
+    "name": "Armor",
+    "published": true
+  },
+  "1212": {
+    "group_id": 1212,
+    "category_id": 23,
+    "name": "Personal Hangar",
+    "published": true
+  },
+  "1213": {
+    "group_id": 1213,
+    "category_id": 16,
+    "name": "Targeting",
+    "published": true
+  },
+  "1216": {
+    "group_id": 1216,
+    "category_id": 16,
+    "name": "Engineering",
+    "published": true
+  },
+  "1217": {
+    "group_id": 1217,
+    "category_id": 16,
+    "name": "Scanning",
+    "published": true
+  },
+  "1218": {
+    "group_id": 1218,
+    "category_id": 16,
+    "name": "Resource Processing",
+    "published": true
+  },
+  "1220": {
+    "group_id": 1220,
+    "category_id": 16,
+    "name": "Neural Enhancement",
+    "published": true
+  },
+  "1222": {
+    "group_id": 1222,
+    "category_id": 9,
+    "name": "ECM Stabilizer Blueprint",
+    "published": true
+  },
+  "1223": {
+    "group_id": 1223,
+    "category_id": 7,
+    "name": "Scanning Upgrade",
+    "published": true
+  },
+  "1224": {
+    "group_id": 1224,
+    "category_id": 9,
+    "name": "Scanning Upgrade Blueprint",
+    "published": true
+  },
+  "1225": {
+    "group_id": 1225,
+    "category_id": 63,
+    "name": "Tournament Cards: Alliance Tournament All Stars",
+    "published": true
+  },
+  "1226": {
+    "group_id": 1226,
+    "category_id": 7,
+    "name": "Survey Probe Launcher",
+    "published": true
+  },
+  "1227": {
+    "group_id": 1227,
+    "category_id": 9,
+    "name": "Survey Probe Launcher Blueprint",
+    "published": true
+  },
+  "1228": {
+    "group_id": 1228,
+    "category_id": 20,
+    "name": "Cyber Targeting",
+    "published": true
+  },
+  "1229": {
+    "group_id": 1229,
+    "category_id": 20,
+    "name": "Cyber Resource Processing",
+    "published": true
+  },
+  "1230": {
+    "group_id": 1230,
+    "category_id": 20,
+    "name": "Cyber Scanning",
+    "published": true
+  },
+  "1231": {
+    "group_id": 1231,
+    "category_id": 20,
+    "name": "Cyber Biology",
+    "published": true
+  },
+  "1232": {
+    "group_id": 1232,
+    "category_id": 7,
+    "name": "Rig Resource Processing",
+    "published": true
+  },
+  "1233": {
+    "group_id": 1233,
+    "category_id": 7,
+    "name": "Rig Scanning",
+    "published": true
+  },
+  "1234": {
+    "group_id": 1234,
+    "category_id": 7,
+    "name": "Rig Targeting",
+    "published": true
+  },
+  "1238": {
+    "group_id": 1238,
+    "category_id": 7,
+    "name": "Scanning Upgrade Time",
+    "published": true
+  },
+  "1239": {
+    "group_id": 1239,
+    "category_id": 9,
+    "name": "Scanning Upgrade Time Blueprint",
+    "published": true
+  },
+  "1240": {
+    "group_id": 1240,
+    "category_id": 16,
+    "name": "Subsystems",
+    "published": true
+  },
+  "1241": {
+    "group_id": 1241,
+    "category_id": 16,
+    "name": "Planet Management",
+    "published": true
+  },
+  "1245": {
+    "group_id": 1245,
+    "category_id": 7,
+    "name": "Missile Launcher Rapid Heavy",
+    "published": true
+  },
+  "1246": {
+    "group_id": 1246,
+    "category_id": 22,
+    "name": "Mobile Depot",
+    "published": true
+  },
+  "1247": {
+    "group_id": 1247,
+    "category_id": 22,
+    "name": "Mobile Siphon Unit",
+    "published": true
+  },
+  "1248": {
+    "group_id": 1248,
+    "category_id": 17,
+    "name": "Bounty Encrypted Bonds",
+    "published": true
+  },
+  "1249": {
+    "group_id": 1249,
+    "category_id": 22,
+    "name": "Mobile Cyno Inhibitor",
+    "published": true
+  },
+  "1250": {
+    "group_id": 1250,
+    "category_id": 22,
+    "name": "Mobile Tractor Unit",
+    "published": true
+  },
+  "1268": {
+    "group_id": 1268,
+    "category_id": 9,
+    "name": "Mobile Cynosural Inhibitor Blueprint",
+    "published": true
+  },
+  "1269": {
+    "group_id": 1269,
+    "category_id": 9,
+    "name": "Mobile Depot Blueprint",
+    "published": true
+  },
+  "1270": {
+    "group_id": 1270,
+    "category_id": 9,
+    "name": "Mobile Tractor Unit Blueprint",
+    "published": true
+  },
+  "1271": {
+    "group_id": 1271,
+    "category_id": 30,
+    "name": "Prosthetics",
+    "published": true
+  },
+  "1273": {
+    "group_id": 1273,
+    "category_id": 22,
+    "name": "Encounter Surveillance System",
+    "published": true
+  },
+  "1275": {
+    "group_id": 1275,
+    "category_id": 22,
+    "name": "Mobile Scan Inhibitor",
+    "published": true
+  },
+  "1276": {
+    "group_id": 1276,
+    "category_id": 22,
+    "name": "Mobile Micro Jump Unit",
+    "published": true
+  },
+  "1282": {
+    "group_id": 1282,
+    "category_id": 23,
+    "name": "Compression Array",
+    "published": true
+  },
+  "1283": {
+    "group_id": 1283,
+    "category_id": 6,
+    "name": "Expedition Frigate",
+    "published": true
+  },
+  "1289": {
+    "group_id": 1289,
+    "category_id": 7,
+    "name": "Warp Accelerator",
+    "published": true
+  },
+  "1292": {
+    "group_id": 1292,
+    "category_id": 7,
+    "name": "Drone Tracking Enhancer",
+    "published": true
+  },
+  "1293": {
+    "group_id": 1293,
+    "category_id": 9,
+    "name": "Mobile Scan Inhibitor Blueprint",
+    "published": true
+  },
+  "1294": {
+    "group_id": 1294,
+    "category_id": 9,
+    "name": "Mobile Micro Jump Unit Blueprint",
+    "published": true
+  },
+  "1299": {
+    "group_id": 1299,
+    "category_id": 7,
+    "name": "Jump Drive Economizer",
+    "published": true
+  },
+  "1301": {
+    "group_id": 1301,
+    "category_id": 5,
+    "name": "Services",
+    "published": true
+  },
+  "1304": {
+    "group_id": 1304,
+    "category_id": 35,
+    "name": "Generic Decryptor",
+    "published": true
+  },
+  "1305": {
+    "group_id": 1305,
+    "category_id": 6,
+    "name": "Tactical Destroyer",
+    "published": true
+  },
+  "1308": {
+    "group_id": 1308,
+    "category_id": 7,
+    "name": "Rig Anchor",
+    "published": true
+  },
+  "1313": {
+    "group_id": 1313,
+    "category_id": 7,
+    "name": "Entosis Link",
+    "published": true
+  },
+  "1314": {
+    "group_id": 1314,
+    "category_id": 17,
+    "name": "Unknown Components",
+    "published": true
+  },
+  "1317": {
+    "group_id": 1317,
+    "category_id": 9,
+    "name": "Infrastructure Upgrade Blueprint",
+    "published": true
+  },
+  "1318": {
+    "group_id": 1318,
+    "category_id": 9,
+    "name": "Entosis Link Blueprint",
+    "published": true
+  },
+  "1321": {
+    "group_id": 1321,
+    "category_id": 66,
+    "name": "Structure Citadel Service Module",
+    "published": true
+  },
+  "1322": {
+    "group_id": 1322,
+    "category_id": 66,
+    "name": "Structure Resource Processing Service Module",
+    "published": true
+  },
+  "1324": {
+    "group_id": 1324,
+    "category_id": 66,
+    "name": "Structure FLEX Service Module",
+    "published": false
+  },
+  "1327": {
+    "group_id": 1327,
+    "category_id": 66,
+    "name": "Structure XL Missile Launcher",
+    "published": true
+  },
+  "1328": {
+    "group_id": 1328,
+    "category_id": 66,
+    "name": "Structure Guided Bomb Launcher",
+    "published": true
+  },
+  "1329": {
+    "group_id": 1329,
+    "category_id": 66,
+    "name": "Structure Energy Neutralizer",
+    "published": true
+  },
+  "1330": {
+    "group_id": 1330,
+    "category_id": 66,
+    "name": "Structure Area Denial Module",
+    "published": true
+  },
+  "1331": {
+    "group_id": 1331,
+    "category_id": 66,
+    "name": "Structure Burst Projector",
+    "published": true
+  },
+  "1332": {
+    "group_id": 1332,
+    "category_id": 66,
+    "name": "Structure ECM Battery",
+    "published": true
+  },
+  "1333": {
+    "group_id": 1333,
+    "category_id": 66,
+    "name": "Structure Doomsday Weapon",
+    "published": true
+  },
+  "1395": {
+    "group_id": 1395,
+    "category_id": 7,
+    "name": "Missile Guidance Enhancer",
+    "published": true
+  },
+  "1396": {
+    "group_id": 1396,
+    "category_id": 7,
+    "name": "Missile Guidance Computer",
+    "published": true
+  },
+  "1397": {
+    "group_id": 1397,
+    "category_id": 9,
+    "name": "Missile Guidance Enhancer Blueprint",
+    "published": true
+  },
+  "1399": {
+    "group_id": 1399,
+    "category_id": 9,
+    "name": "Missile Guidance Computer Blueprint",
+    "published": true
+  },
+  "1400": {
+    "group_id": 1400,
+    "category_id": 8,
+    "name": "Missile Guidance Script",
+    "published": true
+  },
+  "1404": {
+    "group_id": 1404,
+    "category_id": 65,
+    "name": "Engineering Complex",
+    "published": true
+  },
+  "1406": {
+    "group_id": 1406,
+    "category_id": 65,
+    "name": "Refinery",
+    "published": true
+  },
+  "1408": {
+    "group_id": 1408,
+    "category_id": 65,
+    "name": "Upwell Jump Bridge",
+    "published": true
+  },
+  "1415": {
+    "group_id": 1415,
+    "category_id": 66,
+    "name": "Structure Engineering Service Module",
+    "published": true
+  },
+  "1429": {
+    "group_id": 1429,
+    "category_id": 66,
+    "name": "Structure Weapon Upgrade",
+    "published": true
+  },
+  "1430": {
+    "group_id": 1430,
+    "category_id": 66,
+    "name": "Structure Fitting Module",
+    "published": true
+  },
+  "1441": {
+    "group_id": 1441,
+    "category_id": 66,
+    "name": "Structure Stasis Webifier",
+    "published": true
+  },
+  "1442": {
+    "group_id": 1442,
+    "category_id": 66,
+    "name": "Structure Warp Scrambler",
+    "published": true
+  },
+  "1461": {
+    "group_id": 1461,
+    "category_id": 9,
+    "name": "Unknown Blueprint",
+    "published": false
+  },
+  "1462": {
+    "group_id": 1462,
+    "category_id": 9,
+    "name": "Structure Blueprints",
+    "published": true
+  },
+  "1527": {
+    "group_id": 1527,
+    "category_id": 6,
+    "name": "Logistics Frigate",
+    "published": true
+  },
+  "1533": {
+    "group_id": 1533,
+    "category_id": 7,
+    "name": "Micro Jump Field Generators",
+    "published": true
+  },
+  "1534": {
+    "group_id": 1534,
+    "category_id": 6,
+    "name": "Command Destroyer",
+    "published": true
+  },
+  "1535": {
+    "group_id": 1535,
+    "category_id": 66,
+    "name": "Structure Signal Amplifier",
+    "published": true
+  },
+  "1537": {
+    "group_id": 1537,
+    "category_id": 87,
+    "name": "Support Fighter",
+    "published": true
+  },
+  "1538": {
+    "group_id": 1538,
+    "category_id": 6,
+    "name": "Force Auxiliary",
+    "published": true
+  },
+  "1543": {
+    "group_id": 1543,
+    "category_id": 9,
+    "name": "Micro Jump Field Generator Blueprint",
+    "published": true
+  },
+  "1545": {
+    "group_id": 1545,
+    "category_id": 16,
+    "name": "Structure Management",
+    "published": true
+  },
+  "1546": {
+    "group_id": 1546,
+    "category_id": 8,
+    "name": "Structure Anti-Capital Missile",
+    "published": true
+  },
+  "1547": {
+    "group_id": 1547,
+    "category_id": 8,
+    "name": "Structure Anti-Subcapital Missile",
+    "published": true
+  },
+  "1548": {
+    "group_id": 1548,
+    "category_id": 8,
+    "name": "Guided Bomb",
+    "published": true
+  },
+  "1549": {
+    "group_id": 1549,
+    "category_id": 8,
+    "name": "Structure ECM script",
+    "published": true
+  },
+  "1551": {
+    "group_id": 1551,
+    "category_id": 8,
+    "name": "Structure Warp Disruptor Script",
+    "published": true
+  },
+  "1562": {
+    "group_id": 1562,
+    "category_id": 66,
+    "name": "Structure Multirole Missile Launcher",
+    "published": true
+  },
+  "1569": {
+    "group_id": 1569,
+    "category_id": 8,
+    "name": "Guidance Disruption Script",
+    "published": true
+  },
+  "1613": {
+    "group_id": 1613,
+    "category_id": 66,
+    "name": "Structure Combat Rig M - Missile Application",
+    "published": true
+  },
+  "1614": {
+    "group_id": 1614,
+    "category_id": 66,
+    "name": "Structure Combat Rig M - Missile Projection",
+    "published": true
+  },
+  "1615": {
+    "group_id": 1615,
+    "category_id": 66,
+    "name": "Structure Combat Rig M - Energy Neutralizer Projection",
+    "published": true
+  },
+  "1616": {
+    "group_id": 1616,
+    "category_id": 66,
+    "name": "Structure Combat Rig M - Energy Neutralizer Cap Reduction",
+    "published": true
+  },
+  "1619": {
+    "group_id": 1619,
+    "category_id": 66,
+    "name": "Structure Combat Rig M - EW projection",
+    "published": true
+  },
+  "1620": {
+    "group_id": 1620,
+    "category_id": 66,
+    "name": "Structure Combat Rig M - EW Cap Reduction",
+    "published": true
+  },
+  "1621": {
+    "group_id": 1621,
+    "category_id": 66,
+    "name": "Structure Combat Rig M - Max Targets",
+    "published": true
+  },
+  "1622": {
+    "group_id": 1622,
+    "category_id": 66,
+    "name": "Structure Combat Rig M - Boosted Sensors",
+    "published": true
+  },
+  "1629": {
+    "group_id": 1629,
+    "category_id": 66,
+    "name": "Structure Combat Rig L - Missile Application and Projection",
+    "published": true
+  },
+  "1630": {
+    "group_id": 1630,
+    "category_id": 66,
+    "name": "Structure Combat Rig L - Energy Neutralizer Projection and Cap Reduction",
+    "published": true
+  },
+  "1632": {
+    "group_id": 1632,
+    "category_id": 66,
+    "name": "Structure Combat Rig L - EW Projection and Cap Reduction",
+    "published": true
+  },
+  "1633": {
+    "group_id": 1633,
+    "category_id": 66,
+    "name": "Structure Combat Rig L - AoE Launcher Application and Projection",
+    "published": true
+  },
+  "1634": {
+    "group_id": 1634,
+    "category_id": 66,
+    "name": "Structure Combat Rig L - Point Defense Battery Application and Projection",
+    "published": true
+  },
+  "1635": {
+    "group_id": 1635,
+    "category_id": 66,
+    "name": "Structure Combat Rig L - Max Targets and Sensor Boosting",
+    "published": true
+  },
+  "1639": {
+    "group_id": 1639,
+    "category_id": 66,
+    "name": "Structure Combat Rig XL - Missile and AoE Missile",
+    "published": true
+  },
+  "1641": {
+    "group_id": 1641,
+    "category_id": 66,
+    "name": "Structure Combat Rig XL - Energy Neutralizer and EW",
+    "published": true
+  },
+  "1642": {
+    "group_id": 1642,
+    "category_id": 66,
+    "name": "Structure Combat Rig XL - Doomsday and Targeting",
+    "published": true
+  },
+  "1647": {
+    "group_id": 1647,
+    "category_id": 66,
+    "name": "OLD Structure Resource Rig M - HS Ore Reprocessing",
+    "published": false
+  },
+  "1648": {
+    "group_id": 1648,
+    "category_id": 66,
+    "name": "OLD Structure Resource Rig L - Ore Reprocessing",
+    "published": false
+  },
+  "1649": {
+    "group_id": 1649,
+    "category_id": 66,
+    "name": "OLD Structure Resource Rig XL - Reprocessing",
+    "published": false
+  },
+  "1652": {
+    "group_id": 1652,
+    "category_id": 87,
+    "name": "Light Fighter",
+    "published": true
+  },
+  "1653": {
+    "group_id": 1653,
+    "category_id": 87,
+    "name": "Heavy Fighter",
+    "published": true
+  },
+  "1657": {
+    "group_id": 1657,
+    "category_id": 65,
+    "name": "Citadel",
+    "published": true
+  },
+  "1670": {
+    "group_id": 1670,
+    "category_id": 30,
+    "name": "Augmentations",
+    "published": true
+  },
+  "1672": {
+    "group_id": 1672,
+    "category_id": 7,
+    "name": "Stasis Grappler",
+    "published": true
+  },
+  "1673": {
+    "group_id": 1673,
+    "category_id": 7,
+    "name": "Missile Launcher Rapid Torpedo",
+    "published": true
+  },
+  "1674": {
+    "group_id": 1674,
+    "category_id": 7,
+    "name": "Missile Launcher XL Cruise",
+    "published": true
+  },
+  "1676": {
+    "group_id": 1676,
+    "category_id": 4,
+    "name": "Named Components",
+    "published": true
+  },
+  "1677": {
+    "group_id": 1677,
+    "category_id": 8,
+    "name": "Advanced XL Torpedo",
+    "published": true
+  },
+  "1678": {
+    "group_id": 1678,
+    "category_id": 8,
+    "name": "Advanced XL Cruise Missile",
+    "published": true
+  },
+  "1679": {
+    "group_id": 1679,
+    "category_id": 9,
+    "name": "Support Fighter Blueprint",
+    "published": true
+  },
+  "1693": {
+    "group_id": 1693,
+    "category_id": 66,
+    "name": "OLD Structure Resource Rig M - LNS Ore Reprocessing",
+    "published": false
+  },
+  "1694": {
+    "group_id": 1694,
+    "category_id": 66,
+    "name": "OLD Structure Resource Rig M - Ice 1 Reprocessing",
+    "published": false
+  },
+  "1695": {
+    "group_id": 1695,
+    "category_id": 66,
+    "name": "OLD Structure Resource Rig M - Ice 2 Reprocessing",
+    "published": false
+  },
+  "1696": {
+    "group_id": 1696,
+    "category_id": 66,
+    "name": "OLD Structure Resource Rig L - Ice Reprocessing",
+    "published": false
+  },
+  "1697": {
+    "group_id": 1697,
+    "category_id": 7,
+    "name": "Ancillary Remote Shield Booster",
+    "published": true
+  },
+  "1698": {
+    "group_id": 1698,
+    "category_id": 7,
+    "name": "Ancillary Remote Armor Repairer",
+    "published": true
+  },
+  "1699": {
+    "group_id": 1699,
+    "category_id": 7,
+    "name": "Flex Armor Hardener",
+    "published": true
+  },
+  "1700": {
+    "group_id": 1700,
+    "category_id": 7,
+    "name": "Flex Shield Hardener",
+    "published": true
+  },
+  "1701": {
+    "group_id": 1701,
+    "category_id": 8,
+    "name": "Flex Armor Hardener Script",
+    "published": true
+  },
+  "1702": {
+    "group_id": 1702,
+    "category_id": 8,
+    "name": "Flex Shield Hardener Script",
+    "published": true
+  },
+  "1703": {
+    "group_id": 1703,
+    "category_id": 9,
+    "name": "Burst Projector Blueprint",
+    "published": true
+  },
+  "1706": {
+    "group_id": 1706,
+    "category_id": 7,
+    "name": "Capital Sensor Array",
+    "published": true
+  },
+  "1707": {
+    "group_id": 1707,
+    "category_id": 9,
+    "name": "Structure Module Blueprint",
+    "published": true
+  },
+  "1708": {
+    "group_id": 1708,
+    "category_id": 9,
+    "name": "Structure Rig Blueprint",
+    "published": true
+  },
+  "1709": {
+    "group_id": 1709,
+    "category_id": 9,
+    "name": "Unpublished Structure Module and Rig Blueprints",
+    "published": false
+  },
+  "1718": {
+    "group_id": 1718,
+    "category_id": 9,
+    "name": "Force Auxiliary Blueprint",
+    "published": true
+  },
+  "1719": {
+    "group_id": 1719,
+    "category_id": 66,
+    "name": "Structure Disruption Battery",
+    "published": true
+  },
+  "1723": {
+    "group_id": 1723,
+    "category_id": 9,
+    "name": "Shield Resistance Shift Hardener Blueprint",
+    "published": true
+  },
+  "1730": {
+    "group_id": 1730,
+    "category_id": 20,
+    "name": "Special Edition Implant",
+    "published": true
+  },
+  "1739": {
+    "group_id": 1739,
+    "category_id": 5,
+    "name": "Skill Injectors",
+    "published": true
+  },
+  "1769": {
+    "group_id": 1769,
+    "category_id": 8,
+    "name": "Shield Command Burst Charges",
+    "published": true
+  },
+  "1770": {
+    "group_id": 1770,
+    "category_id": 7,
+    "name": "Command Burst",
+    "published": true
+  },
+  "1771": {
+    "group_id": 1771,
+    "category_id": 8,
+    "name": "Mining Foreman Burst Charges",
+    "published": true
+  },
+  "1772": {
+    "group_id": 1772,
+    "category_id": 8,
+    "name": "Skirmish Command Burst Charges",
+    "published": true
+  },
+  "1773": {
+    "group_id": 1773,
+    "category_id": 8,
+    "name": "Information Command Burst Charges",
+    "published": true
+  },
+  "1774": {
+    "group_id": 1774,
+    "category_id": 8,
+    "name": "Armor Command Burst Charges",
+    "published": true
+  },
+  "1810": {
+    "group_id": 1810,
+    "category_id": 9,
+    "name": "Command Burst Charge Blueprint",
+    "published": true
+  },
+  "1812": {
+    "group_id": 1812,
+    "category_id": 9,
+    "name": "Command Burst Blueprint",
+    "published": true
+  },
+  "1815": {
+    "group_id": 1815,
+    "category_id": 7,
+    "name": "Titan Phenomena Generator",
+    "published": true
+  },
+  "1816": {
+    "group_id": 1816,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Equipment ME",
+    "published": true
+  },
+  "1818": {
+    "group_id": 1818,
+    "category_id": 17,
+    "name": "Strong Boxes",
+    "published": true
+  },
+  "1819": {
+    "group_id": 1819,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Equipment TE",
+    "published": true
+  },
+  "1820": {
+    "group_id": 1820,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Ammunition ME",
+    "published": true
+  },
+  "1821": {
+    "group_id": 1821,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Ammunition TE",
+    "published": true
+  },
+  "1822": {
+    "group_id": 1822,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Drone and Fighter ME",
+    "published": true
+  },
+  "1823": {
+    "group_id": 1823,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Drone and Fighter TE",
+    "published": true
+  },
+  "1824": {
+    "group_id": 1824,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Basic Small Ship ME",
+    "published": true
+  },
+  "1825": {
+    "group_id": 1825,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Basic Small Ship TE",
+    "published": true
+  },
+  "1826": {
+    "group_id": 1826,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Basic Medium Ship ME",
+    "published": true
+  },
+  "1827": {
+    "group_id": 1827,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Basic Medium Ship TE",
+    "published": true
+  },
+  "1828": {
+    "group_id": 1828,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Basic Large Ship ME",
+    "published": true
+  },
+  "1829": {
+    "group_id": 1829,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Basic Large Ship TE",
+    "published": true
+  },
+  "1830": {
+    "group_id": 1830,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Advanced Small Ship ME",
+    "published": true
+  },
+  "1831": {
+    "group_id": 1831,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Advanced Small Ship TE",
+    "published": true
+  },
+  "1832": {
+    "group_id": 1832,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Advanced Medium Ship ME",
+    "published": true
+  },
+  "1833": {
+    "group_id": 1833,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Advanced Medium Ship TE",
+    "published": true
+  },
+  "1834": {
+    "group_id": 1834,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Advanced Large Ship ME",
+    "published": true
+  },
+  "1835": {
+    "group_id": 1835,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Advanced Large Ship TE",
+    "published": true
+  },
+  "1836": {
+    "group_id": 1836,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Advanced Component ME",
+    "published": true
+  },
+  "1837": {
+    "group_id": 1837,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Advanced Component TE",
+    "published": true
+  },
+  "1838": {
+    "group_id": 1838,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Basic Capital Component TE",
+    "published": true
+  },
+  "1839": {
+    "group_id": 1839,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Basic Capital Component ME",
+    "published": true
+  },
+  "1840": {
+    "group_id": 1840,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Structure ME",
+    "published": true
+  },
+  "1841": {
+    "group_id": 1841,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Structure TE",
+    "published": true
+  },
+  "1842": {
+    "group_id": 1842,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Invention Cost Optimization",
+    "published": true
+  },
+  "1843": {
+    "group_id": 1843,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Invention Accelerator",
+    "published": true
+  },
+  "1844": {
+    "group_id": 1844,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - ME Research Cost Optimization",
+    "published": true
+  },
+  "1845": {
+    "group_id": 1845,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - ME Research Accelerator",
+    "published": true
+  },
+  "1846": {
+    "group_id": 1846,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - TE Research Cost Optimization",
+    "published": true
+  },
+  "1847": {
+    "group_id": 1847,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - TE Research Accelerator",
+    "published": true
+  },
+  "1848": {
+    "group_id": 1848,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Blueprint Copy Cost Optimization",
+    "published": true
+  },
+  "1849": {
+    "group_id": 1849,
+    "category_id": 66,
+    "name": "Structure Engineering Rig M - Blueprint Copy Accelerator",
+    "published": true
+  },
+  "1850": {
+    "group_id": 1850,
+    "category_id": 66,
+    "name": "Structure Engineering Rig L - Equipment Efficiency",
+    "published": true
+  },
+  "1851": {
+    "group_id": 1851,
+    "category_id": 66,
+    "name": "Structure Engineering Rig L - Ammunition Efficiency",
+    "published": true
+  },
+  "1852": {
+    "group_id": 1852,
+    "category_id": 66,
+    "name": "Structure Engineering Rig L - Drone and Fighter Efficiency",
+    "published": true
+  },
+  "1853": {
+    "group_id": 1853,
+    "category_id": 66,
+    "name": "Structure Engineering Rig L - Basic Small Ship Efficiency",
+    "published": true
+  },
+  "1854": {
+    "group_id": 1854,
+    "category_id": 66,
+    "name": "Structure Engineering Rig L - Basic Medium Ship Efficiency",
+    "published": true
+  },
+  "1855": {
+    "group_id": 1855,
+    "category_id": 66,
+    "name": "Structure Engineering Rig L - Basic Large Ship Efficiency",
+    "published": true
+  },
+  "1856": {
+    "group_id": 1856,
+    "category_id": 66,
+    "name": "Structure Engineering Rig L - Advanced Small Ship Efficiency",
+    "published": true
+  },
+  "1857": {
+    "group_id": 1857,
+    "category_id": 66,
+    "name": "Structure Engineering Rig L - Advanced Medium Ship Efficiency",
+    "published": true
+  },
+  "1858": {
+    "group_id": 1858,
+    "category_id": 66,
+    "name": "Structure Engineering Rig L - Advanced Large Ship Efficiency",
+    "published": true
+  },
+  "1859": {
+    "group_id": 1859,
+    "category_id": 66,
+    "name": "Structure Engineering Rig L - Capital Ship Efficiency",
+    "published": true
+  },
+  "1860": {
+    "group_id": 1860,
+    "category_id": 66,
+    "name": "Structure Engineering Rig L - Advanced Component Efficiency",
+    "published": true
+  },
+  "1861": {
+    "group_id": 1861,
+    "category_id": 66,
+    "name": "Structure Engineering Rig L - Basic Capital Component Efficiency",
+    "published": true
+  },
+  "1862": {
+    "group_id": 1862,
+    "category_id": 66,
+    "name": "Structure Engineering Rig L - Structure Efficiency",
+    "published": true
+  },
+  "1863": {
+    "group_id": 1863,
+    "category_id": 66,
+    "name": "Structure Engineering Rig L - Invention Optimization",
+    "published": true
+  },
+  "1864": {
+    "group_id": 1864,
+    "category_id": 66,
+    "name": "Structure Engineering Rig L - ME Research Optimization",
+    "published": true
+  },
+  "1865": {
+    "group_id": 1865,
+    "category_id": 66,
+    "name": "Structure Engineering Rig L - TE Research Optimization",
+    "published": true
+  },
+  "1866": {
+    "group_id": 1866,
+    "category_id": 66,
+    "name": "Structure Engineering Rig L - Blueprint Copy Optimization",
+    "published": true
+  },
+  "1867": {
+    "group_id": 1867,
+    "category_id": 66,
+    "name": "Structure Engineering Rig XL - Equipment and Consumable Efficiency",
+    "published": true
+  },
+  "1868": {
+    "group_id": 1868,
+    "category_id": 66,
+    "name": "Structure Engineering Rig XL - Ship Efficiency",
+    "published": true
+  },
+  "1869": {
+    "group_id": 1869,
+    "category_id": 66,
+    "name": "Structure Engineering Rig XL - Structure and Component Efficiency",
+    "published": true
+  },
+  "1870": {
+    "group_id": 1870,
+    "category_id": 66,
+    "name": "Structure Engineering Rig XL - Laboratory Optimization",
+    "published": true
+  },
+  "1875": {
+    "group_id": 1875,
+    "category_id": 5,
+    "name": "PLEX",
+    "published": true
+  },
+  "1884": {
+    "group_id": 1884,
+    "category_id": 25,
+    "name": "Ubiquitous Moon Asteroids",
+    "published": true
+  },
+  "1886": {
+    "group_id": 1886,
+    "category_id": 17,
+    "name": "Technical Data Chips",
+    "published": true
+  },
+  "1887": {
+    "group_id": 1887,
+    "category_id": 66,
+    "name": "Structure Moon Drilling Service Module",
+    "published": true
+  },
+  "1888": {
+    "group_id": 1888,
+    "category_id": 9,
+    "name": "Composite Reaction Formulas",
+    "published": true
+  },
+  "1889": {
+    "group_id": 1889,
+    "category_id": 9,
+    "name": "Polymer Reaction Formulas",
+    "published": true
+  },
+  "1890": {
+    "group_id": 1890,
+    "category_id": 9,
+    "name": "Biochemical Reaction Formulas",
+    "published": true
+  },
+  "1894": {
+    "group_id": 1894,
+    "category_id": 7,
+    "name": "Non-Repeating Hardeners",
+    "published": false
+  },
+  "1912": {
+    "group_id": 1912,
+    "category_id": 66,
+    "name": "Structure Drilling Rig M - Efficiency",
+    "published": true
+  },
+  "1913": {
+    "group_id": 1913,
+    "category_id": 66,
+    "name": "Structure Drilling Rig M - Stability",
+    "published": true
+  },
+  "1914": {
+    "group_id": 1914,
+    "category_id": 66,
+    "name": "Structure Drilling Rig L - Proficiency",
+    "published": true
+  },
+  "1920": {
+    "group_id": 1920,
+    "category_id": 25,
+    "name": "Common Moon Asteroids",
+    "published": true
+  },
+  "1921": {
+    "group_id": 1921,
+    "category_id": 25,
+    "name": "Uncommon Moon Asteroids",
+    "published": true
+  },
+  "1922": {
+    "group_id": 1922,
+    "category_id": 25,
+    "name": "Rare Moon Asteroids",
+    "published": true
+  },
+  "1923": {
+    "group_id": 1923,
+    "category_id": 25,
+    "name": "Exceptional Moon Asteroids",
+    "published": true
+  },
+  "1933": {
+    "group_id": 1933,
+    "category_id": 66,
+    "name": "Structure Composite Reactor Rig M - TE",
+    "published": true
+  },
+  "1934": {
+    "group_id": 1934,
+    "category_id": 66,
+    "name": "Structure Composite Reactor Rig M - ME",
+    "published": true
+  },
+  "1935": {
+    "group_id": 1935,
+    "category_id": 66,
+    "name": "Structure Hybrid Reactor Rig M - TE",
+    "published": true
+  },
+  "1936": {
+    "group_id": 1936,
+    "category_id": 66,
+    "name": "Structure Hybrid Reactor Rig M - ME",
+    "published": true
+  },
+  "1937": {
+    "group_id": 1937,
+    "category_id": 66,
+    "name": "Structure Biochemical Reactor Rig M - TE",
+    "published": true
+  },
+  "1938": {
+    "group_id": 1938,
+    "category_id": 66,
+    "name": "Structure Biochemical Reactor Rig M - ME",
+    "published": true
+  },
+  "1939": {
+    "group_id": 1939,
+    "category_id": 66,
+    "name": "Structure Reactor Rig L - Efficiency",
+    "published": true
+  },
+  "1941": {
+    "group_id": 1941,
+    "category_id": 66,
+    "name": "Structure Resource Rig M - Asteroid Ore Reprocessing",
+    "published": true
+  },
+  "1942": {
+    "group_id": 1942,
+    "category_id": 66,
+    "name": "Structure Resource Rig M - Ice Reprocessing",
+    "published": true
+  },
+  "1943": {
+    "group_id": 1943,
+    "category_id": 66,
+    "name": "Structure Resource Rig M - Moon Ore Reprocessing",
+    "published": true
+  },
+  "1944": {
+    "group_id": 1944,
+    "category_id": 66,
+    "name": "Structure Resource Rig L - Reprocessing",
+    "published": true
+  },
+  "1945": {
+    "group_id": 1945,
+    "category_id": 66,
+    "name": "Structure Resource Rig XL - Reprocessing",
+    "published": true
+  },
+  "1950": {
+    "group_id": 1950,
+    "category_id": 91,
+    "name": "Permanent SKIN",
+    "published": true
+  },
+  "1953": {
+    "group_id": 1953,
+    "category_id": 91,
+    "name": "30-Day SKIN",
+    "published": true
+  },
+  "1964": {
+    "group_id": 1964,
+    "category_id": 17,
+    "name": "Mutaplasmids",
+    "published": true
+  },
+  "1966": {
+    "group_id": 1966,
+    "category_id": 66,
+    "name": "Structure Capacitor Battery",
+    "published": true
+  },
+  "1967": {
+    "group_id": 1967,
+    "category_id": 66,
+    "name": "Structure Capacitor Power Relay",
+    "published": true
+  },
+  "1968": {
+    "group_id": 1968,
+    "category_id": 66,
+    "name": "Structure Armor Reinforcer",
+    "published": true
+  },
+  "1972": {
+    "group_id": 1972,
+    "category_id": 6,
+    "name": "Flag Cruiser",
+    "published": true
+  },
+  "1974": {
+    "group_id": 1974,
+    "category_id": 66,
+    "name": "Structure Festival Launcher",
+    "published": true
+  },
+  "1976": {
+    "group_id": 1976,
+    "category_id": 8,
+    "name": "Structure Festival Charges",
+    "published": true
+  },
+  "1979": {
+    "group_id": 1979,
+    "category_id": 17,
+    "name": "Abyssal Filaments",
+    "published": true
+  },
+  "1986": {
+    "group_id": 1986,
+    "category_id": 7,
+    "name": "Precursor Weapon",
+    "published": true
+  },
+  "1987": {
+    "group_id": 1987,
+    "category_id": 8,
+    "name": "Exotic Plasma Charge",
+    "published": true
+  },
+  "1988": {
+    "group_id": 1988,
+    "category_id": 7,
+    "name": "Entropic Radiation Sink",
+    "published": true
+  },
+  "1989": {
+    "group_id": 1989,
+    "category_id": 8,
+    "name": "Advanced Exotic Plasma Charge",
+    "published": true
+  },
+  "1990": {
+    "group_id": 1990,
+    "category_id": 9,
+    "name": "Precursor Weapon Blueprint",
+    "published": true
+  },
+  "1992": {
+    "group_id": 1992,
+    "category_id": 9,
+    "name": "Entropic Radiation Sink Blueprint",
+    "published": true
+  },
+  "1995": {
+    "group_id": 1995,
+    "category_id": 17,
+    "name": "Triglavian Data",
+    "published": true
+  },
+  "1996": {
+    "group_id": 1996,
+    "category_id": 4,
+    "name": "Abyssal Materials",
+    "published": true
+  },
+  "2001": {
+    "group_id": 2001,
+    "category_id": 6,
+    "name": "Citizen Ships",
+    "published": false
+  },
+  "2002": {
+    "group_id": 2002,
+    "category_id": 17,
+    "name": "Triglavian Datastreams",
+    "published": true
+  },
+  "2008": {
+    "group_id": 2008,
+    "category_id": 7,
+    "name": "Mass Entanglers",
+    "published": true
+  },
+  "2010": {
+    "group_id": 2010,
+    "category_id": 9,
+    "name": "Mass Entangler Blueprints",
+    "published": true
+  },
+  "2016": {
+    "group_id": 2016,
+    "category_id": 65,
+    "name": "Upwell Cyno Jammer",
+    "published": true
+  },
+  "2017": {
+    "group_id": 2017,
+    "category_id": 65,
+    "name": "Upwell Cyno Beacon",
+    "published": true
+  },
+  "2018": {
+    "group_id": 2018,
+    "category_id": 7,
+    "name": "Mutadaptive Remote Armor Repairer",
+    "published": true
+  },
+  "4029": {
+    "group_id": 4029,
+    "category_id": 25,
+    "name": "Talassonite",
+    "published": true
+  },
+  "4030": {
+    "group_id": 4030,
+    "category_id": 25,
+    "name": "Rakovene",
+    "published": true
+  },
+  "4031": {
+    "group_id": 4031,
+    "category_id": 25,
+    "name": "Bezdnacine",
+    "published": true
+  },
+  "4041": {
+    "group_id": 4041,
+    "category_id": 17,
+    "name": "Jump Filaments",
+    "published": true
+  },
+  "4057": {
+    "group_id": 4057,
+    "category_id": 30,
+    "name": "Masks",
+    "published": true
+  },
+  "4060": {
+    "group_id": 4060,
+    "category_id": 7,
+    "name": "Vorton Projector",
+    "published": true
+  },
+  "4061": {
+    "group_id": 4061,
+    "category_id": 8,
+    "name": "Advanced Condenser Pack",
+    "published": true
+  },
+  "4062": {
+    "group_id": 4062,
+    "category_id": 8,
+    "name": "Condenser Pack",
+    "published": true
+  },
+  "4067": {
+    "group_id": 4067,
+    "category_id": 7,
+    "name": "Vorton Projector Upgrade",
+    "published": true
+  },
+  "4069": {
+    "group_id": 4069,
+    "category_id": 9,
+    "name": "Vorton Projector Upgrade Blueprints",
+    "published": true
+  },
+  "4071": {
+    "group_id": 4071,
+    "category_id": 29,
+    "name": "Type Graveyard",
+    "published": false
+  },
+  "4072": {
+    "group_id": 4072,
+    "category_id": 17,
+    "name": "Expired Jump Filaments",
+    "published": true
+  },
+  "4086": {
+    "group_id": 4086,
+    "category_id": 66,
+    "name": "Quantum Cores",
+    "published": true
+  },
+  "4087": {
+    "group_id": 4087,
+    "category_id": 17,
+    "name": "Triglavian Space Filaments",
+    "published": true
+  },
+  "4088": {
+    "group_id": 4088,
+    "category_id": 8,
+    "name": "Interdiction Burst Probes",
+    "published": true
+  },
+  "4091": {
+    "group_id": 4091,
+    "category_id": 2100,
+    "name": "Standard Expert Systems",
+    "published": true
+  },
+  "4093": {
+    "group_id": 4093,
+    "category_id": 22,
+    "name": "Mobile Cynosural Beacon",
+    "published": true
+  },
+  "4095": {
+    "group_id": 4095,
+    "category_id": 9,
+    "name": "Mobile Cynosural Beacon Blueprint",
+    "published": true
+  },
+  "4096": {
+    "group_id": 4096,
+    "category_id": 4,
+    "name": "Molecular-Forged Materials",
+    "published": true
+  },
+  "4097": {
+    "group_id": 4097,
+    "category_id": 9,
+    "name": "Molecular-Forged Reaction Formulas",
+    "published": true
+  },
+  "4107": {
+    "group_id": 4107,
+    "category_id": 22,
+    "name": "Mobile Observatory",
+    "published": true
+  },
+  "4108": {
+    "group_id": 4108,
+    "category_id": 9,
+    "name": "Mobile Observatory Blueprint",
+    "published": true
+  },
+  "4117": {
+    "group_id": 4117,
+    "category_id": 7,
+    "name": "Interdiction Nullifier",
+    "published": true
+  },
+  "4118": {
+    "group_id": 4118,
+    "category_id": 9,
+    "name": "Interdiction Nullifier Blueprint",
+    "published": true
+  },
+  "4127": {
+    "group_id": 4127,
+    "category_id": 7,
+    "name": "Covert Jump Portal Generator",
+    "published": true
+  },
+  "4137": {
+    "group_id": 4137,
+    "category_id": 22,
+    "name": "Mobile Analysis Beacon",
+    "published": true
+  },
+  "4138": {
+    "group_id": 4138,
+    "category_id": 7,
+    "name": "Gas Cloud Harvesters",
+    "published": true
+  },
+  "4139": {
+    "group_id": 4139,
+    "category_id": 9,
+    "name": "Gas Harvester Blueprint",
+    "published": true
+  },
+  "4141": {
+    "group_id": 4141,
+    "category_id": 9,
+    "name": "Mobile Analysis Beacon Blueprint",
+    "published": true
+  },
+  "4142": {
+    "group_id": 4142,
+    "category_id": 17,
+    "name": "Rogue Drone Analysis Data",
+    "published": true
+  },
+  "4145": {
+    "group_id": 4145,
+    "category_id": 17,
+    "name": "Warp Matrix Filaments",
+    "published": true
+  },
+  "4161": {
+    "group_id": 4161,
+    "category_id": 25,
+    "name": "AIR Ore Asteroid Resources",
+    "published": false
+  },
+  "4165": {
+    "group_id": 4165,
+    "category_id": 17,
+    "name": "Peculiar Materials",
+    "published": true
+  },
+  "4168": {
+    "group_id": 4168,
+    "category_id": 2,
+    "name": "Compressed Gas",
+    "published": true
+  },
+  "4174": {
+    "group_id": 4174,
+    "category_id": 7,
+    "name": "Compressors",
+    "published": true
+  },
+  "4175": {
+    "group_id": 4175,
+    "category_id": 9,
+    "name": "Compressors Blueprints",
+    "published": true
+  },
+  "4184": {
+    "group_id": 4184,
+    "category_id": 7,
+    "name": "Industrial Jump Portal Generator",
+    "published": true
+  },
+  "4186": {
+    "group_id": 4186,
+    "category_id": 8,
+    "name": "Structure Area Denial Ammunition",
+    "published": true
+  },
+  "4188": {
+    "group_id": 4188,
+    "category_id": 9,
+    "name": "Structure Area Denial Ammo Blueprint",
+    "published": true
+  },
+  "4477": {
+    "group_id": 4477,
+    "category_id": 22,
+    "name": "FW Propaganda Broadcast Structure",
+    "published": true
+  },
+  "4499": {
+    "group_id": 4499,
+    "category_id": 22,
+    "name": "FW Listening Outpost",
+    "published": true
+  },
+  "4513": {
+    "group_id": 4513,
+    "category_id": 25,
+    "name": "Mordunium",
+    "published": true
+  },
+  "4514": {
+    "group_id": 4514,
+    "category_id": 25,
+    "name": "Ytirium",
+    "published": true
+  },
+  "4515": {
+    "group_id": 4515,
+    "category_id": 25,
+    "name": "Eifyrium",
+    "published": true
+  },
+  "4516": {
+    "group_id": 4516,
+    "category_id": 25,
+    "name": "Ducinium",
+    "published": true
+  },
+  "4568": {
+    "group_id": 4568,
+    "category_id": 25,
+    "name": "Mutanite",
+    "published": true
+  },
+  "4575": {
+    "group_id": 4575,
+    "category_id": 17,
+    "name": "Homefront Operations Commodity",
+    "published": true
+  },
+  "4594": {
+    "group_id": 4594,
+    "category_id": 6,
+    "name": "Lancer Dreadnought",
+    "published": true
+  },
+  "4716": {
+    "group_id": 4716,
+    "category_id": 17,
+    "name": "Abyssal Battlefield Filament Materials",
+    "published": true
+  },
+  "4725": {
+    "group_id": 4725,
+    "category_id": 2118,
+    "name": "Sequence Binders",
+    "published": true
+  },
+  "4726": {
+    "group_id": 4726,
+    "category_id": 2118,
+    "name": "Ship SKIN Design Element",
+    "published": true
+  },
+  "4729": {
+    "group_id": 4729,
+    "category_id": 2143,
+    "name": "Colony Reagents",
+    "published": true
+  },
+  "4734": {
+    "group_id": 4734,
+    "category_id": 16,
+    "name": "Sequencing",
+    "published": true
+  },
+  "4736": {
+    "group_id": 4736,
+    "category_id": 46,
+    "name": "Skyhook",
+    "published": true
+  },
+  "4744": {
+    "group_id": 4744,
+    "category_id": 65,
+    "name": "Upwell Moon Drill",
+    "published": true
+  },
+  "4755": {
+    "group_id": 4755,
+    "category_id": 25,
+    "name": "Kylixium",
+    "published": true
+  },
+  "4756": {
+    "group_id": 4756,
+    "category_id": 25,
+    "name": "Nocxite",
+    "published": true
+  },
+  "4757": {
+    "group_id": 4757,
+    "category_id": 25,
+    "name": "Ueganite",
+    "published": true
+  },
+  "4758": {
+    "group_id": 4758,
+    "category_id": 25,
+    "name": "Hezorime",
+    "published": true
+  },
+  "4759": {
+    "group_id": 4759,
+    "category_id": 25,
+    "name": "Griemeer",
+    "published": true
+  },
+  "4768": {
+    "group_id": 4768,
+    "category_id": 39,
+    "name": "Sovereignty Hub Site Detection Upgrades",
+    "published": true
+  },
+  "4769": {
+    "group_id": 4769,
+    "category_id": 7,
+    "name": "Capital Mobility Modules",
+    "published": true
+  },
+  "4772": {
+    "group_id": 4772,
+    "category_id": 39,
+    "name": "Sovereignty Hub Service Infrastructure Upgrade",
+    "published": true
+  },
+  "4776": {
+    "group_id": 4776,
+    "category_id": 17,
+    "name": "Expired Abyssal Battlefields Filaments",
+    "published": true
+  },
+  "4777": {
+    "group_id": 4777,
+    "category_id": 87,
+    "name": "Structure Light Fighter",
+    "published": true
+  },
+  "4778": {
+    "group_id": 4778,
+    "category_id": 87,
+    "name": "Structure Support Fighter",
+    "published": true
+  },
+  "4779": {
+    "group_id": 4779,
+    "category_id": 87,
+    "name": "Structure Heavy Fighter",
+    "published": true
+  },
+  "4807": {
+    "group_id": 4807,
+    "category_id": 7,
+    "name": "Breacher Pod Launchers",
+    "published": true
+  },
+  "4808": {
+    "group_id": 4808,
+    "category_id": 8,
+    "name": "SCARAB Breacher Pods",
+    "published": true
+  },
+  "4810": {
+    "group_id": 4810,
+    "category_id": 22,
+    "name": "Mercenary Den",
+    "published": true
+  },
+  "4811": {
+    "group_id": 4811,
+    "category_id": 9,
+    "name": "Mercenary Den Blueprint",
+    "published": true
+  },
+  "4821": {
+    "group_id": 4821,
+    "category_id": 17,
+    "name": "Atavum",
+    "published": true
+  },
+  "4824": {
+    "group_id": 4824,
+    "category_id": 17,
+    "name": "Infomorph Systems",
+    "published": true
+  },
+  "4827": {
+    "group_id": 4827,
+    "category_id": 17,
+    "name": "EDENCOM Data",
+    "published": true
+  },
+  "4838": {
+    "group_id": 4838,
+    "category_id": 39,
+    "name": "Sovereignty Hub Colony Resources Management Upgrades",
+    "published": true
+  },
+  "4839": {
+    "group_id": 4839,
+    "category_id": 39,
+    "name": "Sovereignty Hub System Effect Generator Upgrades",
+    "published": true
+  },
+  "4843": {
+    "group_id": 4843,
+    "category_id": 17,
+    "name": "Limited Rarities",
+    "published": true
+  },
+  "4857": {
+    "group_id": 4857,
+    "category_id": 25,
+    "name": "Tyranite",
+    "published": true
+  },
+  "4900": {
+    "group_id": 4900,
+    "category_id": 17,
+    "name": "Stability Telemetry",
+    "published": true
+  },
+  "4902": {
+    "group_id": 4902,
+    "category_id": 6,
+    "name": "Expedition Command Ship",
+    "published": true
+  },
+  "4905": {
+    "group_id": 4905,
+    "category_id": 8,
+    "name": "Expedition Command Burst Charges",
+    "published": true
+  },
+  "4913": {
+    "group_id": 4913,
+    "category_id": 22,
+    "name": "Mobile Phase Anchor",
+    "published": true
+  },
+  "4914": {
+    "group_id": 4914,
+    "category_id": 9,
+    "name": "Mobile Phase Anchor Blueprint",
+    "published": true
+  },
+  "4915": {
+    "group_id": 4915,
+    "category_id": 4,
+    "name": "Prismaticite",
+    "published": true
+  },
+  "4932": {
+    "group_id": 4932,
+    "category_id": 4,
+    "name": "Unrefined Mineral",
+    "published": true
+  },
+  "4972": {
+    "group_id": 4972,
+    "category_id": 17,
+    "name": "Verity Cryo Tech",
+    "published": true
+  },
+  "5067": {
+    "group_id": 5067,
+    "category_id": 17,
+    "name": "Fabricator Data",
+    "published": true
+  },
+  "5068": {
+    "group_id": 5068,
+    "category_id": 17,
+    "name": "Vigilance Point Data",
+    "published": true
+  },
+  "5082": {
+    "group_id": 5082,
+    "category_id": 30,
+    "name": "Portrait Backgrounds",
+    "published": true
+  },
+  "5083": {
+    "group_id": 5083,
+    "category_id": 25,
+    "name": "Raspite",
+    "published": true
+  },
+  "5084": {
+    "group_id": 5084,
+    "category_id": 25,
+    "name": "Polycrase",
+    "published": true
+  },
+  "5085": {
+    "group_id": 5085,
+    "category_id": 25,
+    "name": "Moissanite",
+    "published": true
+  },
+  "5086": {
+    "group_id": 5086,
+    "category_id": 25,
+    "name": "Kangite",
+    "published": true
+  },
+  "5087": {
+    "group_id": 5087,
+    "category_id": 6,
+    "name": "Special Edition Yachts",
+    "published": true
+  },
+  "5120": {
+    "group_id": 5120,
+    "category_id": 6,
+    "name": "Command Carrier",
+    "published": true
+  }
+}

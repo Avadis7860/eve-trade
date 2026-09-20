@@ -1,4 +1,5 @@
-import { EveTypeDetail, TypeCatalogMetadata, TypeCatalogStatus } from '../../types';
+import { EveTypeDetail, TypeCatalogStatus } from '../../types';
+import { CatalogHashing } from './CatalogHashing';
 
 export interface CatalogValidationResult {
   isValid: boolean;
@@ -6,7 +7,22 @@ export interface CatalogValidationResult {
   field?: string;
 }
 
+export interface CatalogCompletenessOptions {
+  expectedCount?: number;
+  expectedChecksum?: string;
+  currentChecksum?: string;
+  source?: string;
+}
+
 export class CatalogValidator {
+  /**
+   * Computes the canonical SHA-256 checksum for a collection of EVE types.
+   * Guarantees order-invariance and property-level determinism.
+   */
+  static computeCanonicalChecksum(items: EveTypeDetail[]): string {
+    return CatalogHashing.computeCatalogChecksum(items);
+  }
+
   /**
    * Validates an individual EVE type according to CCP specifications.
    */
@@ -42,9 +58,8 @@ export class CatalogValidator {
     errors: string[];
     uniqueTypeIds: Set<number>;
   } {
-    const validTypes: EveTypeDetail[] = [];
+    const validMap = new Map<number, EveTypeDetail>();
     const errors: string[] = [];
-    const uniqueTypeIds = new Set<number>();
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
@@ -57,13 +72,11 @@ export class CatalogValidator {
       const rec = item as Record<string, unknown>;
       const typeId = Number(rec.type_id);
 
-      if (uniqueTypeIds.has(typeId)) {
-        errors.push(`Duplicate type_id detected at index ${i}: ${typeId}`);
-        continue;
+      if (validMap.has(typeId)) {
+        errors.push(`Duplicate type_id ${typeId} detected at index ${i}`);
       }
 
-      uniqueTypeIds.add(typeId);
-      validTypes.push({
+      validMap.set(typeId, {
         type_id: typeId,
         name: String(rec.name).trim(),
         group_id: Number(rec.group_id || 0),
@@ -79,24 +92,39 @@ export class CatalogValidator {
       });
     }
 
+    const validTypes = Array.from(validMap.values());
+    const uniqueTypeIds = new Set(validMap.keys());
     return { validTypes, errors, uniqueTypeIds };
   }
 
   /**
-   * Validates collection completeness against minimum thresholds and integrity constraints.
-   * Ensures that partial or fallback catalogs (e.g. 16 types) are never falsely classified as READY.
+   * Validates collection completeness against strict architectural contracts.
+   * INVARIANT: A fallback catalog can NEVER be classified as CATALOG_READY.
    */
   static validateCatalogCompleteness(
     items: EveTypeDetail[],
-    minimumExpectedCount = 50,
-    expectedChecksum?: string,
-    currentChecksum?: string
+    optionsOrMinCount: CatalogCompletenessOptions | number = {},
+    legacyExpectedChecksum?: string,
+    legacyCurrentChecksum?: string
   ): {
     isReady: boolean;
     isDegraded: boolean;
     status: TypeCatalogStatus;
     reason?: string;
   } {
+    let options: CatalogCompletenessOptions;
+    if (typeof optionsOrMinCount === 'number') {
+      options = {
+        expectedCount: optionsOrMinCount,
+        expectedChecksum: legacyExpectedChecksum,
+        currentChecksum: legacyCurrentChecksum,
+      };
+    } else {
+      options = optionsOrMinCount;
+    }
+
+    const { expectedCount, expectedChecksum, currentChecksum, source } = options;
+
     if (!items || items.length === 0) {
       return {
         isReady: false,
@@ -106,21 +134,43 @@ export class CatalogValidator {
       };
     }
 
-    if (items.length < minimumExpectedCount) {
-      return {
-        isReady: false,
-        isDegraded: true,
-        status: 'CATALOG_DEGRADED',
-        reason: `Item count ${items.length} is below required minimum ${minimumExpectedCount}`,
-      };
-    }
-
+    // Checksum mismatch takes absolute precedence -> CATALOG_CORRUPTED
     if (expectedChecksum && currentChecksum && expectedChecksum !== currentChecksum) {
       return {
         isReady: false,
         isDegraded: true,
         status: 'CATALOG_CORRUPTED',
         reason: `Checksum mismatch: expected ${expectedChecksum}, got ${currentChecksum}`,
+      };
+    }
+
+    // Server-Client or Count contract mismatch
+    if (expectedCount !== undefined) {
+      if (items.length < expectedCount) {
+        return {
+          isReady: false,
+          isDegraded: true,
+          status: 'CATALOG_DEGRADED',
+          reason: `Catalog items count (${items.length}) is lower than expected count (${expectedCount})`,
+        };
+      }
+      if (items.length > expectedCount) {
+        return {
+          isReady: false,
+          isDegraded: true,
+          status: 'CATALOG_CORRUPTED',
+          reason: `Catalog items count (${items.length}) exceeds expected count (${expectedCount})`,
+        };
+      }
+    }
+
+    // If source is explicitly marked fallback core, it CANNOT be CATALOG_READY
+    if (source === 'fallback_core' || source === 'filesystem_core') {
+      return {
+        isReady: false,
+        isDegraded: true,
+        status: 'CATALOG_FALLBACK_CORE',
+        reason: 'Catalog is currently operating on fallback core data; universal sync not yet verified.',
       };
     }
 

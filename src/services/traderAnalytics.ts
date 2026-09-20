@@ -9,6 +9,7 @@ import {
 } from '../types';
 import { EVE_CATEGORIES } from '../data/universe';
 import { CatalogRepository } from '../domain/catalog/CatalogRepository';
+import { UniverseRepository } from '../domain/universe/UniverseRepository';
 import { FeeEngine } from '../engine/fee';
 
 const STORAGE_KEY_PREFIX = 'eve_trader_analytics_';
@@ -62,13 +63,13 @@ export class TraderAnalyticsService {
 
     for (const tx of sortedTx) {
       const typeInfo = CatalogRepository.getInstance().getTypeById(tx.type_id);
-      const typeName = tx.type_name || typeInfo?.name || `Objet #${tx.type_id}`;
+      const typeName = tx.type_name || typeInfo?.name || CatalogRepository.getInstance().getTypeName(tx.type_id);
       const categoryInfo = typeInfo ? EVE_CATEGORIES.find((c) => c.category_id === typeInfo.category_id) : null;
       const categoryName = typeInfo?.category_name || categoryInfo?.name || 'Général';
 
       // Track location metrics
       const locId = tx.location_id;
-      const locName = tx.location_name || `Station #${locId}`;
+      const locName = tx.location_name || UniverseRepository.getInstance().getStationNameSync(locId);
       if (!locationVolumeMap[locId]) {
         locationVolumeMap[locId] = { name: locName, volumeIsk: 0, count: 0 };
       }
@@ -85,7 +86,7 @@ export class TraderAnalyticsService {
           date: tx.date,
           quantity: tx.quantity,
           unit_price: tx.unit_price,
-          location_name: tx.location_name,
+          location_name: locName,
         });
       } else {
         // Sell transaction
@@ -94,7 +95,7 @@ export class TraderAnalyticsService {
         let totalAcquisitionCost = 0;
         let weightedBuyDateMs = 0;
         let matchedUnits = 0;
-        let buyLocation = 'Inconnu';
+        let buyLocation = 'Station Inconnue';
 
         const inventory = inventoryByType[tx.type_id] || [];
 
@@ -155,7 +156,7 @@ export class TraderAnalyticsService {
             hold_days: Number(holdDays.toFixed(1)),
             is_profitable: isProfitable,
             buy_location: buyLocation,
-            sell_location: tx.location_name || 'Destination',
+            sell_location: locName,
           };
 
           completedCycles.push(cycleRecord);

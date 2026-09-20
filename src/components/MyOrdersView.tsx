@@ -16,6 +16,8 @@ import { TraderAnalyticsService } from '../services/traderAnalytics';
 import { OrderAdvisorService } from '../services/orderAdvisor';
 import { GlobalMarketSyncService } from '../services/globalMarketSync';
 import { MarketDataStore } from '../services/marketDataStore';
+import { CatalogRepository } from '../domain/catalog/CatalogRepository';
+import { UniverseRepository } from '../domain/universe/UniverseRepository';
 import { OrderAdvisorModal } from './OrderAdvisorModal';
 import { TraderPerformanceModal } from './TraderPerformanceModal';
 import {
@@ -959,7 +961,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                             />
                             <div>
                               <div className="font-bold text-[#fafafa]">
-                                {order.type_name || `Type #${order.type_id}`}
+                                {order.type_name || CatalogRepository.getInstance().getTypeName(order.type_id)}
                               </div>
                               <div className="text-[10px] text-[#808495] font-mono">
                                 ID: {order.type_id}
@@ -1013,8 +1015,8 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                         </td>
 
                         {/* Location */}
-                        <td className="py-3 px-3 text-[#808495] max-w-xs truncate text-[11px]">
-                          {order.location_name || `Location #${order.location_id}`}
+                        <td className="py-3 px-3 text-[#808495] max-w-xs truncate text-[11px]" title={order.location_name || UniverseRepository.getInstance().getStationNameSync(order.location_id)}>
+                          {order.location_name || UniverseRepository.getInstance().getStationNameSync(order.location_id)}
                         </td>
 
                         {/* Scan Arbitrage for this item */}

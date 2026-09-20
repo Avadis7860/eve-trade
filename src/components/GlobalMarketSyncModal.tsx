@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { GlobalMarketSyncService, GlobalSyncOptions } from '../services/globalMarketSync';
 import { EsiService } from '../services/esi';
+import { MarketGroupRepository } from '../domain/catalog/MarketGroupRepository';
 import {
   MarketHub,
   FinancialConfig,
@@ -54,9 +55,13 @@ export const GlobalMarketSyncModal: React.FC<GlobalMarketSyncModalProps> = ({
     GlobalMarketSyncService.getUniverseOpportunities()
   );
   const [categoryFilter, setCategoryFilter] = useState<GlobalSyncOptions['category_filter']>('all');
-  const [scopePreset, setScopePreset] = useState<'quick' | 'standard' | 'full'>('standard');
+  const [scopePreset, setScopePreset] = useState<'quick' | 'standard' | 'extended' | 'universe'>('standard');
   const [fetchHistory, setFetchHistory] = useState<boolean>(true);
   const [concurrency, setConcurrency] = useState<number>(4);
+
+  const marketGroupRepo = useMemo(() => MarketGroupRepository.getInstance(), []);
+  const rootGroups = useMemo(() => marketGroupRepo.getRootGroups(), [marketGroupRepo]);
+  const [selectedMarketGroupId, setSelectedMarketGroupId] = useState<number>(0);
 
   useEffect(() => {
     const unsubProgress = GlobalMarketSyncService.subscribe((p) => setProgress(p));
@@ -70,17 +75,19 @@ export const GlobalMarketSyncModal: React.FC<GlobalMarketSyncModalProps> = ({
   if (!isOpen) return null;
 
   const handleStartSync = () => {
-    let itemLimit = 150;
-    if (scopePreset === 'quick') itemLimit = 40;
-    if (scopePreset === 'standard') itemLimit = 150;
-    if (scopePreset === 'full') itemLimit = 600;
+    let itemLimit = 250;
+    if (scopePreset === 'quick') itemLimit = 50;
+    if (scopePreset === 'standard') itemLimit = 250;
+    if (scopePreset === 'extended') itemLimit = 1000;
+    if (scopePreset === 'universe') itemLimit = 0; // 0 = All items in universe
 
     GlobalMarketSyncService.startGlobalSync(
       hubs,
       config,
       strategy,
       {
-        category_filter: categoryFilter,
+        category_filter: selectedMarketGroupId === 0 ? categoryFilter : undefined,
+        market_group_id: selectedMarketGroupId > 0 ? selectedMarketGroupId : undefined,
         item_limit: itemLimit,
         fetch_history: fetchHistory,
         concurrency: concurrency,
@@ -144,72 +151,109 @@ export const GlobalMarketSyncModal: React.FC<GlobalMarketSyncModalProps> = ({
               </div>
 
               {/* Preset Scopes */}
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <button
                   type="button"
                   onClick={() => setScopePreset('quick')}
-                  className={`p-3 rounded-lg border text-left transition-all ${
+                  className={`p-2.5 rounded-lg border text-left transition-all ${
                     scopePreset === 'quick'
                       ? 'bg-purple-500/10 border-purple-500 text-purple-300 font-bold'
                       : 'bg-[#161821] border-[#262730] text-[#808495] hover:text-[#cfd3dc]'
                   }`}
                 >
-                  <div className="text-xs font-bold text-[#fafafa]">Top 40 Rapide</div>
-                  <div className="text-[10px] text-[#808495] mt-1">Plex, Injecteurs, Minerais majeurs (~15 sec)</div>
+                  <div className="text-xs font-bold text-[#fafafa]">Top 50 Rapide</div>
+                  <div className="text-[10px] text-[#808495] mt-0.5">Plex, Injecteurs, Ores majeurs (~15 sec)</div>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setScopePreset('standard')}
-                  className={`p-3 rounded-lg border text-left transition-all ${
+                  className={`p-2.5 rounded-lg border text-left transition-all ${
                     scopePreset === 'standard'
                       ? 'bg-purple-500/10 border-purple-500 text-purple-300 font-bold'
                       : 'bg-[#161821] border-[#262730] text-[#808495] hover:text-[#cfd3dc]'
                   }`}
                 >
-                  <div className="text-xs font-bold text-[#fafafa]">Standard 150 Items</div>
-                  <div className="text-[10px] text-[#808495] mt-1">Tous les modules, munitions, T2 et hulls (~45 sec)</div>
+                  <div className="text-xs font-bold text-[#fafafa]">Standard (250)</div>
+                  <div className="text-[10px] text-[#808495] mt-0.5">Modules T2, hulls & munitions (~45 sec)</div>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => setScopePreset('full')}
-                  className={`p-3 rounded-lg border text-left transition-all ${
-                    scopePreset === 'full'
+                  onClick={() => setScopePreset('extended')}
+                  className={`p-2.5 rounded-lg border text-left transition-all ${
+                    scopePreset === 'extended'
                       ? 'bg-purple-500/10 border-purple-500 text-purple-300 font-bold'
                       : 'bg-[#161821] border-[#262730] text-[#808495] hover:text-[#cfd3dc]'
                   }`}
                 >
-                  <div className="text-xs font-bold text-[#fafafa]">Grand Univers 600+</div>
-                  <div className="text-[10px] text-[#808495] mt-1">Couverture massive du catalogue (~2 min)</div>
+                  <div className="text-xs font-bold text-[#fafafa]">Écosystème (1000)</div>
+                  <div className="text-[10px] text-[#808495] mt-0.5">Couverture approfondie (~2 min)</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setScopePreset('universe')}
+                  className={`p-2.5 rounded-lg border text-left transition-all ${
+                    scopePreset === 'universe'
+                      ? 'bg-purple-500/10 border-purple-500 text-purple-300 font-bold ring-1 ring-purple-400/50'
+                      : 'bg-[#161821] border-[#262730] text-[#808495] hover:text-[#cfd3dc]'
+                  }`}
+                >
+                  <div className="text-xs font-bold text-[#fafafa] flex items-center gap-1">
+                    <span>Univers Complet</span>
+                    <span className="text-[9px] bg-purple-500/30 text-purple-200 px-1 rounded">20k+</span>
+                  </div>
+                  <div className="text-[10px] text-[#808495] mt-0.5">Tous les 20 526 types de marché EVE</div>
                 </button>
               </div>
 
               {/* Category & Concurrency */}
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <div>
-                  <label className="block text-[#808495] mb-1">Filtrer par Catégorie :</label>
+                  <label className="block text-[#808495] mb-1">Groupe / Catégorie de Marché :</label>
                   <select
-                    value={categoryFilter}
-                    onChange={(e) => setCategoryFilter(e.target.value as any)}
+                    value={selectedMarketGroupId > 0 ? `mg_${selectedMarketGroupId}` : categoryFilter}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val.startsWith('mg_')) {
+                        setSelectedMarketGroupId(Number(val.replace('mg_', '')));
+                        setCategoryFilter('all');
+                      } else {
+                        setSelectedMarketGroupId(0);
+                        setCategoryFilter(val as any);
+                      }
+                    }}
                     className="w-full bg-[#161821] border border-[#262730] text-[#fafafa] p-2 rounded-lg font-medium"
                   >
-                    <option value="all">🌐 Toutes les catégories de l'Univers EVE (Recommandé)</option>
-                    <option value="ships">🚀 Vaisseaux spatiaux (Frégates, Croiseurs, Cuirassés, Freighters)</option>
-                    <option value="modules">⚙️ Modules &amp; Équipements T2 / Faction / Deadspace</option>
-                    <option value="minerals_materials">💎 Minerais, Minéraux &amp; Matériaux de Production</option>
-                    <option value="planetary_industry">🪐 Industrie Planétaire (PI P1-P4)</option>
-                    <option value="blueprints_reactions">📜 Blueprints, Copies &amp; Formules de Réaction</option>
-                    <option value="skills">🧠 Livres de Compétences &amp; Injecteurs de Skillpoints</option>
-                    <option value="implants_boosters">💉 Implants Cybernétiques &amp; Boosters de Combat</option>
-                    <option value="ammo_drones">💣 Munitions, Missiles, Charges &amp; Munitions Exotiques</option>
-                    <option value="drones_fighters">🤖 Drones de Combat, Logistiques &amp; Chasseurs Porteurs</option>
-                    <option value="trade_goods_plex">🪙 Biens Commerciaux, PLEX &amp; Jetons EVE</option>
-                    <option value="structures_citadels">🏛️ Structures Upwell, Citadelles &amp; Modules de Station</option>
-                    <option value="subsystems_rigs">🔧 Sous-systèmes T3 &amp; Optimisations Rigs</option>
-                    <option value="deployables">📡 Déployables Mobiles, Siphons &amp; Balises</option>
-                    <option value="relics_exploration">🧭 Reliques, Données Archéologiques &amp; Sites Secrets</option>
-                    <option value="apparel">👔 Vêtements, Cosmétiques &amp; Skins de Pilote</option>
+                    <option value="all">🌐 Tout l'Univers EVE (20 526 types de marché)</option>
+                    <optgroup label="Groupes Principaux EVE (Hiérarchie Officielle CCP)">
+                      {rootGroups.map((rg) => {
+                        const count = marketGroupRepo.getAllTypesForGroup(rg.market_group_id).length;
+                        return (
+                          <option key={rg.market_group_id} value={`mg_${rg.market_group_id}`}>
+                            {rg.icon || '📁'} {rg.name} ({count.toLocaleString()} types)
+                          </option>
+                        );
+                      })}
+                    </optgroup>
+                    <optgroup label="Filtres Rapides par Domaine">
+                      <option value="ships">🚀 Vaisseaux spatiaux (Frégates, Croiseurs, Cuirassés, Freighters)</option>
+                      <option value="modules">⚙️ Modules &amp; Équipements T2 / Faction / Deadspace</option>
+                      <option value="minerals_materials">💎 Minerais, Minéraux &amp; Matériaux de Production</option>
+                      <option value="planetary_industry">🪐 Industrie Planétaire (PI P1-P4)</option>
+                      <option value="blueprints_reactions">📜 Blueprints, Copies &amp; Formules de Réaction</option>
+                      <option value="skills">🧠 Livres de Compétences &amp; Injecteurs de Skillpoints</option>
+                      <option value="implants_boosters">💉 Implants Cybernétiques &amp; Boosters de Combat</option>
+                      <option value="ammunition_charges">💣 Munitions, Missiles, Charges &amp; Munitions Exotiques</option>
+                      <option value="drones_fighters">🤖 Drones de Combat, Logistiques &amp; Chasseurs Porteurs</option>
+                      <option value="trade_goods_plex">🪙 Biens Commerciaux, PLEX &amp; Jetons EVE</option>
+                      <option value="structures_citadels">🏛️ Structures Upwell, Citadelles &amp; Modules de Station</option>
+                      <option value="subsystems_rigs">🔧 Sous-systèmes T3 &amp; Optimisations Rigs</option>
+                      <option value="deployables">📡 Déployables Mobiles, Siphons &amp; Balises</option>
+                      <option value="relics_exploration">🧭 Reliques, Données Archéologiques &amp; Sites Secrets</option>
+                      <option value="apparel">👔 Vêtements, Cosmétiques &amp; Skins de Pilote</option>
+                    </optgroup>
                   </select>
                 </div>
 

@@ -6,6 +6,7 @@ import {
   OpportunityObservation,
   DailyMarketHistory,
   EveTypeDetail,
+  TypeCatalogMetadata,
 } from '../types';
 
 export interface StorageStats {
@@ -31,7 +32,7 @@ export interface EsiHttpCacheEntry {
 }
 
 const DB_NAME = 'eve_trade_durable_store';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export class IndexedDbStore {
   private static db: IDBDatabase | null = null;
@@ -44,6 +45,7 @@ export class IndexedDbStore {
   private static memoryOpportunityObservations: OpportunityObservation[] = [];
   private static memoryDailyHistory = new Map<string, DailyMarketHistory[]>();
   private static memoryTypes = new Map<number, EveTypeDetail>();
+  private static memoryCatalogMetadata: TypeCatalogMetadata | null = null;
   private static lastPersistedAt: string | null = null;
 
   /**
@@ -115,12 +117,17 @@ export class IndexedDbStore {
             dailyStore.createIndex('region_id', 'region_id', { unique: false });
           }
 
-          // 8. EVE Online Types Catalog (Full 15,801+ database cache)
+          // 8. EVE Online Types Catalog
           if (!db.objectStoreNames.contains('eve_types')) {
             const typesStore = db.createObjectStore('eve_types', { keyPath: 'type_id' });
             typesStore.createIndex('name', 'name', { unique: false });
             typesStore.createIndex('group_id', 'group_id', { unique: false });
             typesStore.createIndex('category_id', 'category_id', { unique: false });
+          }
+
+          // 9. Catalog Metadata and Audit Records
+          if (!db.objectStoreNames.contains('catalog_metadata')) {
+            db.createObjectStore('catalog_metadata', { keyPath: 'key' });
           }
         };
 
@@ -648,7 +655,132 @@ export class IndexedDbStore {
   }
 
   /**
-   * Stores EVE online types (bulk)
+   * Atomically replaces the entire cached EVE types catalog and its metadata.
+   * INVARIANT: Clears all existing records in the transaction before writing,
+   * completely preventing stale records from previous versions from lingering.
+   */
+  static async replaceCatalog(types: EveTypeDetail[], metadata: TypeCatalogMetadata): Promise<void> {
+    // 1. Refresh memory cache cleanly
+    this.memoryTypes.clear();
+    for (const t of types) {
+      this.memoryTypes.set(t.type_id, t);
+    }
+    this.memoryCatalogMetadata = { ...metadata };
+
+    const isReady = await this.init();
+    if (!isReady || !this.db) return;
+
+    return new Promise((resolve) => {
+      try {
+        const tx = this.db!.transaction(['eve_types', 'catalog_metadata'], 'readwrite');
+        const typesStore = tx.objectStore('eve_types');
+        const metaStore = tx.objectStore('catalog_metadata');
+
+        // Atomic wipe of all old types
+        typesStore.clear();
+
+        // Write validated fresh dataset
+        for (const t of types) {
+          typesStore.put(t);
+        }
+
+        // Store authoritative catalog metadata
+        metaStore.put({
+          key: 'active_catalog',
+          metadata,
+          persisted_at: new Date().toISOString(),
+        });
+
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      } catch {
+        resolve();
+      }
+    });
+  }
+
+  /**
+   * Retrieves both cached EVE types and their authoritative persistence metadata.
+   */
+  static async getCatalogWithMetadata(): Promise<{
+    types: EveTypeDetail[];
+    metadata: TypeCatalogMetadata | null;
+  }> {
+    const inMemTypes = Array.from(this.memoryTypes.values());
+    if (inMemTypes.length > 0 && this.memoryCatalogMetadata) {
+      return { types: inMemTypes, metadata: this.memoryCatalogMetadata };
+    }
+
+    const isReady = await this.init();
+    if (!isReady || !this.db) {
+      return { types: inMemTypes, metadata: this.memoryCatalogMetadata };
+    }
+
+    return new Promise((resolve) => {
+      try {
+        const tx = this.db!.transaction(['eve_types', 'catalog_metadata'], 'readonly');
+        const typesStore = tx.objectStore('eve_types');
+        const metaStore = tx.objectStore('catalog_metadata');
+
+        const typesReq = typesStore.getAll();
+        const metaReq = metaStore.get('active_catalog');
+
+        let fetchedTypes: EveTypeDetail[] = inMemTypes;
+        let fetchedMeta: TypeCatalogMetadata | null = this.memoryCatalogMetadata;
+
+        typesReq.onsuccess = () => {
+          fetchedTypes = (typesReq.result as EveTypeDetail[]) || [];
+        };
+
+        metaReq.onsuccess = () => {
+          if (metaReq.result && metaReq.result.metadata) {
+            fetchedMeta = metaReq.result.metadata;
+          }
+        };
+
+        tx.oncomplete = () => {
+          this.memoryTypes.clear();
+          for (const t of fetchedTypes) {
+            this.memoryTypes.set(t.type_id, t);
+          }
+          this.memoryCatalogMetadata = fetchedMeta;
+          resolve({ types: fetchedTypes, metadata: fetchedMeta });
+        };
+
+        tx.onerror = () => {
+          resolve({ types: inMemTypes, metadata: this.memoryCatalogMetadata });
+        };
+      } catch {
+        resolve({ types: inMemTypes, metadata: this.memoryCatalogMetadata });
+      }
+    });
+  }
+
+  /**
+   * Clears only the catalog stores and memory cache.
+   */
+  static async clearCatalog(): Promise<void> {
+    this.memoryTypes.clear();
+    this.memoryCatalogMetadata = null;
+
+    const isReady = await this.init();
+    if (!isReady || !this.db) return;
+
+    return new Promise((resolve) => {
+      try {
+        const tx = this.db!.transaction(['eve_types', 'catalog_metadata'], 'readwrite');
+        tx.objectStore('eve_types').clear();
+        tx.objectStore('catalog_metadata').clear();
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      } catch {
+        resolve();
+      }
+    });
+  }
+
+  /**
+   * Stores EVE online types (bulk legacy compatibility)
    */
   static async saveEveTypes(types: EveTypeDetail[]): Promise<void> {
     for (const t of types) {
@@ -775,6 +907,7 @@ export class IndexedDbStore {
             'opportunity_observations',
             'market_history_daily',
             'eve_types',
+            'catalog_metadata',
           ],
           'readwrite'
         );
@@ -786,6 +919,7 @@ export class IndexedDbStore {
         tx.objectStore('opportunity_observations').clear();
         tx.objectStore('market_history_daily').clear();
         tx.objectStore('eve_types').clear();
+        tx.objectStore('catalog_metadata').clear();
         tx.oncomplete = () => resolve();
         tx.onerror = () => resolve();
       } catch {

@@ -104,7 +104,22 @@ export const ConnectedCharactersModal: React.FC<ConnectedCharactersModalProps> =
     if (!manualCode.trim()) return;
 
     try {
-      const session = await AuthService.exchangeCodeForSession(manualCode.trim());
+      let code = manualCode.trim();
+      let state: string | undefined = undefined;
+      let redirectUri: string | undefined = undefined;
+
+      if (code.includes('code=') || code.startsWith('http')) {
+        try {
+          const urlObj = new URL(code);
+          const c = urlObj.searchParams.get('code');
+          const s = urlObj.searchParams.get('state');
+          if (c) code = c;
+          if (s) state = s;
+          redirectUri = `${urlObj.origin}${urlObj.pathname}`;
+        } catch {}
+      }
+
+      const session = await AuthService.exchangeCodeForSession(code, redirectUri, state);
       await onRefreshCharacter(session);
       setCharacters(AuthService.getLinkedCharacters());
       onSelectCharacter(session);
@@ -131,6 +146,9 @@ export const ConnectedCharactersModal: React.FC<ConnectedCharactersModalProps> =
         expires_at: Date.now() + (20 * 60 * 1000),
         last_sync: new Date().toISOString(),
         is_active: true,
+        session_version: 2,
+        auth_status: 'SESSION_VALID',
+        last_validated_at: new Date().toISOString(),
       };
 
       AuthService.saveCharacter(session, true);

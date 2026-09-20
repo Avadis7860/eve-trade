@@ -1,4 +1,4 @@
-import { EveCharacterSession } from '../types';
+import { EveCharacterSession, SessionAuthStatus } from '../types';
 
 const STORAGE_KEY_CHARACTERS = 'eve_linked_characters';
 const STORAGE_KEY_ACTIVE_CHAR_ID = 'eve_active_character_id';
@@ -40,6 +40,63 @@ export class AuthService {
   private static refreshLockMap = new Map<number, Promise<EveCharacterSession>>();
 
   /**
+   * Deterministically computes the formal SessionAuthStatus for any character session.
+   */
+  static computeSessionStatus(session: Partial<EveCharacterSession>): SessionAuthStatus {
+    if (!session || !session.character_id || !session.access_token) {
+      return 'SESSION_CORRUPTED';
+    }
+    if (this.refreshLockMap.has(session.character_id)) {
+      return 'SESSION_REFRESHING';
+    }
+    if (
+      session.auth_error &&
+      (session.auth_error.includes('401') ||
+        session.auth_error.toLowerCase().includes('revoked') ||
+        session.auth_error.toLowerCase().includes('révoqué') ||
+        session.auth_error.toLowerCase().includes('invalid_grant'))
+    ) {
+      return 'SESSION_REVOKED';
+    }
+    if (session.is_token_expired) {
+      return 'SESSION_EXPIRED';
+    }
+    if (!session.expires_at) {
+      return session.refresh_token ? 'SESSION_EXPIRING' : 'SESSION_VALID';
+    }
+    const diff = session.expires_at - Date.now();
+    if (diff <= 0) {
+      return 'SESSION_EXPIRED';
+    }
+    if (diff < 2 * 60 * 1000) {
+      return 'SESSION_EXPIRING';
+    }
+    return 'SESSION_VALID';
+  }
+
+  /**
+   * Normalizes an existing session to v2 standards.
+   */
+  static normalizeSession(session: any): EveCharacterSession {
+    const status = this.computeSessionStatus(session);
+    return {
+      character_id: Number(session.character_id),
+      character_name: session.character_name || `Character #${session.character_id}`,
+      portrait_url: session.portrait_url || `https://images.evetech.net/characters/${session.character_id}/portrait?size=128`,
+      access_token: session.access_token || '',
+      refresh_token: session.refresh_token || '',
+      expires_at: session.expires_at || (Date.now() + 1200 * 1000),
+      last_sync: session.last_sync || new Date().toISOString(),
+      is_active: Boolean(session.is_active),
+      is_token_expired: session.is_token_expired ?? (status === 'SESSION_EXPIRED' || status === 'SESSION_REVOKED'),
+      auth_error: session.auth_error,
+      session_version: 2,
+      auth_status: status,
+      last_validated_at: session.last_validated_at || session.last_sync || new Date().toISOString(),
+    };
+  }
+
+  /**
    * Subscribe to character session updates (e.g. token refreshed, logged out, switched).
    */
   static subscribe(callback: (session: EveCharacterSession | null) => void) {
@@ -61,7 +118,7 @@ export class AuthService {
 
   /**
    * Retrieves all linked EVE characters from persistent storage.
-   * Migrates legacy single-character format seamlessly if present.
+   * Migrates legacy single-character format and v1 sessions seamlessly.
    */
   static getLinkedCharacters(): EveCharacterSession[] {
     try {
@@ -69,7 +126,7 @@ export class AuthService {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          return parsed;
+          return parsed.map((item) => this.normalizeSession(item));
         }
       }
 
@@ -78,7 +135,7 @@ export class AuthService {
       if (legacyRaw) {
         const legacyChar = JSON.parse(legacyRaw) as EveCharacterSession;
         if (legacyChar && legacyChar.character_id) {
-          const list = [{ ...legacyChar, is_active: true }];
+          const list = [this.normalizeSession({ ...legacyChar, is_active: true })];
           safeStorage.setItem(STORAGE_KEY_CHARACTERS, JSON.stringify(list));
           safeStorage.setItem(STORAGE_KEY_ACTIVE_CHAR_ID, String(legacyChar.character_id));
           return list;
@@ -116,11 +173,11 @@ export class AuthService {
     const list = this.getLinkedCharacters();
     const existingIndex = list.findIndex((c) => c.character_id === session.character_id);
 
-    const updatedSession: EveCharacterSession = {
+    const normalized = this.normalizeSession({
       ...session,
       is_active: makeActive,
       last_sync: new Date().toISOString(),
-    };
+    });
 
     let updatedList: EveCharacterSession[];
 
@@ -128,20 +185,20 @@ export class AuthService {
       // Merge with existing session to preserve any missing fields
       updatedList = list.map((c, idx) =>
         idx === existingIndex
-          ? { ...c, ...updatedSession, refresh_token: session.refresh_token || c.refresh_token }
+          ? { ...c, ...normalized, refresh_token: session.refresh_token || c.refresh_token }
           : makeActive ? { ...c, is_active: false } : c
       );
     } else {
       updatedList = makeActive
-        ? [...list.map((c) => ({ ...c, is_active: false })), updatedSession]
-        : [...list, updatedSession];
+        ? [...list.map((c) => ({ ...c, is_active: false })), normalized]
+        : [...list, normalized];
     }
 
     safeStorage.setItem(STORAGE_KEY_CHARACTERS, JSON.stringify(updatedList));
     if (makeActive) {
       safeStorage.setItem(STORAGE_KEY_ACTIVE_CHAR_ID, String(session.character_id));
-      safeStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(updatedSession));
-      this.notifyListeners(updatedSession);
+      safeStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(normalized));
+      this.notifyListeners(normalized);
     }
 
     return updatedList;
@@ -206,22 +263,53 @@ export class AuthService {
   }
 
   /**
-   * Mark a character's token as expired when ESI returns 401
+   * Mark a character's token as expired when ESI returns 401 or token is stale.
    */
   static markTokenExpired(characterId: number, errorMsg: string = 'Session expirée (401)'): EveCharacterSession | null {
     const list = this.getLinkedCharacters();
     const target = list.find((c) => c.character_id === characterId);
     if (!target) return null;
 
+    const isRevoked =
+      errorMsg.includes('401') ||
+      errorMsg.toLowerCase().includes('revoked') ||
+      errorMsg.toLowerCase().includes('invalid_grant');
+
     const updatedSession: EveCharacterSession = {
       ...target,
       is_token_expired: true,
       auth_error: errorMsg,
+      auth_status: isRevoked ? 'SESSION_REVOKED' : 'SESSION_EXPIRED',
       last_sync: new Date().toISOString(),
     };
 
     this.saveCharacter(updatedSession, target.is_active ?? false);
     return updatedSession;
+  }
+
+  /**
+   * Marks a character session as explicitly revoked (e.g. invalid_grant or permission revoked in EVE account management).
+   */
+  static markTokenRevoked(characterId: number, reason: string = 'Jeton SSO révoqué ou invalide'): EveCharacterSession | null {
+    return this.markTokenExpired(characterId, reason);
+  }
+
+  /**
+   * Records a successful authenticated API validation timestamp.
+   */
+  static recordSuccessfulValidation(characterId: number): void {
+    const list = this.getLinkedCharacters();
+    const target = list.find((c) => c.character_id === characterId);
+    if (!target) return;
+
+    const updatedSession: EveCharacterSession = {
+      ...target,
+      is_token_expired: false,
+      auth_error: undefined,
+      auth_status: 'SESSION_VALID',
+      last_validated_at: new Date().toISOString(),
+    };
+    this.saveCharacter(updatedSession, target.is_active ?? false);
   }
 
   /**
@@ -261,6 +349,9 @@ export class AuthService {
           expires_at: expiresAt,
           is_token_expired: false,
           auth_error: undefined,
+          auth_status: 'SESSION_VALID',
+          session_version: 2,
+          last_validated_at: new Date().toISOString(),
           last_sync: new Date().toISOString(),
         };
 
@@ -311,19 +402,24 @@ export class AuthService {
   /**
    * Exchanges an authorization code for access and refresh tokens.
    */
-  static async exchangeCodeForSession(code: string, redirectUri?: string): Promise<EveCharacterSession> {
+  static async exchangeCodeForSession(code: string, redirectUri?: string, state?: string): Promise<EveCharacterSession> {
+    const payloadBody: Record<string, string> = {
+      code: code.trim(),
+      redirect_uri: redirectUri || 'http://localhost:8000/callback',
+    };
+    if (state) {
+      payloadBody.state = state;
+    }
+
     const response = await fetch('/api/auth/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        code: code.trim(),
-        redirect_uri: redirectUri || 'http://localhost:8000/callback',
-      }),
+      body: JSON.stringify(payloadBody),
     });
 
     if (!response.ok) {
       const err = await response.json().catch(() => ({ error: 'Échec de l échange de code' }));
-      throw new Error(err.error || err.details || 'Échec de l échange de code SSO');
+      throw new Error(err.message || err.error || err.details || 'Échec de l échange de code SSO');
     }
 
     const data = await response.json();
@@ -339,6 +435,9 @@ export class AuthService {
       expires_at: expiresAt,
       last_sync: new Date().toISOString(),
       is_active: true,
+      session_version: 2,
+      auth_status: 'SESSION_VALID',
+      last_validated_at: new Date().toISOString(),
     };
 
     this.saveCharacter(session, true);

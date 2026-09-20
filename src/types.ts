@@ -607,7 +607,16 @@ export interface TableCounts {
   esi_cache?: number;
 }
 
+export type SessionAuthStatus =
+  | 'SESSION_VALID'
+  | 'SESSION_EXPIRING'
+  | 'SESSION_REFRESHING'
+  | 'SESSION_EXPIRED'
+  | 'SESSION_REVOKED'
+  | 'SESSION_CORRUPTED';
+
 export interface EveCharacterSession {
+  session_version?: number; // Version 2
   character_id: number;
   character_name: string;
   portrait_url: string;
@@ -625,8 +634,10 @@ export interface EveCharacterSession {
     total: number;
   };
   last_sync?: string;
+  last_validated_at?: string;
   is_active?: boolean;
   is_token_expired?: boolean;
+  auth_status?: SessionAuthStatus;
   auth_error?: string;
 }
 

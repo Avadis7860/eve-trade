@@ -261,11 +261,12 @@ export const App: React.FC = () => {
     const handleUrlCallback = async () => {
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code') || urlParams.get('eve_sso_code');
+      const state = urlParams.get('state');
       if (code) {
         try {
           // Clean URL without reload
           window.history.replaceState({}, document.title, window.location.pathname);
-          const session = await AuthService.exchangeCodeForSession(code);
+          const session = await AuthService.exchangeCodeForSession(code, undefined, state || undefined);
           await loadCharacterData(session.access_token, session.character_id, session.character_name, session);
           setCurrentView('orders');
         } catch (err) {
@@ -296,15 +297,20 @@ export const App: React.FC = () => {
             portrait_url: `https://images.evetech.net/characters/${character_id}/portrait?size=128`,
             last_sync: new Date().toISOString(),
             is_active: true,
+            session_version: 2,
+            auth_status: 'SESSION_VALID',
+            last_validated_at: new Date().toISOString(),
           };
           AuthService.saveCharacter(s, true);
           await loadCharacterData(token, character_id, character_name, s);
           setCurrentView('orders');
         } else if (event.data?.code) {
-          const session = await AuthService.exchangeCodeForSession(event.data.code);
+          const session = await AuthService.exchangeCodeForSession(event.data.code, undefined, event.data.state || undefined);
           await loadCharacterData(session.access_token, session.character_id, session.character_name, session);
           setCurrentView('orders');
         }
+      } else if (event.data?.type === 'OAUTH_AUTH_ERROR') {
+        console.error('SSO OAuth Error received from popup:', event.data.error, event.data.errorDescription);
       }
     };
     window.addEventListener('message', handleMessage);

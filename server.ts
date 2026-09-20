@@ -66,9 +66,133 @@ function validateAndConsumeOAuthState(state: string | undefined): { isValid: boo
   return { isValid: true };
 }
 
+// Strict whitelist validator for OAuth redirect_uri
+function validateRedirectUri(candidate: string | undefined, req: express.Request): { isValid: boolean; uri: string } {
+  const host = req.get('host') || `localhost:${PORT}`;
+  const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+  const defaultUri = EVE_CALLBACK_URL || `${protocol}://${host}/auth/callback`;
+
+  if (!candidate || !candidate.trim()) {
+    return { isValid: true, uri: defaultUri };
+  }
+
+  const trimmed = candidate.trim();
+
+  // Whitelisted exact URIs
+  const allowedExact = new Set<string>([
+    defaultUri,
+    `${protocol}://${host}/auth/callback`,
+    `${protocol}://${host}/callback`,
+    'http://localhost:8000/callback',
+    'http://localhost:3000/auth/callback',
+    'http://localhost:3000/callback',
+  ]);
+  if (EVE_CALLBACK_URL) {
+    allowedExact.add(EVE_CALLBACK_URL);
+  }
+
+  if (allowedExact.has(trimmed)) {
+    return { isValid: true, uri: trimmed };
+  }
+
+  // Origin-matching callback checks
+  try {
+    const parsed = new URL(trimmed);
+    const parsedOrigin = `${parsed.protocol}//${parsed.host}`;
+    const serverOrigin = `${protocol}://${host}`;
+    if (parsedOrigin === serverOrigin && (parsed.pathname === '/auth/callback' || parsed.pathname === '/callback')) {
+      return { isValid: true, uri: trimmed };
+    }
+  } catch {}
+
+  return { isValid: false, uri: defaultUri };
+}
+
+function renderAuthErrorHtml(title: string, message: string, errorCode: string): string {
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <title>EVE SSO — Erreur de Sécurité</title>
+        <style>
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0e1117;
+            color: #fafafa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+          }
+          .card {
+            background: #161821;
+            border: 1px solid rgba(255, 75, 75, 0.4);
+            padding: 28px 32px;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 440px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+          }
+          .icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: rgba(255, 75, 75, 0.15);
+            border: 2px solid #ff4b4b;
+            color: #ff4b4b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            font-weight: bold;
+            margin: 0 auto 16px;
+          }
+          h2 { margin: 0 0 8px; font-size: 18px; color: #ff6b6b; }
+          p { margin: 0 0 16px; font-size: 13px; color: #a0a4b5; line-height: 1.5; }
+          .code { font-family: monospace; font-size: 11px; color: #ff8888; background: #261618; padding: 4px 8px; border-radius: 4px; display: inline-block; }
+          button {
+            margin-top: 18px;
+            background: #262730;
+            color: #fafafa;
+            border: 1px solid #3a3d4d;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <div class="icon">✕</div>
+          <h2>${title}</h2>
+          <p>${message}</p>
+          <div class="code">CODE: ${errorCode}</div>
+          <div>
+            <button onclick="window.close()">Fermer la fenêtre</button>
+          </div>
+        </div>
+        <script>
+          if (window.opener) {
+            window.opener.postMessage({
+              type: 'OAUTH_AUTH_ERROR',
+              provider: 'eve_sso',
+              error: '${errorCode}',
+              errorDescription: '${message.replace(/'/g, "\\'")}'
+            }, '*');
+          }
+        </script>
+      </body>
+    </html>
+  `;
+}
+
+const PORT = 3000;
+
 async function startServer() {
   const app = express();
-  const PORT = 3000;
 
   app.use(express.json());
 
@@ -90,17 +214,34 @@ async function startServer() {
     }
   }
 
-  // 0. Diagnostic Health Endpoint
+  // 0. Diagnostic Health Endpoint (Granular catalog health differentiation)
   app.get('/api/health', (req, res) => {
     const mem = process.memoryUsage();
     const uptimeSec = Math.floor(process.uptime());
     const catalogMeta = TypeCatalogService.getMetadata();
     const ssoConfigured = Boolean(EVE_CLIENT_ID && EVE_CLIENT_SECRET);
 
-    const isHealthy = catalogMeta.status === 'CATALOG_LOADED' || catalogMeta.status === 'CATALOG_FALLBACK_CORE';
+    // Health categorization:
+    // CATALOG_LOADED        -> healthy (200)
+    // CATALOG_FALLBACK_CORE -> degraded (200)
+    // CATALOG_EMPTY         -> unhealthy (503)
+    // CATALOG_CORRUPTED     -> unhealthy (503)
+    let healthStatus: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
+    let httpCode = 200;
 
-    res.status(isHealthy ? 200 : 503).json({
-      status: isHealthy ? 'healthy' : 'degraded',
+    if (catalogMeta.status === 'CATALOG_LOADED') {
+      healthStatus = 'healthy';
+      httpCode = 200;
+    } else if (catalogMeta.status === 'CATALOG_FALLBACK_CORE') {
+      healthStatus = 'degraded';
+      httpCode = 200;
+    } else {
+      healthStatus = 'unhealthy';
+      httpCode = 503;
+    }
+
+    res.status(httpCode).json({
+      status: healthStatus,
       timestamp: new Date().toISOString(),
       uptime_seconds: uptimeSec,
       environment: process.env.NODE_ENV || 'development',
@@ -142,13 +283,21 @@ async function startServer() {
     });
   });
 
-  // 2. Auth URL builder (cryptographically random state, prioritized EVE_CALLBACK_URL)
+  // 2. Auth URL builder (cryptographically random state, strictly whitelisted redirect_uri)
   app.get('/api/auth/url', (req, res) => {
-    const host = req.get('host') || `localhost:${PORT}`;
-    const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
-    const defaultRedirect = EVE_CALLBACK_URL || `${protocol}://${host}/auth/callback`;
-    const redirectUri = (req.query.redirect_uri as string) || defaultRedirect;
-    
+    const requestedRedirect = req.query.redirect_uri as string | undefined;
+    const { isValid, uri: redirectUri } = validateRedirectUri(requestedRedirect, req);
+
+    if (requestedRedirect && !isValid) {
+      logEvent('WARN', 'SSO', 'Unauthorized redirect_uri attempted in /api/auth/url - BLOCKED', {
+        attempted: requestedRedirect,
+      });
+      return res.status(400).json({
+        error: 'INVALID_REDIRECT_URI',
+        message: 'The requested redirect_uri is not whitelisted. Use the configured EVE_CALLBACK_URL or application host callback.',
+      });
+    }
+
     // Cryptographically secure CSRF state
     const state = generateOAuthState(redirectUri);
 
@@ -180,23 +329,17 @@ async function startServer() {
       });
     }
 
-    if (state) {
-      const stateCheck = validateAndConsumeOAuthState(state);
-      if (!stateCheck.isValid) {
-        logEvent('WARN', 'SSO', 'OAuth state verification failed during token exchange', {
-          statePrefix: String(state).substring(0, 8),
-          error: stateCheck.error,
-        });
-      }
-    }
-
-    // Auto-extract code and redirect_uri if user pasted a full URL
+    // Auto-extract code, state, and redirect_uri if user pasted a full URL
     if (typeof code === 'string' && (code.includes('code=') || code.startsWith('http'))) {
       try {
         const urlObj = new URL(code.trim());
         const extracted = urlObj.searchParams.get('code');
+        const extractedState = urlObj.searchParams.get('state');
         if (extracted) {
           code = extracted;
+          if (extractedState && !state) {
+            state = extractedState;
+          }
           if (!redirect_uri || redirect_uri === 'http://localhost:8000/callback') {
             redirect_uri = `${urlObj.origin}${urlObj.pathname}`;
           }
@@ -204,6 +347,37 @@ async function startServer() {
       } catch {
         const match = code.match(/code=([^&]+)/);
         if (match) code = decodeURIComponent(match[1]);
+      }
+    }
+
+    // Strict redirect_uri whitelist validation
+    if (redirect_uri) {
+      const { isValid, uri: validatedUri } = validateRedirectUri(redirect_uri, req);
+      if (!isValid) {
+        logEvent('ERROR', 'SSO', 'Unauthorized redirect_uri attempted in /api/auth/token - BLOCKED', {
+          attempted: redirect_uri,
+        });
+        return res.status(400).json({
+          error: 'INVALID_REDIRECT_URI',
+          message: 'The provided redirect_uri is not whitelisted. Token exchange blocked.',
+        });
+      }
+      redirect_uri = validatedUri;
+    }
+
+    // BLOCKING OAuth State Verification:
+    // If state is provided, it must be verified and consumed. Failure is strictly blocking (HTTP 400).
+    if (state !== undefined) {
+      const stateCheck = validateAndConsumeOAuthState(state);
+      if (!stateCheck.isValid) {
+        logEvent('ERROR', 'SSO', 'OAuth state verification failed during /api/auth/token exchange - BLOCKED', {
+          statePrefix: String(state).substring(0, 8),
+          error: stateCheck.error,
+        });
+        return res.status(400).json({
+          error: 'INVALID_OR_EXPIRED_STATE',
+          message: `OAuth state validation failed (${stateCheck.error || 'INVALID'}). Token exchange was blocked for security.`,
+        });
       }
     }
 
@@ -576,7 +750,7 @@ async function startServer() {
   const serverEsiCache = new Map<string, ServerCacheItem>();
 
   // Periodic garbage collection of expired items
-  setInterval(() => {
+  const cacheGcInterval = setInterval(() => {
     const now = Date.now();
     for (const [key, item] of serverEsiCache.entries()) {
       if (now > item.expiresAt) {
@@ -584,6 +758,9 @@ async function startServer() {
       }
     }
   }, 120000);
+  if (cacheGcInterval && typeof cacheGcInterval.unref === 'function') {
+    cacheGcInterval.unref();
+  }
 
   // 7e. Market orders proxy endpoint with pagination & intelligent caching
   app.get('/api/markets/:regionId/orders', async (req, res) => {
@@ -878,40 +1055,79 @@ async function startServer() {
     let exchangedSession: any = null;
     let exchangeError: string | null = null;
 
-    if (code) {
-      try {
-        const host = req.get('host') || `localhost:${PORT}`;
-        const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
-        const redirectUri = EVE_CALLBACK_URL || `${protocol}://${host}${req.path}`;
-        
-        // Validate OAuth state
-        if (state) {
-          const stateCheck = validateAndConsumeOAuthState(state);
-          if (!stateCheck.isValid) {
-            logEvent('WARN', 'SSO', 'Callback received invalid or expired state', {
-              statePrefix: state.substring(0, 8),
-              error: stateCheck.error,
-            });
-          }
-        }
-        
-        const basicAuth = Buffer.from(`${EVE_CLIENT_ID}:${EVE_CLIENT_SECRET}`).toString('base64');
-        const params = new URLSearchParams({
-          grant_type: 'authorization_code',
-          code: code.trim(),
-          redirect_uri: redirectUri,
-        });
+    // 1. Check for CCP SSO error (e.g. user cancelled or permission denied)
+    if (error) {
+      logEvent('WARN', 'SSO', 'Callback received error from CCP SSO', { error, errorDesc });
+      res.status(400).setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(renderAuthErrorHtml('Autorisation Refusée', errorDesc || error, error));
+    }
 
-        const tokenRes = await fetch('https://login.eveonline.com/v2/oauth/token', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Basic ${basicAuth}`,
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Host': 'login.eveonline.com',
-            'User-Agent': 'eve-trade-interregional/0.2',
-          },
-          body: params.toString(),
-        });
+    // 2. Strict State Validation: MUST be present
+    if (!state) {
+      logEvent('ERROR', 'SSO', 'Callback received without OAuth state parameter - BLOCKED');
+      res.status(400).setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(
+        renderAuthErrorHtml(
+          'Sécurité CSRF : Jeton State Manquant',
+          'La requête d\'autorisation ne contient pas de paramètre state. Connexion bloquée pour protéger votre compte.',
+          'MISSING_STATE'
+        )
+      );
+    }
+
+    // 3. Strict State Validation: MUST be valid and unexpired
+    const stateCheck = validateAndConsumeOAuthState(state);
+    if (!stateCheck.isValid) {
+      logEvent('ERROR', 'SSO', 'Callback received invalid or expired state - BLOCKED', {
+        statePrefix: state.substring(0, 8),
+        error: stateCheck.error,
+      });
+      res.status(400).setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(
+        renderAuthErrorHtml(
+          'Sécurité CSRF : Jeton Invalide ou Expiré',
+          `Le jeton de sécurité de session est invalide ou a expiré (${stateCheck.error}). Veuillez relancer la connexion SSO.`,
+          stateCheck.error || 'INVALID_STATE'
+        )
+      );
+    }
+
+    // 4. Missing Authorization Code
+    if (!code) {
+      logEvent('WARN', 'SSO', 'Callback received without authorization code - BLOCKED');
+      res.status(400).setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(
+        renderAuthErrorHtml(
+          'Code d\'autorisation manquant',
+          'Aucun code d\'autorisation n\'a été transmis par EVE Online.',
+          'MISSING_CODE'
+        )
+      );
+    }
+
+    // 5. State was 100% verified and code is present. Now and only now proceed with token exchange
+    try {
+      const host = req.get('host') || `localhost:${PORT}`;
+      const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+      const redirectUri = EVE_CALLBACK_URL || `${protocol}://${host}${req.path}`;
+      
+      const basicAuth = Buffer.from(`${EVE_CLIENT_ID}:${EVE_CLIENT_SECRET}`).toString('base64');
+      const params = new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code.trim(),
+        redirect_uri: redirectUri,
+      });
+
+      const tokenRes = await fetch('https://login.eveonline.com/v2/oauth/token', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${basicAuth}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Host': 'login.eveonline.com',
+          'User-Agent': 'eve-trade-interregional/0.2',
+        },
+        body: params.toString(),
+      });
 
         if (tokenRes.ok) {
           const tokenData = await tokenRes.json();
@@ -957,7 +1173,6 @@ async function startServer() {
         console.warn('Direct token exchange during callback failed, falling back to client exchange:', err);
         exchangeError = String(err);
       }
-    }
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(`
@@ -1114,4 +1329,24 @@ async function startServer() {
   });
 }
 
-startServer();
+const isMainModule = Boolean(
+  process.argv[1] && (
+    process.argv[1].endsWith('server.ts') || 
+    process.argv[1].endsWith('server.cjs') || 
+    process.argv[1].endsWith('server.js')
+  )
+);
+
+if (isMainModule && process.env.NODE_ENV !== 'test') {
+  startServer();
+}
+
+export {
+  generateOAuthState,
+  validateAndConsumeOAuthState,
+  validateRedirectUri,
+  renderAuthErrorHtml,
+  activeOAuthStates,
+  STATE_TTL_MS,
+  logEvent,
+};

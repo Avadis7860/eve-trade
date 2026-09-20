@@ -36,9 +36,15 @@ export const CatalogProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [allMarketTypes, setAllMarketTypes] = useState<EveTypeDetail[]>(repo.getAllTypes());
 
   useEffect(() => {
-    // Refresh catalog metadata and types after repository load
+    repo.init().catch((err) => console.warn('Catalog init error:', err));
     setCatalogMetadata(repo.getMetadata());
     setAllMarketTypes(repo.getAllTypes());
+
+    const unsub = repo.subscribe((meta) => {
+      setCatalogMetadata(meta);
+      setAllMarketTypes(repo.getAllTypes());
+    });
+    return () => unsub();
   }, [repo]);
 
   const setSelectedType = useCallback((type: EveTypeDetail) => {

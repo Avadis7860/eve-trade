@@ -1,10 +1,6 @@
 import { EveCharacterSession, SessionAuthStatus } from '../types';
 import { CharacterRepository } from '../domain/character/CharacterRepository';
 
-const STORAGE_KEY_CHARACTERS = 'eve_linked_characters';
-const STORAGE_KEY_ACTIVE_CHAR_ID = 'eve_active_character_id';
-const LEGACY_STORAGE_KEY = 'eve_char_session';
-
 const memoryStore = new Map<string, string>();
 
 const safeStorage = {

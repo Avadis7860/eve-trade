@@ -7,6 +7,8 @@ export type CatalogListener = (meta: TypeCatalogMetadata, count: number) => void
 
 export class CatalogRepository {
   private static instance: CatalogRepository;
+  public static readonly MINIMUM_EXPECTED_COUNT = 50;
+
   private typeMap = new Map<number, EveTypeDetail>();
   private customTypeMap = new Map<number, EveTypeDetail>();
   private metadata: TypeCatalogMetadata = {
@@ -16,6 +18,8 @@ export class CatalogRepository {
     status: 'CATALOG_UNAVAILABLE',
     loaded_at: new Date().toISOString(),
     source: 'uninitialized',
+    minimum_expected_count: CatalogRepository.MINIMUM_EXPECTED_COUNT,
+    is_degraded: true,
   };
   private listeners = new Set<CatalogListener>();
   private initPromise: Promise<void> | null = null;
@@ -25,13 +29,17 @@ export class CatalogRepository {
     for (const t of EVE_TYPES_CATALOG) {
       this.typeMap.set(t.type_id, t);
     }
+    const isDegraded = this.typeMap.size < CatalogRepository.MINIMUM_EXPECTED_COUNT;
     this.metadata = {
       version: '2026.09.20.1',
       checksum: 'baseline_core',
       item_count: this.typeMap.size,
-      status: 'CATALOG_FALLBACK_CORE',
+      status: isDegraded ? 'CATALOG_FALLBACK_CORE' : 'CATALOG_READY',
       loaded_at: new Date().toISOString(),
       source: 'fallback_core',
+      minimum_expected_count: CatalogRepository.MINIMUM_EXPECTED_COUNT,
+      is_degraded: isDegraded,
+      error: isDegraded ? 'Running in fallback core mode with partial catalog' : undefined,
     };
   }
 
@@ -40,6 +48,24 @@ export class CatalogRepository {
       CatalogRepository.instance = new CatalogRepository();
     }
     return CatalogRepository.instance;
+  }
+
+  /**
+   * Checks if the catalog satisfies complete verifiable readiness invariants.
+   */
+  isReady(): boolean {
+    return (
+      (this.metadata.status === 'CATALOG_READY' || this.metadata.status === 'CATALOG_LOADED') &&
+      this.typeMap.size >= CatalogRepository.MINIMUM_EXPECTED_COUNT &&
+      !this.metadata.is_degraded
+    );
+  }
+
+  /**
+   * Checks if the catalog is running in degraded or fallback mode.
+   */
+  isDegraded(): boolean {
+    return !this.isReady();
   }
 
   /**
@@ -58,13 +84,20 @@ export class CatalogRepository {
             for (const t of validTypes) {
               this.typeMap.set(t.type_id, t);
             }
+            const completeness = CatalogValidator.validateCatalogCompleteness(
+              validTypes,
+              CatalogRepository.MINIMUM_EXPECTED_COUNT
+            );
             this.metadata = {
               version: this.metadata.version,
               checksum: 'cached_indexeddb',
               item_count: this.typeMap.size,
-              status: 'CATALOG_LOADED',
+              status: completeness.isReady ? 'CATALOG_READY' : 'CATALOG_DEGRADED',
               loaded_at: new Date().toISOString(),
               source: 'indexeddb',
+              minimum_expected_count: CatalogRepository.MINIMUM_EXPECTED_COUNT,
+              is_degraded: completeness.isDegraded,
+              error: completeness.reason,
             };
             this.notify();
           }
@@ -98,14 +131,27 @@ export class CatalogRepository {
               }
             }
 
+            const completeness = CatalogValidator.validateCatalogCompleteness(
+              validTypes,
+              CatalogRepository.MINIMUM_EXPECTED_COUNT,
+              serverMeta?.checksum,
+              serverMeta?.checksum
+            );
+
             this.metadata = {
               version: serverMeta?.version || this.metadata.version,
               checksum: serverMeta?.checksum || 'server_verified',
               item_count: this.typeMap.size,
-              status: serverMeta?.status || 'CATALOG_LOADED',
+              status: completeness.isReady ? 'CATALOG_READY' : 'CATALOG_DEGRADED',
               loaded_at: new Date().toISOString(),
               source: 'server',
-              error: errors.length > 0 ? `${errors.length} types skipped during validation` : undefined,
+              minimum_expected_count: CatalogRepository.MINIMUM_EXPECTED_COUNT,
+              expected_count: serverMeta?.item_count,
+              is_degraded: completeness.isDegraded,
+              error:
+                errors.length > 0
+                  ? `${errors.length} types skipped during validation`
+                  : completeness.reason,
             };
 
             // Persist verified items to IndexedDB
@@ -115,8 +161,10 @@ export class CatalogRepository {
         }
       } catch (err) {
         console.warn('CatalogRepository: server sync offline or unavailable:', err);
-        if (this.metadata.status !== 'CATALOG_LOADED') {
+        if (!this.isReady()) {
           this.metadata.status = 'CATALOG_FALLBACK_CORE';
+          this.metadata.is_degraded = true;
+          this.metadata.error = 'Server sync offline; operating on verified fallback core';
           this.notify();
         }
       }

@@ -8,7 +8,6 @@ import {
   MarketDataQuality,
   TypeCatalogMetadata,
 } from '../types';
-import { KNOWN_STATION_NAMES } from '../data/universe';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
 import { AuthService } from './authService';
 

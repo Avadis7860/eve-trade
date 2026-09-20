@@ -12,6 +12,19 @@ export interface LocationResolution {
   source: 'hub' | 'static_npc' | 'structure_cache' | 'esi_resolved' | 'fallback';
 }
 
+export interface SystemInfo {
+  system_id: number;
+  name: string;
+  region_id?: number;
+  region_name?: string;
+  security_status?: number;
+}
+
+export interface RegionInfo {
+  region_id: number;
+  name: string;
+}
+
 export class UniverseRepository {
   private static instance: UniverseRepository;
   private locationCache = new Map<number, LocationResolution>();
@@ -151,10 +164,58 @@ export class UniverseRepository {
   }
 
   /**
+   * Resolves station domain entity synchronously.
+   */
+  getStation(stationId: number): LocationResolution {
+    return this.resolveLocationSync(stationId);
+  }
+
+  /**
+   * Resolves solar system domain entity.
+   */
+  getSystem(systemId: number): SystemInfo {
+    const hub = this.systemToHubMap.get(systemId);
+    if (hub) {
+      return {
+        system_id: hub.system_id,
+        name: hub.solar_system,
+        region_id: hub.region_id,
+        region_name: hub.region,
+        security_status: hub.security_status,
+      };
+    }
+    for (const loc of this.locationCache.values()) {
+      if (loc.system_id === systemId) {
+        return {
+          system_id: systemId,
+          name: loc.system_name || `System #${systemId}`,
+          region_id: loc.region_id,
+          region_name: loc.region_name,
+        };
+      }
+    }
+    return {
+      system_id: systemId,
+      name: `System #${systemId}`,
+    };
+  }
+
+  /**
+   * Resolves region domain entity.
+   */
+  getRegion(regionId: number): RegionInfo {
+    const name = this.regionMap.get(regionId) || `Region #${regionId}`;
+    return {
+      region_id: regionId,
+      name,
+    };
+  }
+
+  /**
    * Resolves a region name from region_id.
    */
   getRegionName(regionId: number): string {
-    return this.regionMap.get(regionId) || `Region #${regionId}`;
+    return this.getRegion(regionId).name;
   }
 
   /**

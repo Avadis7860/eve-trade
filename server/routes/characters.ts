@@ -1,196 +1,126 @@
 import { Router, Request, Response } from 'express';
+import { fetchEsi } from '../utils/esiClient';
 
 export const charactersRouter = Router();
+
+// Helper to validate auth header
+function getAuthHeader(req: Request, res: Response): string | null {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    res.status(401).json({ error: 'Authorization header missing' });
+    return null;
+  }
+  return authHeader;
+}
 
 // 1. Proxy character orders (active)
 charactersRouter.get('/:characterId/orders', async (req: Request, res: Response) => {
   const { characterId } = req.params;
-  const authHeader = req.headers.authorization;
+  const authHeader = getAuthHeader(req, res);
+  if (!authHeader) return;
 
-  if (!authHeader) {
-    return res.status(401).json({ error: 'Authorization header missing' });
+  const result = await fetchEsi(`characters/${characterId}/orders/?datasource=tranquility`, {
+    headers: { Authorization: authHeader },
+  });
+
+  if (!result.ok) {
+    return res.status(result.status).json({ error: 'ESI orders error', details: result.error });
   }
 
-  try {
-    const response = await fetch(
-      `https://esi.evetech.net/latest/characters/${characterId}/orders/?datasource=tranquility`,
-      {
-        headers: {
-          'Authorization': authHeader,
-          'User-Agent': 'eve-trade-interregional/0.2',
-        },
-      }
-    );
-
-    if (!response.ok) {
-      const errText = await response.text();
-      return res.status(response.status).json({ error: 'ESI orders error', details: errText });
-    }
-
-    const orders = await response.json();
-    res.json(orders);
-  } catch (err: unknown) {
-    res.status(500).json({ error: 'Failed to fetch orders from ESI', message: String(err) });
-  }
+  res.json(result.data);
 });
 
 // 2. Proxy character order history (closed / fulfilled / expired / cancelled orders)
 charactersRouter.get('/:characterId/orders/history', async (req: Request, res: Response) => {
   const { characterId } = req.params;
-  const authHeader = req.headers.authorization;
+  const authHeader = getAuthHeader(req, res);
+  if (!authHeader) return;
 
-  if (!authHeader) {
-    return res.status(401).json({ error: 'Authorization header missing' });
-  }
-
-  try {
-    const page = req.query.page || '1';
-    const response = await fetch(
-      `https://esi.evetech.net/latest/characters/${characterId}/orders/history/?datasource=tranquility&page=${page}`,
-      {
-        headers: {
-          'Authorization': authHeader,
-          'User-Agent': 'eve-trade-interregional/0.2',
-        },
-      }
-    );
-
-    if (!response.ok) {
-      const errText = await response.text();
-      return res.status(response.status).json({ error: 'ESI order history error', details: errText });
+  const page = req.query.page || '1';
+  const result = await fetchEsi(
+    `characters/${characterId}/orders/history/?datasource=tranquility&page=${page}`,
+    {
+      headers: { Authorization: authHeader },
     }
+  );
 
-    const history = await response.json();
-    res.json(history);
-  } catch (err: unknown) {
-    res.status(500).json({ error: 'Failed to fetch order history from ESI', message: String(err) });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: 'ESI order history error', details: result.error });
   }
+
+  res.json(result.data);
 });
 
 // 3. Proxy character wallet
 charactersRouter.get('/:characterId/wallet', async (req: Request, res: Response) => {
   const { characterId } = req.params;
-  const authHeader = req.headers.authorization;
+  const authHeader = getAuthHeader(req, res);
+  if (!authHeader) return;
 
-  if (!authHeader) {
-    return res.status(401).json({ error: 'Authorization header missing' });
+  const result = await fetchEsi<number>(`characters/${characterId}/wallet/?datasource=tranquility`, {
+    headers: { Authorization: authHeader },
+  });
+
+  if (!result.ok) {
+    return res.status(result.status).json({ error: 'ESI wallet error', details: result.error });
   }
 
-  try {
-    const response = await fetch(
-      `https://esi.evetech.net/latest/characters/${characterId}/wallet/?datasource=tranquility`,
-      {
-        headers: {
-          'Authorization': authHeader,
-          'User-Agent': 'eve-trade-interregional/0.2',
-        },
-      }
-    );
-
-    if (!response.ok) {
-      const errText = await response.text();
-      return res.status(response.status).json({ error: 'ESI wallet error', details: errText });
-    }
-
-    const balance = await response.json();
-    res.json({ balance });
-  } catch (err: unknown) {
-    res.status(500).json({ error: 'Failed to fetch wallet from ESI', message: String(err) });
-  }
+  res.json({ balance: result.data });
 });
 
 // 4. Proxy character skills (for Accounting and Broker Relations)
 charactersRouter.get('/:characterId/skills', async (req: Request, res: Response) => {
   const { characterId } = req.params;
-  const authHeader = req.headers.authorization;
+  const authHeader = getAuthHeader(req, res);
+  if (!authHeader) return;
 
-  if (!authHeader) {
-    return res.status(401).json({ error: 'Authorization header missing' });
+  const result = await fetchEsi(`characters/${characterId}/skills/?datasource=tranquility`, {
+    headers: { Authorization: authHeader },
+  });
+
+  if (!result.ok) {
+    return res.status(result.status).json({ error: 'ESI skills error', details: result.error });
   }
 
-  try {
-    const response = await fetch(
-      `https://esi.evetech.net/latest/characters/${characterId}/skills/?datasource=tranquility`,
-      {
-        headers: {
-          'Authorization': authHeader,
-          'User-Agent': 'eve-trade-interregional/0.2',
-        },
-      }
-    );
-
-    if (!response.ok) {
-      const errText = await response.text();
-      return res.status(response.status).json({ error: 'ESI skills error', details: errText });
-    }
-
-    const skills = await response.json();
-    res.json(skills);
-  } catch (err: unknown) {
-    res.status(500).json({ error: 'Failed to fetch skills from ESI', message: String(err) });
-  }
+  res.json(result.data);
 });
 
 // 5. Proxy character wallet transactions (buy/sell history)
 charactersRouter.get('/:characterId/transactions', async (req: Request, res: Response) => {
   const { characterId } = req.params;
-  const authHeader = req.headers.authorization;
+  const authHeader = getAuthHeader(req, res);
+  if (!authHeader) return;
 
-  if (!authHeader) {
-    return res.status(401).json({ error: 'Authorization header missing' });
-  }
-
-  try {
-    const response = await fetch(
-      `https://esi.evetech.net/latest/characters/${characterId}/wallet/transactions/?datasource=tranquility`,
-      {
-        headers: {
-          'Authorization': authHeader,
-          'User-Agent': 'eve-trade-interregional/0.2',
-        },
-      }
-    );
-
-    if (!response.ok) {
-      const errText = await response.text();
-      return res.status(response.status).json({ error: 'ESI transactions error', details: errText });
+  const result = await fetchEsi(
+    `characters/${characterId}/wallet/transactions/?datasource=tranquility`,
+    {
+      headers: { Authorization: authHeader },
     }
+  );
 
-    const transactions = await response.json();
-    res.json(transactions);
-  } catch (err: unknown) {
-    res.status(500).json({ error: 'Failed to fetch transactions from ESI', message: String(err) });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: 'ESI transactions error', details: result.error });
   }
+
+  res.json(result.data);
 });
 
 // 6. Proxy character wallet journal
 charactersRouter.get('/:characterId/journal', async (req: Request, res: Response) => {
   const { characterId } = req.params;
-  const authHeader = req.headers.authorization;
+  const authHeader = getAuthHeader(req, res);
+  if (!authHeader) return;
 
-  if (!authHeader) {
-    return res.status(401).json({ error: 'Authorization header missing' });
-  }
-
-  try {
-    const response = await fetch(
-      `https://esi.evetech.net/latest/characters/${characterId}/wallet/journal/?datasource=tranquility`,
-      {
-        headers: {
-          'Authorization': authHeader,
-          'User-Agent': 'eve-trade-interregional/0.2',
-        },
-      }
-    );
-
-    if (!response.ok) {
-      const errText = await response.text();
-      return res.status(response.status).json({ error: 'ESI wallet journal error', details: errText });
+  const result = await fetchEsi(
+    `characters/${characterId}/wallet/journal/?datasource=tranquility`,
+    {
+      headers: { Authorization: authHeader },
     }
+  );
 
-    const journal = await response.json();
-    res.json(journal);
-  } catch (err: unknown) {
-    res.status(500).json({ error: 'Failed to fetch journal from ESI', message: String(err) });
+  if (!result.ok) {
+    return res.status(result.status).json({ error: 'ESI wallet journal error', details: result.error });
   }
+
+  res.json(result.data);
 });

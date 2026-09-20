@@ -81,4 +81,53 @@ export class CatalogValidator {
 
     return { validTypes, errors, uniqueTypeIds };
   }
+
+  /**
+   * Validates collection completeness against minimum thresholds and integrity constraints.
+   * Ensures that partial or fallback catalogs (e.g. 16 types) are never falsely classified as READY.
+   */
+  static validateCatalogCompleteness(
+    items: EveTypeDetail[],
+    minimumExpectedCount = 50,
+    expectedChecksum?: string,
+    currentChecksum?: string
+  ): {
+    isReady: boolean;
+    isDegraded: boolean;
+    status: TypeCatalogStatus;
+    reason?: string;
+  } {
+    if (!items || items.length === 0) {
+      return {
+        isReady: false,
+        isDegraded: true,
+        status: 'CATALOG_EMPTY',
+        reason: 'Catalog has 0 items',
+      };
+    }
+
+    if (items.length < minimumExpectedCount) {
+      return {
+        isReady: false,
+        isDegraded: true,
+        status: 'CATALOG_DEGRADED',
+        reason: `Item count ${items.length} is below required minimum ${minimumExpectedCount}`,
+      };
+    }
+
+    if (expectedChecksum && currentChecksum && expectedChecksum !== currentChecksum) {
+      return {
+        isReady: false,
+        isDegraded: true,
+        status: 'CATALOG_CORRUPTED',
+        reason: `Checksum mismatch: expected ${expectedChecksum}, got ${currentChecksum}`,
+      };
+    }
+
+    return {
+      isReady: true,
+      isDegraded: false,
+      status: 'CATALOG_READY',
+    };
+  }
 }

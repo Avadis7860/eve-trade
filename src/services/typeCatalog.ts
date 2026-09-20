@@ -203,12 +203,15 @@ export class TypeCatalogService {
 
     const checksum = this.computeChecksum(rawContent);
     const isCorrupted = itemErrors.length > 0 && validItems.length === 0;
+    const isDegraded = validItems.length < 50;
 
     const status: TypeCatalogStatus = isCorrupted
       ? 'CATALOG_CORRUPTED'
       : validItems.length === 0
       ? 'CATALOG_EMPTY'
-      : 'CATALOG_LOADED';
+      : isDegraded
+      ? 'CATALOG_DEGRADED'
+      : 'CATALOG_READY';
 
     const metadata: TypeCatalogMetadata = {
       version: CATALOG_VERSION,
@@ -218,6 +221,8 @@ export class TypeCatalogService {
       loaded_at: nowIso,
       source: 'filesystem',
       file_path: foundPath,
+      minimum_expected_count: 50,
+      is_degraded: isDegraded,
       error: itemErrors.length > 0 ? `${itemErrors.length} invalid items encountered` : undefined,
     };
 

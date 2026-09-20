@@ -156,6 +156,12 @@ export class CharacterRepository {
           }
         }
       }
+      // If legacy keys were migrated, clean them up to ensure single source of truth (V3 exclusive)
+      if (migratedChars.length > 0 || activeCharId !== null) {
+        safeStorage.removeItem(STORAGE_KEY_CHARACTERS);
+        safeStorage.removeItem(STORAGE_KEY_ACTIVE_CHAR_ID);
+        safeStorage.removeItem(LEGACY_STORAGE_KEY);
+      }
     } catch (e) {
       console.warn('Error during legacy session migration:', e);
     }
@@ -174,17 +180,8 @@ export class CharacterRepository {
 
   private persist(store: CharacterStoreSchemaV3): void {
     this.store = store;
+    // Strictly persist to Schema V3 (eliminating legacy key multi-write debt)
     safeStorage.setItem(STORAGE_KEY_V3, JSON.stringify(store));
-
-    // Maintain backwards compatibility with legacy readers
-    safeStorage.setItem(STORAGE_KEY_CHARACTERS, JSON.stringify(store.characters));
-    if (store.active_character_id) {
-      safeStorage.setItem(STORAGE_KEY_ACTIVE_CHAR_ID, String(store.active_character_id));
-      const active = store.characters.find((c) => c.character_id === store.active_character_id);
-      if (active) {
-        safeStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(active));
-      }
-    }
   }
 
   getLinkedCharacters(): EveCharacterSession[] {

@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { fetchEsi } from '../utils/esiClient';
 
 export const universeRouter = Router();
 
@@ -9,38 +10,30 @@ universeRouter.get('/location/:locationId', async (req: Request, res: Response) 
 
   // If it's a standard NPC station (ID usually between 60000000 and 64000000)
   if (locIdNum >= 60000000 && locIdNum < 64000000) {
-    try {
-      const esiRes = await fetch(
-        `https://esi.evetech.net/latest/universe/stations/${locIdNum}/?datasource=tranquility`,
-        {
-          headers: { 'User-Agent': 'eve-trade-interregional/0.2' },
-        }
-      );
-      if (esiRes.ok) {
-        const stationData = await esiRes.json();
-        return res.json({ location_id: locIdNum, name: stationData.name, system_id: stationData.system_id });
-      }
-    } catch {}
+    const result = await fetchEsi<{ name: string; system_id: number }>(
+      `universe/stations/${locIdNum}/?datasource=tranquility`
+    );
+    if (result.ok && result.data) {
+      return res.json({ location_id: locIdNum, name: result.data.name, system_id: result.data.system_id });
+    }
   }
 
   // Try universe/structures if auth header is present
   const authHeader = req.headers.authorization;
   if (authHeader && locIdNum > 100000000) {
-    try {
-      const structRes = await fetch(
-        `https://esi.evetech.net/latest/universe/structures/${locIdNum}/?datasource=tranquility`,
-        {
-          headers: {
-            'Authorization': authHeader,
-            'User-Agent': 'eve-trade-interregional/0.2',
-          },
-        }
-      );
-      if (structRes.ok) {
-        const structData = await structRes.json();
-        return res.json({ location_id: locIdNum, name: structData.name, system_id: structData.solar_system_id });
+    const structResult = await fetchEsi<{ name: string; solar_system_id: number }>(
+      `universe/structures/${locIdNum}/?datasource=tranquility`,
+      {
+        headers: { Authorization: authHeader },
       }
-    } catch {}
+    );
+    if (structResult.ok && structResult.data) {
+      return res.json({
+        location_id: locIdNum,
+        name: structResult.data.name,
+        system_id: structResult.data.solar_system_id,
+      });
+    }
   }
 
   res.json({ location_id: locIdNum, name: `Location #${locIdNum}` });

@@ -16,8 +16,8 @@ async function runTypeCatalogAndEnvironmentTests() {
   console.log('1. Testing Catalog deterministic load & status...');
   const result = TypeCatalogService.loadCatalog();
   assert(
-    result.metadata.status === 'CATALOG_LOADED' || result.metadata.status === 'CATALOG_FALLBACK_CORE',
-    `Expected CATALOG_LOADED or CATALOG_FALLBACK_CORE, got ${result.metadata.status}`
+    result.metadata.status === 'CATALOG_READY' || result.metadata.status === 'CATALOG_LOADED' || result.metadata.status === 'CATALOG_FALLBACK_CORE',
+    `Expected CATALOG_READY, CATALOG_LOADED or CATALOG_FALLBACK_CORE, got ${result.metadata.status}`
   );
   assert(result.metadata.item_count > 0, `Expected items count > 0, got ${result.metadata.item_count}`);
   assert(result.metadata.checksum.length === 64, `Expected 64-char SHA256 checksum, got ${result.metadata.checksum.length}`);

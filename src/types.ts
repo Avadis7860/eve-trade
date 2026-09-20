@@ -986,11 +986,13 @@ export interface PredictionForecast {
 // ==========================================
 
 export type TypeCatalogStatus =
-  | 'CATALOG_LOADING'
-  | 'CATALOG_LOADED'
   | 'CATALOG_UNAVAILABLE'
+  | 'CATALOG_LOADING'
+  | 'CATALOG_DEGRADED'
+  | 'CATALOG_READY'
   | 'CATALOG_CORRUPTED'
   | 'CATALOG_EMPTY'
+  | 'CATALOG_LOADED'
   | 'CATALOG_FALLBACK_CORE';
 
 export interface TypeCatalogMetadata {
@@ -1002,6 +1004,9 @@ export interface TypeCatalogMetadata {
   source: 'filesystem' | 'fallback_core' | 'esi_synced' | 'indexeddb' | 'server' | 'uninitialized';
   error?: string;
   file_path?: string;
+  minimum_expected_count?: number;
+  expected_count?: number;
+  is_degraded?: boolean;
 }
 
 export interface TypeCatalogResponse {

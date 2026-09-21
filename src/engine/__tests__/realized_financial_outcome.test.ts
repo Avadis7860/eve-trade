@@ -41,6 +41,8 @@ import {
   PersistedCharacterTransaction,
   EveCharacterTransaction,
   TradeCycleRecord,
+  RealizedFinancialOutcome,
+  RealizedFinancialCalculationOptions,
 } from '../../types';
 import {
   RealizedFinancialOutcomeEngine,
@@ -1832,87 +1834,185 @@ async function runAllTests() {
   {
     console.log('--- Final Gate Test B: OBSERVED Semantic Propagation & Mapping Invariants ---');
     const charId = 2113010;
+    const typeId = 34;
 
-    // In the current architecture, wallet journal actual fee ingestion is a future chantier.
-    // RealizedFinancialOutcomeEngine correctly produces ESTIMATED or UNAVAILABLE.
-    // We lock and verify the model invariants for OBSERVED semantics across derived structures.
-    const observedCycle: TradeCycleRecord = {
-      cycle_id: 'cycle_obs_1',
-      type_id: 34,
-      type_name: 'Tritanium',
-      category_name: 'Minerals',
-      buy_date: '2026-09-20T10:00:00Z',
-      sell_date: '2026-09-20T12:00:00Z',
-      quantity: 1000,
-      avg_buy_price: 5.0,
-      avg_sell_price: 8.0,
-      total_buy_cost: 5000,
-      total_sell_revenue: 8000,
-      gross_profit: 3000,
-      estimated_fees_paid: 300,
-      net_profit: 2700,
-      roi: 0.54,
-      hold_days: 0.1,
-      is_profitable: true,
-      buy_location: 'Jita IV-4',
-      sell_location: 'Jita IV-4',
-      financial_completeness: 'OBSERVED',
-      is_net_estimated: false,
-      realized_profit_label: 'Bénéfice Net Réalisé (Certifié)',
-      fees_breakdown: {
+    const txs: EveCharacterTransaction[] = [
+      { transaction_id: 8101, date: '2026-09-20T10:00:00Z', type_id: typeId, location_id: 60003760, unit_price: 10, quantity: 100, is_buy: true, is_personal: true, client_id: 1 },
+      { transaction_id: 8102, date: '2026-09-20T12:00:00Z', type_id: typeId, location_id: 60003760, unit_price: 15, quantity: 100, is_buy: false, is_personal: true, client_id: 2 },
+    ];
+
+    // Controlled test seam: temporarily stub RealizedFinancialOutcomeEngine.calculateForTransactions
+    // to return a synthetic but strictly valid OBSERVED outcome with real FIFO allocation
+    const originalCalculateForTransactions = RealizedFinancialOutcomeEngine.calculateForTransactions;
+
+    const syntheticObservedOutcome: RealizedFinancialOutcome = {
+      outcome_id: 'outcome_obs_test_34',
+      execution_id: 'exec_obs_test_34',
+      character_id: charId,
+      observation_id: 'obs_test_34',
+      type_id: typeId,
+
+      total_buy_quantity: 100,
+      total_sell_quantity: 100,
+      matched_quantity: 100,
+      remaining_inventory_quantity: 0,
+      unmatched_sell_quantity: 0,
+      has_unmatched_sell_quantity: false,
+
+      realized_acquisition_cost: 1000,
+      realized_revenue: 1500,
+      gross_realized_profit: 500,
+      realized_gross: 500,
+
+      fees: {
         fee_mode: 'OBSERVED',
         fee_source: 'OBSERVED_TRANSACTION',
         execution_fee_mode: 'TAKER_MAKER',
         estimated_buy_broker_fee: 0,
-        estimated_sell_broker_fee: 100,
-        estimated_sales_tax: 200,
-        estimated_total_fees: 300,
+        estimated_sell_broker_fee: 25,
+        estimated_sales_tax: 35,
+        estimated_total_fees: 60,
+        observed_fees_paid: 60,
         is_role_assumed: false,
-        notes: ['Observed fee test'],
+        notes: ['Verified observed fee fact from execution'],
       },
+
+      net_realized_profit: 440, // 500 gross - 60 fees
+      realized_net_estimated: null,
+      is_net_estimated: false,
+      is_financially_complete: true,
+      financial_completeness: 'OBSERVED',
+
+      roi: 0.44,
+      margin: 0.2933,
+      profit_per_unit: 4.4,
+
+      remaining_inventory_cost_basis: 0,
+
+      first_buy_at: '2026-09-20T10:00:00Z',
+      last_buy_at: '2026-09-20T10:00:00Z',
+      first_realized_sell_at: '2026-09-20T12:00:00Z',
+      last_realized_sell_at: '2026-09-20T12:00:00Z',
+      weighted_buy_timestamp: '2026-09-20T10:00:00Z',
+      weighted_sell_timestamp: '2026-09-20T12:00:00Z',
+      weighted_hold_ms: 7200000,
+      weighted_hold_days: 0.083,
+
+      data_state: 'VALID',
+      fifo_allocations: [
+        {
+          allocation_id: 'alloc_8102_8101',
+          sell_transaction_id: 8102,
+          buy_transaction_id: 8101,
+          type_id: typeId,
+          allocated_quantity: 100,
+          buy_unit_price: 10,
+          sell_unit_price: 15,
+          buy_timestamp: '2026-09-20T10:00:00Z',
+          sell_timestamp: '2026-09-20T12:00:00Z',
+          hold_duration_ms: 7200000,
+          hold_days: 0.083,
+          gross_cost: 1000,
+          gross_revenue: 1500,
+          gross_profit: 500,
+        },
+      ],
+      remaining_lots: [],
+      realized_financial_engine_version: '1.0.0',
     };
 
-    // Verify cycle-level OBSERVED invariants
-    assert(observedCycle.financial_completeness === 'OBSERVED', 'Cycle completeness is OBSERVED');
-    assert(observedCycle.is_net_estimated === false, 'Cycle is_net_estimated must be false for OBSERVED');
-    assert(
-      observedCycle.realized_profit_label === 'Bénéfice Net Réalisé (Certifié)',
-      'Cycle realized_profit_label must be "Bénéfice Net Réalisé (Certifié)"'
-    );
+    try {
+      // Install test seam stub
+      RealizedFinancialOutcomeEngine.calculateForTransactions = () => syntheticObservedOutcome;
 
-    // Verify processing an observed transaction set with synthetic OBSERVED outcome
-    const txs: EveCharacterTransaction[] = [
-      { transaction_id: 8101, date: '2026-09-20T10:00:00Z', type_id: 34, location_id: 60003760, unit_price: 10, quantity: 100, is_buy: true, is_personal: true, client_id: 1 },
-      { transaction_id: 8102, date: '2026-09-20T12:00:00Z', type_id: 34, location_id: 60003760, unit_price: 15, quantity: 100, is_buy: false, is_personal: true, client_id: 2 },
-    ];
+      // Exercise the REAL consumer pipeline end-to-end
+      const observedMetrics = TraderAnalyticsService.processTransactions(
+        charId,
+        'Test Pilot',
+        txs,
+        [],
+        [],
+        5,
+        5
+      );
 
-    // Standard run produces ESTIMATED fees when skills are provided
-    const estimatedMetrics = TraderAnalyticsService.processTransactions(charId, 'Test Pilot', txs, [], [], 5, 5);
-    assert(estimatedMetrics.financial_completeness === 'ESTIMATED', 'Standard run with config produces ESTIMATED');
-    assert(estimatedMetrics.is_net_estimated === true, 'Standard run is_net_estimated is true');
+      // Assertions 1: TraderPerformanceMetrics
+      assert(
+        observedMetrics.financial_completeness === 'OBSERVED',
+        `TraderPerformanceMetrics completeness must be OBSERVED (got ${observedMetrics.financial_completeness})`
+      );
+      assert(
+        observedMetrics.is_net_estimated === false,
+        `TraderPerformanceMetrics is_net_estimated must be false (got ${observedMetrics.is_net_estimated})`
+      );
+      assert(
+        observedMetrics.realized_profit_label === 'Bénéfice Net Réalisé (Certifié)',
+        `TraderPerformanceMetrics label must be "Bénéfice Net Réalisé (Certifié)" (got ${observedMetrics.realized_profit_label})`
+      );
+
+      // Assertions 2: TradeCycleRecord
+      assert(observedMetrics.recent_trade_cycles.length > 0, 'Must have produced at least one trade cycle');
+      for (const cycle of observedMetrics.recent_trade_cycles) {
+        assert(
+          cycle.financial_completeness === 'OBSERVED',
+          `TradeCycleRecord completeness must be OBSERVED (got ${cycle.financial_completeness})`
+        );
+        assert(
+          cycle.is_net_estimated === false,
+          `TradeCycleRecord is_net_estimated must be false (got ${cycle.is_net_estimated})`
+        );
+        assert(
+          cycle.realized_profit_label === 'Bénéfice Net Réalisé (Certifié)',
+          `TradeCycleRecord label must be "Bénéfice Net Réalisé (Certifié)" (got ${cycle.realized_profit_label})`
+        );
+        assert(
+          cycle.fees_breakdown?.fee_mode === 'OBSERVED',
+          `TradeCycleRecord fee_mode must be OBSERVED (got ${cycle.fees_breakdown?.fee_mode})`
+        );
+      }
+
+      // Assertions 3: top_profitable_items
+      assert(observedMetrics.top_profitable_items.length > 0, 'Must have top profitable items');
+      for (const topItem of observedMetrics.top_profitable_items) {
+        assert(
+          topItem.profit_label === 'Bénéfice Net Réalisé (Certifié)',
+          `top_profitable_items profit_label must be "Bénéfice Net Réalisé (Certifié)" (got ${topItem.profit_label})`
+        );
+        assert(
+          topItem.is_net_estimated === false,
+          `top_profitable_items is_net_estimated must be false (got ${topItem.is_net_estimated})`
+        );
+      }
+
+      // Assertions 4: category_success_rate
+      const catKeys = Object.keys(observedMetrics.category_success_rate);
+      assert(catKeys.length > 0, 'Must have at least one category in category_success_rate');
+      for (const catKey of catKeys) {
+        const cat = observedMetrics.category_success_rate[catKey];
+        assert(
+          cat.profit_label === 'Bénéfice Net Réalisé (Certifié)',
+          `category_success_rate profit_label must be "Bénéfice Net Réalisé (Certifié)" (got ${cat.profit_label})`
+        );
+        assert(
+          cat.is_net_estimated === false,
+          `category_success_rate is_net_estimated must be false (got ${cat.is_net_estimated})`
+        );
+      }
+    } finally {
+      // Systematically restore original calculateForTransactions implementation
+      RealizedFinancialOutcomeEngine.calculateForTransactions = originalCalculateForTransactions;
+    }
+
+    // Baseline nominal check without stub confirms standard runs still produce ESTIMATED
+    const standardMetrics = TraderAnalyticsService.processTransactions(charId, 'Test Pilot', txs, [], [], 5, 5);
+    assert(standardMetrics.financial_completeness === 'ESTIMATED', 'Standard run with config produces ESTIMATED');
+    assert(standardMetrics.is_net_estimated === true, 'Standard run is_net_estimated is true');
     assert(
-      estimatedMetrics.realized_profit_label === 'Bénéfice Net Réalisé (Estimé)',
+      standardMetrics.realized_profit_label === 'Bénéfice Net Réalisé (Estimé)',
       'Standard run label is "Bénéfice Net Réalisé (Estimé)"'
     );
-    assert(
-      estimatedMetrics.top_profitable_items[0].profit_label === 'Bénéfice Net Réalisé (Estimé)',
-      'Top item label is "Bénéfice Net Réalisé (Estimé)"'
-    );
-    assert(
-      estimatedMetrics.top_profitable_items[0].is_net_estimated === true,
-      'Top item is_net_estimated is true'
-    );
-    const catMinerals = estimatedMetrics.category_success_rate['Minerals'] || Object.values(estimatedMetrics.category_success_rate)[0];
-    assert(
-      catMinerals.profit_label === 'Bénéfice Net Réalisé (Estimé)',
-      'Category label is "Bénéfice Net Réalisé (Estimé)"'
-    );
-    assert(
-      catMinerals.is_net_estimated === true,
-      'Category is_net_estimated is true'
-    );
 
-    console.log('  [PASS] Final Gate Test B: OBSERVED semantic propagation & invariants verified.');
+    console.log('  [PASS] Final Gate Test B: Real OBSERVED semantic propagation verified across all consumer structures.');
   }
 
   // Test C — UNAVAILABLE semantic propagation
@@ -2032,11 +2132,21 @@ async function runAllTests() {
       `Net profit conservation: sum(cycle.net_profit) [${sumCycleNet}] == outcome.net_realized_profit [${outcome.net_realized_profit}]`
     );
 
-    // INVARIANT 4: Every cycle satisfies net = gross - fees
+    // INVARIANT 4: Every cycle satisfies net = gross - fees AND exact fee breakdown decomposition
     for (const c of cycles) {
       assert(
         c.net_profit === roundIsk(c.gross_profit - c.estimated_fees_paid),
         `Cycle ${c.cycle_id} internal balance: ${c.net_profit} == ${c.gross_profit} - ${c.estimated_fees_paid}`
+      );
+      assert(c.fees_breakdown !== undefined, `Cycle ${c.cycle_id} fees_breakdown must be defined`);
+      const componentFeesSum = roundIsk(
+        (c.fees_breakdown?.estimated_buy_broker_fee ?? 0) +
+        (c.fees_breakdown?.estimated_sell_broker_fee ?? 0) +
+        (c.fees_breakdown?.estimated_sales_tax ?? 0)
+      );
+      assert(
+        c.estimated_fees_paid === componentFeesSum,
+        `Cycle ${c.cycle_id} fee breakdown decomposition invariant: ${c.estimated_fees_paid} == ${componentFeesSum}`
       );
     }
 

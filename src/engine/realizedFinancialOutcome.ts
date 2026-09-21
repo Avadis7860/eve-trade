@@ -556,4 +556,101 @@ export class RealizedFinancialOutcomeEngine {
       realized_financial_outcome: outcome,
     });
   }
+
+  /**
+   * Calculates realized financial outcome directly for a specific character and item type from transactions.
+   * Ensures pure, deterministic causal FIFO calculation without requiring a pre-existing CharacterExecutionRecord.
+   * 
+   * @param characterId Character ID
+   * @param typeId EVE Item Type ID
+   * @param transactions Array of buy and sell transactions (supports ExecutionTransactionRef, PersistedCharacterTransaction, or raw transactions)
+   * @param options Calculation options (FinancialConfig, fee profiles, execution fee mode, etc.)
+   * @returns Pure immutable RealizedFinancialOutcome
+   */
+  static calculateForTransactions(
+    characterId: number,
+    typeId: number,
+    transactions: readonly (ExecutionTransactionRef | PersistedCharacterTransaction | {
+      transaction_id: number;
+      date?: string;
+      timestamp?: string;
+      type_id: number;
+      location_id: number;
+      unit_price: number;
+      quantity: number;
+      is_buy: boolean;
+      character_id?: number;
+    })[],
+    options?: RealizedFinancialCalculationOptions
+  ): RealizedFinancialOutcome {
+    const refs: ExecutionTransactionRef[] = transactions
+      .filter((tx) => tx.type_id === typeId)
+      .map((tx) => {
+        const txCharId = 'character_id' in tx && tx.character_id !== undefined ? tx.character_id : characterId;
+        if (txCharId !== characterId) {
+          throw new CrossCharacterFinancialMappingViolationError(txCharId, characterId, tx.transaction_id);
+        }
+        const ts = 'timestamp' in tx && tx.timestamp ? tx.timestamp : ('date' in tx && tx.date ? tx.date : new Date(0).toISOString());
+        return {
+          transaction_id: tx.transaction_id,
+          character_id: characterId,
+          type_id: tx.type_id,
+          location_id: tx.location_id,
+          is_buy: tx.is_buy,
+          quantity: Number.isFinite(tx.quantity) ? Math.max(0, tx.quantity) : 0,
+          unit_price: Number.isFinite(tx.unit_price) ? Math.max(0, tx.unit_price) : 0,
+          timestamp: ts,
+        };
+      });
+
+    const buyTxs = refs.filter((r) => r.is_buy);
+    const sellTxs = refs.filter((r) => !r.is_buy);
+    const totalBuyQuantity = buyTxs.reduce((acc, b) => acc + b.quantity, 0);
+    const totalSellQuantity = sellTxs.reduce((acc, s) => acc + s.quantity, 0);
+    const totalBuyCost = buyTxs.reduce((acc, b) => acc + b.quantity * b.unit_price, 0);
+    const totalSellRevenue = sellTxs.reduce((acc, s) => acc + s.quantity * s.unit_price, 0);
+
+    const firstTime = refs[0]?.timestamp || new Date(0).toISOString();
+    const lastTime = refs[refs.length - 1]?.timestamp || new Date(0).toISOString();
+
+    const executionStatus =
+      buyTxs.length > 0 && sellTxs.length > 0
+        ? (totalSellQuantity >= totalBuyQuantity ? 'CLOSED' : 'SELL_PARTIAL')
+        : (buyTxs.length > 0 ? 'BUY_FILLED' : 'PLANNED');
+
+    const syntheticRecord: CharacterExecutionRecord = Object.freeze({
+      execution_id: `exec_synth_${characterId}_${typeId}`,
+      character_id: characterId,
+      observation_id: `obs_synth_${typeId}`,
+      opportunity_id: `opp_synth_${typeId}`,
+      match_level: 'DIRECT_MATCH',
+      transaction_ids: Object.freeze(refs.map((r) => r.transaction_id)),
+      first_correlated_at: firstTime,
+      last_updated_at: lastTime,
+      correlation_engine_version: REALIZED_FINANCIAL_ENGINE_VERSION,
+      data_state: 'VALID',
+      execution_outcome: Object.freeze({
+        execution_status: executionStatus,
+        match_level: 'DIRECT_MATCH',
+        planned_quantity: Math.max(totalBuyQuantity, totalSellQuantity),
+        executed_buy_quantity: totalBuyQuantity,
+        executed_sell_quantity: totalSellQuantity,
+        remaining_inventory_quantity: Math.max(0, totalBuyQuantity - totalSellQuantity),
+        buy_fill_ratio: 1.0,
+        sell_fill_ratio: totalBuyQuantity > 0 ? Math.min(1.0, totalSellQuantity / totalBuyQuantity) : 0,
+        vwap_buy_price: totalBuyQuantity > 0 ? totalBuyCost / totalBuyQuantity : null,
+        vwap_sell_price: totalSellQuantity > 0 ? totalSellRevenue / totalSellQuantity : null,
+        first_buy_at: buyTxs[0]?.timestamp || null,
+        last_buy_at: buyTxs[buyTxs.length - 1]?.timestamp || null,
+        first_sell_at: sellTxs[0]?.timestamp || null,
+        last_sell_at: sellTxs[sellTxs.length - 1]?.timestamp || null,
+        buy_transactions: Object.freeze(buyTxs),
+        sell_transactions: Object.freeze(sellTxs),
+        linked_order_ids: Object.freeze([]),
+        candidate_observation_ids: Object.freeze([`obs_synth_${typeId}`]),
+      }),
+    });
+
+    return this.calculate(syntheticRecord, options);
+  }
 }

@@ -62,9 +62,21 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${metrics.trader_badge_color}`}>
                   {metrics.trader_title}
                 </span>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${
+                    metrics.financial_completeness === 'OBSERVED'
+                      ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                      : metrics.financial_completeness === 'PARTIAL'
+                      ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                      : 'bg-blue-500/15 text-blue-400 border-blue-500/30'
+                  }`}
+                  title="Source de vérité financière déterministe via RealizedFinancialOutcomeEngine"
+                >
+                  Vérité Comptable : {metrics.financial_completeness || 'ESTIMATED'}
+                </span>
               </div>
               <p className="text-xs text-[#808495] mt-0.5">
-                Calculé à partir de vos transactions ESI Tranquility réelles (Cycle FIFO Achat ➔ Vente)
+                Calculé via RealizedFinancialOutcomeEngine (Causal FIFO temporel Achat ➔ Vente strict)
               </p>
             </div>
           </div>
@@ -196,6 +208,54 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                 </div>
               </div>
 
+              {/* Financial Truth & Accounting Decomposition (Chantier 3B-4A.2) */}
+              <div className="bg-[#0e1117] p-4 rounded-xl border border-blue-500/20 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="font-bold text-[#fafafa] text-xs flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-blue-400" />
+                    <span>Réconciliation Comptable &bull; Décomposition des Frais</span>
+                  </div>
+                  <span className="text-[10px] text-[#808495] font-mono">
+                    Mode: {metrics.financial_completeness || 'ESTIMATED'} (Frais MAKER)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="bg-[#161821] p-2.5 rounded-lg border border-[#262730]">
+                    <div className="text-[10px] text-[#808495]">Bénéfice Brut Réalisé</div>
+                    <div className="text-xs font-bold font-mono text-[#fafafa] mt-0.5">
+                      +{fmtIsk(metrics.total_realized_gross ?? (metrics.total_realized_profit + (metrics.total_estimated_fees ?? 0)))}
+                    </div>
+                  </div>
+
+                  <div className="bg-[#161821] p-2.5 rounded-lg border border-[#262730]">
+                    <div className="text-[10px] text-[#808495]">Frais Estimés Déduits</div>
+                    <div className="text-xs font-bold font-mono text-amber-400 mt-0.5">
+                      -{fmtIsk(metrics.total_estimated_fees ?? (metrics.total_broker_fees_paid + metrics.total_sales_tax_paid))}
+                    </div>
+                    <div className="text-[9px] text-[#808495] mt-0.5 font-mono">
+                      Courtage: {fmtIsk(metrics.total_broker_fees_paid)} | Taxe: {fmtIsk(metrics.total_sales_tax_paid)}
+                    </div>
+                  </div>
+
+                  <div className="bg-[#161821] p-2.5 rounded-lg border border-[#262730]">
+                    <div className="text-[10px] text-[#808495]">Bénéfice Net Réalisé Certifié</div>
+                    <div className="text-xs font-bold font-mono text-emerald-400 mt-0.5">
+                      +{fmtIsk(metrics.total_realized_profit)}
+                    </div>
+                  </div>
+                </div>
+
+                {metrics.has_unmatched_trades && (
+                  <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-[11px] text-amber-300 flex items-center gap-2">
+                    <span className="font-bold">⚠️ Intégrité Comptable :</span>
+                    <span>
+                      {metrics.unmatched_trades_count} cycle(s) comportent des ventes sans stock antérieur correspondant (vente à découvert ou historique ESI antérieur tronqué). Aucun coût artificiel à 0 ISK n'a été fabriqué.
+                    </span>
+                  </div>
+                )}
+              </div>
+
               {/* Top Locations */}
               <div className="bg-[#0e1117] p-4 rounded-xl border border-[#262730] space-y-3">
                 <div className="font-bold text-[#fafafa] text-xs flex items-center gap-2">
@@ -306,6 +366,7 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                     <tr>
                       <th className="py-2 px-3">Date Vente</th>
                       <th className="py-2 px-3">Objet</th>
+                      <th className="py-2 px-2">Statut</th>
                       <th className="py-2 px-2">Quantité</th>
                       <th className="py-2 px-2">Prix Achat Moy.</th>
                       <th className="py-2 px-2">Prix Vente Moy.</th>
@@ -320,7 +381,28 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                         <td className="py-2 px-3 text-[#808495] font-mono text-[10px]">
                           {new Date(cycle.sell_date).toLocaleDateString()}
                         </td>
-                        <td className="py-2 px-3 font-bold text-[#fafafa]">{cycle.type_name}</td>
+                        <td className="py-2 px-3 font-bold text-[#fafafa]">
+                          <div>{cycle.type_name}</div>
+                          {cycle.unmatched_sell_quantity && cycle.unmatched_sell_quantity > 0 ? (
+                            <div className="text-[9px] text-amber-400 font-mono">
+                              Stock non couvert: {cycle.unmatched_sell_quantity}
+                            </div>
+                          ) : null}
+                        </td>
+                        <td className="py-2 px-2">
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold border ${
+                              cycle.financial_completeness === 'OBSERVED'
+                                ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                                : cycle.financial_completeness === 'PARTIAL'
+                                ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                                : 'bg-blue-500/15 text-blue-400 border-blue-500/30'
+                            }`}
+                            title={cycle.is_net_estimated ? 'Frais estimés basés sur compétences' : 'Frais certifiés'}
+                          >
+                            {cycle.financial_completeness || 'ESTIMATED'}
+                          </span>
+                        </td>
                         <td className="py-2 px-2 font-mono">{fmtNumber(cycle.quantity)}</td>
                         <td className="py-2 px-2 font-mono text-[#808495]">{fmtIsk(cycle.avg_buy_price)}</td>
                         <td className="py-2 px-2 font-mono text-[#fafafa]">{fmtIsk(cycle.avg_sell_price)}</td>
@@ -329,7 +411,12 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                           {cycle.is_profitable ? `+${(cycle.roi * 100).toFixed(1)}%` : `${(cycle.roi * 100).toFixed(1)}%`}
                         </td>
                         <td className={`py-2 px-3 text-right font-mono font-bold ${cycle.is_profitable ? 'text-emerald-400' : 'text-red-400'}`}>
-                          {cycle.is_profitable ? `+${fmtIsk(cycle.net_profit)}` : fmtIsk(cycle.net_profit)}
+                          <div>{cycle.is_profitable ? `+${fmtIsk(cycle.net_profit)}` : fmtIsk(cycle.net_profit)}</div>
+                          {cycle.estimated_fees_paid !== undefined && (
+                            <div className="text-[9px] text-[#808495] font-normal font-mono">
+                              Frais: -{fmtIsk(cycle.estimated_fees_paid)}
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}

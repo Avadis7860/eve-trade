@@ -1045,6 +1045,10 @@ export interface TradeCycleRecord {
   is_profitable: boolean;
   buy_location?: string;
   sell_location?: string;
+  financial_completeness?: FinancialCompleteness;
+  is_net_estimated?: boolean;
+  fees_breakdown?: RealizedFeeBreakdown;
+  unmatched_sell_quantity?: number;
 }
 
 export interface TraderPerformanceMetrics {
@@ -1089,6 +1093,12 @@ export interface TraderPerformanceMetrics {
   trader_title: string;
   trader_badge_color: string;
   calibration_weight: number;
+  // Financial truth & completeness metrics (Chantier 3B-4A.2)
+  financial_completeness?: FinancialCompleteness;
+  total_realized_gross?: number;
+  total_estimated_fees?: number;
+  has_unmatched_trades?: boolean;
+  unmatched_trades_count?: number;
 }
 
 export type OrderAdvisorAction = 'keep' | 'lower_price' | 'cancel' | 'relocate';

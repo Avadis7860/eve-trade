@@ -687,6 +687,11 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
               >
                 <Trophy className="w-3.5 h-3.5 text-amber-400" />
                 <span>Performances &amp; Historique Réel</span>
+                {traderMetrics.financial_completeness && (
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#0e1117]/80 text-amber-300 border border-amber-500/30">
+                    {traderMetrics.financial_completeness}
+                  </span>
+                )}
               </button>
             )}
 

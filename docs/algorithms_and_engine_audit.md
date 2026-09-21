@@ -588,6 +588,28 @@ Pour une opportunité corrélée donnée, les transactions d'achat ($tx_{buy}$) 
 
 ---
 
+## 21. Moteur Financier des Résultats Réalisés (`RealizedFinancialOutcomeEngine`)
+
+**Fichiers sources :** `src/engine/realizedFinancialOutcome.ts`, `src/services/traderAnalytics.ts`  
+**Rôle :** Source unique de vérité comptable pour le calcul des profits et pertes réalisés, du coût de revient FIFO causal, de la décomposition des taxes et du courtage, et de la complétude financière.
+
+### 21.1 Principes Fondamentaux (Chantier 3B-4A.1 & 3B-4A.2)
+1. **FIFO Causal Temporel :**
+   * L'ordre chronologique strict `timestamp ASC, transaction_id ASC` régit l'attribution des stocks d'achat aux ventes.
+   * Interdiction absolue de consommer un achat futur pour couvrir une vente passée.
+2. **Non-fabrication de Coût :**
+   * Pour toute vente non couverte ou partiellement couverte par des achats antérieurs, aucun coût artificiel à `0.00 ISK` n'est fabriqué. La quantité excédentaire est marquée explicitement comme `unmatched_sell_quantity`.
+3. **Taxonomie de Complétude Financière (`FinancialCompleteness`) :**
+   * `OBSERVED` : Tous les flux (achat, vente, courtage, taxes) sont directement constatés à partir de transactions ou entrées de journal ESI.
+   * `ESTIMATED` : Les frais ont été déduits à partir des compétences du personnage (ex. rôle MAKER sur station) mais ne constituent pas des faits bruts d'observation.
+   * `PARTIAL` : L'exécution ou le stock est incomplet (ventes sans achat antérieur suffisant).
+   * `UNAVAILABLE` : Données de configuration ou de marché insuffisantes (`NO DATA ≠ ZERO DATA`).
+4. **Convergence Complète des Consommateurs UI :**
+   * `TraderAnalyticsService` délègue l'intégralité du calcul FIFO et P&L à `RealizedFinancialOutcomeEngine.calculateForTransactions`.
+   * `MyOrdersView` et `TraderPerformanceModal` affichent le statut de complétude, la décomposition brute/frais/nette et les avertissements d'intégrité comptable sans fabrication de données.
+
+---
+
 ## 🧪 Validation & Couverture des Tests
 
 L'intégralité des moteurs, services et modèles de données est couverte par les suites de tests unitaires automatisées dans `src/engine/__tests__/` (100% de réussite) :

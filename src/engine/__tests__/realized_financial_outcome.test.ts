@@ -39,6 +39,7 @@ import {
   FinancialConfig,
   OpportunityExecutionOutcome,
   PersistedCharacterTransaction,
+  EveCharacterTransaction,
 } from '../../types';
 import {
   RealizedFinancialOutcomeEngine,
@@ -47,6 +48,7 @@ import {
 } from '../realizedFinancialOutcome';
 import { ExecutionTrackingService } from '../../services/executionTrackingService';
 import { IndexedDbStore } from '../../services/indexedDbStore';
+import { TraderAnalyticsService } from '../../services/traderAnalytics';
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
@@ -1253,8 +1255,217 @@ async function runAllTests() {
     console.log('  [PASS] Adversarial & edge cases verified.');
   }
 
+  // ==========================================================================
+  // CHANTIER 3B-4A.2 FINANCIAL TRUTH INTEGRATION GATE TESTS
+  // ==========================================================================
   console.log('\n==========================================================================');
-  console.log('ALL CHANTIER 3B-4A & 3B-4A.1 FINANCIAL GATE TESTS (22 + 10 + 6 + 3) PASSED (100%)');
+  console.log('--- RUNNING CHANTIER 3B-4A.2 FINANCIAL TRUTH INTEGRATION GATE TESTS ---');
+  console.log('==========================================================================');
+
+  // Gate 3B-4A.2.1: calculateForTransactions direct validation
+  {
+    console.log('--- Gate 3B-4A.2.1: calculateForTransactions Engine Direct Execution ---');
+    const buyTx: PersistedCharacterTransaction = {
+      transaction_id: 1001,
+      character_id: 2112001,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: true,
+      quantity: 5000,
+      unit_price: 10.0,
+      timestamp: '2026-09-20T10:00:00Z',
+      client_id: 1,
+      first_seen_at: '2026-09-20T10:00:00Z',
+      last_seen_at: '2026-09-20T10:00:00Z',
+      source: 'ESI',
+      source_endpoint: '/characters/2112001/wallet/transactions',
+      ingestion_version: '1.0.0',
+      data_state: 'VALID',
+    };
+    const sellTx: PersistedCharacterTransaction = {
+      transaction_id: 1002,
+      character_id: 2112001,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: false,
+      quantity: 5000,
+      unit_price: 15.0,
+      timestamp: '2026-09-20T12:00:00Z',
+      client_id: 2,
+      first_seen_at: '2026-09-20T12:00:00Z',
+      last_seen_at: '2026-09-20T12:00:00Z',
+      source: 'ESI',
+      source_endpoint: '/characters/2112001/wallet/transactions',
+      ingestion_version: '1.0.0',
+      data_state: 'VALID',
+    };
+
+    const outcome = RealizedFinancialOutcomeEngine.calculateForTransactions(
+      2112001,
+      34,
+      [buyTx, sellTx],
+      { financialConfig: mockFinancialConfig, executionFeeMode: 'MAKER_MAKER' }
+    );
+
+    assert(outcome.character_id === 2112001, 'Character ID matches');
+    assert(outcome.gross_realized_profit === 25000, 'Gross profit = 5000 * (15 - 10) = 25000 ISK');
+    assert(outcome.financial_completeness === 'ESTIMATED', 'Financial completeness is ESTIMATED (MAKER fees)');
+    assert(outcome.is_net_estimated === true, 'is_net_estimated is true');
+    assert(outcome.fees.estimated_total_fees > 0, 'Estimated fees > 0');
+    assert(outcome.net_realized_profit < outcome.gross_realized_profit, 'Net profit = Gross - Fees');
+    assert(outcome.unmatched_sell_quantity === 0, 'No unmatched sell quantity');
+    console.log('  [PASS] Gate 3B-4A.2.1: calculateForTransactions validated.');
+  }
+
+  // Gate 3B-4A.2.2: TraderAnalyticsService delegation to RealizedFinancialOutcomeEngine
+  {
+    console.log('--- Gate 3B-4A.2.2: TraderAnalyticsService Delegation & TradeCycleRecord Enrichment ---');
+    const esiTxs: EveCharacterTransaction[] = [
+      {
+        transaction_id: 2001,
+        date: '2026-09-20T08:00:00Z',
+        type_id: 34,
+        location_id: 60003760,
+        unit_price: 100.0,
+        quantity: 100,
+        is_buy: true,
+        is_personal: true,
+        client_id: 1,
+      },
+      {
+        transaction_id: 2002,
+        date: '2026-09-20T10:00:00Z',
+        type_id: 34,
+        location_id: 60003760,
+        unit_price: 150.0,
+        quantity: 100,
+        is_buy: false,
+        is_personal: true,
+        client_id: 2,
+      },
+    ];
+
+    const metrics = TraderAnalyticsService.processTransactions(
+      2112001,
+      'Test Pilot',
+      esiTxs,
+      [],
+      [],
+      5, // Accounting 5
+      5  // Broker Relations 5
+    );
+
+    assert(metrics.character_id === 2112001, 'Metrics character ID matches');
+    assert(metrics.total_closed_trades === 1, 'Exactly 1 closed trade cycle');
+    assert(metrics.profitable_trades === 1, '1 profitable trade');
+    assert(metrics.win_rate_pct === 100, '100% win rate');
+    assert(metrics.financial_completeness === 'ESTIMATED', 'Overall metrics completeness is ESTIMATED');
+    assert(metrics.total_realized_gross === 5000, 'Gross profit = 100 * (150 - 100) = 5000 ISK');
+    assert(metrics.total_estimated_fees !== undefined && metrics.total_estimated_fees > 0, 'Estimated fees deducted');
+    assert(metrics.has_unmatched_trades === false, 'No unmatched trades');
+    assert(metrics.unmatched_trades_count === 0, 'Unmatched count is 0');
+
+    // Verify TradeCycleRecord enrichment
+    const cycle = metrics.recent_trade_cycles[0];
+    assert(cycle !== undefined, 'Cycle exists');
+    assert(cycle.financial_completeness === 'ESTIMATED', 'Cycle completeness is ESTIMATED');
+    assert(cycle.is_net_estimated === true, 'Cycle is_net_estimated is true');
+    assert(cycle.estimated_fees_paid !== undefined && cycle.estimated_fees_paid > 0, 'estimated_fees_paid recorded');
+    assert(cycle.unmatched_sell_quantity === 0, 'Cycle unmatched_sell_quantity is 0');
+    assert(cycle.fees_breakdown !== undefined, 'Fees breakdown populated');
+    assert(cycle.fees_breakdown?.estimated_sales_tax !== undefined && cycle.fees_breakdown.estimated_sales_tax > 0, 'Sales tax present');
+
+    console.log('  [PASS] Gate 3B-4A.2.2: TraderAnalyticsService delegation & enrichment verified.');
+  }
+
+  // Gate 3B-4A.2.3: Unmatched sell detection & No cost fabrication
+  {
+    console.log('--- Gate 3B-4A.2.3: Unmatched Sell Detection & Zero Cost Fabrication ---');
+    const orphanSellTx: EveCharacterTransaction[] = [
+      {
+        transaction_id: 3001,
+        date: '2026-09-20T10:00:00Z',
+        type_id: 34,
+        location_id: 60003760,
+        unit_price: 150.0,
+        quantity: 50,
+        is_buy: false, // Sell with NO prior buy
+        is_personal: true,
+        client_id: 1,
+      },
+    ];
+
+    const metrics = TraderAnalyticsService.processTransactions(
+      2112001,
+      'Test Pilot',
+      orphanSellTx,
+      [],
+      [],
+      5,
+      5
+    );
+
+    assert(metrics.has_unmatched_trades === true, 'has_unmatched_trades flagged as true');
+    assert(metrics.unmatched_trades_count === 1, 'unmatched_trades_count is 1');
+    assert(metrics.financial_completeness === 'PARTIAL', 'Metrics completeness is PARTIAL');
+
+    const cycle = metrics.recent_trade_cycles[0];
+    assert(cycle !== undefined, 'Cycle recorded');
+    assert(cycle.unmatched_sell_quantity === 50, 'All 50 units flagged as unmatched_sell_quantity');
+    assert(cycle.financial_completeness === 'PARTIAL', 'Cycle completeness marked as PARTIAL');
+    assert(cycle.avg_buy_price === 0, 'No synthetic buy price fabricated');
+
+    console.log('  [PASS] Gate 3B-4A.2.3: Unmatched sell detection & zero cost fabrication verified.');
+  }
+
+  // Gate 3B-4A.2.4: Determinism & Idempotence across multiple runs
+  {
+    console.log('--- Gate 3B-4A.2.4: Determinism & Idempotence Across Multiple Invocations ---');
+    const complexTxs: EveCharacterTransaction[] = [
+      { transaction_id: 4001, date: '2026-09-20T08:00:00Z', type_id: 34, location_id: 60003760, unit_price: 100, quantity: 200, is_buy: true, is_personal: true, client_id: 1 },
+      { transaction_id: 4002, date: '2026-09-20T09:00:00Z', type_id: 34, location_id: 60003760, unit_price: 110, quantity: 300, is_buy: true, is_personal: true, client_id: 2 },
+      { transaction_id: 4003, date: '2026-09-20T10:00:00Z', type_id: 34, location_id: 60003760, unit_price: 150, quantity: 250, is_buy: false, is_personal: true, client_id: 3 },
+      { transaction_id: 4004, date: '2026-09-20T11:00:00Z', type_id: 34, location_id: 60003760, unit_price: 160, quantity: 250, is_buy: false, is_personal: true, client_id: 4 },
+      { transaction_id: 4005, date: '2026-09-20T12:00:00Z', type_id: 35, location_id: 60003760, unit_price: 500, quantity: 50, is_buy: true, is_personal: true, client_id: 5 },
+      { transaction_id: 4006, date: '2026-09-20T13:00:00Z', type_id: 35, location_id: 60003760, unit_price: 600, quantity: 50, is_buy: false, is_personal: true, client_id: 6 },
+    ];
+
+    const run1 = TraderAnalyticsService.processTransactions(2112001, 'Test Pilot', complexTxs, [], [], 5, 5);
+    const run2 = TraderAnalyticsService.processTransactions(2112001, 'Test Pilot', complexTxs, [], [], 5, 5);
+
+    const { last_calculated: _lc1, ...cleanRun1 } = run1;
+    const { last_calculated: _lc2, ...cleanRun2 } = run2;
+    assert(JSON.stringify(cleanRun1) === JSON.stringify(cleanRun2), 'Run 1 and Run 2 are bit-for-bit identical');
+    assert(run1.total_closed_trades === run2.total_closed_trades, 'Identical closed trade counts');
+    assert(run1.total_realized_profit === run2.total_realized_profit, 'Identical net realized profits');
+    assert(run1.total_realized_gross === run2.total_realized_gross, 'Identical gross realized profits');
+
+    console.log('  [PASS] Gate 3B-4A.2.4: Determinism & idempotence verified.');
+  }
+
+  // Gate 3B-4A.2.5: Causal FIFO Temporal Enforcement in TraderAnalyticsService
+  {
+    console.log('--- Gate 3B-4A.2.5: Causal FIFO Temporal Enforcement ---');
+    // Sell happens at 08:00, Buy happens at 10:00
+    // Causal FIFO forbids the future buy from covering the past sell
+    const causalTxs: EveCharacterTransaction[] = [
+      { transaction_id: 5001, date: '2026-09-20T08:00:00Z', type_id: 34, location_id: 60003760, unit_price: 150, quantity: 100, is_buy: false, is_personal: true, client_id: 1 },
+      { transaction_id: 5002, date: '2026-09-20T10:00:00Z', type_id: 34, location_id: 60003760, unit_price: 100, quantity: 100, is_buy: true, is_personal: true, client_id: 2 },
+    ];
+
+    const metrics = TraderAnalyticsService.processTransactions(2112001, 'Test Pilot', causalTxs, [], [], 5, 5);
+
+    assert(metrics.has_unmatched_trades === true, 'Causal violation detected as unmatched trade');
+    assert(metrics.unmatched_trades_count === 1, 'Exactly 1 unmatched trade');
+    const cycle = metrics.recent_trade_cycles[0];
+    assert(cycle.unmatched_sell_quantity === 100, 'All 100 sell units were unmatched by future buy');
+    assert(cycle.financial_completeness === 'PARTIAL', 'Cycle marked as PARTIAL');
+
+    console.log('  [PASS] Gate 3B-4A.2.5: Causal FIFO temporal enforcement verified.');
+  }
+
+  console.log('\n==========================================================================');
+  console.log('ALL CHANTIER 3B-4A, 3B-4A.1 & 3B-4A.2 FINANCIAL GATE TESTS PASSED (100%)');
   console.log('==========================================================================');
 }
 

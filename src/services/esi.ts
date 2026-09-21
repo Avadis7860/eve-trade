@@ -599,10 +599,16 @@ export class EsiService {
   /**
    * Fetches character wallet transactions (real buy/sell market history)
    */
-  static async fetchCharacterTransactions(characterId: number, accessToken: string): Promise<EveCharacterTransaction[]> {
+  static async fetchCharacterTransactions(
+    characterId: number,
+    accessToken: string,
+    fromId?: number
+  ): Promise<EveCharacterTransaction[]> {
+    const fromIdParam = fromId !== undefined ? `?from_id=${encodeURIComponent(String(fromId))}` : '';
+    const fromIdDirect = fromId !== undefined ? `&from_id=${encodeURIComponent(String(fromId))}` : '';
     const result = await this.executeWithAuthRefresh<EveCharacterTransaction[]>(characterId, accessToken, async (token) => {
       try {
-        const response = await fetch(`/api/character/${characterId}/transactions`, {
+        const response = await fetch(`/api/character/${characterId}/transactions${fromIdParam}`, {
           headers: { 'Authorization': `Bearer ${token}` },
         });
         if (response.ok) {
@@ -615,7 +621,7 @@ export class EsiService {
       }
 
       try {
-        const directRes = await fetch(`${this.BASE_URL}/characters/${characterId}/wallet/transactions/?datasource=tranquility`, {
+        const directRes = await fetch(`${this.BASE_URL}/characters/${characterId}/wallet/transactions/?datasource=tranquility${fromIdDirect}`, {
           headers: { 'Authorization': `Bearer ${token}` },
         });
         if (directRes.ok) {

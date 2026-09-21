@@ -1412,6 +1412,81 @@ export interface PersistedCharacterTransaction {
   readonly validation_errors?: readonly string[];
 }
 
+// ==========================================
+// PHASE 2B: ESI EXECUTION INGESTION TYPES
+// ==========================================
+
+export type CharacterTransactionSyncStoppedReason =
+  | 'NO_MORE_DATA'
+  | 'ANCHOR_REACHED'
+  | 'NO_NEW_DATA'
+  | 'MAX_PAGES_GUARD'
+  | 'AUTH_REQUIRED'
+  | 'RATE_LIMITED'
+  | 'NETWORK_ERROR'
+  | 'PERSISTENCE_ERROR'
+  | 'VALIDATION_ERROR';
+
+export interface CharacterTransactionSyncSummary {
+  readonly character_id: number;
+  readonly started_at: string;
+  readonly completed_at: string;
+  readonly duration_ms: number;
+
+  readonly pages_fetched: number;
+  readonly transactions_received: number;
+  readonly transactions_valid: number;
+  readonly transactions_invalid: number;
+  readonly transactions_new: number;
+  readonly transactions_existing: number;
+  readonly duplicates_removed: number;
+
+  readonly pagination_completed: boolean;
+  readonly stopped_reason: CharacterTransactionSyncStoppedReason;
+
+  readonly error_count: number;
+  readonly errors: readonly string[];
+
+  readonly latest_transaction_id?: number;
+  readonly oldest_transaction_id?: number;
+  readonly last_known_transaction_id_before_sync?: number;
+
+  readonly data_state: DataState;
+  readonly health_status: DataHealthStatus;
+}
+
+export interface EsiWalletTransactionResponse {
+  readonly ok: boolean;
+  readonly status: number;
+  readonly data: any[] | null;
+  readonly error?: string;
+  readonly retryAfterSeconds?: number;
+  readonly errorLimitRemain?: number;
+  readonly errorLimitReset?: number;
+  readonly headers?: Record<string, string>;
+}
+
+export interface EsiWalletClientAdapter {
+  fetchWalletTransactions(
+    characterId: number,
+    accessToken: string,
+    options?: {
+      from_id?: number;
+      signal?: AbortSignal;
+    }
+  ): Promise<EsiWalletTransactionResponse>;
+}
+
+export interface CharacterTransactionSyncOptions {
+  readonly maxPages?: number;
+  readonly fullHistory?: boolean;
+  readonly now?: () => string;
+  readonly esiAdapter?: EsiWalletClientAdapter;
+  readonly retryOnTransientError?: boolean;
+  readonly maxRetries?: number;
+  readonly timeoutMs?: number;
+}
+
 export interface CorrelationCriterionResult {
   readonly criterion: 'IDENTITY' | 'DIRECTION' | 'LOCATION' | 'TEMPORAL' | 'PRICE' | 'QUANTITY' | 'ORDER_REF' | 'DIRECT_LINK';
   readonly passed: boolean;

@@ -91,15 +91,32 @@ charactersRouter.get('/:characterId/transactions', async (req: Request, res: Res
   const authHeader = getAuthHeader(req, res);
   if (!authHeader) return;
 
+  const fromIdParam = req.query.from_id ? `&from_id=${encodeURIComponent(String(req.query.from_id))}` : '';
   const result = await fetchEsi(
-    `characters/${characterId}/wallet/transactions/?datasource=tranquility`,
+    `characters/${characterId}/wallet/transactions/?datasource=tranquility${fromIdParam}`,
     {
       headers: { Authorization: authHeader },
     }
   );
 
+  if (result.retryAfter) {
+    res.setHeader('Retry-After', String(result.retryAfter));
+  }
+  if (result.errorLimitRemain !== undefined) {
+    res.setHeader('x-esi-error-limit-remain', String(result.errorLimitRemain));
+  }
+  if (result.errorLimitReset !== undefined) {
+    res.setHeader('x-esi-error-limit-reset', String(result.errorLimitReset));
+  }
+
   if (!result.ok) {
-    return res.status(result.status).json({ error: 'ESI transactions error', details: result.error });
+    return res.status(result.status).json({
+      error: 'ESI transactions error',
+      details: result.error,
+      retryAfter: result.retryAfter,
+      errorLimitRemain: result.errorLimitRemain,
+      errorLimitReset: result.errorLimitReset,
+    });
   }
 
   res.json(result.data);

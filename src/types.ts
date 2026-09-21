@@ -1093,6 +1093,7 @@ export interface TraderPerformanceMetrics {
     win_rate: number;
     avg_roi: number;
     profit_label?: string;
+    is_net_estimated?: boolean;
   }>;
   trader_title: string;
   trader_badge_color: string;

@@ -359,8 +359,10 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                         <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-400">
                           <div>+{fmtIsk(item.total_profit)}</div>
                           <div className="text-[9px] text-[#808495] font-normal">
-                            {metrics.financial_completeness === 'UNAVAILABLE'
+                            {item.profit_label?.includes('Hors Frais')
                               ? 'hors frais'
+                              : item.profit_label?.includes('Partiel')
+                              ? 'partiel'
                               : item.is_net_estimated
                               ? 'net estimé'
                               : 'net certifié'}
@@ -498,9 +500,15 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                       <span className="text-[#808495]">{data.total_trades} transactions</span>
                       <span className="font-bold text-emerald-400">
                         +{fmtIsk(data.profit_isk)}
-                        {metrics.financial_completeness === 'UNAVAILABLE' ? (
+                        {data.profit_label?.includes('Hors Frais') || metrics.financial_completeness === 'UNAVAILABLE' ? (
                           <span className="text-[10px] text-[#808495] font-normal ml-1">(hors frais)</span>
-                        ) : null}
+                        ) : data.profit_label?.includes('Partiel') ? (
+                          <span className="text-[10px] text-amber-400 font-normal ml-1">(partiel)</span>
+                        ) : data.is_net_estimated === false ? (
+                          <span className="text-[10px] text-emerald-400/80 font-normal ml-1">(net certifié)</span>
+                        ) : (
+                          <span className="text-[10px] text-[#808495] font-normal ml-1">(net estimé)</span>
+                        )}
                       </span>
                     </div>
                     <div className="text-[11px] text-purple-300 font-mono">

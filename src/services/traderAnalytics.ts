@@ -293,7 +293,10 @@ export class TraderAnalyticsService {
             buy_location: buyLocation,
             sell_location: sellLocation,
             financial_completeness: cycleCompleteness,
-            is_net_estimated: outcome.is_net_estimated,
+            is_net_estimated:
+              cycleCompleteness === 'OBSERVED' || cycleCompleteness === 'UNAVAILABLE'
+                ? false
+                : true,
             realized_profit_label: cycleProfitLabel,
             fees_breakdown: {
               fee_mode: outcome.fees.fee_mode,
@@ -358,7 +361,7 @@ export class TraderAnalyticsService {
             buy_location: 'Inconnu (Sans Achat Antérieur)',
             sell_location: sellLocation,
             financial_completeness: 'PARTIAL',
-            is_net_estimated: outcome.is_net_estimated,
+            is_net_estimated: outcome.fees.fee_mode === 'UNAVAILABLE' ? false : true,
             realized_profit_label: 'Bénéfice Réalisé (Partiel)',
             fees_breakdown: {
               fee_mode: outcome.fees.fee_mode,
@@ -414,23 +417,74 @@ export class TraderAnalyticsService {
         ? closedCycles.reduce((acc, c) => acc + c.hold_days, 0) / totalClosedTrades
         : 0;
 
+    // Helper to derive unified financial completeness, label, and is_net_estimated flag
+    const deriveFinancialStatus = (
+      cycles: readonly TradeCycleRecord[]
+    ): {
+      completeness: FinancialCompleteness;
+      label: string;
+      is_net_estimated: boolean;
+    } => {
+      if (cycles.length === 0) {
+        return {
+          completeness: 'ESTIMATED',
+          label: 'Bénéfice Net Réalisé (Estimé)',
+          is_net_estimated: true,
+        };
+      }
+      const hasPart = cycles.some((c) => c.financial_completeness === 'PARTIAL');
+      const hasUnavail = cycles.some((c) => c.financial_completeness === 'UNAVAILABLE');
+      const allObs = cycles.every((c) => c.financial_completeness === 'OBSERVED');
+
+      if (hasPart) {
+        return {
+          completeness: 'PARTIAL',
+          label: 'Bénéfice Réalisé (Partiel)',
+          is_net_estimated: !hasUnavail,
+        };
+      }
+      if (hasUnavail) {
+        return {
+          completeness: 'UNAVAILABLE',
+          label: 'Profit Réalisé (Hors Frais)',
+          is_net_estimated: false,
+        };
+      }
+      if (allObs) {
+        return {
+          completeness: 'OBSERVED',
+          label: 'Bénéfice Net Réalisé (Certifié)',
+          is_net_estimated: false,
+        };
+      }
+      return {
+        completeness: 'ESTIMATED',
+        label: 'Bénéfice Net Réalisé (Estimé)',
+        is_net_estimated: true,
+      };
+    };
+
     // Top Profitable Items
     const topProfitableItems = Object.values(itemProfitMap)
-      .map((item) => ({
-        type_id: item.type_id,
-        type_name: item.type_name,
-        category_name: item.category_name,
-        total_profit: roundIsk(item.total_profit),
-        trades_count: item.trades_count,
-        avg_roi: item.rois.length > 0 ? item.rois.reduce((a, b) => a + b, 0) / item.rois.length : 0,
-        avg_hold_days:
-          item.hold_days_list.length > 0
-            ? item.hold_days_list.reduce((a, b) => a + b, 0) / item.hold_days_list.length
-            : 0,
-        total_volume_units: item.total_volume_units,
-        profit_label: hasUnavailable ? 'Profit Réalisé (Hors Frais)' : 'Bénéfice Net Réalisé (Estimé)',
-        is_net_estimated: !hasUnavailable,
-      }))
+      .map((item) => {
+        const itemCycles = completedCycles.filter((c) => c.type_id === item.type_id);
+        const status = deriveFinancialStatus(itemCycles);
+        return {
+          type_id: item.type_id,
+          type_name: item.type_name,
+          category_name: item.category_name,
+          total_profit: roundIsk(item.total_profit),
+          trades_count: item.trades_count,
+          avg_roi: item.rois.length > 0 ? item.rois.reduce((a, b) => a + b, 0) / item.rois.length : 0,
+          avg_hold_days:
+            item.hold_days_list.length > 0
+              ? item.hold_days_list.reduce((a, b) => a + b, 0) / item.hold_days_list.length
+              : 0,
+          total_volume_units: item.total_volume_units,
+          profit_label: status.label,
+          is_net_estimated: status.is_net_estimated,
+        };
+      })
       .sort((a, b) => b.total_profit - a.total_profit)
       .slice(0, 15);
 
@@ -443,6 +497,7 @@ export class TraderAnalyticsService {
         win_rate: number;
         avg_roi: number;
         profit_label?: string;
+        is_net_estimated?: boolean;
       }
     > = {};
 
@@ -462,9 +517,9 @@ export class TraderAnalyticsService {
         catCycles.length > 0 ? (catWins / catCycles.length) * 100 : 0;
       categorySuccessRate[cat].avg_roi =
         catCycles.length > 0 ? catCycles.reduce((a, b) => a + b.roi, 0) / catCycles.length : 0;
-      categorySuccessRate[cat].profit_label = hasUnavailable
-        ? 'Profit Réalisé (Hors Frais)'
-        : 'Bénéfice Net Réalisé (Estimé)';
+      const status = deriveFinancialStatus(catCycles);
+      categorySuccessRate[cat].profit_label = status.label;
+      categorySuccessRate[cat].is_net_estimated = status.is_net_estimated;
     }
 
     // Location Breakdown
@@ -479,30 +534,10 @@ export class TraderAnalyticsService {
       .slice(0, 8);
 
     // Determine Overall Financial Completeness
-    let overallCompleteness: FinancialCompleteness = 'ESTIMATED';
-    if (hasPartial) {
-      overallCompleteness = 'PARTIAL';
-    } else if (hasUnavailable) {
-      overallCompleteness = 'UNAVAILABLE';
-    } else if (
-      completedCycles.length > 0 &&
-      completedCycles.every((c) => c.financial_completeness === 'OBSERVED')
-    ) {
-      overallCompleteness = 'OBSERVED';
-    }
-
-    const metricsProfitLabel =
-      overallCompleteness === 'UNAVAILABLE'
-        ? 'Profit Réalisé (Hors Frais)'
-        : overallCompleteness === 'OBSERVED'
-        ? 'Bénéfice Net Réalisé (Certifié)'
-        : overallCompleteness === 'PARTIAL'
-        ? 'Bénéfice Réalisé (Partiel)'
-        : 'Bénéfice Net Réalisé (Estimé)';
-
-    const isNetEstimated =
-      overallCompleteness === 'ESTIMATED' ||
-      (overallCompleteness === 'PARTIAL' && !hasUnavailable);
+    const overallStatus = deriveFinancialStatus(completedCycles);
+    const overallCompleteness: FinancialCompleteness = overallStatus.completeness;
+    const metricsProfitLabel = overallStatus.label;
+    const isNetEstimated = overallStatus.is_net_estimated;
 
     // Determine Trader Title & Badge
     let traderTitle = 'Négociant Initié';
@@ -726,15 +761,18 @@ export class TraderAnalyticsService {
   }
 
   /**
-   * Pure projection helper for cycle-level fee and net profit partitioning.
+   * Deterministic projection helper for cycle-level fee and net profit partitioning.
    * STRICT ARCHITECTURAL INVARIANT:
    * This is strictly a consumer projection and exact conservation partition of the
    * canonical RealizedFinancialOutcome generated by RealizedFinancialOutcomeEngine.
    * TraderAnalyticsService MUST NOT redefine accounting or recalculate fees independently.
    *
-   * Exact conservation invariant:
+   * Uses a local deterministic accumulator state (allocatedState) across sequential cycle iterations
+   * to guarantee zero-loss conservation:
    *  - Σ cycle.fees == outcome.fees.estimated_total_fees
    *  - Σ cycle.net_profit == outcome.net_realized_profit
+   *
+   * Note: Mutates the local accumulator `allocatedState` tracking previously partitioned amounts.
    */
   private static projectCycleFinancials(
     outcome: RealizedFinancialOutcome,

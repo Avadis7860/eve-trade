@@ -583,13 +583,19 @@ export class RealizedFinancialOutcomeEngine {
     })[],
     options?: RealizedFinancialCalculationOptions
   ): RealizedFinancialOutcome {
+    // Invariant: Direct cross-character isolation check across ALL provided transactions BEFORE any type_id filtering.
+    // If ANY transaction contains a character_id different from characterId, immediately reject with
+    // CrossCharacterFinancialMappingViolationError, regardless of its type_id.
+    for (const tx of transactions) {
+      const txCharId = 'character_id' in tx && tx.character_id !== undefined ? tx.character_id : characterId;
+      if (txCharId !== characterId) {
+        throw new CrossCharacterFinancialMappingViolationError(txCharId, characterId, tx.transaction_id);
+      }
+    }
+
     const refs: ExecutionTransactionRef[] = transactions
       .filter((tx) => tx.type_id === typeId)
       .map((tx) => {
-        const txCharId = 'character_id' in tx && tx.character_id !== undefined ? tx.character_id : characterId;
-        if (txCharId !== characterId) {
-          throw new CrossCharacterFinancialMappingViolationError(txCharId, characterId, tx.transaction_id);
-        }
         const ts = 'timestamp' in tx && tx.timestamp ? tx.timestamp : ('date' in tx && tx.date ? tx.date : new Date(0).toISOString());
         return {
           transaction_id: tx.transaction_id,

@@ -141,13 +141,19 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="bg-[#0e1117] p-3.5 rounded-xl border border-emerald-500/30 space-y-1">
                   <div className="text-[11px] text-[#808495] flex items-center justify-between">
-                    <span>Bénéfice Net Réalisé</span>
+                    <span>{metrics.realized_profit_label || (metrics.financial_completeness === 'UNAVAILABLE' ? 'Profit Réalisé (Hors Frais)' : 'Bénéfice Net Réalisé')}</span>
                     <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
                   </div>
                   <div className="text-lg font-bold font-mono text-emerald-400">
                     +{fmtIsk(metrics.total_realized_profit)}
                   </div>
-                  <div className="text-[10px] text-[#808495]">Taxes et courtage déduits</div>
+                  <div className="text-[10px] text-[#808495]">
+                    {metrics.financial_completeness === 'UNAVAILABLE'
+                      ? 'Frais non configurés (non déduits)'
+                      : metrics.is_net_estimated
+                      ? 'Taxes et courtage estimés déduits'
+                      : 'Taxes et courtage certifiés déduits'}
+                  </div>
                 </div>
 
                 <div className="bg-[#0e1117] p-3.5 rounded-xl border border-blue-500/30 space-y-1">
@@ -171,7 +177,11 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                   <div className="text-lg font-bold font-mono text-purple-300">
                     +{(metrics.average_realized_roi * 100).toFixed(1)}%
                   </div>
-                  <div className="text-[10px] text-[#808495]">Rentabilité nette par flip</div>
+                  <div className="text-[10px] text-[#808495]">
+                    {metrics.financial_completeness === 'UNAVAILABLE'
+                      ? 'Rentabilité brute par flip'
+                      : 'Rentabilité nette par flip'}
+                  </div>
                 </div>
 
                 <div className="bg-[#0e1117] p-3.5 rounded-xl border border-amber-500/30 space-y-1">
@@ -216,7 +226,9 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                     <span>Réconciliation Comptable &bull; Décomposition des Frais</span>
                   </div>
                   <span className="text-[10px] text-[#808495] font-mono">
-                    Mode: {metrics.financial_completeness === 'UNAVAILABLE' ? 'UNAVAILABLE (Non configuré)' : `${metrics.financial_completeness || 'ESTIMATED'} (Frais MAKER)`}
+                    Mode: {metrics.financial_completeness === 'UNAVAILABLE'
+                      ? 'UNAVAILABLE (Non configuré)'
+                      : `${metrics.financial_completeness || 'ESTIMATED'} (${metrics.execution_fee_mode === 'MAKER_MAKER' ? 'Frais MAKER' : metrics.execution_fee_mode || 'Frais configurés'})`}
                   </span>
                 </div>
 
@@ -246,10 +258,22 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
 
                   <div className="bg-[#161821] p-2.5 rounded-lg border border-[#262730]">
                     <div className="text-[10px] text-[#808495]">
-                      {metrics.financial_completeness === 'UNAVAILABLE' ? 'Bénéfice Réalisé (Hors Frais)' : 'Bénéfice Net Réalisé Certifié'}
+                      {metrics.realized_profit_label ||
+                        (metrics.financial_completeness === 'UNAVAILABLE'
+                          ? 'Bénéfice Réalisé (Hors Frais)'
+                          : metrics.is_net_estimated
+                          ? 'Bénéfice Net Réalisé (Estimé)'
+                          : 'Bénéfice Net Réalisé (Certifié)')}
                     </div>
                     <div className="text-xs font-bold font-mono text-emerald-400 mt-0.5">
                       +{fmtIsk(metrics.total_realized_profit)}
+                    </div>
+                    <div className="text-[9px] text-[#808495] mt-0.5 font-mono">
+                      {metrics.financial_completeness === 'UNAVAILABLE'
+                        ? 'Frais non configurés'
+                        : metrics.is_net_estimated
+                        ? 'Frais estimés déduits'
+                        : 'Exactitude: Réconciliation certifiée'}
                     </div>
                   </div>
                 </div>
@@ -303,7 +327,9 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                       <th className="py-2.5 px-2">Unités Échangées</th>
                       <th className="py-2.5 px-2">ROI Moyen</th>
                       <th className="py-2.5 px-2">Rotation</th>
-                      <th className="py-2.5 px-3 text-right">Profit Net ISK</th>
+                      <th className="py-2.5 px-3 text-right">
+                        {metrics.financial_completeness === 'UNAVAILABLE' ? 'Profit Réalisé (Hors Frais)' : 'Profit Net ISK'}
+                      </th>
                       <th className="py-2.5 px-2 text-right">Action</th>
                     </tr>
                   </thead>
@@ -331,7 +357,14 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                           ~{item.avg_hold_days.toFixed(1)}j
                         </td>
                         <td className="py-2.5 px-3 text-right font-mono font-bold text-emerald-400">
-                          +{fmtIsk(item.total_profit)}
+                          <div>+{fmtIsk(item.total_profit)}</div>
+                          <div className="text-[9px] text-[#808495] font-normal">
+                            {metrics.financial_completeness === 'UNAVAILABLE'
+                              ? 'hors frais'
+                              : item.is_net_estimated
+                              ? 'net estimé'
+                              : 'net certifié'}
+                          </div>
                         </td>
                         <td className="py-2.5 px-2 text-right">
                           {onSelectTypeForArbitrage && (
@@ -380,7 +413,9 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                       <th className="py-2 px-2">Prix Vente Moy.</th>
                       <th className="py-2 px-2">Durée</th>
                       <th className="py-2 px-2">ROI</th>
-                      <th className="py-2 px-3 text-right">Bénéfice Net</th>
+                      <th className="py-2 px-3 text-right">
+                        {metrics.financial_completeness === 'UNAVAILABLE' ? 'Profit Réalisé (Hors Frais)' : 'Bénéfice Net'}
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#262730]">
@@ -461,7 +496,12 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                     </div>
                     <div className="flex justify-between text-xs font-mono">
                       <span className="text-[#808495]">{data.total_trades} transactions</span>
-                      <span className="font-bold text-emerald-400">+{fmtIsk(data.profit_isk)}</span>
+                      <span className="font-bold text-emerald-400">
+                        +{fmtIsk(data.profit_isk)}
+                        {metrics.financial_completeness === 'UNAVAILABLE' ? (
+                          <span className="text-[10px] text-[#808495] font-normal ml-1">(hors frais)</span>
+                        ) : null}
+                      </span>
                     </div>
                     <div className="text-[11px] text-purple-300 font-mono">
                       ROI Moyen : +{(data.avg_roi * 100).toFixed(1)}%

@@ -11,6 +11,7 @@ import {
   FinancialConfig,
   RealizedFeeBreakdown,
   RealizedFinancialCalculationOptions,
+  RealizedFinancialOutcome,
 } from '../types';
 import { CatalogRepository } from '../domain/catalog/CatalogRepository';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
@@ -194,11 +195,13 @@ export class TraderAnalyticsService {
       );
       const numMatched = matchedSellTxs.length;
 
-      let allocatedBuyBrokerFee = 0;
-      let allocatedSellBrokerFee = 0;
-      let allocatedSalesTax = 0;
-      let allocatedTotalFees = 0;
-      let allocatedNetProfit = 0;
+      const allocatedState = {
+        allocatedBuyBrokerFee: 0,
+        allocatedSellBrokerFee: 0,
+        allocatedSalesTax: 0,
+        allocatedTotalFees: 0,
+        allocatedNetProfit: 0,
+      };
 
       for (const sellTx of sellTxs) {
         const allocs = allocationsBySellTx[sellTx.transaction_id] || [];
@@ -211,63 +214,28 @@ export class TraderAnalyticsService {
           const matchedIndex = matchedSellTxs.indexOf(sellTx);
           const isLastMatched = matchedIndex === numMatched - 1;
 
-          // Derive acquisition cost, revenue, and gross profit directly from FIFO allocations
+          // Pure projection of the engine's canonical FIFO allocations for this specific sell transaction
           const totalBuyCost = roundIsk(allocs.reduce((sum, a) => sum + a.gross_cost, 0));
           const totalSellRevenue = roundIsk(allocs.reduce((sum, a) => sum + a.gross_revenue, 0));
           const grossProfit = roundIsk(totalSellRevenue - totalBuyCost);
 
           // Attribute fees and net profit directly from outcome.fees and outcome.net_realized_profit
-          // No FeeEngine recalculation — strictly derived from central engine
-          let cycleBuyBrokerFee: number;
-          let cycleSellBrokerFee: number;
-          let cycleSalesTax: number;
-          let cycleFees: number;
-          let netProfit: number;
-
-          if (outcome.fees.fee_mode === 'UNAVAILABLE') {
-            cycleBuyBrokerFee = 0;
-            cycleSellBrokerFee = 0;
-            cycleSalesTax = 0;
-            cycleFees = 0;
-            netProfit = grossProfit;
-          } else if (numMatched === 1) {
-            cycleBuyBrokerFee = outcome.fees.estimated_buy_broker_fee;
-            cycleSellBrokerFee = outcome.fees.estimated_sell_broker_fee;
-            cycleSalesTax = outcome.fees.estimated_sales_tax;
-            cycleFees = outcome.fees.estimated_total_fees;
-            netProfit = outcome.net_realized_profit;
-          } else if (!isLastMatched) {
-            const propBuy =
-              outcome.realized_acquisition_cost > 0
-                ? totalBuyCost / outcome.realized_acquisition_cost
-                : 0;
-            const propSell =
-              outcome.realized_revenue > 0 ? totalSellRevenue / outcome.realized_revenue : 0;
-            cycleBuyBrokerFee = roundIsk(outcome.fees.estimated_buy_broker_fee * propBuy);
-            cycleSellBrokerFee = roundIsk(outcome.fees.estimated_sell_broker_fee * propSell);
-            cycleSalesTax = roundIsk(outcome.fees.estimated_sales_tax * propSell);
-            cycleFees = roundIsk(cycleBuyBrokerFee + cycleSellBrokerFee + cycleSalesTax);
-            netProfit = roundIsk(grossProfit - cycleFees);
-
-            allocatedBuyBrokerFee += cycleBuyBrokerFee;
-            allocatedSellBrokerFee += cycleSellBrokerFee;
-            allocatedSalesTax += cycleSalesTax;
-            allocatedTotalFees += cycleFees;
-            allocatedNetProfit += netProfit;
-          } else {
-            // Last matched cycle absorbs remainder for exact conservation:
-            // Σ cycle.fees == outcome.fees.estimated_total_fees
-            // Σ cycle.net_profit == outcome.net_realized_profit
-            cycleBuyBrokerFee = roundIsk(
-              outcome.fees.estimated_buy_broker_fee - allocatedBuyBrokerFee
-            );
-            cycleSellBrokerFee = roundIsk(
-              outcome.fees.estimated_sell_broker_fee - allocatedSellBrokerFee
-            );
-            cycleSalesTax = roundIsk(outcome.fees.estimated_sales_tax - allocatedSalesTax);
-            cycleFees = roundIsk(outcome.fees.estimated_total_fees - allocatedTotalFees);
-            netProfit = roundIsk(outcome.net_realized_profit - allocatedNetProfit);
-          }
+          // No FeeEngine recalculation — strictly derived via deterministic conservation partitioning
+          const {
+            cycleBuyBrokerFee,
+            cycleSellBrokerFee,
+            cycleSalesTax,
+            cycleFees,
+            netProfit,
+          } = TraderAnalyticsService.projectCycleFinancials(
+            outcome,
+            grossProfit,
+            totalBuyCost,
+            totalSellRevenue,
+            isLastMatched,
+            numMatched,
+            allocatedState
+          );
 
           const roi = totalBuyCost > 0 ? safeDiv(netProfit, totalBuyCost, 0) : 0;
           const isProfitable = netProfit > 0;
@@ -295,6 +263,15 @@ export class TraderAnalyticsService {
           const cycleCompleteness: FinancialCompleteness =
             unmatchedQty > 0 ? 'PARTIAL' : outcome.financial_completeness;
 
+          const cycleProfitLabel =
+            cycleCompleteness === 'UNAVAILABLE'
+              ? 'Profit Réalisé (Hors Frais)'
+              : cycleCompleteness === 'OBSERVED'
+              ? 'Bénéfice Net Réalisé (Certifié)'
+              : cycleCompleteness === 'PARTIAL'
+              ? 'Bénéfice Réalisé (Partiel)'
+              : 'Bénéfice Net Réalisé (Estimé)';
+
           const cycleRecord: TradeCycleRecord = {
             cycle_id: `cycle_${sellTx.transaction_id}_${typeId}`,
             type_id: typeId,
@@ -317,6 +294,7 @@ export class TraderAnalyticsService {
             sell_location: sellLocation,
             financial_completeness: cycleCompleteness,
             is_net_estimated: outcome.is_net_estimated,
+            realized_profit_label: cycleProfitLabel,
             fees_breakdown: {
               fee_mode: outcome.fees.fee_mode,
               fee_source: outcome.fees.fee_source,
@@ -381,6 +359,7 @@ export class TraderAnalyticsService {
             sell_location: sellLocation,
             financial_completeness: 'PARTIAL',
             is_net_estimated: outcome.is_net_estimated,
+            realized_profit_label: 'Bénéfice Réalisé (Partiel)',
             fees_breakdown: {
               fee_mode: outcome.fees.fee_mode,
               fee_source: outcome.fees.fee_source,
@@ -449,6 +428,8 @@ export class TraderAnalyticsService {
             ? item.hold_days_list.reduce((a, b) => a + b, 0) / item.hold_days_list.length
             : 0,
         total_volume_units: item.total_volume_units,
+        profit_label: hasUnavailable ? 'Profit Réalisé (Hors Frais)' : 'Bénéfice Net Réalisé (Estimé)',
+        is_net_estimated: !hasUnavailable,
       }))
       .sort((a, b) => b.total_profit - a.total_profit)
       .slice(0, 15);
@@ -456,7 +437,13 @@ export class TraderAnalyticsService {
     // Category Success Rate
     const categorySuccessRate: Record<
       string,
-      { total_trades: number; profit_isk: number; win_rate: number; avg_roi: number }
+      {
+        total_trades: number;
+        profit_isk: number;
+        win_rate: number;
+        avg_roi: number;
+        profit_label?: string;
+      }
     > = {};
 
     for (const c of completedCycles) {
@@ -475,6 +462,9 @@ export class TraderAnalyticsService {
         catCycles.length > 0 ? (catWins / catCycles.length) * 100 : 0;
       categorySuccessRate[cat].avg_roi =
         catCycles.length > 0 ? catCycles.reduce((a, b) => a + b.roi, 0) / catCycles.length : 0;
+      categorySuccessRate[cat].profit_label = hasUnavailable
+        ? 'Profit Réalisé (Hors Frais)'
+        : 'Bénéfice Net Réalisé (Estimé)';
     }
 
     // Location Breakdown
@@ -500,6 +490,19 @@ export class TraderAnalyticsService {
     ) {
       overallCompleteness = 'OBSERVED';
     }
+
+    const metricsProfitLabel =
+      overallCompleteness === 'UNAVAILABLE'
+        ? 'Profit Réalisé (Hors Frais)'
+        : overallCompleteness === 'OBSERVED'
+        ? 'Bénéfice Net Réalisé (Certifié)'
+        : overallCompleteness === 'PARTIAL'
+        ? 'Bénéfice Réalisé (Partiel)'
+        : 'Bénéfice Net Réalisé (Estimé)';
+
+    const isNetEstimated =
+      overallCompleteness === 'ESTIMATED' ||
+      (overallCompleteness === 'PARTIAL' && !hasUnavailable);
 
     // Determine Trader Title & Badge
     let traderTitle = 'Négociant Initié';
@@ -545,8 +548,11 @@ export class TraderAnalyticsService {
       trader_title: traderTitle,
       trader_badge_color: traderBadgeColor,
       calibration_weight: Math.min(1.3, Math.max(0.7, 1 + (winRatePct - 50) / 100)),
-      // Financial Truth & Completeness metrics (Chantier 3B-4A.2)
+      // Financial Truth & Completeness metrics (Chantier 3B-4A.2 & Final Gate)
       financial_completeness: overallCompleteness,
+      is_net_estimated: isNetEstimated,
+      realized_profit_label: metricsProfitLabel,
+      execution_fee_mode: calcOptions.executionFeeMode,
       total_realized_gross: totalRealizedGross,
       total_estimated_fees: totalEstimatedFees,
       has_unmatched_trades: hasUnmatchedTrades,
@@ -716,6 +722,114 @@ export class TraderAnalyticsService {
       badge_text: 'Non Négocié',
       badge_type: 'new',
       summary: 'Première analyse pour cet item dans votre profil de trading.',
+    };
+  }
+
+  /**
+   * Pure projection helper for cycle-level fee and net profit partitioning.
+   * STRICT ARCHITECTURAL INVARIANT:
+   * This is strictly a consumer projection and exact conservation partition of the
+   * canonical RealizedFinancialOutcome generated by RealizedFinancialOutcomeEngine.
+   * TraderAnalyticsService MUST NOT redefine accounting or recalculate fees independently.
+   *
+   * Exact conservation invariant:
+   *  - Σ cycle.fees == outcome.fees.estimated_total_fees
+   *  - Σ cycle.net_profit == outcome.net_realized_profit
+   */
+  private static projectCycleFinancials(
+    outcome: RealizedFinancialOutcome,
+    cycleGrossProfit: number,
+    totalBuyCost: number,
+    totalSellRevenue: number,
+    isLastMatched: boolean,
+    numMatched: number,
+    allocatedState: {
+      allocatedBuyBrokerFee: number;
+      allocatedSellBrokerFee: number;
+      allocatedSalesTax: number;
+      allocatedTotalFees: number;
+      allocatedNetProfit: number;
+    }
+  ): {
+    cycleBuyBrokerFee: number;
+    cycleSellBrokerFee: number;
+    cycleSalesTax: number;
+    cycleFees: number;
+    netProfit: number;
+  } {
+    if (outcome.fees.fee_mode === 'UNAVAILABLE') {
+      return {
+        cycleBuyBrokerFee: 0,
+        cycleSellBrokerFee: 0,
+        cycleSalesTax: 0,
+        cycleFees: 0,
+        netProfit: cycleGrossProfit,
+      };
+    }
+
+    if (numMatched === 1) {
+      return {
+        cycleBuyBrokerFee: outcome.fees.estimated_buy_broker_fee,
+        cycleSellBrokerFee: outcome.fees.estimated_sell_broker_fee,
+        cycleSalesTax: outcome.fees.estimated_sales_tax,
+        cycleFees: outcome.fees.estimated_total_fees,
+        netProfit: outcome.net_realized_profit,
+      };
+    }
+
+    if (!isLastMatched) {
+      const propBuy =
+        outcome.realized_acquisition_cost > 0
+          ? totalBuyCost / outcome.realized_acquisition_cost
+          : 0;
+      const propSell =
+        outcome.realized_revenue > 0 ? totalSellRevenue / outcome.realized_revenue : 0;
+      const cycleBuyBrokerFee = roundIsk(outcome.fees.estimated_buy_broker_fee * propBuy);
+      const cycleSellBrokerFee = roundIsk(outcome.fees.estimated_sell_broker_fee * propSell);
+      const cycleSalesTax = roundIsk(outcome.fees.estimated_sales_tax * propSell);
+      const cycleFees = roundIsk(cycleBuyBrokerFee + cycleSellBrokerFee + cycleSalesTax);
+      const netProfit = roundIsk(cycleGrossProfit - cycleFees);
+
+      allocatedState.allocatedBuyBrokerFee += cycleBuyBrokerFee;
+      allocatedState.allocatedSellBrokerFee += cycleSellBrokerFee;
+      allocatedState.allocatedSalesTax += cycleSalesTax;
+      allocatedState.allocatedTotalFees += cycleFees;
+      allocatedState.allocatedNetProfit += netProfit;
+
+      return {
+        cycleBuyBrokerFee,
+        cycleSellBrokerFee,
+        cycleSalesTax,
+        cycleFees,
+        netProfit,
+      };
+    }
+
+    // Last matched cycle absorbs remainder for exact conservation:
+    // Σ cycle.fees == outcome.fees.estimated_total_fees
+    // Σ cycle.net_profit == outcome.net_realized_profit
+    const cycleBuyBrokerFee = roundIsk(
+      outcome.fees.estimated_buy_broker_fee - allocatedState.allocatedBuyBrokerFee
+    );
+    const cycleSellBrokerFee = roundIsk(
+      outcome.fees.estimated_sell_broker_fee - allocatedState.allocatedSellBrokerFee
+    );
+    const cycleSalesTax = roundIsk(
+      outcome.fees.estimated_sales_tax - allocatedState.allocatedSalesTax
+    );
+    const cycleFees = roundIsk(
+      outcome.fees.estimated_total_fees - allocatedState.allocatedTotalFees
+    );
+    const netProfit = roundIsk(
+      outcome.net_realized_profit - allocatedState.allocatedNetProfit
+    );
+
+    return {
+      cycleBuyBrokerFee,
+      cycleSellBrokerFee,
+      cycleSalesTax,
+      cycleFees,
+      netProfit,
     };
   }
 }

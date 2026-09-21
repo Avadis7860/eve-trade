@@ -1047,6 +1047,7 @@ export interface TradeCycleRecord {
   sell_location?: string;
   financial_completeness?: FinancialCompleteness;
   is_net_estimated?: boolean;
+  realized_profit_label?: string;
   fees_breakdown?: RealizedFeeBreakdown;
   unmatched_sell_quantity?: number;
 }
@@ -1076,6 +1077,8 @@ export interface TraderPerformanceMetrics {
     avg_roi: number;
     avg_hold_days: number;
     total_volume_units: number;
+    profit_label?: string;
+    is_net_estimated?: boolean;
   }>;
   recent_trade_cycles: TradeCycleRecord[];
   activity_by_location: Array<{
@@ -1089,12 +1092,16 @@ export interface TraderPerformanceMetrics {
     profit_isk: number;
     win_rate: number;
     avg_roi: number;
+    profit_label?: string;
   }>;
   trader_title: string;
   trader_badge_color: string;
   calibration_weight: number;
   // Financial truth & completeness metrics (Chantier 3B-4A.2)
   financial_completeness?: FinancialCompleteness;
+  is_net_estimated?: boolean;
+  realized_profit_label?: string;
+  execution_fee_mode?: ExecutionFeeRoleMode;
   total_realized_gross?: number;
   total_estimated_fees?: number;
   has_unmatched_trades?: boolean;

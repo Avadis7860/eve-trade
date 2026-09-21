@@ -762,7 +762,12 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="bg-[#0e1117] p-3 rounded-lg border border-emerald-500/20">
-                <div className="text-[11px] text-[#808495]">Bénéfice Net Réalisé Total</div>
+                <div className="text-[11px] text-[#808495]">
+                  {traderMetrics.realized_profit_label ||
+                    (traderMetrics.financial_completeness === 'UNAVAILABLE'
+                      ? 'Profit Réalisé (Hors Frais)'
+                      : 'Bénéfice Net Réalisé Total')}
+                </div>
                 <div className="text-base font-bold font-mono text-emerald-400 mt-0.5">
                   +{fmtIsk(traderMetrics.total_realized_profit)}
                 </div>

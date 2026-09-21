@@ -36,12 +36,14 @@ import {
   ExecutionTransactionRef,
   OpportunityObservation,
   PersistedCharacterTransaction,
+  RealizedFinancialCalculationOptions,
   TransactionCorrelationResult,
   UnassignedTransactionRecord,
 } from '../types';
 import { persistedTransactionToRef } from '../engine/characterTransaction';
 import { correlateTransactions } from '../engine/executionCorrelation';
 import { calculateExecutionOutcome } from '../engine/executionOutcome';
+import { RealizedFinancialOutcomeEngine } from '../engine/realizedFinancialOutcome';
 import { IndexedDbStore } from './indexedDbStore';
 
 export const CORRELATION_ENGINE_VERSION = '1.0.0';
@@ -309,7 +311,7 @@ export class ExecutionTrackingService {
       const hasInconsistency = outcome.has_inventory_inconsistency === true;
       const dataState = hasInconsistency ? 'PARTIAL' : 'VALID';
 
-      const record: CharacterExecutionRecord = Object.freeze({
+      let record: CharacterExecutionRecord = Object.freeze({
         execution_id: executionId,
         character_id: characterId,
         observation_id: obsId,
@@ -325,6 +327,20 @@ export class ExecutionTrackingService {
           ? Object.freeze([...outcome.inconsistency_reasons])
           : undefined,
       });
+
+      // Optional Chantier 3B-4A Realized Financial Outcome computation
+      if (options?.computeFinancialOutcome) {
+        const financialOutcome = RealizedFinancialOutcomeEngine.calculate(record, {
+          financialConfig: options.financialConfig,
+          buyLocationProfile: options.buyLocationProfile,
+          sellLocationProfile: options.sellLocationProfile,
+          executionFeeMode: options.executionFeeMode,
+        });
+        record = Object.freeze({
+          ...record,
+          realized_financial_outcome: financialOutcome,
+        });
+      }
 
       executionRecords.push(record);
     }
@@ -398,5 +414,30 @@ export class ExecutionTrackingService {
     options?: { limit?: number; observationId?: string }
   ): Promise<CharacterExecutionRecord[]> {
     return IndexedDbStore.getCharacterExecutions(characterId, options);
+  }
+
+  /**
+   * Chantier 3B-4A: Calculates the RealizedFinancialOutcome for an existing correlated execution
+   * and persists the updated record to IndexedDB idempotently.
+   */
+  static async calculateAndPersistRealizedOutcome(
+    characterId: number,
+    observationId: string,
+    options?: RealizedFinancialCalculationOptions
+  ): Promise<CharacterExecutionRecord | null> {
+    const existing = await IndexedDbStore.getCharacterExecutionByObservation(characterId, observationId);
+    if (!existing) {
+      return null;
+    }
+
+    const outcome = RealizedFinancialOutcomeEngine.calculate(existing, options);
+    const updatedRecord: CharacterExecutionRecord = Object.freeze({
+      ...existing,
+      realized_financial_outcome: outcome,
+      last_updated_at: options?.now ? options.now() : new Date().toISOString(),
+    });
+
+    await IndexedDbStore.saveCharacterExecution(updatedRecord);
+    return updatedRecord;
   }
 }

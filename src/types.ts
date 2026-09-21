@@ -1589,6 +1589,12 @@ export interface CharacterExecutionRecord {
 
   readonly data_state: 'VALID' | 'PARTIAL' | 'AMBIGUOUS';
   readonly validation_errors?: readonly string[];
+
+  /**
+   * Deterministic Realized Financial Outcome calculated by RealizedFinancialOutcomeEngine (Chantier 3B-4A).
+   * Optional posterior derivation preserving backward compatibility.
+   */
+  readonly realized_financial_outcome?: RealizedFinancialOutcome;
 }
 
 /**
@@ -1644,4 +1650,124 @@ export interface ExecutionTrackingOptions {
   readonly correlationOptions?: CorrelationEngineOptions;
   readonly now?: () => string; // Deterministic clock injection
   readonly forceRecompute?: boolean;
+
+  // Optional financial outcome derivation (Chantier 3B-4A)
+  readonly computeFinancialOutcome?: boolean;
+  readonly financialConfig?: Partial<FinancialConfig>;
+  readonly buyLocationProfile?: Partial<MarketLocationFeeProfile>;
+  readonly sellLocationProfile?: Partial<MarketLocationFeeProfile>;
+  readonly executionFeeMode?: ExecutionFeeRoleMode;
 }
+
+// ==========================================
+// PHASE 2B: REALIZED FINANCIAL OUTCOME TYPES (CHANTIER 3B-4A)
+// ==========================================
+
+export type FinancialFeeMode = 'OBSERVED' | 'ESTIMATED' | 'UNAVAILABLE';
+export type FinancialFeeSource = 'OBSERVED_TRANSACTION' | 'CONFIG_ESTIMATE' | 'UNAVAILABLE';
+export type ExecutionFeeRoleMode = 'TAKER_TAKER' | 'TAKER_MAKER' | 'MAKER_TAKER' | 'MAKER_MAKER' | 'UNKNOWN';
+
+export interface FifoLotRecord {
+  readonly lot_id: string; // "lot_{buy_transaction_id}"
+  readonly buy_transaction_id: number;
+  readonly type_id: number;
+  readonly location_id: number;
+  readonly timestamp: string;
+  readonly original_quantity: number;
+  readonly remaining_quantity: number;
+  readonly unit_cost: number;
+  readonly total_original_cost: number;
+  readonly total_remaining_cost: number;
+}
+
+export interface FifoAllocationRecord {
+  readonly allocation_id: string;
+  readonly sell_transaction_id: number;
+  readonly buy_transaction_id: number;
+  readonly type_id: number;
+  readonly allocated_quantity: number;
+  readonly buy_unit_price: number;
+  readonly sell_unit_price: number;
+  readonly buy_timestamp: string;
+  readonly sell_timestamp: string;
+  readonly hold_duration_ms: number;
+  readonly hold_days: number;
+  readonly gross_cost: number;
+  readonly gross_revenue: number;
+  readonly gross_profit: number;
+}
+
+export interface RealizedFeeBreakdown {
+  readonly fee_mode: FinancialFeeMode;
+  readonly fee_source: FinancialFeeSource;
+  readonly execution_fee_mode: ExecutionFeeRoleMode;
+  readonly estimated_buy_broker_fee: number;
+  readonly estimated_sell_broker_fee: number;
+  readonly estimated_sales_tax: number;
+  readonly estimated_total_fees: number;
+  readonly observed_fees_paid?: number;
+  readonly notes?: readonly string[];
+}
+
+export interface RealizedFinancialOutcome {
+  readonly outcome_id: string;
+  readonly execution_id: string;
+  readonly character_id: number;
+  readonly observation_id: string;
+  readonly opportunity_id?: string;
+  readonly type_id: number;
+
+  // Quantities
+  readonly total_buy_quantity: number;
+  readonly total_sell_quantity: number;
+  readonly matched_quantity: number;
+  readonly remaining_inventory_quantity: number;
+  readonly unmatched_sell_quantity: number;
+  readonly has_unmatched_sell_quantity: boolean;
+
+  // Financial Values (Realized based on matched quantity)
+  readonly realized_acquisition_cost: number;
+  readonly realized_revenue: number;
+  readonly gross_realized_profit: number;
+
+  // Fees & Net
+  readonly fees: RealizedFeeBreakdown;
+  readonly net_realized_profit: number;
+
+  // Ratios & Rates
+  readonly roi: number;
+  readonly margin: number;
+  readonly profit_per_unit: number;
+
+  // Inventory Cost Basis (Unrealized holding cost)
+  readonly remaining_inventory_cost_basis: number;
+
+  // Temporal & Hold Metrics
+  readonly first_buy_at: string | null;
+  readonly last_buy_at: string | null;
+  readonly first_realized_sell_at: string | null;
+  readonly last_realized_sell_at: string | null;
+  readonly weighted_buy_timestamp: string | null;
+  readonly weighted_sell_timestamp: string | null;
+  readonly weighted_hold_ms: number;
+  readonly weighted_hold_days: number;
+
+  // Quality & Traceability
+  readonly data_state: 'VALID' | 'PARTIAL';
+  readonly state_reasons?: readonly string[];
+  readonly fifo_allocations: readonly FifoAllocationRecord[];
+  readonly remaining_lots: readonly FifoLotRecord[];
+
+  // Versioning
+  readonly realized_financial_engine_version: string; // "1.0.0"
+}
+
+export interface RealizedFinancialCalculationOptions {
+  readonly financialConfig?: Partial<FinancialConfig>;
+  readonly buyLocationProfile?: Partial<MarketLocationFeeProfile>;
+  readonly sellLocationProfile?: Partial<MarketLocationFeeProfile>;
+  readonly executionFeeMode?: ExecutionFeeRoleMode;
+  readonly transactions?: readonly (PersistedCharacterTransaction | ExecutionTransactionRef)[];
+  readonly now?: () => string;
+}
+

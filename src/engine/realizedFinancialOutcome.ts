@@ -1,0 +1,468 @@
+/**
+ * ============================================================================
+ * EVE TRADE — REALIZED FINANCIAL OUTCOME ENGINE (PHASE 2B: CHANTIER 3B-4A)
+ * ============================================================================
+ * 
+ * Pure mathematical, deterministic calculation engine that computes realized
+ * financial results (P&L, FIFO cost basis, revenue, fees, ROI, margin, and
+ * quantity-weighted hold duration) from correlated CharacterExecutionRecords.
+ * 
+ * CORE INVARIANTS:
+ * 1. Strict Purity: Zero network calls, zero React hooks, zero localStorage,
+ *    zero IndexedDB access, zero Date.now() / system clock dependencies.
+ * 2. Immutability: Inputs (CharacterExecutionRecord, transactions, options) are
+ *    never mutated. Defensive copies are utilized throughout.
+ * 3. Deterministic FIFO Cost Basis: Buy transactions form discrete lots that are
+ *    consumed in chronological order (timestamp ASC, transaction_id ASC).
+ *    A single sell can consume multiple buy lots; a buy lot can be consumed by
+ *    multiple sales. Traceability is completely retained in fifo_allocations.
+ * 4. Zero Cost Fabrication: If sell quantity exceeds buy inventory (orphan/oversold),
+ *    missing cost is NEVER set to 0.00 ISK or fabricated. Instead, the outcome is
+ *    explicitly flagged with data_state = 'PARTIAL', has_unmatched_sell_quantity = true,
+ *    and unmatched_sell_quantity = X.
+ * 5. Transparent Fee Sourcing: Differentiates observed vs estimated vs unavailable.
+ *    Since current wallet transactions do not directly expose tax/fee deductions,
+ *    fees are computed via FeeEngine as CONFIG_ESTIMATE (or UNAVAILABLE if no config).
+ *    Never misrepresents estimates as observed paid fees.
+ * 6. Protection Against Mathematical Hazards: safeDiv guards against division by
+ *    zero, NaN, and Infinity in all ROI, margin, and per-unit calculations.
+ */
+
+import {
+  CharacterExecutionRecord,
+  ExecutionFeeRoleMode,
+  ExecutionTransactionRef,
+  FifoAllocationRecord,
+  FifoLotRecord,
+  FinancialFeeMode,
+  FinancialFeeSource,
+  PersistedCharacterTransaction,
+  RealizedFeeBreakdown,
+  RealizedFinancialCalculationOptions,
+  RealizedFinancialOutcome,
+} from '../types';
+import { FeeEngine } from './fee';
+import { safeDiv, roundIsk } from './money';
+
+export const REALIZED_FINANCIAL_ENGINE_VERSION = '1.0.0';
+
+export class CrossCharacterFinancialMappingViolationError extends Error {
+  constructor(
+    public readonly transactionCharacterId: number,
+    public readonly executionCharacterId: number,
+    public readonly transactionId: number
+  ) {
+    super(
+      `Cross-character mapping violation: Transaction ${transactionId} belongs to character ${transactionCharacterId}, but execution record belongs to character ${executionCharacterId}. Cross-character financial attribution is strictly prohibited.`
+    );
+    this.name = 'CrossCharacterFinancialMappingViolationError';
+  }
+}
+
+export class RealizedFinancialOutcomeEngine {
+  /**
+   * Calculates deterministic realized financial outcomes for a given CharacterExecutionRecord.
+   * 
+   * @param executionRecord The correlated CharacterExecutionRecord to analyze
+   * @param options Optional configuration including FinancialConfig, fee profiles, roles, or explicit transactions
+   * @returns Pure immutable RealizedFinancialOutcome
+   */
+  static calculate(
+    executionRecord: CharacterExecutionRecord,
+    options?: RealizedFinancialCalculationOptions
+  ): RealizedFinancialOutcome {
+    if (!executionRecord) {
+      throw new Error('RealizedFinancialOutcomeEngine.calculate requires a valid CharacterExecutionRecord');
+    }
+
+    const characterId = executionRecord.character_id;
+    const observationId = executionRecord.observation_id;
+    const executionId = executionRecord.execution_id;
+    const opportunityId = executionRecord.opportunity_id;
+
+    // 1. Resolve candidate transactions
+    const { buyTxs, sellTxs, typeId } = this.resolveTransactions(executionRecord, options);
+
+    // 2. Sort chronologically (timestamp ASC, transaction_id ASC)
+    const sortedBuys = [...buyTxs].sort((a, b) => {
+      const timeDiff = new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+      return timeDiff !== 0 ? timeDiff : a.transaction_id - b.transaction_id;
+    });
+
+    const sortedSells = [...sellTxs].sort((a, b) => {
+      const timeDiff = new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+      return timeDiff !== 0 ? timeDiff : a.transaction_id - b.transaction_id;
+    });
+
+    // 3. Initialize FIFO Lots from Buy Transactions
+    const lots: FifoLotRecord[] = sortedBuys.map((buy) => {
+      const origQty = Math.max(0, buy.quantity);
+      const unitCost = Math.max(0, buy.unit_price);
+      return {
+        lot_id: `lot_${buy.transaction_id}`,
+        buy_transaction_id: buy.transaction_id,
+        type_id: buy.type_id,
+        location_id: buy.location_id,
+        timestamp: buy.timestamp,
+        original_quantity: origQty,
+        remaining_quantity: origQty,
+        unit_cost: unitCost,
+        total_original_cost: roundIsk(origQty * unitCost),
+        total_remaining_cost: roundIsk(origQty * unitCost),
+      };
+    });
+
+    // 4. Match Sales against FIFO Lots
+    const allocations: FifoAllocationRecord[] = [];
+    let unmatchedSellQuantity = 0;
+    let allocationSeq = 1;
+
+    for (const sell of sortedSells) {
+      let sellRemaining = Math.max(0, sell.quantity);
+
+      for (let i = 0; i < lots.length; i++) {
+        const lot = lots[i];
+        if (sellRemaining <= 0) break;
+        if (lot.remaining_quantity <= 0) continue;
+
+        const allocatedQty = Math.min(lot.remaining_quantity, sellRemaining);
+        const updatedRemainingQty = lot.remaining_quantity - allocatedQty;
+
+        // Update lot in-place within this local pure function scope
+        lots[i] = {
+          ...lot,
+          remaining_quantity: updatedRemainingQty,
+          total_remaining_cost: roundIsk(updatedRemainingQty * lot.unit_cost),
+        };
+
+        sellRemaining -= allocatedQty;
+
+        // Calculate hold duration between buy and sell timestamps
+        const buyTimeMs = new Date(lot.timestamp).getTime();
+        const sellTimeMs = new Date(sell.timestamp).getTime();
+        const holdDurationMs = Math.max(0, sellTimeMs - buyTimeMs);
+        const holdDays = holdDurationMs / 86_400_000;
+
+        const grossCost = roundIsk(allocatedQty * lot.unit_cost);
+        const grossRevenue = roundIsk(allocatedQty * sell.unit_price);
+        const grossProfit = roundIsk(grossRevenue - grossCost);
+
+        allocations.push({
+          allocation_id: `alloc_${sell.transaction_id}_${lot.buy_transaction_id}_${allocationSeq++}`,
+          sell_transaction_id: sell.transaction_id,
+          buy_transaction_id: lot.buy_transaction_id,
+          type_id: lot.type_id,
+          allocated_quantity: allocatedQty,
+          buy_unit_price: lot.unit_cost,
+          sell_unit_price: sell.unit_price,
+          buy_timestamp: lot.timestamp,
+          sell_timestamp: sell.timestamp,
+          hold_duration_ms: holdDurationMs,
+          hold_days: holdDays,
+          gross_cost: grossCost,
+          gross_revenue: grossRevenue,
+          gross_profit: grossProfit,
+        });
+      }
+
+      if (sellRemaining > 0) {
+        unmatchedSellQuantity += sellRemaining;
+      }
+    }
+
+    // 5. Aggregate Quantities and Financial Totals
+    const totalBuyQuantity = sortedBuys.reduce((acc, b) => acc + b.quantity, 0);
+    const totalSellQuantity = sortedSells.reduce((acc, s) => acc + s.quantity, 0);
+    const matchedQuantity = allocations.reduce((acc, a) => acc + a.allocated_quantity, 0);
+    const remainingInventoryQuantity = lots.reduce((acc, l) => acc + l.remaining_quantity, 0);
+    const hasUnmatchedSellQuantity = unmatchedSellQuantity > 0;
+
+    const realizedAcquisitionCost = roundIsk(allocations.reduce((acc, a) => acc + a.gross_cost, 0));
+    const realizedRevenue = roundIsk(allocations.reduce((acc, a) => acc + a.gross_revenue, 0));
+    const grossRealizedProfit = roundIsk(realizedRevenue - realizedAcquisitionCost);
+    const remainingInventoryCostBasis = roundIsk(lots.reduce((acc, l) => acc + l.total_remaining_cost, 0));
+
+    // 6. Fee Calculations via FeeEngine
+    const fees = this.calculateFees(
+      realizedAcquisitionCost,
+      realizedRevenue,
+      options
+    );
+
+    const netRealizedProfit = roundIsk(grossRealizedProfit - fees.estimated_total_fees);
+
+    // 7. Ratios and Rates (protected against zero division)
+    const roi = realizedAcquisitionCost > 0 ? safeDiv(netRealizedProfit, realizedAcquisitionCost, 0.0) : 0.0;
+    const margin = realizedRevenue > 0 ? safeDiv(netRealizedProfit, realizedRevenue, 0.0) : 0.0;
+    const profitPerUnit = matchedQuantity > 0 ? safeDiv(netRealizedProfit, matchedQuantity, 0.0) : 0.0;
+
+    // 8. Timestamps & Quantity-Weighted Hold Durations
+    const firstBuyAt = sortedBuys.length > 0 ? sortedBuys[0].timestamp : null;
+    const lastBuyAt = sortedBuys.length > 0 ? sortedBuys[sortedBuys.length - 1].timestamp : null;
+
+    const matchedSells = sortedSells.filter((s) =>
+      allocations.some((a) => a.sell_transaction_id === s.transaction_id)
+    );
+    const firstRealizedSellAt = matchedSells.length > 0 ? matchedSells[0].timestamp : null;
+    const lastRealizedSellAt = matchedSells.length > 0 ? matchedSells[matchedSells.length - 1].timestamp : null;
+
+    let weightedBuyTimestamp: string | null = null;
+    let weightedSellTimestamp: string | null = null;
+    let weightedHoldMs = 0;
+    let weightedHoldDays = 0;
+
+    if (matchedQuantity > 0) {
+      const totalWeightedBuyTimeMs = allocations.reduce(
+        (sum, a) => sum + a.allocated_quantity * new Date(a.buy_timestamp).getTime(),
+        0
+      );
+      const totalWeightedSellTimeMs = allocations.reduce(
+        (sum, a) => sum + a.allocated_quantity * new Date(a.sell_timestamp).getTime(),
+        0
+      );
+
+      const avgBuyTimeMs = totalWeightedBuyTimeMs / matchedQuantity;
+      const avgSellTimeMs = totalWeightedSellTimeMs / matchedQuantity;
+
+      weightedBuyTimestamp = new Date(Math.round(avgBuyTimeMs)).toISOString();
+      weightedSellTimestamp = new Date(Math.round(avgSellTimeMs)).toISOString();
+      weightedHoldMs = Math.max(0, Math.round(avgSellTimeMs - avgBuyTimeMs));
+      weightedHoldDays = weightedHoldMs / 86_400_000;
+    }
+
+    // 9. Data State & Diagnostic Reasons
+    let dataState: 'VALID' | 'PARTIAL' = 'VALID';
+    const stateReasons: string[] = [];
+
+    if (hasUnmatchedSellQuantity) {
+      dataState = 'PARTIAL';
+      stateReasons.push(
+        `Unmatched sell quantity: ${unmatchedSellQuantity} units sold exceed available buy inventory in this execution`
+      );
+    }
+
+    if (executionRecord.data_state !== 'VALID') {
+      dataState = 'PARTIAL';
+      stateReasons.push(`Source execution record is in state ${executionRecord.data_state}`);
+    }
+
+    if (fees.fee_mode === 'UNAVAILABLE') {
+      dataState = 'PARTIAL';
+      stateReasons.push('Fee configuration is unavailable; net profit cannot account for broker fees and taxes');
+    }
+
+    if (matchedQuantity === 0 && totalSellQuantity > 0) {
+      dataState = 'PARTIAL';
+      stateReasons.push(`Zero buy units available to match ${totalSellQuantity} sold units`);
+    }
+
+    // Filter remaining lots to return immutable snapshots
+    const remainingLots = Object.freeze(lots.filter((l) => l.remaining_quantity > 0));
+
+    const outcomeId = `outcome_${executionId}`;
+
+    return Object.freeze({
+      outcome_id: outcomeId,
+      execution_id: executionId,
+      character_id: characterId,
+      observation_id: observationId,
+      opportunity_id: opportunityId,
+      type_id: typeId,
+
+      total_buy_quantity: totalBuyQuantity,
+      total_sell_quantity: totalSellQuantity,
+      matched_quantity: matchedQuantity,
+      remaining_inventory_quantity: remainingInventoryQuantity,
+      unmatched_sell_quantity: unmatchedSellQuantity,
+      has_unmatched_sell_quantity: hasUnmatchedSellQuantity,
+
+      realized_acquisition_cost: realizedAcquisitionCost,
+      realized_revenue: realizedRevenue,
+      gross_realized_profit: grossRealizedProfit,
+
+      fees,
+      net_realized_profit: netRealizedProfit,
+
+      roi,
+      margin,
+      profit_per_unit: profitPerUnit,
+
+      remaining_inventory_cost_basis: remainingInventoryCostBasis,
+
+      first_buy_at: firstBuyAt,
+      last_buy_at: lastBuyAt,
+      first_realized_sell_at: firstRealizedSellAt,
+      last_realized_sell_at: lastRealizedSellAt,
+      weighted_buy_timestamp: weightedBuyTimestamp,
+      weighted_sell_timestamp: weightedSellTimestamp,
+      weighted_hold_ms: weightedHoldMs,
+      weighted_hold_days: weightedHoldDays,
+
+      data_state: dataState,
+      state_reasons: stateReasons.length > 0 ? Object.freeze(stateReasons) : undefined,
+      fifo_allocations: Object.freeze(allocations),
+      remaining_lots: remainingLots,
+
+      realized_financial_engine_version: REALIZED_FINANCIAL_ENGINE_VERSION,
+    });
+  }
+
+  /**
+   * Resolves buy and sell transaction lists for this execution, validating character isolation.
+   */
+  private static resolveTransactions(
+    executionRecord: CharacterExecutionRecord,
+    options?: RealizedFinancialCalculationOptions
+  ): {
+    buyTxs: ExecutionTransactionRef[];
+    sellTxs: ExecutionTransactionRef[];
+    typeId: number;
+  } {
+    const characterId = executionRecord.character_id;
+
+    // If external transactions were provided, validate isolation and filter
+    if (options?.transactions && options.transactions.length > 0) {
+      const allowedTxIds = new Set(executionRecord.transaction_ids);
+      const buyList: ExecutionTransactionRef[] = [];
+      const sellList: ExecutionTransactionRef[] = [];
+      let foundTypeId = 0;
+
+      for (const tx of options.transactions) {
+        // Enforce cross-character guard if character_id is present
+        if ('character_id' in tx && tx.character_id !== undefined && tx.character_id !== characterId) {
+          throw new CrossCharacterFinancialMappingViolationError(
+            tx.character_id,
+            characterId,
+            tx.transaction_id
+          );
+        }
+
+        if (allowedTxIds.has(tx.transaction_id)) {
+          foundTypeId = tx.type_id;
+          const ref: ExecutionTransactionRef = {
+            transaction_id: tx.transaction_id,
+            type_id: tx.type_id,
+            location_id: tx.location_id,
+            is_buy: tx.is_buy,
+            quantity: tx.quantity,
+            unit_price: tx.unit_price,
+            timestamp: tx.timestamp,
+            character_id: characterId,
+            observation_id: executionRecord.observation_id,
+            opportunity_id: executionRecord.opportunity_id,
+          };
+          if (tx.is_buy) {
+            buyList.push(ref);
+          } else {
+            sellList.push(ref);
+          }
+        }
+      }
+
+      return {
+        buyTxs: buyList,
+        sellTxs: sellList,
+        typeId: foundTypeId,
+      };
+    }
+
+    // Default: use the transactions already correlated inside executionRecord.execution_outcome
+    const buyTxs = [...executionRecord.execution_outcome.buy_transactions];
+    const sellTxs = [...executionRecord.execution_outcome.sell_transactions];
+    const sampleTx = buyTxs[0] || sellTxs[0];
+    const typeId = sampleTx ? sampleTx.type_id : 0;
+
+    return { buyTxs, sellTxs, typeId };
+  }
+
+  /**
+   * Calculates fees using FeeEngine, distinguishing between observed, estimated, and unavailable.
+   */
+  private static calculateFees(
+    realizedAcquisitionCost: number,
+    realizedRevenue: number,
+    options?: RealizedFinancialCalculationOptions
+  ): RealizedFeeBreakdown {
+    const config = options?.financialConfig;
+
+    if (!config) {
+      return {
+        fee_mode: 'UNAVAILABLE',
+        fee_source: 'UNAVAILABLE',
+        execution_fee_mode: options?.executionFeeMode ?? 'UNKNOWN',
+        estimated_buy_broker_fee: 0.0,
+        estimated_sell_broker_fee: 0.0,
+        estimated_sales_tax: 0.0,
+        estimated_total_fees: 0.0,
+        notes: Object.freeze([
+          'No financial configuration provided: fees and sales tax cannot be estimated',
+        ]),
+      };
+    }
+
+    // Resolve rates via FeeEngine
+    const buyFeeRes = FeeEngine.resolveRates({
+      config,
+      locationProfile: options?.buyLocationProfile,
+      isBuy: true,
+    });
+    const sellFeeRes = FeeEngine.resolveRates({
+      config,
+      locationProfile: options?.sellLocationProfile,
+      isBuy: false,
+    });
+
+    const executionFeeMode: ExecutionFeeRoleMode = options?.executionFeeMode ?? 'UNKNOWN';
+
+    // In EVE Online:
+    // Taker = buying from existing sell order or selling to existing buy order (0% broker fee)
+    // Maker = placing a limit order (broker fee applies)
+    // If UNKNOWN, default to Taker buy (0% broker fee) and Taker sell (0% broker fee + sales tax applies)
+    const isBuyMaker = executionFeeMode === 'MAKER_TAKER' || executionFeeMode === 'MAKER_MAKER';
+    const isSellMaker = executionFeeMode === 'TAKER_MAKER' || executionFeeMode === 'MAKER_MAKER';
+
+    const buyBrokerRate = FeeEngine.getExecutionBrokerRate(isBuyMaker, buyFeeRes.broker_fee_rate);
+    const sellBrokerRate = FeeEngine.getExecutionBrokerRate(isSellMaker, sellFeeRes.broker_fee_rate);
+    const salesTaxRate = sellFeeRes.sales_tax_rate;
+
+    const estimatedBuyBrokerFee = FeeEngine.brokerCost(realizedAcquisitionCost, buyBrokerRate);
+    const estimatedSellBrokerFee = FeeEngine.brokerCost(realizedRevenue, sellBrokerRate);
+    const estimatedSalesTax = FeeEngine.salesTaxCost(realizedRevenue, salesTaxRate);
+    const estimatedTotalFees = roundIsk(estimatedBuyBrokerFee + estimatedSellBrokerFee + estimatedSalesTax);
+
+    const notes: string[] = [
+      `Fee source: CONFIG_ESTIMATE (Sales Tax: ${(salesTaxRate * 100).toFixed(2)}%, Buy Broker: ${(buyBrokerRate * 100).toFixed(2)}%, Sell Broker: ${(sellBrokerRate * 100).toFixed(2)}%)`,
+    ];
+
+    if (executionFeeMode === 'UNKNOWN') {
+      notes.push('Execution role unknown from wallet transactions: assumed Taker for baseline estimate');
+    } else {
+      notes.push(`Execution role specified: ${executionFeeMode}`);
+    }
+
+    return {
+      fee_mode: 'ESTIMATED',
+      fee_source: 'CONFIG_ESTIMATE',
+      execution_fee_mode: executionFeeMode,
+      estimated_buy_broker_fee: estimatedBuyBrokerFee,
+      estimated_sell_broker_fee: estimatedSellBrokerFee,
+      estimated_sales_tax: estimatedSalesTax,
+      estimated_total_fees: estimatedTotalFees,
+      notes: Object.freeze(notes),
+    };
+  }
+
+  /**
+   * Helper method to attach RealizedFinancialOutcome to a CharacterExecutionRecord immutably.
+   */
+  static attachOutcome(
+    executionRecord: CharacterExecutionRecord,
+    options?: RealizedFinancialCalculationOptions
+  ): CharacterExecutionRecord {
+    const outcome = this.calculate(executionRecord, options);
+    return Object.freeze({
+      ...executionRecord,
+      realized_financial_outcome: outcome,
+    });
+  }
+}

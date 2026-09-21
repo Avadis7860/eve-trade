@@ -1,6 +1,6 @@
 # 🏗️ Architecture Globale du Système — EVE Trade
 
-Ce document décrit en détail l'architecture logicielle, le cycle de vie des données, les mécanismes de sécurité, la couche de prédiction statistique et la topologie des composants du projet **EVE Trade**.
+Ce document décrit en détail l'architecture logicielle, le cycle de vie des données, les mécanismes de sécurité, la couche de prédiction statistique, la chaîne de preuve cryptographique et la topologie des composants du projet **EVE Trade**.
 
 ---
 
@@ -15,47 +15,47 @@ L'architecture est découpée en **cinq couches orthogonales** à responsabilit�
 │   - GlobalScannerView       - PortfolioView        - MyOrdersView      │
 │   - OpportunityModal        - CarnetChart          - TradeJournal      │
 │   - OrderAdvisorModal       - ConfigurationPanel   - MarketTree        │
-│   - TraderPerformanceModal  - GlobalMarketSyncModal                    │
+│   - TraderPerformanceModal  - GlobalMarketSyncModal- CockpitView       │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │
                                     ▼
 ┌────────────────────────────────────────────────────────────────────────┐
 │                     2. COUCHE DOMAINE, SERVICES & PERSISTANCE          │
-│   - CatalogRepository       : SSOT du catalogue, états stricts & cache │
-│   - CatalogValidator        : Validation de schéma, déduplication & intégrité
-│   - CatalogHashing          : Sérialisation canonique & SHA-256 déterministe
 │   - AuthService             : Session SSO, Refresh Token, Multi-Comptes│
+│   - EsiService              : Client CCP ESI avec retry et rate-limit  │
 │   - MarketDataStore         : Store réactif d'ordres & historique      │
-│   - IndexedDbStore (v3)     : 9 Object Stores atomiques (avec metadata)│
-│   - Scanner                 : Orchestrateur de découverte d'arbitrage  │
+│   - IndexedDbStore (v5)     : 11 Object Stores persistants & audit     │
+│   - CatalogRepository       : SSOT du catalogue, états stricts & cache │
+│   - TypeCatalogService      : Validation structurelle & cryptographique│
+│   - Scanner                 : Orchestrateur d'arbitrage spatialisé     │
+│   - MarketOutcomeTracker    : Suivi des résultats empiriques (1h..7j)  │
+│   - CharacterTxSyncService  : Ingestion ESI portefeuille & pagination  │
+│   - ExecutionTrackingService: Corrélation & cycle de vie d'exécution   │
 │   - OrderAdvisorService     : Analyseur d'ordres & recommandations     │
 │   - TraderAnalyticsService  : Appariement FIFO & métriques de gain     │
-│   - TypeCatalogService      : Service backend de validation catalogue  │
 │   - GlobalMarketSync        : Synchronisation massive inter-hubs       │
 └──────────────────┬─────────────────────────────────┬───────────────────┘
                    │                                 │
                    ▼                                 ▼
 ┌──────────────────────────────────────┐ ┌───────────────────────────────┐
 │        3. MOTEURS FINANCIERS         │ │     4. BACKEND EXPRESS API    │
-│       & PRÉDICTION STATISTIQUE       │ │           (server.ts)         │
-│  - FeeEngine (Taxes & Courtage)      │ │  - /api/health (Santé & Status)│
+│    PUR ET SANS EFFETS DE BORD        │ │           (server.ts)         │
+│  - FeeEngine (Taxes & Courtage)      │ │  - /api/health (Santé & Stats)│
 │  - PriceLadderEngine (Profondeur)    │ │  - /api/types/status          │
-│  - TradableQuantityEngine (Goulots)  │ │  - /api/types/all (Contrat {meta, types})
-│  - ProfitEngine (Décomposition)      │ │  - /api/types/search (Hybride)│
-│  - OpportunityScoringEngine (Scores) │ │  - /api/auth/url              │
-│  - MarketFeatureEngine (Momentum)    │ │  - /api/auth/token            │
-│  - PredictionEngine (Survie, Proba)  │ │  - /api/auth/refresh          │
-│  - InterRegionalEngine (Hubs A->B)   │ │  - /api/character/:id/orders  │
-│  - PortfolioOptimizer (Allocation)   │ │  - /api/character/:id/wallet  │
-│  - MoneyEngine (Formatage ISK)       │ │  - Proxy ESI avec User-Agent  │
-└──────────────────────────────────────┘ └───────────────┬───────────────┘
-                                                         │
-                                                         ▼
-                                         ┌───────────────────────────────┐
-                                         │  5. CCP GAMES EVE ONLINE API  │
-                                         │  - EVE SSO OAuth v2 (JWT)     │
-                                         │  - ESI Tranquility Cluster    │
-                                         └───────────────────────────────┘
+│  - TradableQuantityEngine (Goulots)  │ │  - /api/types/all ({meta,tx}) │
+│  - ProfitEngine (Décomposition P&L)  │ │  - /api/types/search (Hybride)│
+│  - OpportunityScoringEngine (Scores) │ │  - /api/auth/url, token, refr │
+│  - OpportunityEvidenceEngine (Preuve)│ │  - /api/character/:id/*       │
+│  - FailureSemantics (Santé données)  │ │  - Proxy ESI avec User-Agent  │
+│  - MarketFeatureEngine (Momentum)    │ └───────────────┬───────────────┘
+│  - PredictionEngine (Survie, Risque) │                 │
+│  - InterRegionalEngine (Arbitrage)   │                 ▼
+│  - CharacterTransactionEngine (Norm) │ ┌───────────────────────────────┐
+│  - ExecutionCorrelationEngine (Match)│ │  5. CCP GAMES EVE ONLINE API  │
+│  - ExecutionOutcomeEngine (VWAP/P&L) │ │  - EVE SSO OAuth v2 (JWT)     │
+│  - PortfolioOptimizer (Allocation)   │ │  - ESI Tranquility Cluster    │
+│  - MoneyEngine (Formatage ISK)       │ └───────────────────────────────┘
+└──────────────────────────────────────┘
 ```
 
 ---
@@ -103,35 +103,87 @@ Chaque opportunité produite par `InterRegionalFinancialEngine` est liée de fa�
 * **Calcul SHA-256 :** Empreinte hexadécimale de 64 caractères (`evidence_hash`) calculée sur la sérialisation canonique (excluant le champ récursif `evidence_hash`).
 * **Auditabilité & Détection d'Altération :** La méthode statique `OpportunityEvidenceEngine.verifyEvidence(evidence)` recalcule l'empreinte et vérifie l'intégrité logique des 4 piliers. Toute altération des prix, des statuts ou des données d'entrée invalide immédiatement la preuve.
 
-### 3. Persistance & Restitution
-* **Persistance IndexedDB :** Les instantanés de preuve sont archivés de façon immuable dans l'object store `opportunity_observations` et consultables via `IndexedDbStore.getOpportunityEvidence(idOrHash)`.
-* **Traçabilité UI :** La table du scanner global et le modal d'opportunité affichent l'empreinte SHA-256, la version du protocole et la décomposition des 4 piliers pour une traçabilité totale par l'utilisateur.
+---
+
+## 📈 Suivi Empirique des Résultats de Marché (`MarketOutcomeTracker`)
+
+Le système assure la validation empirique de ses modèles prédictifs grâce à un suivi d'évolution à plusieurs horizons :
+* **Horizons Standardisés :** `1h`, `6h`, `24h`, `3d`, `7d`.
+* **Immuabilité de l'Observation $T_0$ :** Le snapshot initial et le `evidence_hash` sont intouchables.
+* **Instantané de Résultat (`OpportunityOutcomeSnapshot`) :**
+  * `real_spread_isk` et `real_spread_pct` : Différentiel empirique observé à l'horizon $T+H$.
+  * `spread_decay_pct` : Pourcentage d'érosion ou d'expansion du spread ($1 - \frac{Spread_{TH}}{Spread_{T0}}$).
+  * `captured_volume` : Quantité d'ordres consommée ou disparue sur les carnets.
+  * `outcome_status` : `SURVIVED` (spread $\ge 50\%$ préservé), `DECAYED` (spread résiduel $< 50\%$), `INVERTED` (spread négatif), `EXHAUSTED` (carnet épuisé).
+* **Stockage Non-Destructif :** Enrichissement incrémental du dictionnaire `opportunity_observations.outcomes[horizon]` dans IndexedDB.
 
 ---
 
-## 💾 Entrepôt de Données Persistant & Observations Immuables (`IndexedDbStore` v3)
+## 💼 Ingestion des Transactions & Corrélation d'Exécution (Phase 2B)
 
-Pour pallier le caractère volatile du `localStorage` (limité à 5 Mo) et garantir la non-pollution des données de marché, le stockage durable repose sur **IndexedDB v3** (`eve_trade_db`) avec 9 object stores spécialisés :
+### 1. Ingestion ESI Résiliente (`CharacterTransactionSyncService`)
+* **Pagination via Ancre `from_id` :** Navigation descendante dans l'historique CCP ESI `/characters/{character_id}/wallet/transactions/` avec jonction automatique sur le dernier `transaction_id` connu localement (*gap bridging*).
+* **Gestion du Rate Limiting & Error Budget :**
+  * Respect de `X-Esi-Error-Limit-Remain` et `X-Esi-Error-Limit-Reset`.
+  * Gestion exponentielle de `HTTP 429 Too Many Requests` avec lecture de l'en-tête `Retry-After`.
+  * Interception globale de `HTTP 420 Enhance Your Calm`.
+* **Validation & Normalisation Pure (`CharacterTransactionEngine`) :**
+  * Rejet strict des identifiants non sécurisés via `Number.isSafeInteger`.
+  * Élimination des identifiants synthétiques (`transaction_id=0` ou `order_id` inventé).
+  * Préservation immuable des faits historiques et des horodatages ISO-8601 UTC.
 
-1. **`snapshots`** : Derniers snapshots d'ordres par paire `type_id:region_id`.
-2. **`history`** : Statistiques historiques calculées par paire `type_id:region_id`.
-3. **`universe_opportunities`** : Cache persistant des opportunités globales.
-4. **`http_cache`** : Cache des réponses HTTP ESI avec ETags et en-têtes d'expiration.
-5. **`market_observations`** : Flux immuable *Append-Only* horodaté de captures de carnets (avec clé de déduplication `observation_hash`).
-6. **`opportunity_observations`** : Snapshots complets des opportunités au moment de leur détection ($T_0$) pour l'évaluation rétrospective à $T+1\text{h}$, $T+6\text{h}$, $T+24\text{h}$, $T+3\text{j}$, $T+7\text{j}$.
-7. **`market_history_daily`** : Séries chronologiques brutes ESI quotidiennes.
-8. **`eve_types`** : Référentiel des types résolus et validés.
-9. **`catalog_metadata`** : Métadonnées d'intégrité du catalogue (version, checksum SHA-256, count, source, date de persistance).
+### 2. Moteur de Corrélation d'Exécution (`ExecutionCorrelationEngine`)
+* **Évaluation Multicritère sur 5 Piliers :**
+  1. *Identité :* Correspondance exacte de `type_id`.
+  2. *Localisation :* Correspondance exacte de station ou appartenance au système/région cible.
+  3. *Fenêtre Temporelle :* Transaction survenue après `detected_at` dans une fenêtre tolérée (jusqu'à 72h).
+  4. *Alignement de Prix :* Proximité du prix réel avec le prix d'achat/vente estimé ($\le 15\%$).
+  5. *Cohérence de Volume :* Compatibilité des quantités avec le carnet observé.
+* **Niveaux d'Appariement :**
+  * `DIRECT_MATCH` : Correspondance exacte de station, prix $< 5\%$ et fenêtre $< 24\text{h}$.
+  * `STRONG_MATCH` : Correspondance spatiale et prix $< 10\%$.
+  * `PROBABLE_MATCH` : Correspondance régionale et prix toléré.
+  * `AMBIGUOUS` : Multiples opportunités candidates en concurrence.
+  * `UNMATCHED` : Transaction sans opportunité correspondante (traçabilité préservée).
+* **Isolation Inter-Personnages :** Interdiction formelle d'attribuer une transaction à un enregistrement d'un autre personnage (`CrossCharacterMappingViolationError`).
+
+### 3. Calcul du Cycle de Vie d'Exécution & VWAP (`ExecutionOutcomeEngine`)
+* **Appariement FIFO des Lots d'Achat et de Vente :**
+  * Déduction du *Buy VWAP* (Volume Weighted Average Price) et du *Sell VWAP*.
+  * Calcul exact du revenu brut, du coût brut, des frais déduits et du profit net réalisé.
+  * Évaluation du taux de remplissage (*Execution Rate %*).
+* **Statuts de Cycle de Vie :** `NOT_STARTED`, `BUY_PARTIAL`, `BOUGHT`, `SELL_PARTIAL`, `CLOSED`, `AMBIGUOUS`.
+* **Détection des Incohérences d'Inventaire :** Marquage explicite `has_inventory_inconsistency = true` et `data_state = PARTIAL` en cas de vente sans achat préalable ou de volume de vente excédentaire.
+
+---
+
+## 💾 Entrepôt de Données Persistant IndexedDB v5 (`IndexedDbStore`)
+
+Le stockage durable repose sur **IndexedDB v5** (`eve_trade_durable_store`) avec 11 magasins d'objets indexés :
+
+| Magasin d'Objets | Clé Primaire | Index Principaux | Rôle & Contenu |
+| :--- | :--- | :--- | :--- |
+| **`snapshots`** | `type_id:region_id` | *(clé directe)* | Derniers snapshots complets de carnet d'ordres. |
+| **`history`** | `type_id:region_id` | *(clé directe)* | Statistiques historiques calculées (médianes, volatilité). |
+| **`universe_opportunities`** | `opportunity_id` | `detected_at` | Cache des opportunités détectées lors des scans globaux. |
+| **`http_cache`** | `url` | `cached_at` | Réponses HTTP ESI avec ETags et en-têtes d'expiration. |
+| **`market_observations`** | `observation_id` | `type_id`, `region_id`, `observation_hash`, `timestamp` | Flux immuable *Append-Only* dédupliqué des carnets. |
+| **`opportunity_observations`** | `observation_id` | `opportunity_id`, `evidence_hash`, `type_id`, `source_region_id`, `dest_region_id`, `timestamp` | Preuves immuables à $T_0$ et résultats empiriques ($T+1\text{h}..7\text{j}$). |
+| **`market_history_daily`** | `type_id:region_id` | *(clé directe)* | Séries chronologiques brutes ESI quotidiennes. |
+| **`eve_types`** | `type_id` | `name` | Référentiel des types résolus et validés. |
+| **`catalog_metadata`** | `key` | *(clé directe)* | Métadonnées d'intégrité (version, checksum SHA-256, count, date). |
+| **`character_transactions`** | `transaction_id` | `character_id`, `type_id`, `location_id`, `timestamp`, `data_state` | Transactions portefeuille ESI normalisées et validées. |
+| **`character_executions`** | `execution_id` | `character_id`, `observation_id`, `opportunity_id`, `match_level`, `data_state` | Enregistrements de suivi d'exécution corrélés et audités. |
 
 ### Invariant de Remplacement Atomique (`replaceCatalog`)
-Afin d'éviter l'accumulation silencieuse de types orphelins ou périmés issue d'anciennes versions, toute mise à jour du catalogue dans IndexedDB exécute une transaction atomique :
+Toute mise à jour du catalogue dans IndexedDB exécute une transaction atomique :
 * `typesStore.clear()` : Purge intégrale de la table existante.
 * Écriture unitaire de la collection validée.
 * Enregistrement synchrone des métadonnées cryptographiques dans `catalog_metadata`.
 
 ---
 
-## 🔐 Sécurité & Gestion des Identités EVE SSO Durcie
+## 🔐 Sécurité & Gestion des Identités EVE SSO v2 Durcie
 
 ### 1. Authentification OAuth 2.0 (EVE SSO v2)
 L'authentification utilise le protocole officiel **EVE Online Single Sign-On (SSO) v2** avec jetons JWT signés :
@@ -142,7 +194,7 @@ L'authentification utilise le protocole officiel **EVE Online Single Sign-On (SS
 
 ---
 
-## ⚡ Performance, Observabilité & Fail-Loud
+## ⚡ Performance, Observabilité & Sémantique "Fail-Loud"
 
 1. **Contrats "Fail-Loud" (Principe `NO DATA ≠ ZERO DATA`) :**
    * Aucune transformation silencieuse d'erreur réseau ou de catalogue en tableau vide ou zéros artificiels.
@@ -153,3 +205,4 @@ L'authentification utilise le protocole officiel **EVE Online Single Sign-On (SS
    * Endpoint `/api/types/status` pour la traçabilité de version et du checksum.
    * Endpoint `/api/types/all` exposant le contrat strict `{ metadata, types }`.
    * Journalisation structurée unifiée (`logEvent`) traçant les événements de cycle de vie et les erreurs.
+

@@ -426,22 +426,179 @@ Chaque chargement calcule un hachage SHA-256 complet sur le contenu brut pour as
 ## 13. Entrepôt de Données et Observations Immuables (`IndexedDbStore`)
 
 **Fichier source :** `src/services/indexedDbStore.ts`  
-**Rôle :** Assurer la persistance durable côté client des carnets, des séries chronologiques et des observations de marché selon 8 magasins d'objets :
+**Rôle :** Assurer la persistance durable côté client des carnets, des séries chronologiques, des observations de marché, des transactions ESI et des enregistrements de suivi d'exécution selon 11 magasins d'objets (Schéma v5) :
 
 1. `snapshots` : Derniers snapshots d'ordres par paire `type_id:region_id`.
 2. `history` : Statistiques historiques calculées.
 3. `universe_opportunities` : Cache des opportunités détectées lors des scans globaux.
 4. `http_cache` : Cache HTTP avec gestion des ETags et des dates d'expiration ESI.
 5. `market_observations` : Entrepôt immuable *Append-Only* des captures de carnet (avec hachage de déduplication).
-6. `opportunity_observations` : Traçabilité des opportunités à $T_0$ pour le suivi des résultats (*Outcome Tracking* à 1h, 6h, 24h, 3j, 7j).
+6. `opportunity_observations` : Traçabilité des opportunités à $T_0$ pour le suivi des résultats (*Outcome Tracking* à 1h, 6h, 24h, 3j, 7j) et preuves 4 piliers.
 7. `market_history_daily` : Séries chronologiques brutes ESI quotidiennes.
-8. `eve_types` : Cache permanent des 15 801+ types résolus d'EVE Online.
+8. `eve_types` : Cache permanent des types résolus d'EVE Online.
+9. `catalog_metadata` : Métadonnées d'intégrité et empreinte cryptographique SHA-256 du catalogue.
+10. `character_transactions` : Historique des transactions portefeuille ESI normalisées et immuables.
+11. `character_executions` : Suivi d'exécution corrélé entre transactions réelles et opportunités recommandées.
+
+---
+
+## 14. Moteur de Preuve Cryptographique & Certification 4 Piliers (`OpportunityEvidenceEngine`)
+
+**Fichier source :** `src/engine/evidence.ts`  
+**Rôle :** Forger un instantané cryptographique immuable pour chaque opportunité d'arbitrage générée, garantissant son auditabilité et sa non-altération dans le temps.
+
+### 14.1 Protocole de Certification `4-pillars-v1`
+Chaque opportunité est validée selon 4 piliers indépendants :
+1. **Pilier 1 : Market Data**
+   * Empreintes SHA-256 des carnets source et destination (`source_market_hash`, `dest_market_hash`).
+   * Âge maximal toléré : $\le 300\text{ s}$ (mode Live) ou $\le 900\text{ s}$ (mode Cache).
+   * Statuts acceptés : `HEALTHY` ou `STALE`.
+2. **Pilier 2 : Catalog**
+   * Empreinte SHA-256 du catalogue de référence.
+   * Statut de résolution : `RESOLVED_CATALOG` ou `RESOLVED_DYNAMIC`.
+   * Volume physique $m^3$ strictement positif et non altéré.
+3. **Pilier 3 : Universe**
+   * Validation topologique des stations et structures (`source_station_id`, `dest_station_id`).
+   * Vérification de l'existence et de la cohérence de la route de saut stellaire (`JumpRoute`).
+4. **Pilier 4 : Financial Engine**
+   * Déterminisme des calculs financiers ($\Pi_{net} > 0$, $ROI > 0$).
+   * Résolution explicite du goulot d'étranglement (`capital`, `cargo`, `source_market`, `destination_market`).
+   * Prise en compte exacte du slippage de profondeur et des taxes.
+
+### 14.2 Canonicalisation & Hachage SHA-256
+$$\text{evidence\_hash} = \text{SHA-256}\Big(\text{CanonicalJSON}\big(\text{Evidence} \setminus \{\text{evidence\_hash}\}\big)\Big)$$
+
+* **Tri lexicographique** des clés à tous les niveaux d'imbrication.
+* **Normalisation des flottants** à 6 décimales pour éliminer toute disparité d'arrondi binaire.
+* **Vérification d'intégrité :** `OpportunityEvidenceEngine.verifyEvidence(evidence)` recalcule l'empreinte et vérifie l'absence d'altération en temps réel.
+
+---
+
+## 15. Sémantique de Défaillance & Santé des Données (`FailureSemantics`)
+
+**Fichier source :** `src/engine/failureSemantics.ts`  
+**Rôle :** Définir formellement les états de santé et de complétude des données selon le principe absolu **"Fail-Loud"** (`NO DATA ≠ ZERO DATA`).
+
+### 15.1 Hiérarchie des États de Santé (`DataHealthState`)
+$$\text{ERROR} \succ \text{UNKNOWN} \succ \text{PARTIAL} \succ \text{STALE} \succ \text{CACHE} \succ \text{LIVE}$$
+
+* **`LIVE`** : Donnée fraîche directe ESI ($age \le 300\text{ s}$).
+* **`CACHE`** : Donnée en cache valide ($age \le 900\text{ s}$).
+* **`STALE`** : Donnée historique ou expirée ($age \le 86\,400\text{ s}$).
+* **`PARTIAL`** : Donnée incomplète (ex: transaction isolée sans lot d'acquisition, carnet tronqué).
+* **`UNKNOWN`** : Donnée non encore synchronisée ou indisponible.
+* **`ERROR`** : Défaillance réseau, désérialisation invalide ou corruption.
+
+---
+
+## 16. Normalisation des Transactions Portefeuille (`CharacterTransactionEngine`)
+
+**Fichier source :** `src/engine/characterTransaction.ts`  
+**Rôle :** Valider, nettoyer et normaliser les transactions financières brutes issues de CCP ESI (`/characters/{id}/wallet/transactions/`).
+
+### 16.1 Validation Pure (`validateRawCharacterTransaction`)
+* Enregistrement rejeté immédiatement si l'un des champs critiques (`transaction_id`, `character_id`, `type_id`, `location_id`, `quantity`, `unit_price`) est `null`, `undefined`, `NaN`, non fini ou négatif.
+* Contrôle strict d'intégrité entière via `Number.isSafeInteger` sur tous les IDs et quantités.
+* Rejet catégorique des identifiants synthétiques (`transaction_id = 0`).
+
+### 16.2 Normalisation & Invariants
+* Exigence stricte d'un horodatage d'ingestion explicite (`ingestedAt`) fourni par l'orchestrateur (aucun appel `Date.now()` dans le moteur pur).
+* Préservation des timestamps ISO-8601 UTC d'origine.
+* Objet retourné sous forme immuable `Readonly<PersistedCharacterTransaction>`.
+* Fusion idempotente (`mergePersistedCharacterTransactions`) préservant `first_seen_at` et mettant à jour `last_seen_at`.
+
+---
+
+## 17. Moteur de Corrélation d'Exécution (`ExecutionCorrelationEngine`)
+
+**Fichier source :** `src/engine/executionCorrelation.ts`  
+**Rôle :** Associer de manière déterministe les transactions réelles du joueur aux opportunités d'arbitrage observées à $T_0$.
+
+### 17.1 Évaluation Multicritère sur 5 Piliers
+1. **Identité d'Article :** $tx.type\_id == opp.type\_id$.
+2. **Localisation Spatiale :**
+   * Achat : $tx.location\_id == opp.source\_station\_id$ ou même système.
+   * Vente : $tx.location\_id == opp.dest\_station\_id$ ou même région.
+3. **Fenêtre Temporelle :** $tx.timestamp \ge opp.detected\_at$ et $(tx.timestamp - opp.detected\_at) \le \Delta T_{max}$ (défaut 72h).
+4. **Alignement de Prix :**
+   $$|tx.unit\_price - P_{expected}| \le P_{expected} \times \text{Tolerance}_{\%}$$
+5. **Cohérence de Quantité :** $tx.quantity \le opp.tradable\_quantity \times 1.5$.
+
+### 17.2 Niveaux d'Appariement Déterministes
+* **`DIRECT_MATCH`** : Station exacte, prix $\le 5\%$, fenêtre $\le 24\text{h}$.
+* **`STRONG_MATCH`** : Station ou système exact, prix $\le 10\%$, fenêtre $\le 48\text{h}$.
+* **`PROBABLE_MATCH`** : Région conforme, prix $\le 15\%$, fenêtre $\le 72\text{h}$.
+* **`AMBIGUOUS`** : Multiples opportunités concurrentes candidates (aucun choix arbitraire).
+* **`UNMATCHED`** : Transaction orpheline sans opportunité candidate correspondante.
+
+---
+
+## 18. Moteur de Suivi du Cycle de Vie & Calcul VWAP (`ExecutionOutcomeEngine`)
+
+**Fichier source :** `src/engine/executionOutcome.ts`  
+**Rôle :** Calculer la rentabilité réelle et le statut d'achèvement d'une position exécutée.
+
+### 18.1 Algorithme d'Appariement FIFO des Transactions Attribuées
+Pour une opportunité corrélée donnée, les transactions d'achat ($tx_{buy}$) et de vente ($tx_{sell}$) sont ordonnées chronologiquement :
+1. Calcul du **Volume Weighted Average Price (VWAP)** d'achat et de vente :
+   $$VWAP_{buy} = \frac{\sum (q_{buy, i} \times p_{buy, i})}{\sum q_{buy, i}}, \quad VWAP_{sell} = \frac{\sum (q_{sell, j} \times p_{sell, j})}{\sum q_{sell, j}}$$
+2. Calcul du P&L Réalisé Net :
+   $$\Pi_{realized} = Revenue_{net} - Cost_{gross} - Fees_{paid}$$
+3. Détection des Fuites & Ventes à Découvert :
+   * Si $\sum q_{sell} > \sum q_{buy}$, l'enregistrement est marqué `has_inventory_inconsistency = true` et `data_state = PARTIAL`.
+
+### 18.2 Statuts du Cycle de Vie d'Exécution
+* **`NOT_STARTED`** : Aucune transaction enregistrée.
+* **`BUY_PARTIAL`** : Achat partiel en cours ($0 < q_{buy} < q_{target}$).
+* **`BOUGHT`** : Achat cible complété ($q_{buy} \ge q_{target}$), en attente de revente.
+* **`SELL_PARTIAL`** : Revente partielle en cours ($0 < q_{sell} < q_{buy}$).
+* **`CLOSED`** : Position liquidée intégralement ($q_{sell} \ge q_{buy}$).
+* **`AMBIGUOUS`** : Transactions présentant des conflits de correspondance.
+
+---
+
+## 19. Suivi Empirique des Résultats de Marché (`MarketOutcomeTracker`)
+
+**Fichier source :** `src/services/marketOutcomeTracker.ts`  
+**Rôle :** Confronter périodiquement les opportunités $T_0$ aux carnets réels observés sur 5 horizons temporels (`1h`, `6h`, `24h`, `3d`, `7d`).
+
+### 19.1 Métriques Rétrospectives
+* **Spread Résiduel Réel :** Différentiel brut et net constaté au moment du contrôle.
+* **Érosion du Spread (*Spread Decay*) :**
+  $$Decay_{\%} = 1.0 - \frac{Spread_{T+H}}{Spread_{T0}}$$
+* **Volume Absorbé :** Évolution des volumes consommés en tête de carnet.
+* **Statut de Résultat :**
+  * `SURVIVED` : Spread préservé à $\ge 50\%$.
+  * `DECAYED` : Spread positif mais érodé à $< 50\%$.
+  * `INVERTED` : Spread devenu négatif (marché inversé).
+  * `EXHAUSTED` : Volume de carnet complètement épuisé.
+
+---
+
+## 20. Ingestion ESI & Traçabilité Opérationnelle
+
+**Fichiers sources :** `src/services/characterTransactionSyncService.ts`, `src/services/executionTrackingService.ts`  
+**Rôle :** Orchestrer l'ingestion résiliente des transactions de portefeuille ESI et la corrélation multi-personnages.
+
+* **Pagination ascendante/descendante :** Utilisation de l'ancre `from_id` avec arrêt automatique dès le raccordement sur les IDs locaux déjà enregistrés.
+* **Résilience Réseau & Rate Limiting :**
+  * Détection proactive de l'expiration du token SSO (marge 2 minutes).
+  * Traitement des erreurs `429` (en-tête `Retry-After`) et `420` (`X-Esi-Error-Limit-Reset`).
+* **Commit Persistant Prioritaire :** Enregistrement atomique dans `IndexedDbStore` avant mise à jour de l'état réactif mémoire.
 
 ---
 
 ## 🧪 Validation & Couverture des Tests
 
-La suite de tests automatisés valide 100% des moteurs ci-dessus :
-* `src/engine/__tests__/engine.test.ts` : Vérification des taxes, courtage, slippage de carnet, arbitrage inter-hubs, goulots et features.
-* `src/engine/__tests__/security_and_advisory.test.ts` : Validation des décisions du conseiller d'ordres et de la sécurité des sessions EVE SSO.
+L'intégralité des moteurs, services et modèles de données est couverte par les suites de tests unitaires automatisées dans `src/engine/__tests__/` (100% de réussite) :
+
+1. `engine.test.ts` : Taxes, courtage, slippage, arbitrage inter-hubs, goulots d'étranglement et features temporelles.
+2. `security_and_advisory.test.ts` : Conseiller d'ordres, arbre de décision, sécurité des tokens EVE SSO et verrouillage mutex.
+3. `character_transaction.test.ts` : Validation pure, normalisation, déduplication et fusion idempotente des transactions.
+4. `character_transaction_sync.test.ts` : Ingestion résiliente, pagination `from_id`, rate-limiting HTTP 429/420 et commit IndexedDB.
+5. `execution_tracking_service.test.ts` : Corrélation d'exécution, isolation multi-personnages, rejeux déterministes et audit.
+6. `evidence_and_tracking.test.ts` : Certification 4 piliers, hachage SHA-256, détection d'altération et suivi d'outcomes.
+7. `failure_semantics.test.ts` : Modèle de santé des données, transitions d'état et principe "Fail-Loud".
+8. `market_outcome_tracker.test.ts` : Planificateur multi-horizons, évaluation empirique du spread et immuabilité $T_0$.
+
 

@@ -140,6 +140,7 @@ const MarketGroupItem: React.FC<MarketGroupItemProps> = ({
                   <div
                     key={tid}
                     onClick={() => onSelectType(item)}
+                    title={`${item.name} (#${tid})${item.average_price ? ` - Prix moyen: ${fmtIsk(item.average_price)}` : ''}`}
                     className={`flex items-center justify-between px-2 py-1 rounded cursor-pointer transition-colors ${
                       isSelected
                         ? 'bg-[#ff4b4b]/25 text-[#ff4b4b] font-bold border border-[#ff4b4b]/40 shadow-sm'
@@ -155,13 +156,13 @@ const MarketGroupItem: React.FC<MarketGroupItemProps> = ({
                           (e.target as HTMLImageElement).style.display = 'none';
                         }}
                       />
-                      <span className="text-[#808495] text-[10px] font-mono flex-shrink-0">#{tid}</span>
+                      <span className="hidden text-[#808495] text-[10px] font-mono flex-shrink-0">#{tid}</span>
                       <span className="truncate text-xs">{item.name}</span>
                     </div>
 
                     <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                       {item.average_price !== undefined && item.average_price > 0 && (
-                        <span className="text-[10px] font-mono text-[#00ff88]" title="Prix moyen Tranquility">
+                        <span className="hidden text-[10px] font-mono text-[#00ff88]" title="Prix moyen Tranquility">
                           {fmtIsk(item.average_price)}
                         </span>
                       )}
@@ -572,7 +573,7 @@ export const MarketTree: React.FC<MarketTreeProps> = ({
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 truncate flex-1 min-w-0">
+                    <div className="flex items-center gap-2 truncate flex-1 min-w-0" title={`${type.name} (#${type.type_id})${type.average_price ? ` - Prix moyen: ${fmtIsk(type.average_price)}` : ''}`}>
                       <img
                         src={`https://images.evetech.net/types/${type.type_id}/icon?size=32`}
                         alt=""
@@ -581,13 +582,13 @@ export const MarketTree: React.FC<MarketTreeProps> = ({
                           (e.target as HTMLImageElement).style.display = 'none';
                         }}
                       />
-                      <span className="text-[#808495] text-[10px] font-mono flex-shrink-0">#{type.type_id}</span>
+                      <span className="hidden text-[#808495] text-[10px] font-mono flex-shrink-0">#{type.type_id}</span>
                       <span className="truncate text-xs font-medium">{type.name}</span>
                     </div>
 
                     <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                       {type.average_price !== undefined && type.average_price > 0 && (
-                        <span className="text-[10px] font-mono text-[#00ff88]" title="Prix moyen Tranquility">
+                        <span className="hidden text-[10px] font-mono text-[#00ff88]" title="Prix moyen Tranquility">
                           {fmtIsk(type.average_price)}
                         </span>
                       )}

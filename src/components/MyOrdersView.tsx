@@ -728,9 +728,9 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
           </div>
         </div>
 
-        {/* Real Trader Historical Performance Card (New Requested Feature!) */}
+        {/* Real Trader Historical Performance Card - Hidden to avoid redundancy with the dedicated modal triggered by the header button */}
         {traderMetrics && (
-          <div className="bg-gradient-to-r from-[#161821] via-[#1a1d2e] to-[#161821] border border-amber-500/30 rounded-xl p-5 shadow-xl space-y-4">
+          <div className="hidden bg-gradient-to-r from-[#161821] via-[#1a1d2e] to-[#161821] border border-amber-500/30 rounded-xl p-5 shadow-xl space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-[#262730] pb-3">
               <div className="flex items-center gap-2">
                 <Trophy className="w-5 h-5 text-amber-400" />

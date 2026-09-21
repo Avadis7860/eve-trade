@@ -39,10 +39,15 @@ import { AuthService } from './authService';
 export const REQUIRED_WALLET_TRANSACTION_SCOPE = 'esi-wallet.read_character_wallet.v1';
 export const DEFAULT_MAX_PAGES = 50;
 export const DEFAULT_SYNC_TIMEOUT_MS = 15000;
+export const DEFAULT_MAX_RETRIES = 2;
+export const DEFAULT_MAX_WAIT_RETRY_AFTER_MS = 60000;
 
 /**
- * Default HTTP client adapter communicating through the application server proxy
- * with fallback to direct ESI if running outside standard server environment.
+ * Default HTTP client adapter communicating through the application server proxy endpoint:
+ * `/api/character/${characterId}/transactions`
+ *
+ * All ESI wallet transaction requests are securely proxied via the application backend
+ * to maintain strict control over headers, rate-limiting, and network compliance.
  */
 export class HttpEsiWalletClientAdapter implements EsiWalletClientAdapter {
   private readonly baseUrl: string;
@@ -166,8 +171,16 @@ export class CharacterTransactionSyncService {
   ): Promise<CharacterTransactionSyncSummary> {
     const startedAt = options?.now ? options.now() : new Date().toISOString();
     const startTimeMs = Date.now();
-    const maxPages = options?.maxPages ?? DEFAULT_MAX_PAGES;
+    const maxPages = Math.max(1, options?.maxPages ?? DEFAULT_MAX_PAGES);
     const adapter = options?.esiAdapter ?? this.defaultAdapter;
+    const retryOnTransient = options?.retryOnTransientError ?? true;
+    const maxRetries = options?.maxRetries !== undefined ? Math.max(0, options.maxRetries) : DEFAULT_MAX_RETRIES;
+    const timeoutMs = options?.timeoutMs !== undefined ? Math.max(1, options.timeoutMs) : DEFAULT_SYNC_TIMEOUT_MS;
+    const sleepFn = options?.sleepFn ?? ((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)));
+    const maxWaitRetryAfterMs =
+      options?.maxWaitRetryAfterMs !== undefined
+        ? Math.max(0, options.maxWaitRetryAfterMs)
+        : DEFAULT_MAX_WAIT_RETRY_AFTER_MS;
     const errors: string[] = [];
 
     // 1. Validation of character identifier
@@ -253,12 +266,12 @@ export class CharacterTransactionSyncService {
     const knownTransactionIds = new Set<number>();
 
     try {
-      const existingTxs = await IndexedDbStore.getCharacterTransactions(characterId, { limit: 100 });
+      const existingTxs = await IndexedDbStore.getCharacterTransactions(characterId);
       if (existingTxs.length > 0) {
         for (const tx of existingTxs) {
           knownTransactionIds.add(tx.transaction_id);
         }
-        lastKnownTransactionIdBeforeSync = Math.max(...existingTxs.map((t) => t.transaction_id));
+        lastKnownTransactionIdBeforeSync = existingTxs[0].transaction_id;
       }
     } catch (err) {
       errors.push(`Warning: could not inspect local transaction history: ${err instanceof Error ? err.message : String(err)}`);
@@ -281,83 +294,182 @@ export class CharacterTransactionSyncService {
     const seenInThisSync = new Set<number>();
 
     while (pagesFetched < maxPages) {
-      let pageResponse: EsiWalletTransactionResponse;
+      let pageResponse: EsiWalletTransactionResponse | null = null;
+      let transientRetries = 0;
+      let rateLimitRetries = 0;
+      let errorLimitRetries = 0;
+      let authRefreshAttempted = false;
 
-      try {
-        pageResponse = await adapter.fetchWalletTransactions(characterId, session.access_token, {
-          from_id: currentFromId,
-        });
-      } catch (fetchErr) {
-        stoppedReason = 'NETWORK_ERROR';
-        errors.push(`Network fetch error: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`);
-        break;
-      }
+      while (true) {
+        const abortController = new AbortController();
+        let timer: any = null;
 
-      // Handle 401 Unauthorized (attempt one-time refresh)
-      if (pageResponse.status === 401) {
-        let freshToken: string | null = null;
         try {
-          freshToken = await AuthService.getFreshToken(characterId);
-        } catch {
-          freshToken = null;
+          const fetchPromise = adapter.fetchWalletTransactions(characterId, session.access_token, {
+            from_id: currentFromId,
+            signal: abortController.signal,
+          });
+
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            timer = setTimeout(() => {
+              abortController.abort();
+              reject(new Error(`Request timed out after ${timeoutMs}ms`));
+            }, timeoutMs);
+          });
+
+          pageResponse = await Promise.race([fetchPromise, timeoutPromise]);
+        } catch (fetchErr: any) {
+          const isTimeout =
+            abortController.signal.aborted ||
+            (fetchErr instanceof Error && fetchErr.message.includes('timed out')) ||
+            fetchErr?.name === 'AbortError';
+
+          if (isTimeout) {
+            stoppedReason = 'NETWORK_ERROR';
+            errors.push(`Request timed out after ${timeoutMs}ms`);
+            paginationCompleted = false;
+            pageResponse = null;
+            break;
+          }
+
+          if (retryOnTransient && transientRetries < maxRetries) {
+            transientRetries++;
+            const delay = Math.min(500 * Math.pow(2, transientRetries - 1), 5000);
+            await sleepFn(delay);
+            continue;
+          }
+
+          stoppedReason = 'NETWORK_ERROR';
+          errors.push(`Network fetch error: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`);
+          paginationCompleted = false;
+          pageResponse = null;
+          break;
+        } finally {
+          if (timer) clearTimeout(timer);
         }
 
-        if (freshToken && freshToken !== session.access_token) {
-          session = { ...session, access_token: freshToken };
-          try {
-            pageResponse = await adapter.fetchWalletTransactions(characterId, freshToken, {
-              from_id: currentFromId,
-            });
-          } catch (retryErr) {
-            stoppedReason = 'NETWORK_ERROR';
-            errors.push(`Network error during post-refresh retry: ${retryErr instanceof Error ? retryErr.message : String(retryErr)}`);
+        // Handle 401 Unauthorized (attempt one-time refresh)
+        if (pageResponse.status === 401) {
+          if (!authRefreshAttempted) {
+            authRefreshAttempted = true;
+            let freshToken: string | null = null;
+            try {
+              freshToken = await AuthService.getFreshToken(characterId);
+            } catch {
+              freshToken = null;
+            }
+
+            if (freshToken && freshToken !== session.access_token) {
+              session = { ...session, access_token: freshToken };
+              continue;
+            }
+          }
+
+          AuthService.markTokenExpired(characterId, 'Session SSO expirée ou révoquée (401)');
+          stoppedReason = 'AUTH_REQUIRED';
+          errors.push(`ESI 401 Unauthorized: token rejected for character #${characterId}`);
+          paginationCompleted = false;
+          pageResponse = null;
+          break;
+        }
+
+        // Handle 403 Forbidden (Missing Scope)
+        if (pageResponse.status === 403) {
+          stoppedReason = 'AUTH_REQUIRED';
+          errors.push(
+            `ESI 403 Forbidden: Character #${characterId} lacks required scope "${REQUIRED_WALLET_TRANSACTION_SCOPE}"`
+          );
+          paginationCompleted = false;
+          pageResponse = null;
+          break;
+        }
+
+        // Handle 429 Rate Limited (Retry-After)
+        if (pageResponse.status === 429) {
+          const retrySec = pageResponse.retryAfterSeconds;
+          if (retrySec !== undefined && Number.isFinite(retrySec) && retrySec >= 0) {
+            const waitMs = retrySec * 1000;
+            if (waitMs <= maxWaitRetryAfterMs && rateLimitRetries < maxRetries) {
+              rateLimitRetries++;
+              await sleepFn(waitMs);
+              continue;
+            } else {
+              stoppedReason = 'RATE_LIMITED';
+              errors.push(
+                `ESI 429 Rate Limited: retry after ${retrySec}s exceeds maximum bounded wait (${maxWaitRetryAfterMs}ms) or retries exhausted (${rateLimitRetries}/${maxRetries})`
+              );
+              paginationCompleted = false;
+              pageResponse = null;
+              break;
+            }
+          } else {
+            stoppedReason = 'RATE_LIMITED';
+            errors.push('ESI 429 Rate Limited: no valid Retry-After header provided');
+            paginationCompleted = false;
+            pageResponse = null;
             break;
           }
         }
 
-        if (pageResponse.status === 401) {
-          AuthService.markTokenExpired(characterId, 'Session SSO expirée ou révoquée (401)');
-          stoppedReason = 'AUTH_REQUIRED';
-          errors.push(`ESI 401 Unauthorized: token rejected for character #${characterId}`);
+        // Handle 420 Error Limit Exceeded
+        if (
+          pageResponse.status === 420 ||
+          (pageResponse.errorLimitRemain !== undefined && pageResponse.errorLimitRemain <= 0)
+        ) {
+          const resetSec = pageResponse.errorLimitReset;
+          if (resetSec !== undefined && Number.isFinite(resetSec) && resetSec >= 0) {
+            const resetWaitMs = resetSec * 1000;
+            if (resetWaitMs <= maxWaitRetryAfterMs && errorLimitRetries < maxRetries) {
+              errorLimitRetries++;
+              await sleepFn(resetWaitMs);
+              continue;
+            } else {
+              stoppedReason = 'RATE_LIMITED';
+              errors.push(
+                `ESI 420 Error Limit Exceeded: reset in ${resetSec}s exceeds maximum bounded wait (${maxWaitRetryAfterMs}ms) or retries exhausted (${errorLimitRetries}/${maxRetries})`
+              );
+              paginationCompleted = false;
+              pageResponse = null;
+              break;
+            }
+          } else {
+            stoppedReason = 'RATE_LIMITED';
+            errors.push('ESI 420 Error Limit Exceeded: error limit exhausted with no reset window header');
+            paginationCompleted = false;
+            pageResponse = null;
+            break;
+          }
+        }
+
+        // Handle 5xx Transient Server Errors
+        if (pageResponse.status >= 500) {
+          if (retryOnTransient && transientRetries < maxRetries) {
+            transientRetries++;
+            const delay = Math.min(500 * Math.pow(2, transientRetries - 1), 5000);
+            await sleepFn(delay);
+            continue;
+          } else {
+            stoppedReason = 'NETWORK_ERROR';
+            errors.push(`ESI server error (HTTP ${pageResponse.status}): ${pageResponse.error || 'Unknown'}`);
+            paginationCompleted = false;
+            pageResponse = null;
+            break;
+          }
+        }
+
+        // Handle other non-ok HTTP statuses
+        if (!pageResponse.ok || !pageResponse.data) {
+          stoppedReason = 'NETWORK_ERROR';
+          errors.push(`ESI request failed (HTTP ${pageResponse.status}): ${pageResponse.error || 'Unknown'}`);
+          paginationCompleted = false;
+          pageResponse = null;
           break;
         }
-      }
 
-      // Handle 403 Forbidden (Missing Scope)
-      if (pageResponse.status === 403) {
-        stoppedReason = 'AUTH_REQUIRED';
-        errors.push(
-          `ESI 403 Forbidden: Character #${characterId} lacks required scope "${REQUIRED_WALLET_TRANSACTION_SCOPE}"`
-        );
         break;
       }
 
-      // Handle 429 Rate Limited (Retry-After)
-      if (pageResponse.status === 429) {
-        stoppedReason = 'RATE_LIMITED';
-        const retrySec = pageResponse.retryAfterSeconds ?? 'unknown';
-        errors.push(`ESI 429 Rate Limited: retry after ${retrySec}s`);
-        break;
-      }
-
-      // Handle 420 Error Limit Exceeded
-      if (pageResponse.status === 420 || (pageResponse.errorLimitRemain !== undefined && pageResponse.errorLimitRemain <= 0)) {
-        stoppedReason = 'RATE_LIMITED';
-        errors.push('ESI 420 Error Limit Exceeded');
-        break;
-      }
-
-      // Handle 5xx Transient Server Errors
-      if (pageResponse.status >= 500) {
-        stoppedReason = 'NETWORK_ERROR';
-        errors.push(`ESI server error (HTTP ${pageResponse.status}): ${pageResponse.error || 'Unknown'}`);
-        break;
-      }
-
-      // Handle other non-ok HTTP statuses
-      if (!pageResponse.ok || !pageResponse.data) {
-        stoppedReason = 'NETWORK_ERROR';
-        errors.push(`ESI request failed (HTTP ${pageResponse.status}): ${pageResponse.error || 'Unknown'}`);
+      if (!pageResponse || !pageResponse.ok || !pageResponse.data) {
         break;
       }
 
@@ -471,9 +583,12 @@ export class CharacterTransactionSyncService {
 
       const oldestInBatch = Math.min(...validNumericIds);
       if (oldestInBatch === currentFromId) {
-        // Oldest ID did not progress; avoid infinite loop
-        stoppedReason = 'NO_MORE_DATA';
-        paginationCompleted = true;
+        // Oldest ID did not progress; avoid infinite loop and do NOT claim complete data without proof
+        stoppedReason = 'NETWORK_ERROR';
+        paginationCompleted = false;
+        errors.push(
+          `Pagination stagnant: oldest transaction_id #${oldestInBatch} in batch matches current from_id anchor; cannot guarantee completeness`
+        );
         break;
       }
 
@@ -502,7 +617,9 @@ export class CharacterTransactionSyncService {
     } else {
       dataState = transactionsValid === 0 && transactionsReceived === 0 ? 'EMPTY' : 'VALID';
       healthStatus = 'LIVE';
-      paginationCompleted = true;
+      if (stoppedReason === 'ANCHOR_REACHED' || stoppedReason === 'NO_MORE_DATA' || stoppedReason === 'NO_NEW_DATA') {
+        paginationCompleted = true;
+      }
     }
 
     const completedAt = options?.now ? options.now() : new Date().toISOString();

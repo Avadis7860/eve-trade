@@ -1485,6 +1485,8 @@ export interface CharacterTransactionSyncOptions {
   readonly retryOnTransientError?: boolean;
   readonly maxRetries?: number;
   readonly timeoutMs?: number;
+  readonly sleepFn?: (ms: number) => Promise<void>;
+  readonly maxWaitRetryAfterMs?: number;
 }
 
 export interface CorrelationCriterionResult {

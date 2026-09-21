@@ -1035,8 +1035,626 @@ async function runTests() {
     console.log('  [PASS] Test 17: Zero automatic correlation or outcome mutation verified.');
   }
 
+  // ==========================================================================
+  // CHANTIER 3B-2 HARDENING GATE TESTS (HG-1 to HG-12)
+  // ==========================================================================
+  console.log('\n==========================================================================');
+  console.log('--- RUNNING CHANTIER 3B-2 HARDENING GATE TESTS (HG-1 TO HG-12) ---');
+  console.log('==========================================================================');
+
+  // --------------------------------------------------------------------------
+  // HG-1: 5xx retry réel (succeeds on 2nd attempt, transactions persisted)
+  // --------------------------------------------------------------------------
+  console.log('--- HG-1: 5xx retry réel ---');
+  {
+    await IndexedDbStore.clearAll();
+    mockAdapter.reset();
+    const charId = 2112001;
+
+    let attempt = 0;
+    let page1Attempts = 0;
+    const sleepCalls: number[] = [];
+    mockAdapter.setCustomHandler(async (cId, token, opts) => {
+      attempt++;
+      if (opts?.from_id === undefined) {
+        page1Attempts++;
+      }
+      if (attempt === 1) {
+        return { ok: false, status: 503, data: null, error: 'Service Unavailable' };
+      }
+      if (opts?.from_id !== undefined) {
+        return { ok: true, status: 200, data: [] };
+      }
+      return {
+        ok: true,
+        status: 200,
+        data: [
+          {
+            transaction_id: 7001,
+            type_id: 34,
+            location_id: 60003760,
+            quantity: 1500,
+            unit_price: 5.5,
+            date: '2026-09-21T02:00:00Z',
+            is_buy: true,
+          },
+        ],
+      };
+    });
+
+    const summary = await CharacterTransactionSyncService.syncCharacterTransactions(charId, {
+      esiAdapter: mockAdapter,
+      sleepFn: async (ms) => {
+        sleepCalls.push(ms);
+      },
+    });
+
+    assert(page1Attempts === 2, `Expected 2 attempts for page 1, got ${page1Attempts}`);
+    assert(attempt === 3, `Expected 3 total calls (2 for page 1, 1 for terminal page 2), got ${attempt}`);
+    assert(sleepCalls.length === 1, 'Exponential backoff sleep was invoked');
+    assert(summary.stopped_reason === 'NO_MORE_DATA', `Expected NO_MORE_DATA, got ${summary.stopped_reason}`);
+    assert(summary.transactions_valid === 1, '1 valid transaction processed on retry');
+    assert(summary.data_state === 'VALID', 'data_state is VALID');
+
+    const inStore = await IndexedDbStore.getCharacterTransactions(charId);
+    assert(inStore.length === 1 && inStore[0].transaction_id === 7001, 'Transaction 7001 persisted in store');
+    console.log('  [PASS] HG-1: 5xx real retry and persistence verified.');
+  }
+
+  // --------------------------------------------------------------------------
+  // HG-2: Retry borné (5xx repeatedly fails, stops at maxRetries with NETWORK_ERROR)
+  // --------------------------------------------------------------------------
+  console.log('--- HG-2: Retry borné sur 5xx ---');
+  {
+    mockAdapter.reset();
+    const charId = 2112001;
+
+    let attempt = 0;
+    mockAdapter.setCustomHandler(async () => {
+      attempt++;
+      return { ok: false, status: 500, data: null, error: 'Internal Server Error' };
+    });
+
+    const summary = await CharacterTransactionSyncService.syncCharacterTransactions(charId, {
+      esiAdapter: mockAdapter,
+      maxRetries: 2,
+      sleepFn: async () => {},
+    });
+
+    // Initial attempt (1) + 2 retries = 3 calls
+    assert(attempt === 3, `Expected 3 attempts (1 initial + 2 retries), got ${attempt}`);
+    assert(summary.stopped_reason === 'NETWORK_ERROR', `Expected NETWORK_ERROR, got ${summary.stopped_reason}`);
+    assert(summary.pagination_completed === false, 'pagination_completed must be false');
+    assert(summary.data_state === 'ERROR', 'data_state must be ERROR');
+    console.log('  [PASS] HG-2: Bounded retry for 5xx verified.');
+  }
+
+  // --------------------------------------------------------------------------
+  // HG-3: 429 + Retry-After (bounded wait & retry succeeds)
+  // --------------------------------------------------------------------------
+  console.log('--- HG-3: 429 + Retry-After (bounded wait & retry) ---');
+  {
+    await IndexedDbStore.clearAll();
+    mockAdapter.reset();
+    const charId = 2112001;
+
+    let attempt = 0;
+    let page1Attempts = 0;
+    const sleptMs: number[] = [];
+    mockAdapter.setCustomHandler(async (cId, token, opts) => {
+      attempt++;
+      if (opts?.from_id === undefined) {
+        page1Attempts++;
+      }
+      if (attempt === 1) {
+        return {
+          ok: false,
+          status: 429,
+          data: null,
+          error: 'Too Many Requests',
+          retryAfterSeconds: 2,
+        };
+      }
+      if (opts?.from_id !== undefined) {
+        return { ok: true, status: 200, data: [] };
+      }
+      return {
+        ok: true,
+        status: 200,
+        data: [
+          {
+            transaction_id: 7003,
+            type_id: 34,
+            location_id: 60003760,
+            quantity: 500,
+            unit_price: 5.2,
+            date: '2026-09-21T02:15:00Z',
+            is_buy: false,
+          },
+        ],
+      };
+    });
+
+    const summary = await CharacterTransactionSyncService.syncCharacterTransactions(charId, {
+      esiAdapter: mockAdapter,
+      sleepFn: async (ms) => {
+        sleptMs.push(ms);
+      },
+      maxWaitRetryAfterMs: 5000,
+    });
+
+    assert(page1Attempts === 2, `Expected 2 attempts for page 1, got ${page1Attempts}`);
+    assert(attempt === 3, `Expected 3 total calls, got ${attempt}`);
+    assert(sleptMs.length === 1 && sleptMs[0] === 2000, 'Slept exactly 2000ms as per Retry-After: 2');
+    assert(summary.stopped_reason === 'NO_MORE_DATA', `Expected NO_MORE_DATA, got ${summary.stopped_reason}`);
+    assert(summary.transactions_valid === 1, 'Transaction 7003 processed on retry');
+
+    const inStore = await IndexedDbStore.getCharacterTransactions(charId);
+    assert(inStore.some((t) => t.transaction_id === 7003), 'Transaction 7003 committed to IndexedDB');
+    console.log('  [PASS] HG-3: 429 bounded wait & retry verified.');
+  }
+
+  // --------------------------------------------------------------------------
+  // HG-4: 429 Retry-After dépasse le max wait (arrête immédiatement en RATE_LIMITED)
+  // --------------------------------------------------------------------------
+  console.log('--- HG-4: 429 Retry-After dépasse le max wait ---');
+  {
+    mockAdapter.reset();
+    const charId = 2112001;
+
+    let slept = false;
+    mockAdapter.setCustomHandler(async () => {
+      return {
+        ok: false,
+        status: 429,
+        data: null,
+        error: 'Too Many Requests',
+        retryAfterSeconds: 120, // 2 minutes
+      };
+    });
+
+    const summary = await CharacterTransactionSyncService.syncCharacterTransactions(charId, {
+      esiAdapter: mockAdapter,
+      maxWaitRetryAfterMs: 10000, // max wait is 10s
+      sleepFn: async () => {
+        slept = true;
+      },
+    });
+
+    assert(!slept, 'Should not sleep if Retry-After exceeds maxWaitRetryAfterMs');
+    assert(summary.stopped_reason === 'RATE_LIMITED', `Expected RATE_LIMITED, got ${summary.stopped_reason}`);
+    assert(summary.pagination_completed === false, 'pagination_completed must be false');
+    assert(summary.errors.some((e) => e.includes('exceeds maximum bounded wait')), 'Error mentions max bounded wait');
+    console.log('  [PASS] HG-4: 429 exceeding max wait correctly halts with RATE_LIMITED.');
+  }
+
+  // --------------------------------------------------------------------------
+  // HG-5: 420 + Error-Limit Reset (respects reset window)
+  // --------------------------------------------------------------------------
+  console.log('--- HG-5: 420 + Error-Limit Reset ---');
+  {
+    await IndexedDbStore.clearAll();
+    mockAdapter.reset();
+    const charId = 2112001;
+
+    let attempt = 0;
+    let page1Attempts = 0;
+    const sleptMs: number[] = [];
+    mockAdapter.setCustomHandler(async (cId, token, opts) => {
+      attempt++;
+      if (opts?.from_id === undefined) {
+        page1Attempts++;
+      }
+      if (attempt === 1) {
+        return {
+          ok: false,
+          status: 420,
+          data: null,
+          error: 'Error Limit Exceeded',
+          errorLimitReset: 3, // 3 seconds
+        };
+      }
+      if (opts?.from_id !== undefined) {
+        return { ok: true, status: 200, data: [] };
+      }
+      return {
+        ok: true,
+        status: 200,
+        data: [
+          {
+            transaction_id: 7005,
+            type_id: 34,
+            location_id: 60003760,
+            quantity: 300,
+            unit_price: 5.1,
+            date: '2026-09-21T02:30:00Z',
+            is_buy: true,
+          },
+        ],
+      };
+    });
+
+    const summary = await CharacterTransactionSyncService.syncCharacterTransactions(charId, {
+      esiAdapter: mockAdapter,
+      maxWaitRetryAfterMs: 10000,
+      sleepFn: async (ms) => {
+        sleptMs.push(ms);
+      },
+    });
+
+    assert(page1Attempts === 2, `Expected 2 attempts for page 1, got ${page1Attempts}`);
+    assert(attempt === 3, `Expected 3 total calls, got ${attempt}`);
+    assert(sleptMs.length === 1 && sleptMs[0] === 3000, 'Slept 3000ms as per errorLimitReset: 3');
+    assert(summary.stopped_reason === 'NO_MORE_DATA', `Expected NO_MORE_DATA, got ${summary.stopped_reason}`);
+    assert(summary.transactions_valid === 1, 'Transaction 7005 processed');
+
+    const inStore = await IndexedDbStore.getCharacterTransactions(charId);
+    assert(inStore.some((t) => t.transaction_id === 7005), 'Transaction 7005 committed');
+    console.log('  [PASS] HG-5: 420 error-limit reset window verified.');
+  }
+
+  // --------------------------------------------------------------------------
+  // HG-6: Timeout effectif via timeoutMs
+  // --------------------------------------------------------------------------
+  console.log('--- HG-6: Timeout effectif via timeoutMs ---');
+  {
+    mockAdapter.reset();
+    const charId = 2112001;
+
+    // Simulate hanging network request
+    mockAdapter.setCustomHandler(async (_cId, _token, opts) => {
+      return new Promise<EsiWalletTransactionResponse>((resolve) => {
+        const timer = setTimeout(() => {
+          resolve({ ok: true, status: 200, data: [] });
+        }, 300);
+
+        if (opts && (opts as any).signal) {
+          (opts as any).signal.addEventListener('abort', () => {
+            clearTimeout(timer);
+          });
+        }
+      });
+    });
+
+    const summary = await CharacterTransactionSyncService.syncCharacterTransactions(charId, {
+      esiAdapter: mockAdapter,
+      timeoutMs: 30, // 30ms timeout
+    });
+
+    assert(summary.stopped_reason === 'NETWORK_ERROR', `Expected NETWORK_ERROR, got ${summary.stopped_reason}`);
+    assert(summary.pagination_completed === false, 'pagination_completed must be false');
+    assert(summary.errors.some((e) => e.includes('timed out after 30ms')), 'Error records explicit timeout message');
+    console.log('  [PASS] HG-6: Configurable timeoutMs verified.');
+  }
+
+  // --------------------------------------------------------------------------
+  // HG-7: Page 1 persistée malgré échec Page 2 (503 retries épuisés)
+  // --------------------------------------------------------------------------
+  console.log('--- HG-7: Page 1 persistée malgré échec Page 2 ---');
+  {
+    await IndexedDbStore.clearAll();
+    mockAdapter.reset();
+    const charId = 2112001;
+
+    const page1: RawEsiTransactionInput[] = [];
+    for (let i = 1; i <= 10; i++) {
+      page1.push({
+        transaction_id: 7100 + i,
+        type_id: 34,
+        location_id: 60003760,
+        quantity: 100 * i,
+        unit_price: 5.0,
+        date: `2026-09-21T03:00:${i < 10 ? '0' + i : i}Z`,
+        is_buy: true,
+      });
+    }
+
+    mockAdapter.setCustomHandler(async (cId, token, opts) => {
+      if (opts?.from_id === undefined) {
+        return { ok: true, status: 200, data: page1 };
+      }
+      // Page 2 always fails with 503
+      return { ok: false, status: 503, data: null, error: 'Database Unavailable' };
+    });
+
+    const summary = await CharacterTransactionSyncService.syncCharacterTransactions(charId, {
+      esiAdapter: mockAdapter,
+      maxRetries: 2,
+      sleepFn: async () => {},
+    });
+
+    assert(summary.pages_fetched === 1, 'Only page 1 succeeded');
+    assert(summary.stopped_reason === 'NETWORK_ERROR', `Expected NETWORK_ERROR, got ${summary.stopped_reason}`);
+    assert(summary.pagination_completed === false, 'pagination_completed must be false');
+    assert(summary.data_state === 'PARTIAL', 'data_state is PARTIAL');
+    assert(summary.health_status === 'PARTIAL', 'health_status is PARTIAL');
+    assert(summary.transactions_valid === 10, 'All 10 items from page 1 validated');
+
+    // Verify all 10 items are committed to IndexedDB
+    const inStore = await IndexedDbStore.getCharacterTransactions(charId);
+    assert(inStore.length === 10, `All 10 items must be persisted in store, got ${inStore.length}`);
+    for (let i = 1; i <= 10; i++) {
+      assert(inStore.some((t) => t.transaction_id === 7100 + i), `Item #${7100 + i} persisted`);
+    }
+    console.log('  [PASS] HG-7: Page 1 persistence strictly preserved despite Page 2 failure.');
+  }
+
+  // --------------------------------------------------------------------------
+  // HG-8: Gap Bridging (local: 105, 103, 101; ESI: 108, 107, 106, 105, 104, 103, 102, 101)
+  // --------------------------------------------------------------------------
+  console.log('--- HG-8: Gap Bridging ---');
+  {
+    await IndexedDbStore.clearAll();
+    mockAdapter.reset();
+    const charId = 2112001;
+
+    // Seed local storage with 105, 103, 101
+    const seedTransactions: PersistedCharacterTransaction[] = [105, 103, 101].map((id) => ({
+      transaction_id: id,
+      character_id: charId,
+      timestamp: '2026-09-20T10:00:00.000Z',
+      type_id: 34,
+      quantity: 100,
+      unit_price: 5.0,
+      total_value: 500.0,
+      is_buy: true,
+      is_personal: true,
+      location_id: 60003760,
+      journal_ref_id: id * 10,
+      client_id: 1000,
+      first_seen_at: '2026-09-20T10:00:00.000Z',
+      last_seen_at: '2026-09-20T10:00:00.000Z',
+      raw_hash: `hash_${id}`,
+      ingestion_version: '1.0.0',
+      source_endpoint: `/characters/${charId}/wallet/transactions/`,
+      source: 'ESI',
+      data_state: 'VALID',
+    }));
+
+    await IndexedDbStore.saveCharacterTransactions(seedTransactions);
+
+    // ESI returns 108, 107, 106, 105, 104, 103, 102, 101
+    const esiBatch: RawEsiTransactionInput[] = [108, 107, 106, 105, 104, 103, 102, 101].map((id) => ({
+      transaction_id: id,
+      type_id: 34,
+      location_id: 60003760,
+      quantity: 100,
+      unit_price: 5.0,
+      date: `2026-09-21T0${id % 10}:00:00Z`,
+      is_buy: true,
+    }));
+
+    mockAdapter.setResponseForFromId(undefined, {
+      ok: true,
+      status: 200,
+      data: esiBatch,
+    });
+
+    const summary = await CharacterTransactionSyncService.syncCharacterTransactions(charId, {
+      esiAdapter: mockAdapter,
+    });
+
+    assert(summary.stopped_reason === 'ANCHOR_REACHED', `Expected ANCHOR_REACHED, got ${summary.stopped_reason}`);
+    assert(summary.pagination_completed === true, 'pagination_completed must be true');
+    assert(summary.transactions_new === 5, `Expected 5 new transactions (108, 107, 106, 104, 102), got ${summary.transactions_new}`);
+    assert(summary.transactions_existing === 3, `Expected 3 existing transactions (105, 103, 101), got ${summary.transactions_existing}`);
+
+    // Verify all 8 transactions are now in store
+    const inStore = await IndexedDbStore.getCharacterTransactions(charId);
+    assert(inStore.length === 8, `Expected 8 transactions in store, got ${inStore.length}`);
+    for (const id of [101, 102, 103, 104, 105, 106, 107, 108]) {
+      assert(inStore.some((t) => t.transaction_id === id), `Transaction #${id} is in store`);
+    }
+    console.log('  [PASS] HG-8: Gap bridging correctly recovered all missing intermediate transactions.');
+  }
+
+  // --------------------------------------------------------------------------
+  // HG-9: Pagination sans progression (oldestInBatch === currentFromId)
+  // --------------------------------------------------------------------------
+  console.log('--- HG-9: Pagination sans progression ---');
+  {
+    await IndexedDbStore.clearAll();
+    mockAdapter.reset();
+    const charId = 2112001;
+
+    // Page 1 returns [100, 95] -> next from_id will be 95
+    mockAdapter.setResponseForFromId(undefined, {
+      ok: true,
+      status: 200,
+      data: [
+        { transaction_id: 100, type_id: 34, location_id: 60003760, quantity: 10, unit_price: 5.0, date: '2026-09-21T01:00:00Z', is_buy: true },
+        { transaction_id: 95, type_id: 34, location_id: 60003760, quantity: 10, unit_price: 5.0, date: '2026-09-21T00:50:00Z', is_buy: true },
+      ],
+    });
+
+    // Page 2 (from_id: 95) returns items [98, 95] where oldestInBatch is still 95!
+    mockAdapter.setResponseForFromId(95, {
+      ok: true,
+      status: 200,
+      data: [
+        { transaction_id: 98, type_id: 34, location_id: 60003760, quantity: 10, unit_price: 5.0, date: '2026-09-21T00:55:00Z', is_buy: true },
+        { transaction_id: 95, type_id: 34, location_id: 60003760, quantity: 10, unit_price: 5.0, date: '2026-09-21T00:50:00Z', is_buy: true },
+      ],
+    });
+
+    const summary = await CharacterTransactionSyncService.syncCharacterTransactions(charId, {
+      esiAdapter: mockAdapter,
+    });
+
+    assert(summary.stopped_reason === 'NETWORK_ERROR', `Expected NETWORK_ERROR on stagnant pagination, got ${summary.stopped_reason}`);
+    assert(summary.pagination_completed === false, 'pagination_completed must be false');
+    assert(summary.data_state === 'PARTIAL', 'data_state is PARTIAL (page 1 saved)');
+    assert(summary.errors.some((e) => e.includes('Pagination stagnant')), 'Error mentions pagination stagnant');
+    console.log('  [PASS] HG-9: Stagnant pagination safely trapped without infinite loop or false completeness.');
+  }
+
+  // --------------------------------------------------------------------------
+  // HG-10: Ancre seule en dernière page (Anchor-only final page)
+  // --------------------------------------------------------------------------
+  console.log('--- HG-10: Ancre seule en dernière page ---');
+  {
+    await IndexedDbStore.clearAll();
+    mockAdapter.reset();
+    const charId = 2112001;
+
+    // Page 1: [105, 104] -> oldest is 104
+    mockAdapter.setResponseForFromId(undefined, {
+      ok: true,
+      status: 200,
+      data: [
+        { transaction_id: 105, type_id: 34, location_id: 60003760, quantity: 10, unit_price: 5.0, date: '2026-09-21T01:00:00Z', is_buy: true },
+        { transaction_id: 104, type_id: 34, location_id: 60003760, quantity: 10, unit_price: 5.0, date: '2026-09-21T00:50:00Z', is_buy: true },
+      ],
+    });
+
+    // Page 2: only contains the anchor 104
+    mockAdapter.setResponseForFromId(104, {
+      ok: true,
+      status: 200,
+      data: [
+        { transaction_id: 104, type_id: 34, location_id: 60003760, quantity: 10, unit_price: 5.0, date: '2026-09-21T00:50:00Z', is_buy: true },
+      ],
+    });
+
+    const summary = await CharacterTransactionSyncService.syncCharacterTransactions(charId, {
+      esiAdapter: mockAdapter,
+    });
+
+    assert(summary.stopped_reason === 'NO_MORE_DATA', `Expected NO_MORE_DATA, got ${summary.stopped_reason}`);
+    assert(summary.pagination_completed === true, 'pagination_completed must be true');
+    assert(summary.transactions_valid === 2, '2 transactions valid');
+    assert(summary.duplicates_removed === 1, 'Anchor transaction on page 2 was deduplicated');
+    console.log('  [PASS] HG-10: Anchor-only final page terminates with NO_MORE_DATA and pagination_completed.');
+  }
+
+  // --------------------------------------------------------------------------
+  // HG-11: Absence absolue de mutation de OpportunityObservation
+  // --------------------------------------------------------------------------
+  console.log('--- HG-11: Absence absolue de mutation de OpportunityObservation ---');
+  {
+    await IndexedDbStore.clearAll();
+    mockAdapter.reset();
+    const charId = 2112001;
+
+    const testObservation: OpportunityObservation = {
+      observation_id: 'obs_hg11_check',
+      opportunity_id: 'opp_hg11_test',
+      timestamp: '2026-09-21T00:00:00Z',
+      type_id: 34,
+      type_name: 'Tritanium',
+      source_region_id: 10000002,
+      dest_region_id: 10000043,
+      source_hub_id: 'jita',
+      dest_hub_id: 'amarr',
+      strategy: 'immediate',
+      buy_price: 5.0,
+      sell_price: 5.5,
+      quantity: 100000,
+      net_profit: 50000,
+      roi: 0.1,
+      expected_days_to_sell: 1,
+      capturable_profit: 50000,
+      profit_per_day: 50000,
+      overall_score: 85,
+      liquidity_score: 90,
+      stability_score: 80,
+      data_confidence: 95,
+      is_anomalous: false,
+      bottleneck: 'capital',
+    };
+
+    await IndexedDbStore.saveOpportunityObservations([testObservation]);
+
+    mockAdapter.setResponseForFromId(undefined, {
+      ok: true,
+      status: 200,
+      data: [
+        {
+          transaction_id: 99999,
+          type_id: 34,
+          location_id: 60003760,
+          quantity: 100000,
+          unit_price: 5.0,
+          date: '2026-09-21T00:05:00Z',
+          is_buy: true,
+        },
+      ],
+    });
+
+    await CharacterTransactionSyncService.syncCharacterTransactions(charId, {
+      esiAdapter: mockAdapter,
+    });
+
+    const storedObs = (await IndexedDbStore.getOpportunityObservations(34)).find(
+      (o) => o.observation_id === 'obs_hg11_check'
+    )!;
+
+    assert((storedObs as any).execution_outcome === undefined, 'execution_outcome is undefined');
+    assert((storedObs as any).realized === undefined, 'realized is undefined');
+    assert((storedObs as any).realized_profit === undefined, 'realized_profit is undefined');
+    assert((storedObs as any).prediction_error_pct === undefined, 'prediction_error_pct is undefined');
+    console.log('  [PASS] HG-11: Absolute immutability of OpportunityObservation verified.');
+  }
+
+  // --------------------------------------------------------------------------
+  // HG-12: Options de synchronisation effectives (maxRetries, retryOnTransientError, timeoutMs)
+  // --------------------------------------------------------------------------
+  console.log('--- HG-12: Options de synchronisation effectives ---');
+  {
+    mockAdapter.reset();
+    const charId = 2112001;
+
+    // Test A: retryOnTransientError = false -> stops immediately on 503 without retries
+    let attemptA = 0;
+    mockAdapter.setCustomHandler(async () => {
+      attemptA++;
+      return { ok: false, status: 503, data: null, error: 'Service Unavailable' };
+    });
+
+    const summaryA = await CharacterTransactionSyncService.syncCharacterTransactions(charId, {
+      esiAdapter: mockAdapter,
+      retryOnTransientError: false,
+      maxRetries: 3,
+    });
+
+    assert(attemptA === 1, `Expected exactly 1 attempt with retryOnTransientError=false, got ${attemptA}`);
+    assert(summaryA.stopped_reason === 'NETWORK_ERROR', 'Stopped with NETWORK_ERROR immediately');
+
+    // Test B: maxRetries = 1 vs maxRetries = 3
+    let attemptB = 0;
+    mockAdapter.setCustomHandler(async () => {
+      attemptB++;
+      return { ok: false, status: 503, data: null, error: 'Service Unavailable' };
+    });
+
+    await CharacterTransactionSyncService.syncCharacterTransactions(charId, {
+      esiAdapter: mockAdapter,
+      retryOnTransientError: true,
+      maxRetries: 1,
+      sleepFn: async () => {},
+    });
+
+    assert(attemptB === 2, `Expected 2 attempts with maxRetries=1, got ${attemptB}`);
+
+    let attemptC = 0;
+    mockAdapter.setCustomHandler(async () => {
+      attemptC++;
+      return { ok: false, status: 503, data: null, error: 'Service Unavailable' };
+    });
+
+    await CharacterTransactionSyncService.syncCharacterTransactions(charId, {
+      esiAdapter: mockAdapter,
+      retryOnTransientError: true,
+      maxRetries: 3,
+      sleepFn: async () => {},
+    });
+
+    assert(attemptC === 4, `Expected 4 attempts with maxRetries=3, got ${attemptC}`);
+    console.log('  [PASS] HG-12: Options maxRetries, retryOnTransientError, and timeoutMs proven effective.');
+  }
+
   console.log('\n================================================================');
-  console.log('ALL 17 INGESTION VERIFICATION TESTS PASSED SUCCESSFULLY (100%)');
+  console.log('ALL INGESTION & HARDENING TESTS (17 + 12 = 29) PASSED (100%)');
   console.log('================================================================');
 }
 

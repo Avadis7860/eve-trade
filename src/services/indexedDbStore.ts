@@ -1401,7 +1401,8 @@ export class IndexedDbStore {
       limit?: number;
     }
   ): Promise<PersistedCharacterTransaction[]> {
-    const limit = options?.limit ?? 500;
+    const hasLimit = options?.limit !== undefined;
+    const limit = options?.limit ?? Number.MAX_SAFE_INTEGER;
     const filterFn = (tx: PersistedCharacterTransaction) => {
       if (tx.character_id !== characterId) return false;
       if (options?.typeId !== undefined && tx.type_id !== options.typeId) return false;
@@ -1421,7 +1422,7 @@ export class IndexedDbStore {
 
     const isReady = await this.init();
     if (!isReady || !this.db) {
-      return memMatches.slice(0, limit);
+      return hasLimit ? memMatches.slice(0, limit) : memMatches;
     }
 
     return new Promise((resolve) => {
@@ -1444,13 +1445,23 @@ export class IndexedDbStore {
           for (const item of results) {
             this.memoryTransactions.set(item.transaction_id, item);
           }
-          resolve(results.slice(0, limit));
+          resolve(hasLimit ? results.slice(0, limit) : results);
         };
-        req.onerror = () => resolve(memMatches.slice(0, limit));
+        req.onerror = () => resolve(hasLimit ? memMatches.slice(0, limit) : memMatches);
       } catch {
-        resolve(memMatches.slice(0, limit));
+        resolve(hasLimit ? memMatches.slice(0, limit) : memMatches);
       }
     });
+  }
+
+  /**
+   * Retrieves the single most recent persisted transaction for a character (or null if none)
+   */
+  static async getLatestCharacterTransaction(
+    characterId: number
+  ): Promise<PersistedCharacterTransaction | null> {
+    const list = await this.getCharacterTransactions(characterId, { limit: 1 });
+    return list.length > 0 ? list[0] : null;
   }
 
   /**

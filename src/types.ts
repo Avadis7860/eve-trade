@@ -1667,6 +1667,17 @@ export type FinancialFeeMode = 'OBSERVED' | 'ESTIMATED' | 'UNAVAILABLE';
 export type FinancialFeeSource = 'OBSERVED_TRANSACTION' | 'CONFIG_ESTIMATE' | 'UNAVAILABLE';
 export type ExecutionFeeRoleMode = 'TAKER_TAKER' | 'TAKER_MAKER' | 'MAKER_TAKER' | 'MAKER_MAKER' | 'UNKNOWN';
 
+/**
+ * Financial completeness classification for realized trade outcomes.
+ * Strictly distinguishes between observed transaction facts, config-based estimates,
+ * partial executions / inventory deficits, and missing data.
+ *
+ * Core Principles:
+ * - NO DATA ≠ ZERO DATA
+ * - ESTIMATE ≠ OBSERVED FACT
+ */
+export type FinancialCompleteness = 'OBSERVED' | 'ESTIMATED' | 'PARTIAL' | 'UNAVAILABLE';
+
 export interface FifoLotRecord {
   readonly lot_id: string; // "lot_{buy_transaction_id}"
   readonly buy_transaction_id: number;
@@ -1706,6 +1717,7 @@ export interface RealizedFeeBreakdown {
   readonly estimated_sales_tax: number;
   readonly estimated_total_fees: number;
   readonly observed_fees_paid?: number;
+  readonly is_role_assumed?: boolean;
   readonly notes?: readonly string[];
 }
 
@@ -1729,10 +1741,15 @@ export interface RealizedFinancialOutcome {
   readonly realized_acquisition_cost: number;
   readonly realized_revenue: number;
   readonly gross_realized_profit: number;
+  readonly realized_gross: number;
 
-  // Fees & Net
+  // Fees & Net (Strict separation of observed facts vs configuration estimates)
   readonly fees: RealizedFeeBreakdown;
   readonly net_realized_profit: number;
+  readonly realized_net_estimated: number | null;
+  readonly is_net_estimated: boolean;
+  readonly is_financially_complete: boolean;
+  readonly financial_completeness: FinancialCompleteness;
 
   // Ratios & Rates
   readonly roi: number;

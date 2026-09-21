@@ -34,6 +34,7 @@ import {
   ExecutionTransactionRef,
   FifoAllocationRecord,
   FifoLotRecord,
+  FinancialCompleteness,
   FinancialFeeMode,
   FinancialFeeSource,
   PersistedCharacterTransaction,
@@ -85,19 +86,23 @@ export class RealizedFinancialOutcomeEngine {
 
     // 2. Sort chronologically (timestamp ASC, transaction_id ASC)
     const sortedBuys = [...buyTxs].sort((a, b) => {
-      const timeDiff = new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+      const timeA = Number.isNaN(new Date(a.timestamp).getTime()) ? 0 : new Date(a.timestamp).getTime();
+      const timeB = Number.isNaN(new Date(b.timestamp).getTime()) ? 0 : new Date(b.timestamp).getTime();
+      const timeDiff = timeA - timeB;
       return timeDiff !== 0 ? timeDiff : a.transaction_id - b.transaction_id;
     });
 
     const sortedSells = [...sellTxs].sort((a, b) => {
-      const timeDiff = new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+      const timeA = Number.isNaN(new Date(a.timestamp).getTime()) ? 0 : new Date(a.timestamp).getTime();
+      const timeB = Number.isNaN(new Date(b.timestamp).getTime()) ? 0 : new Date(b.timestamp).getTime();
+      const timeDiff = timeA - timeB;
       return timeDiff !== 0 ? timeDiff : a.transaction_id - b.transaction_id;
     });
 
-    // 3. Initialize FIFO Lots from Buy Transactions
+    // 3. Initialize FIFO Lots from Buy Transactions (defensive against NaN/Infinity/negative quantities)
     const lots: FifoLotRecord[] = sortedBuys.map((buy) => {
-      const origQty = Math.max(0, buy.quantity);
-      const unitCost = Math.max(0, buy.unit_price);
+      const origQty = Number.isFinite(buy.quantity) ? Math.max(0, buy.quantity) : 0;
+      const unitCost = Number.isFinite(buy.unit_price) ? Math.max(0, buy.unit_price) : 0;
       return {
         lot_id: `lot_${buy.transaction_id}`,
         buy_transaction_id: buy.transaction_id,
@@ -112,18 +117,34 @@ export class RealizedFinancialOutcomeEngine {
       };
     });
 
-    // 4. Match Sales against FIFO Lots
+    // 4. Match Sales against FIFO Lots with Strict Causal FIFO Enforcement
     const allocations: FifoAllocationRecord[] = [];
     let unmatchedSellQuantity = 0;
     let allocationSeq = 1;
 
     for (const sell of sortedSells) {
-      let sellRemaining = Math.max(0, sell.quantity);
+      let sellRemaining = Number.isFinite(sell.quantity) ? Math.max(0, sell.quantity) : 0;
+      const sellUnitPrice = Number.isFinite(sell.unit_price) ? Math.max(0, sell.unit_price) : 0;
+      const sellTimeMs = Number.isNaN(new Date(sell.timestamp).getTime()) ? 0 : new Date(sell.timestamp).getTime();
 
       for (let i = 0; i < lots.length; i++) {
         const lot = lots[i];
         if (sellRemaining <= 0) break;
         if (lot.remaining_quantity <= 0) continue;
+
+        const buyTimeMs = Number.isNaN(new Date(lot.timestamp).getTime()) ? 0 : new Date(lot.timestamp).getTime();
+
+        // CAUSAL GUARD: A SELL transaction can ONLY consume BUY lots executed at or prior to the SELL timestamp.
+        // Tie-breaker: If timestamps are identical, transaction_id ASC determines execution priority.
+        const isCausallyEligible =
+          buyTimeMs < sellTimeMs ||
+          (buyTimeMs === sellTimeMs && lot.buy_transaction_id <= sell.transaction_id);
+
+        if (!isCausallyEligible) {
+          // Because `lots` is sorted chronologically (timestamp ASC, transaction_id ASC),
+          // all subsequent lots in `lots` are also strictly after this sell.
+          break;
+        }
 
         const allocatedQty = Math.min(lot.remaining_quantity, sellRemaining);
         const updatedRemainingQty = lot.remaining_quantity - allocatedQty;
@@ -138,13 +159,11 @@ export class RealizedFinancialOutcomeEngine {
         sellRemaining -= allocatedQty;
 
         // Calculate hold duration between buy and sell timestamps
-        const buyTimeMs = new Date(lot.timestamp).getTime();
-        const sellTimeMs = new Date(sell.timestamp).getTime();
         const holdDurationMs = Math.max(0, sellTimeMs - buyTimeMs);
         const holdDays = holdDurationMs / 86_400_000;
 
         const grossCost = roundIsk(allocatedQty * lot.unit_cost);
-        const grossRevenue = roundIsk(allocatedQty * sell.unit_price);
+        const grossRevenue = roundIsk(allocatedQty * sellUnitPrice);
         const grossProfit = roundIsk(grossRevenue - grossCost);
 
         allocations.push({
@@ -154,7 +173,7 @@ export class RealizedFinancialOutcomeEngine {
           type_id: lot.type_id,
           allocated_quantity: allocatedQty,
           buy_unit_price: lot.unit_cost,
-          sell_unit_price: sell.unit_price,
+          sell_unit_price: sellUnitPrice,
           buy_timestamp: lot.timestamp,
           sell_timestamp: sell.timestamp,
           hold_duration_ms: holdDurationMs,
@@ -171,8 +190,14 @@ export class RealizedFinancialOutcomeEngine {
     }
 
     // 5. Aggregate Quantities and Financial Totals
-    const totalBuyQuantity = sortedBuys.reduce((acc, b) => acc + b.quantity, 0);
-    const totalSellQuantity = sortedSells.reduce((acc, s) => acc + s.quantity, 0);
+    const totalBuyQuantity = sortedBuys.reduce(
+      (acc, b) => acc + (Number.isFinite(b.quantity) ? Math.max(0, b.quantity) : 0),
+      0
+    );
+    const totalSellQuantity = sortedSells.reduce(
+      (acc, s) => acc + (Number.isFinite(s.quantity) ? Math.max(0, s.quantity) : 0),
+      0
+    );
     const matchedQuantity = allocations.reduce((acc, a) => acc + a.allocated_quantity, 0);
     const remainingInventoryQuantity = lots.reduce((acc, l) => acc + l.remaining_quantity, 0);
     const hasUnmatchedSellQuantity = unmatchedSellQuantity > 0;
@@ -191,12 +216,46 @@ export class RealizedFinancialOutcomeEngine {
 
     const netRealizedProfit = roundIsk(grossRealizedProfit - fees.estimated_total_fees);
 
-    // 7. Ratios and Rates (protected against zero division)
+    // 7. Financial Completeness & Quality Determination
+    // Strictly distinguishes between observed facts, estimations, partial inventory, and unavailable data.
+    let financialCompleteness: FinancialCompleteness;
+    let isNetEstimated = false;
+    let isFinanciallyComplete = false;
+    let realizedNetEstimated: number | null = null;
+
+    if (hasUnmatchedSellQuantity || (matchedQuantity === 0 && totalSellQuantity > 0)) {
+      financialCompleteness = 'PARTIAL';
+      isNetEstimated = fees.fee_mode === 'ESTIMATED';
+      realizedNetEstimated = fees.fee_mode === 'ESTIMATED' ? netRealizedProfit : null;
+      isFinanciallyComplete = false;
+    } else if (fees.fee_mode === 'UNAVAILABLE') {
+      financialCompleteness = 'UNAVAILABLE';
+      isNetEstimated = false;
+      realizedNetEstimated = null; // NO DATA ≠ ZERO DATA: No fake estimated net profit is provided
+      isFinanciallyComplete = false;
+    } else if (fees.fee_mode === 'ESTIMATED') {
+      financialCompleteness = 'ESTIMATED';
+      isNetEstimated = true;
+      realizedNetEstimated = netRealizedProfit;
+      isFinanciallyComplete = false; // ESTIMATE ≠ OBSERVED FACT: Estimated net is never 100% complete observed truth
+    } else if (fees.fee_mode === 'OBSERVED') {
+      financialCompleteness = 'OBSERVED';
+      isNetEstimated = false;
+      realizedNetEstimated = null;
+      isFinanciallyComplete = true; // Fully matched + 100% observed fees from journal
+    } else {
+      financialCompleteness = 'PARTIAL';
+      isNetEstimated = false;
+      realizedNetEstimated = null;
+      isFinanciallyComplete = false;
+    }
+
+    // 8. Ratios and Rates (protected against zero division)
     const roi = realizedAcquisitionCost > 0 ? safeDiv(netRealizedProfit, realizedAcquisitionCost, 0.0) : 0.0;
     const margin = realizedRevenue > 0 ? safeDiv(netRealizedProfit, realizedRevenue, 0.0) : 0.0;
     const profitPerUnit = matchedQuantity > 0 ? safeDiv(netRealizedProfit, matchedQuantity, 0.0) : 0.0;
 
-    // 8. Timestamps & Quantity-Weighted Hold Durations
+    // 9. Timestamps & Quantity-Weighted Hold Durations
     const firstBuyAt = sortedBuys.length > 0 ? sortedBuys[0].timestamp : null;
     const lastBuyAt = sortedBuys.length > 0 ? sortedBuys[sortedBuys.length - 1].timestamp : null;
 
@@ -213,11 +272,11 @@ export class RealizedFinancialOutcomeEngine {
 
     if (matchedQuantity > 0) {
       const totalWeightedBuyTimeMs = allocations.reduce(
-        (sum, a) => sum + a.allocated_quantity * new Date(a.buy_timestamp).getTime(),
+        (sum, a) => sum + a.allocated_quantity * (Number.isNaN(new Date(a.buy_timestamp).getTime()) ? 0 : new Date(a.buy_timestamp).getTime()),
         0
       );
       const totalWeightedSellTimeMs = allocations.reduce(
-        (sum, a) => sum + a.allocated_quantity * new Date(a.sell_timestamp).getTime(),
+        (sum, a) => sum + a.allocated_quantity * (Number.isNaN(new Date(a.sell_timestamp).getTime()) ? 0 : new Date(a.sell_timestamp).getTime()),
         0
       );
 
@@ -230,7 +289,7 @@ export class RealizedFinancialOutcomeEngine {
       weightedHoldDays = weightedHoldMs / 86_400_000;
     }
 
-    // 9. Data State & Diagnostic Reasons
+    // 10. Data State & Diagnostic Reasons
     let dataState: 'VALID' | 'PARTIAL' = 'VALID';
     const stateReasons: string[] = [];
 
@@ -238,6 +297,21 @@ export class RealizedFinancialOutcomeEngine {
       dataState = 'PARTIAL';
       stateReasons.push(
         `Unmatched sell quantity: ${unmatchedSellQuantity} units sold exceed available buy inventory in this execution`
+      );
+    }
+
+    // Check if any sale occurred before any prior buy (causal sequence deficit)
+    const hasCausalDeficit = sortedSells.some((sell) => {
+      const sellTimeMs = Number.isNaN(new Date(sell.timestamp).getTime()) ? 0 : new Date(sell.timestamp).getTime();
+      return !sortedBuys.some((buy) => {
+        const buyTimeMs = Number.isNaN(new Date(buy.timestamp).getTime()) ? 0 : new Date(buy.timestamp).getTime();
+        return buyTimeMs < sellTimeMs || (buyTimeMs === sellTimeMs && buy.transaction_id <= sell.transaction_id);
+      });
+    });
+
+    if (hasCausalDeficit && sortedSells.length > 0) {
+      stateReasons.push(
+        'Causal inventory deficit: one or more sales occurred before any causally prior buy transaction'
       );
     }
 
@@ -254,6 +328,12 @@ export class RealizedFinancialOutcomeEngine {
     if (matchedQuantity === 0 && totalSellQuantity > 0) {
       dataState = 'PARTIAL';
       stateReasons.push(`Zero buy units available to match ${totalSellQuantity} sold units`);
+    }
+
+    if (fees.execution_fee_mode === 'UNKNOWN' && fees.fee_mode === 'ESTIMATED') {
+      stateReasons.push(
+        'Execution role (Maker/Taker) unknown: net profit is a baseline estimate assuming Taker (0% broker fee)'
+      );
     }
 
     // Filter remaining lots to return immutable snapshots
@@ -279,9 +359,14 @@ export class RealizedFinancialOutcomeEngine {
       realized_acquisition_cost: realizedAcquisitionCost,
       realized_revenue: realizedRevenue,
       gross_realized_profit: grossRealizedProfit,
+      realized_gross: grossRealizedProfit,
 
       fees,
       net_realized_profit: netRealizedProfit,
+      realized_net_estimated: realizedNetEstimated,
+      is_net_estimated: isNetEstimated,
+      is_financially_complete: isFinanciallyComplete,
+      financial_completeness: financialCompleteness,
 
       roi,
       margin,
@@ -394,6 +479,7 @@ export class RealizedFinancialOutcomeEngine {
         estimated_sell_broker_fee: 0.0,
         estimated_sales_tax: 0.0,
         estimated_total_fees: 0.0,
+        is_role_assumed: (options?.executionFeeMode ?? 'UNKNOWN') === 'UNKNOWN',
         notes: Object.freeze([
           'No financial configuration provided: fees and sales tax cannot be estimated',
         ]),
@@ -434,8 +520,12 @@ export class RealizedFinancialOutcomeEngine {
       `Fee source: CONFIG_ESTIMATE (Sales Tax: ${(salesTaxRate * 100).toFixed(2)}%, Buy Broker: ${(buyBrokerRate * 100).toFixed(2)}%, Sell Broker: ${(sellBrokerRate * 100).toFixed(2)}%)`,
     ];
 
-    if (executionFeeMode === 'UNKNOWN') {
-      notes.push('Execution role unknown from wallet transactions: assumed Taker for baseline estimate');
+    const isRoleAssumed = executionFeeMode === 'UNKNOWN';
+
+    if (isRoleAssumed) {
+      notes.push(
+        'Execution role unknown from wallet transactions: assumed Taker for baseline estimate (0% broker fee). True net profit may be lower if limit orders were placed as Maker.'
+      );
     } else {
       notes.push(`Execution role specified: ${executionFeeMode}`);
     }
@@ -448,6 +538,7 @@ export class RealizedFinancialOutcomeEngine {
       estimated_sell_broker_fee: estimatedSellBrokerFee,
       estimated_sales_tax: estimatedSalesTax,
       estimated_total_fees: estimatedTotalFees,
+      is_role_assumed: isRoleAssumed,
       notes: Object.freeze(notes),
     };
   }

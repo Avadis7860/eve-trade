@@ -802,8 +802,459 @@ async function runAllTests() {
     console.log('  [PASS] Persistence integration and durable retrieval verified.');
   }
 
+  // ==========================================================================
+  // CHANTIER 3B-4A.1: FINANCIAL CORRECTNESS GATE (CASES A TO F & ADVERSARIAL)
+  // ==========================================================================
   console.log('\n==========================================================================');
-  console.log('ALL CHANTIER 3B-4A REALIZED FINANCIAL OUTCOME TESTS (22 + 10 + 1) PASSED (100%)');
+  console.log('--- RUNNING CHANTIER 3B-4A.1 FINANCIAL CORRECTNESS GATE (CASES A -> F) ---');
+  console.log('==========================================================================');
+
+  // Cas A: FIFO classique (nominal)
+  {
+    console.log('\n--- Cas A: FIFO classique (nominal) ---');
+    const buy: ExecutionTransactionRef = {
+      transaction_id: 1001,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: true,
+      quantity: 100,
+      unit_price: 10.0,
+      timestamp: '2026-09-20T10:00:00Z',
+    };
+    const sell: ExecutionTransactionRef = {
+      transaction_id: 2001,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: false,
+      quantity: 100,
+      unit_price: 20.0,
+      timestamp: '2026-09-20T11:00:00Z',
+    };
+
+    const record = createMockExecutionRecord({ buyTxs: [buy], sellTxs: [sell] });
+    const outcome = RealizedFinancialOutcomeEngine.calculate(record, { financialConfig: mockFinancialConfig });
+
+    assert(outcome.matched_quantity === 100, 'Cas A: 100 matched quantity');
+    assert(outcome.unmatched_sell_quantity === 0, 'Cas A: 0 unmatched sell quantity');
+    assert(outcome.has_unmatched_sell_quantity === false, 'Cas A: has_unmatched_sell_quantity is false');
+    assert(outcome.remaining_inventory_quantity === 0, 'Cas A: 0 remaining inventory');
+    assert(outcome.realized_acquisition_cost === 1000.0, 'Cas A: 1,000 ISK acquisition cost');
+    assert(outcome.realized_revenue === 2000.0, 'Cas A: 2,000 ISK revenue');
+    assert(outcome.gross_realized_profit === 1000.0, 'Cas A: 1,000 ISK gross profit');
+    assert(outcome.realized_gross === 1000.0, 'Cas A: realized_gross matches gross profit');
+    assert(outcome.data_state === 'VALID', 'Cas A: data_state is VALID');
+    assert(outcome.financial_completeness === 'ESTIMATED', 'Cas A: financial_completeness is ESTIMATED with config');
+    assert(outcome.is_net_estimated === true, 'Cas A: is_net_estimated is true');
+    assert(outcome.is_financially_complete === false, 'Cas A: is_financially_complete is false (estimated != observed)');
+    assert(outcome.fifo_allocations.length === 1, 'Cas A: 1 FIFO allocation');
+    assert(outcome.fifo_allocations[0].allocated_quantity === 100, 'Cas A: allocation quantity 100');
+    assert(outcome.fifo_allocations[0].gross_cost === 1000.0, 'Cas A: gross cost 1,000');
+    assert(outcome.fifo_allocations[0].gross_revenue === 2000.0, 'Cas A: gross revenue 2,000');
+    assert(outcome.fifo_allocations[0].gross_profit === 1000.0, 'Cas A: gross profit 1,000');
+    assert(outcome.fifo_allocations[0].hold_days > 0, 'Cas A: positive hold duration');
+    console.log('  [PASS] Cas A: FIFO classique verified.');
+  }
+
+  // Cas B: Vente avant achat (Causal FIFO Enforcement)
+  {
+    console.log('\n--- Cas B: Vente avant achat (Causal FIFO Enforcement) ---');
+    const sell: ExecutionTransactionRef = {
+      transaction_id: 2002,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: false,
+      quantity: 100,
+      unit_price: 20.0,
+      timestamp: '2026-09-20T10:00:00Z', // 10:00 SELL
+    };
+    const buy: ExecutionTransactionRef = {
+      transaction_id: 1002,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: true,
+      quantity: 100,
+      unit_price: 10.0,
+      timestamp: '2026-09-20T11:00:00Z', // 11:00 BUY (occurs after SELL)
+    };
+
+    const record = createMockExecutionRecord({ buyTxs: [buy], sellTxs: [sell] });
+    const outcome = RealizedFinancialOutcomeEngine.calculate(record, { financialConfig: mockFinancialConfig });
+
+    // CAUSAL INVARIANT: The sell at 10:00 CANNOT consume the buy at 11:00!
+    assert(outcome.matched_quantity === 0, 'Cas B: 0 matched quantity (sell before buy)');
+    assert(outcome.unmatched_sell_quantity === 100, 'Cas B: 100 unmatched sell quantity');
+    assert(outcome.has_unmatched_sell_quantity === true, 'Cas B: has_unmatched_sell_quantity is true');
+    assert(outcome.remaining_inventory_quantity === 100, 'Cas B: 100 remaining buy inventory');
+    assert(outcome.remaining_inventory_cost_basis === 1000.0, 'Cas B: remaining buy inventory basis preserved at 1,000 ISK');
+    assert(outcome.realized_acquisition_cost === 0.0, 'Cas B: ZERO cost fabrication (realizedAcquisitionCost === 0)');
+    assert(outcome.realized_revenue === 0.0, 'Cas B: realized revenue === 0');
+    assert(outcome.gross_realized_profit === 0.0, 'Cas B: gross realized profit === 0');
+    assert(outcome.data_state === 'PARTIAL', 'Cas B: data_state is strictly PARTIAL');
+    assert(outcome.financial_completeness === 'PARTIAL', 'Cas B: financial_completeness is PARTIAL');
+    assert(outcome.fifo_allocations.length === 0, 'Cas B: 0 FIFO allocations');
+    assert(outcome.state_reasons !== undefined && outcome.state_reasons.length > 0, 'Cas B: state reasons populated');
+    const hasCausalReason = outcome.state_reasons?.some((r) => r.toLowerCase().includes('causal'));
+    assert(hasCausalReason === true, 'Cas B: diagnostic explains causal sequence deficit');
+    console.log('  [PASS] Cas B: Vente avant achat causally rejected from consumption.');
+  }
+
+  // Cas C: Vente partiellement couverte
+  {
+    console.log('\n--- Cas C: Vente partiellement couverte ---');
+    const buy: ExecutionTransactionRef = {
+      transaction_id: 1003,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: true,
+      quantity: 50,
+      unit_price: 10.0,
+      timestamp: '2026-09-20T10:00:00Z',
+    };
+    const sell: ExecutionTransactionRef = {
+      transaction_id: 2003,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: false,
+      quantity: 100,
+      unit_price: 20.0,
+      timestamp: '2026-09-20T11:00:00Z',
+    };
+
+    const record = createMockExecutionRecord({ buyTxs: [buy], sellTxs: [sell] });
+    const outcome = RealizedFinancialOutcomeEngine.calculate(record, { financialConfig: mockFinancialConfig });
+
+    assert(outcome.matched_quantity === 50, 'Cas C: 50 matched quantity');
+    assert(outcome.unmatched_sell_quantity === 50, 'Cas C: 50 unmatched sell quantity');
+    assert(outcome.has_unmatched_sell_quantity === true, 'Cas C: has_unmatched_sell_quantity is true');
+    assert(outcome.remaining_inventory_quantity === 0, 'Cas C: 0 remaining buy inventory');
+    assert(outcome.realized_acquisition_cost === 500.0, 'Cas C: acquisition cost 500 ISK (50 * 10)');
+    assert(outcome.realized_revenue === 1000.0, 'Cas C: realized revenue 1,000 ISK (50 * 20)');
+    assert(outcome.gross_realized_profit === 500.0, 'Cas C: gross realized profit 500 ISK');
+    assert(outcome.data_state === 'PARTIAL', 'Cas C: data_state is PARTIAL');
+    assert(outcome.financial_completeness === 'PARTIAL', 'Cas C: financial_completeness is PARTIAL');
+    assert(outcome.fifo_allocations.length === 1, 'Cas C: 1 FIFO allocation for covered portion');
+    assert(outcome.fifo_allocations[0].allocated_quantity === 50, 'Cas C: allocated qty 50');
+    console.log('  [PASS] Cas C: Vente partiellement couverte verified.');
+  }
+
+  // Cas D: FIFO multi-lots
+  {
+    console.log('\n--- Cas D: FIFO multi-lots ---');
+    const buy1: ExecutionTransactionRef = {
+      transaction_id: 1004,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: true,
+      quantity: 100,
+      unit_price: 10.0,
+      timestamp: '2026-09-20T10:00:00Z',
+    };
+    const buy2: ExecutionTransactionRef = {
+      transaction_id: 1005,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: true,
+      quantity: 100,
+      unit_price: 20.0,
+      timestamp: '2026-09-20T11:00:00Z',
+    };
+    const sell: ExecutionTransactionRef = {
+      transaction_id: 2004,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: false,
+      quantity: 150,
+      unit_price: 30.0,
+      timestamp: '2026-09-20T12:00:00Z',
+    };
+
+    const record = createMockExecutionRecord({ buyTxs: [buy1, buy2], sellTxs: [sell] });
+    const outcome = RealizedFinancialOutcomeEngine.calculate(record, { financialConfig: mockFinancialConfig });
+
+    assert(outcome.matched_quantity === 150, 'Cas D: 150 matched quantity');
+    assert(outcome.unmatched_sell_quantity === 0, 'Cas D: 0 unmatched sell quantity');
+    assert(outcome.remaining_inventory_quantity === 50, 'Cas D: 50 remaining inventory in lot 2');
+    assert(outcome.remaining_inventory_cost_basis === 1000.0, 'Cas D: 50 * 20 = 1,000 ISK remaining basis');
+    assert(outcome.realized_acquisition_cost === 2000.0, 'Cas D: (100 * 10) + (50 * 20) = 2,000 ISK cost');
+    assert(outcome.realized_revenue === 4500.0, 'Cas D: 150 * 30 = 4,500 ISK revenue');
+    assert(outcome.gross_realized_profit === 2500.0, 'Cas D: 4,500 - 2,000 = 2,500 ISK gross profit');
+    assert(outcome.fifo_allocations.length === 2, 'Cas D: 2 allocations');
+    assert(outcome.fifo_allocations[0].buy_transaction_id === 1004 && outcome.fifo_allocations[0].allocated_quantity === 100, 'Cas D: lot 1 fully consumed');
+    assert(outcome.fifo_allocations[1].buy_transaction_id === 1005 && outcome.fifo_allocations[1].allocated_quantity === 50, 'Cas D: lot 2 half consumed');
+    assert(outcome.data_state === 'VALID', 'Cas D: data_state is VALID');
+    console.log('  [PASS] Cas D: FIFO multi-lots verified.');
+  }
+
+  // Cas E: FIFO temporel complexe
+  {
+    console.log('\n--- Cas E: FIFO temporel complexe ---');
+    const buy1: ExecutionTransactionRef = {
+      transaction_id: 1006,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: true,
+      quantity: 100,
+      unit_price: 10.0,
+      timestamp: '2026-09-20T10:00:00Z',
+    };
+    const sell1: ExecutionTransactionRef = {
+      transaction_id: 2005,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: false,
+      quantity: 50,
+      unit_price: 20.0,
+      timestamp: '2026-09-20T11:00:00Z',
+    };
+    const buy2: ExecutionTransactionRef = {
+      transaction_id: 1007,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: true,
+      quantity: 100,
+      unit_price: 30.0,
+      timestamp: '2026-09-20T12:00:00Z',
+    };
+    const sell2: ExecutionTransactionRef = {
+      transaction_id: 2006,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: false,
+      quantity: 100,
+      unit_price: 40.0,
+      timestamp: '2026-09-20T13:00:00Z',
+    };
+
+    const record = createMockExecutionRecord({ buyTxs: [buy1, buy2], sellTxs: [sell1, sell2] });
+    const outcome = RealizedFinancialOutcomeEngine.calculate(record, { financialConfig: mockFinancialConfig });
+
+    // Step by step:
+    // Sell 1 (11:00) consumes 50 from Buy 1 (remaining in lot 1: 50)
+    // Sell 2 (13:00) consumes remaining 50 from Buy 1, THEN 50 from Buy 2 (remaining in lot 2: 50)
+    assert(outcome.matched_quantity === 150, 'Cas E: 150 matched quantity');
+    assert(outcome.unmatched_sell_quantity === 0, 'Cas E: 0 unmatched sell');
+    assert(outcome.remaining_inventory_quantity === 50, 'Cas E: 50 units remaining in lot 2');
+    assert(outcome.remaining_inventory_cost_basis === 1500.0, 'Cas E: 50 * 30 = 1,500 ISK remaining basis');
+    assert(outcome.fifo_allocations.length === 3, 'Cas E: exactly 3 allocations');
+    // Allocation 1: sell1 <- buy1 (50 units @ 10)
+    assert(outcome.fifo_allocations[0].sell_transaction_id === 2005 && outcome.fifo_allocations[0].buy_transaction_id === 1006, 'Cas E: Alloc 1 sell1 <- buy1');
+    assert(outcome.fifo_allocations[0].allocated_quantity === 50 && outcome.fifo_allocations[0].buy_unit_price === 10.0, 'Cas E: Alloc 1 50 @ 10');
+    // Allocation 2: sell2 <- buy1 (remaining 50 units @ 10)
+    assert(outcome.fifo_allocations[1].sell_transaction_id === 2006 && outcome.fifo_allocations[1].buy_transaction_id === 1006, 'Cas E: Alloc 2 sell2 <- buy1 (residual)');
+    assert(outcome.fifo_allocations[1].allocated_quantity === 50 && outcome.fifo_allocations[1].buy_unit_price === 10.0, 'Cas E: Alloc 2 50 @ 10');
+    // Allocation 3: sell2 <- buy2 (50 units @ 30)
+    assert(outcome.fifo_allocations[2].sell_transaction_id === 2006 && outcome.fifo_allocations[2].buy_transaction_id === 1007, 'Cas E: Alloc 3 sell2 <- buy2');
+    assert(outcome.fifo_allocations[2].allocated_quantity === 50 && outcome.fifo_allocations[2].buy_unit_price === 30.0, 'Cas E: Alloc 3 50 @ 30');
+
+    // Total cost: (50 * 10) + (50 * 10) + (50 * 30) = 500 + 500 + 1500 = 2,500 ISK
+    assert(outcome.realized_acquisition_cost === 2500.0, 'Cas E: 2,500 ISK realized cost');
+    // Total revenue: (50 * 20) + (100 * 40) = 1,000 + 4,000 = 5,000 ISK
+    assert(outcome.realized_revenue === 5000.0, 'Cas E: 5,000 ISK realized revenue');
+    assert(outcome.gross_realized_profit === 2500.0, 'Cas E: 2,500 ISK gross profit');
+    assert(outcome.data_state === 'VALID', 'Cas E: data_state is VALID');
+    console.log('  [PASS] Cas E: FIFO temporel complexe verified.');
+  }
+
+  // Cas F: Timestamp identique & Tie-breaker (transaction_id ASC)
+  {
+    console.log('\n--- Cas F: Timestamp identique & Tie-breaker (transaction_id ASC) ---');
+    const sameTimestamp = '2026-09-20T10:00:00Z';
+
+    // Subcase F1: Multiple buys with same timestamp consumed in transaction_id ASC order
+    const buyLowTx: ExecutionTransactionRef = {
+      transaction_id: 1010,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: true,
+      quantity: 50,
+      unit_price: 10.0,
+      timestamp: sameTimestamp,
+    };
+    const buyHighTx: ExecutionTransactionRef = {
+      transaction_id: 1020,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: true,
+      quantity: 50,
+      unit_price: 15.0,
+      timestamp: sameTimestamp,
+    };
+    const sellTx: ExecutionTransactionRef = {
+      transaction_id: 1030,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: false,
+      quantity: 50,
+      unit_price: 20.0,
+      timestamp: sameTimestamp,
+    };
+
+    const recordF1 = createMockExecutionRecord({
+      buyTxs: [buyHighTx, buyLowTx], // Passed unsorted intentionally
+      sellTxs: [sellTx],
+    });
+    const outcomeF1 = RealizedFinancialOutcomeEngine.calculate(recordF1, { financialConfig: mockFinancialConfig });
+
+    assert(outcomeF1.fifo_allocations.length === 1, 'Subcase F1: 1 allocation');
+    assert(outcomeF1.fifo_allocations[0].buy_transaction_id === 1010, 'Subcase F1: tx 1010 consumed first (transaction_id ASC)');
+    assert(outcomeF1.fifo_allocations[0].buy_unit_price === 10.0, 'Subcase F1: cost basis from lower tx_id lot');
+    assert(outcomeF1.remaining_lots[0].buy_transaction_id === 1020, 'Subcase F1: lot 1020 remains unconsumed');
+
+    // Subcase F2: SELL with transaction_id < BUY at same timestamp cannot consume the buy
+    const earlySellSameTime: ExecutionTransactionRef = {
+      transaction_id: 1005,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: false,
+      quantity: 50,
+      unit_price: 20.0,
+      timestamp: sameTimestamp,
+    };
+    const lateBuySameTime: ExecutionTransactionRef = {
+      transaction_id: 1006,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: true,
+      quantity: 50,
+      unit_price: 10.0,
+      timestamp: sameTimestamp,
+    };
+
+    const recordF2 = createMockExecutionRecord({
+      buyTxs: [lateBuySameTime],
+      sellTxs: [earlySellSameTime],
+    });
+    const outcomeF2 = RealizedFinancialOutcomeEngine.calculate(recordF2, { financialConfig: mockFinancialConfig });
+
+    // Causal tie-breaker: tx 1005 (sell) < tx 1006 (buy), so sell occurred before buy!
+    assert(outcomeF2.matched_quantity === 0, 'Subcase F2: 0 matched (sell has lower tx_id than buy)');
+    assert(outcomeF2.unmatched_sell_quantity === 50, 'Subcase F2: 50 unmatched sell');
+    assert(outcomeF2.data_state === 'PARTIAL', 'Subcase F2: data_state is PARTIAL');
+
+    // Subcase F3: BUY with transaction_id < SELL at same timestamp CAN be consumed
+    const earlyBuySameTime: ExecutionTransactionRef = {
+      transaction_id: 1007,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: true,
+      quantity: 50,
+      unit_price: 10.0,
+      timestamp: sameTimestamp,
+    };
+    const lateSellSameTime: ExecutionTransactionRef = {
+      transaction_id: 1008,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: false,
+      quantity: 50,
+      unit_price: 20.0,
+      timestamp: sameTimestamp,
+    };
+
+    const recordF3 = createMockExecutionRecord({
+      buyTxs: [earlyBuySameTime],
+      sellTxs: [lateSellSameTime],
+    });
+    const outcomeF3 = RealizedFinancialOutcomeEngine.calculate(recordF3, { financialConfig: mockFinancialConfig });
+
+    // Buy tx 1007 < sell tx 1008: causally eligible
+    assert(outcomeF3.matched_quantity === 50, 'Subcase F3: 50 matched (buy has lower tx_id than sell)');
+    assert(outcomeF3.unmatched_sell_quantity === 0, 'Subcase F3: 0 unmatched sell');
+    assert(outcomeF3.data_state === 'VALID', 'Subcase F3: data_state is VALID');
+
+    console.log('  [PASS] Cas F: Timestamp identique & tie-breaker (transaction_id ASC) verified.');
+  }
+
+  // Adversarial & Robustness Tests
+  {
+    console.log('\n--- Adversarial & Edge Cases ---');
+
+    // Adv 1: Non-chronological shuffled transaction arrays
+    const b1: ExecutionTransactionRef = { transaction_id: 101, type_id: 34, location_id: 60003760, is_buy: true, quantity: 100, unit_price: 10, timestamp: '2026-09-20T08:00:00Z' };
+    const b2: ExecutionTransactionRef = { transaction_id: 102, type_id: 34, location_id: 60003760, is_buy: true, quantity: 100, unit_price: 20, timestamp: '2026-09-20T09:00:00Z' };
+    const s1: ExecutionTransactionRef = { transaction_id: 201, type_id: 34, location_id: 60003760, is_buy: false, quantity: 150, unit_price: 30, timestamp: '2026-09-20T10:00:00Z' };
+
+    // Pass in reverse order
+    const shuffledRecord = createMockExecutionRecord({
+      buyTxs: [b2, b1],
+      sellTxs: [s1],
+    });
+    const sortedRecord = createMockExecutionRecord({
+      buyTxs: [b1, b2],
+      sellTxs: [s1],
+    });
+
+    const resShuffled = RealizedFinancialOutcomeEngine.calculate(shuffledRecord, { financialConfig: mockFinancialConfig });
+    const resSorted = RealizedFinancialOutcomeEngine.calculate(sortedRecord, { financialConfig: mockFinancialConfig });
+
+    assert(resShuffled.realized_acquisition_cost === resSorted.realized_acquisition_cost, 'Adv 1: Sorting determinism for cost');
+    assert(resShuffled.fifo_allocations[0].buy_transaction_id === 101, 'Adv 1: Earlier buy lot 101 consumed first despite array ordering');
+
+    // Adv 2: Non-finite and negative inputs clamped defensively
+    const degenBuy: ExecutionTransactionRef = {
+      transaction_id: 109,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: true,
+      quantity: -50, // Negative quantity
+      unit_price: NaN, // NaN price
+      timestamp: '2026-09-20T08:00:00Z',
+    };
+    const degenSell: ExecutionTransactionRef = {
+      transaction_id: 209,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: false,
+      quantity: Infinity, // Non-finite quantity
+      unit_price: -10, // Negative price
+      timestamp: '2026-09-20T09:00:00Z',
+    };
+    const degenRecord = createMockExecutionRecord({ buyTxs: [degenBuy], sellTxs: [degenSell] });
+    const degenOutcome = RealizedFinancialOutcomeEngine.calculate(degenRecord, { financialConfig: mockFinancialConfig });
+
+    assert(Number.isFinite(degenOutcome.gross_realized_profit), 'Adv 2: No NaN or Infinity propagation');
+    assert(Number.isFinite(degenOutcome.roi), 'Adv 2: Finite ROI');
+    assert(Number.isFinite(degenOutcome.margin), 'Adv 2: Finite margin');
+
+    // Adv 3: Financial completeness taxonomy verification
+    // 3.1: UNAVAILABLE when no config
+    const noConfigOutcome = RealizedFinancialOutcomeEngine.calculate(sortedRecord);
+    assert(noConfigOutcome.financial_completeness === 'UNAVAILABLE', 'Adv 3.1: Completeness is UNAVAILABLE without config');
+    assert(noConfigOutcome.realized_net_estimated === null, 'Adv 3.1: realized_net_estimated is null (NO DATA != ZERO DATA)');
+    assert(noConfigOutcome.is_financially_complete === false, 'Adv 3.1: Not complete without config');
+
+    // 3.2: ESTIMATED with UNKNOWN execution role
+    const configOutcome = RealizedFinancialOutcomeEngine.calculate(sortedRecord, {
+      financialConfig: mockFinancialConfig,
+      executionFeeMode: 'UNKNOWN',
+    });
+    assert(configOutcome.financial_completeness === 'ESTIMATED', 'Adv 3.2: Completeness is ESTIMATED');
+    assert(configOutcome.is_net_estimated === true, 'Adv 3.2: is_net_estimated is true');
+    assert(configOutcome.fees.is_role_assumed === true, 'Adv 3.2: is_role_assumed is true for UNKNOWN');
+    assert(configOutcome.is_financially_complete === false, 'Adv 3.2: ESTIMATE != OBSERVED FACT');
+
+    // 3.3: Explicit fee roles (MAKER_MAKER vs TAKER_TAKER)
+    const makerOutcome = RealizedFinancialOutcomeEngine.calculate(sortedRecord, {
+      financialConfig: mockFinancialConfig,
+      executionFeeMode: 'MAKER_MAKER',
+    });
+    const takerOutcome = RealizedFinancialOutcomeEngine.calculate(sortedRecord, {
+      financialConfig: mockFinancialConfig,
+      executionFeeMode: 'TAKER_TAKER',
+    });
+
+    assert(makerOutcome.fees.estimated_buy_broker_fee > 0, 'Adv 3.3: MAKER buy has broker fee');
+    assert(makerOutcome.fees.estimated_sell_broker_fee > 0, 'Adv 3.3: MAKER sell has broker fee');
+    assert(takerOutcome.fees.estimated_buy_broker_fee === 0, 'Adv 3.3: TAKER buy has 0% broker fee');
+    assert(takerOutcome.fees.estimated_sell_broker_fee === 0, 'Adv 3.3: TAKER sell has 0% broker fee');
+    assert(takerOutcome.fees.estimated_sales_tax > 0, 'Adv 3.3: Sales tax applies regardless of role');
+    assert(takerOutcome.net_realized_profit > makerOutcome.net_realized_profit, 'Adv 3.3: Taker net profit > Maker net profit');
+
+    console.log('  [PASS] Adversarial & edge cases verified.');
+  }
+
+  console.log('\n==========================================================================');
+  console.log('ALL CHANTIER 3B-4A & 3B-4A.1 FINANCIAL GATE TESTS (22 + 10 + 6 + 3) PASSED (100%)');
   console.log('==========================================================================');
 }
 

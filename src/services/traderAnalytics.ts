@@ -8,11 +8,16 @@ import {
   EveTypeDetail,
   CharacterExecutionRecord,
   FinancialCompleteness,
+  FinancialConfig,
+  RealizedFeeBreakdown,
+  RealizedFinancialCalculationOptions,
 } from '../types';
 import { CatalogRepository } from '../domain/catalog/CatalogRepository';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
-import { FeeEngine } from '../engine/fee';
-import { RealizedFinancialOutcomeEngine } from '../engine/realizedFinancialOutcome';
+import {
+  RealizedFinancialOutcomeEngine,
+  CrossCharacterFinancialMappingViolationError,
+} from '../engine/realizedFinancialOutcome';
 import { roundIsk, safeDiv } from '../engine/money';
 
 const STORAGE_KEY_PREFIX = 'eve_trader_analytics_';
@@ -22,6 +27,7 @@ export class TraderAnalyticsService {
    * Matches buy and sell transactions chronologically (causal FIFO with RealizedFinancialOutcomeEngine)
    * to compute actual realized P&L cycles for each traded item.
    * Delegated 100% to RealizedFinancialOutcomeEngine as single source of truth.
+   * Eliminates any concurrent or secondary financial calculations in TraderAnalyticsService.
    */
   static processTransactions(
     characterId: number,
@@ -29,9 +35,25 @@ export class TraderAnalyticsService {
     transactions: EveCharacterTransaction[],
     orderHistory: EveCharacterOrderHistory[] = [],
     journalEntries: EveCharacterJournalEntry[] = [],
-    accountingLevel: number = 4,
-    brokerRelationsLevel: number = 4
+    accountingLevel?: number,
+    brokerRelationsLevel?: number,
+    options?: RealizedFinancialCalculationOptions
   ): TraderPerformanceMetrics {
+    // 1. Cross-character isolation: reject foreign transactions immediately
+    for (const tx of transactions) {
+      const txCharId =
+        'character_id' in tx && (tx as any).character_id !== undefined
+          ? (tx as any).character_id
+          : characterId;
+      if (txCharId !== characterId) {
+        throw new CrossCharacterFinancialMappingViolationError(
+          txCharId,
+          characterId,
+          tx.transaction_id
+        );
+      }
+    }
+
     // Sort transactions deterministically: timestamp ASC, transaction_id ASC
     const sortedTx = [...transactions].sort(
       (a, b) =>
@@ -94,9 +116,33 @@ export class TraderAnalyticsService {
     let hasPartial = false;
     let hasUnavailable = false;
 
-    // Rates via FeeEngine for cycle decomposition
-    const salesTaxRate = FeeEngine.calculateSalesTaxRate(accountingLevel);
-    const brokerFeeRate = FeeEngine.calculateNpcBrokerFeeRate(brokerRelationsLevel, 0, 0);
+    // Determine effective financial configuration
+    let effectiveFinancialConfig: Partial<FinancialConfig> | undefined;
+    if (options && 'financialConfig' in options) {
+      effectiveFinancialConfig = options.financialConfig;
+    } else if (accountingLevel !== undefined && brokerRelationsLevel !== undefined) {
+      effectiveFinancialConfig = {
+        accounting_level: accountingLevel,
+        broker_relations_level: brokerRelationsLevel,
+        enable_transport_costs: false,
+      };
+    } else if (accountingLevel === undefined && brokerRelationsLevel === undefined && !options) {
+      // Default convenience fallback if omitted completely
+      effectiveFinancialConfig = {
+        accounting_level: 4,
+        broker_relations_level: 4,
+        enable_transport_costs: false,
+      };
+    } else {
+      effectiveFinancialConfig = undefined;
+    }
+
+    const calcOptions: RealizedFinancialCalculationOptions = {
+      financialConfig: effectiveFinancialConfig,
+      executionFeeMode: options?.executionFeeMode ?? 'MAKER_MAKER',
+      buyLocationProfile: options?.buyLocationProfile,
+      sellLocationProfile: options?.sellLocationProfile,
+    };
 
     for (const [typeIdStr, typeTxs] of Object.entries(txByType)) {
       const typeId = Number(typeIdStr);
@@ -109,19 +155,12 @@ export class TraderAnalyticsService {
       const categoryInfo = typeInfo ? CatalogRepository.getInstance().getCategory(typeInfo.category_id) : null;
       const categoryName = typeInfo?.category_name || categoryInfo?.name || 'Général';
 
-      // Delegate calculation to RealizedFinancialOutcomeEngine
+      // Delegate calculation 100% to RealizedFinancialOutcomeEngine as sole source of truth
       const outcome = RealizedFinancialOutcomeEngine.calculateForTransactions(
         characterId,
         typeId,
         typeTxs,
-        {
-          financialConfig: {
-            accounting_level: accountingLevel,
-            broker_relations_level: brokerRelationsLevel,
-            enable_transport_costs: false,
-          },
-          executionFeeMode: 'MAKER_MAKER',
-        }
+        calcOptions
       );
 
       totalRealizedGross += outcome.gross_realized_profit;
@@ -140,7 +179,7 @@ export class TraderAnalyticsService {
         hasUnavailable = true;
       }
 
-      // Group allocations by sell_transaction_id to produce completed trade cycles
+      // Group allocations by sell_transaction_id to derive trade cycles directly from engine output
       const allocationsBySellTx: Record<number, typeof outcome.fifo_allocations[number][]> = {};
       for (const alloc of outcome.fifo_allocations) {
         if (!allocationsBySellTx[alloc.sell_transaction_id]) {
@@ -150,6 +189,17 @@ export class TraderAnalyticsService {
       }
 
       const sellTxs = typeTxs.filter((t) => !t.is_buy);
+      const matchedSellTxs = sellTxs.filter(
+        (tx) => (allocationsBySellTx[tx.transaction_id]?.length ?? 0) > 0
+      );
+      const numMatched = matchedSellTxs.length;
+
+      let allocatedBuyBrokerFee = 0;
+      let allocatedSellBrokerFee = 0;
+      let allocatedSalesTax = 0;
+      let allocatedTotalFees = 0;
+      let allocatedNetProfit = 0;
+
       for (const sellTx of sellTxs) {
         const allocs = allocationsBySellTx[sellTx.transaction_id] || [];
         const matchedQty = allocs.reduce((sum, a) => sum + a.allocated_quantity, 0);
@@ -158,17 +208,69 @@ export class TraderAnalyticsService {
         if (matchedQty === 0 && unmatchedQty === 0) continue;
 
         if (matchedQty > 0) {
-          const totalBuyCost = allocs.reduce((sum, a) => sum + a.gross_cost, 0);
-          const totalSellRevenue = allocs.reduce((sum, a) => sum + a.gross_revenue, 0);
-          const grossProfit = totalSellRevenue - totalBuyCost;
+          const matchedIndex = matchedSellTxs.indexOf(sellTx);
+          const isLastMatched = matchedIndex === numMatched - 1;
 
-          // Fees for this specific cycle calculated using FeeEngine rates (Maker assumption for station trading)
-          const cycleBuyBrokerFee = FeeEngine.brokerCost(totalBuyCost, brokerFeeRate);
-          const cycleSellBrokerFee = FeeEngine.brokerCost(totalSellRevenue, brokerFeeRate);
-          const cycleSalesTax = FeeEngine.salesTaxCost(totalSellRevenue, salesTaxRate);
-          const cycleFees = roundIsk(cycleBuyBrokerFee + cycleSellBrokerFee + cycleSalesTax);
-          const netProfit = roundIsk(grossProfit - cycleFees);
+          // Derive acquisition cost, revenue, and gross profit directly from FIFO allocations
+          const totalBuyCost = roundIsk(allocs.reduce((sum, a) => sum + a.gross_cost, 0));
+          const totalSellRevenue = roundIsk(allocs.reduce((sum, a) => sum + a.gross_revenue, 0));
+          const grossProfit = roundIsk(totalSellRevenue - totalBuyCost);
+
+          // Attribute fees and net profit directly from outcome.fees and outcome.net_realized_profit
+          // No FeeEngine recalculation — strictly derived from central engine
+          let cycleBuyBrokerFee: number;
+          let cycleSellBrokerFee: number;
+          let cycleSalesTax: number;
+          let cycleFees: number;
+          let netProfit: number;
+
+          if (outcome.fees.fee_mode === 'UNAVAILABLE') {
+            cycleBuyBrokerFee = 0;
+            cycleSellBrokerFee = 0;
+            cycleSalesTax = 0;
+            cycleFees = 0;
+            netProfit = grossProfit;
+          } else if (numMatched === 1) {
+            cycleBuyBrokerFee = outcome.fees.estimated_buy_broker_fee;
+            cycleSellBrokerFee = outcome.fees.estimated_sell_broker_fee;
+            cycleSalesTax = outcome.fees.estimated_sales_tax;
+            cycleFees = outcome.fees.estimated_total_fees;
+            netProfit = outcome.net_realized_profit;
+          } else if (!isLastMatched) {
+            const propBuy =
+              outcome.realized_acquisition_cost > 0
+                ? totalBuyCost / outcome.realized_acquisition_cost
+                : 0;
+            const propSell =
+              outcome.realized_revenue > 0 ? totalSellRevenue / outcome.realized_revenue : 0;
+            cycleBuyBrokerFee = roundIsk(outcome.fees.estimated_buy_broker_fee * propBuy);
+            cycleSellBrokerFee = roundIsk(outcome.fees.estimated_sell_broker_fee * propSell);
+            cycleSalesTax = roundIsk(outcome.fees.estimated_sales_tax * propSell);
+            cycleFees = roundIsk(cycleBuyBrokerFee + cycleSellBrokerFee + cycleSalesTax);
+            netProfit = roundIsk(grossProfit - cycleFees);
+
+            allocatedBuyBrokerFee += cycleBuyBrokerFee;
+            allocatedSellBrokerFee += cycleSellBrokerFee;
+            allocatedSalesTax += cycleSalesTax;
+            allocatedTotalFees += cycleFees;
+            allocatedNetProfit += netProfit;
+          } else {
+            // Last matched cycle absorbs remainder for exact conservation:
+            // Σ cycle.fees == outcome.fees.estimated_total_fees
+            // Σ cycle.net_profit == outcome.net_realized_profit
+            cycleBuyBrokerFee = roundIsk(
+              outcome.fees.estimated_buy_broker_fee - allocatedBuyBrokerFee
+            );
+            cycleSellBrokerFee = roundIsk(
+              outcome.fees.estimated_sell_broker_fee - allocatedSellBrokerFee
+            );
+            cycleSalesTax = roundIsk(outcome.fees.estimated_sales_tax - allocatedSalesTax);
+            cycleFees = roundIsk(outcome.fees.estimated_total_fees - allocatedTotalFees);
+            netProfit = roundIsk(outcome.net_realized_profit - allocatedNetProfit);
+          }
+
           const roi = totalBuyCost > 0 ? safeDiv(netProfit, totalBuyCost, 0) : 0;
+          const isProfitable = netProfit > 0;
 
           const weightedBuyTimeMs =
             allocs.reduce(
@@ -190,7 +292,6 @@ export class TraderAnalyticsService {
             UniverseRepository.getInstance().getStationNameSync(sellTx.location_id || 0) ||
             'Station Inconnue';
 
-          const isProfitable = netProfit > 0;
           const cycleCompleteness: FinancialCompleteness =
             unmatchedQty > 0 ? 'PARTIAL' : outcome.financial_completeness;
 
@@ -204,9 +305,9 @@ export class TraderAnalyticsService {
             quantity: matchedQty,
             avg_buy_price: matchedQty > 0 ? totalBuyCost / matchedQty : 0,
             avg_sell_price: matchedQty > 0 ? totalSellRevenue / matchedQty : 0,
-            total_buy_cost: roundIsk(totalBuyCost),
-            total_sell_revenue: roundIsk(totalSellRevenue),
-            gross_profit: roundIsk(grossProfit),
+            total_buy_cost: totalBuyCost,
+            total_sell_revenue: totalSellRevenue,
+            gross_profit: grossProfit,
             estimated_fees_paid: cycleFees,
             net_profit: netProfit,
             roi: roi,
@@ -245,13 +346,14 @@ export class TraderAnalyticsService {
               total_volume_units: 0,
             };
           }
-          itemProfitMap[typeId].total_profit += netProfit;
+          itemProfitMap[typeId].total_profit = roundIsk(itemProfitMap[typeId].total_profit + netProfit);
           itemProfitMap[typeId].trades_count += 1;
           itemProfitMap[typeId].rois.push(roi);
           itemProfitMap[typeId].hold_days_list.push(holdDays);
           itemProfitMap[typeId].total_volume_units += matchedQty;
         } else {
-          // completely unmatched sell: NO prior buy lots matched
+          // Completely unmatched sell: NO prior buy lots matched (orphan/oversold)
+          // INVARIANT: No synthetic buy price, cost basis, or fake profit is fabricated.
           const sellLocation =
             sellTx.location_name ||
             UniverseRepository.getInstance().getStationNameSync(sellTx.location_id || 0) ||
@@ -268,7 +370,7 @@ export class TraderAnalyticsService {
             avg_buy_price: 0,
             avg_sell_price: sellTx.unit_price,
             total_buy_cost: 0,
-            total_sell_revenue: roundIsk(sellTx.quantity * sellTx.unit_price),
+            total_sell_revenue: 0,
             gross_profit: 0,
             estimated_fees_paid: 0,
             net_profit: 0,
@@ -278,7 +380,7 @@ export class TraderAnalyticsService {
             buy_location: 'Inconnu (Sans Achat Antérieur)',
             sell_location: sellLocation,
             financial_completeness: 'PARTIAL',
-            is_net_estimated: true,
+            is_net_estimated: outcome.is_net_estimated,
             fees_breakdown: {
               fee_mode: outcome.fees.fee_mode,
               fee_source: outcome.fees.fee_source,
@@ -467,9 +569,10 @@ export class TraderAnalyticsService {
     characterId: number,
     characterName: string,
     records: readonly CharacterExecutionRecord[],
-    accountingLevel: number = 4,
-    brokerRelationsLevel: number = 4,
-    orderHistory: EveCharacterOrderHistory[] = []
+    accountingLevel?: number,
+    brokerRelationsLevel?: number,
+    orderHistory: EveCharacterOrderHistory[] = [],
+    options?: RealizedFinancialCalculationOptions
   ): TraderPerformanceMetrics {
     const allTxs: EveCharacterTransaction[] = [];
     for (const rec of records) {
@@ -508,7 +611,8 @@ export class TraderAnalyticsService {
       orderHistory,
       [],
       accountingLevel,
-      brokerRelationsLevel
+      brokerRelationsLevel,
+      options
     );
   }
 

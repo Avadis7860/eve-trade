@@ -49,6 +49,7 @@ import {
 import { ExecutionTrackingService } from '../../services/executionTrackingService';
 import { IndexedDbStore } from '../../services/indexedDbStore';
 import { TraderAnalyticsService } from '../../services/traderAnalytics';
+import { roundIsk } from '../money';
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
@@ -1464,8 +1465,308 @@ async function runAllTests() {
     console.log('  [PASS] Gate 3B-4A.2.5: Causal FIFO temporal enforcement verified.');
   }
 
+  // ==========================================================================
+  // CHANTIER 3B-4A.3: CONSUMER ACCOUNTING INTEGRITY GATE TESTS (10 TESTS)
+  // ==========================================================================
   console.log('\n==========================================================================');
-  console.log('ALL CHANTIER 3B-4A, 3B-4A.1 & 3B-4A.2 FINANCIAL GATE TESTS PASSED (100%)');
+  console.log('--- RUNNING CHANTIER 3B-4A.3 CONSUMER ACCOUNTING INTEGRITY GATE (1 -> 10) ---');
+  console.log('==========================================================================');
+
+  // Test 1 — Source unique: Le résultat du cycle dérivé est cohérent avec RealizedFinancialOutcome
+  {
+    console.log('--- Test 1: Source Unique (Cycle Dérivé vs RealizedFinancialOutcome) ---');
+    const charId = 2112001;
+    const txs: EveCharacterTransaction[] = [
+      { transaction_id: 6101, date: '2026-09-20T10:00:00Z', type_id: 34, location_id: 60003760, unit_price: 100, quantity: 200, is_buy: true, is_personal: true, client_id: 1 },
+      { transaction_id: 6102, date: '2026-09-20T12:00:00Z', type_id: 34, location_id: 60003760, unit_price: 160, quantity: 200, is_buy: false, is_personal: true, client_id: 2 },
+    ];
+    const calcOpts = {
+      financialConfig: { accounting_level: 5, broker_relations_level: 5, enable_transport_costs: false },
+      executionFeeMode: 'MAKER_MAKER' as const,
+    };
+
+    const outcome = RealizedFinancialOutcomeEngine.calculateForTransactions(charId, 34, txs, calcOpts);
+    const metrics = TraderAnalyticsService.processTransactions(charId, 'Test Pilot', txs, [], [], 5, 5, calcOpts);
+
+    assert(metrics.recent_trade_cycles.length === 1, 'Exactly 1 trade cycle created');
+    const cycle = metrics.recent_trade_cycles[0];
+
+    assert(cycle.net_profit === outcome.net_realized_profit, `Cycle net profit (${cycle.net_profit}) matches outcome (${outcome.net_realized_profit})`);
+    assert(cycle.gross_profit === outcome.gross_realized_profit, `Cycle gross profit matches outcome`);
+    assert(cycle.estimated_fees_paid === outcome.fees.estimated_total_fees, `Cycle fees match outcome total fees`);
+    assert(cycle.total_buy_cost === outcome.realized_acquisition_cost, `Cycle buy cost matches outcome acquisition cost`);
+    assert(cycle.total_sell_revenue === outcome.realized_revenue, `Cycle sell revenue matches outcome revenue`);
+    assert(cycle.financial_completeness === outcome.financial_completeness, `Cycle financial completeness matches outcome`);
+    assert(cycle.is_net_estimated === outcome.is_net_estimated, `Cycle is_net_estimated matches outcome`);
+
+    console.log('  [PASS] Test 1: Source unique verified with exact correspondence.');
+  }
+
+  // Test 2 — Agrégation: La somme des cycles correspond au résultat du moteur
+  {
+    console.log('--- Test 2: Agrégation (Somme des Cycles == Résultat Moteur) ---');
+    const charId = 2112001;
+    // 1 buy lot, 3 consecutive sell transactions
+    const txs: EveCharacterTransaction[] = [
+      { transaction_id: 6201, date: '2026-09-20T08:00:00Z', type_id: 34, location_id: 60003760, unit_price: 100, quantity: 1000, is_buy: true, is_personal: true, client_id: 1 },
+      { transaction_id: 6202, date: '2026-09-20T10:00:00Z', type_id: 34, location_id: 60003760, unit_price: 140, quantity: 300, is_buy: false, is_personal: true, client_id: 2 },
+      { transaction_id: 6203, date: '2026-09-20T12:00:00Z', type_id: 34, location_id: 60003760, unit_price: 150, quantity: 400, is_buy: false, is_personal: true, client_id: 3 },
+      { transaction_id: 6204, date: '2026-09-20T14:00:00Z', type_id: 34, location_id: 60003760, unit_price: 160, quantity: 300, is_buy: false, is_personal: true, client_id: 4 },
+    ];
+    const calcOpts = {
+      financialConfig: { accounting_level: 5, broker_relations_level: 5, enable_transport_costs: false },
+      executionFeeMode: 'MAKER_MAKER' as const,
+    };
+
+    const outcome = RealizedFinancialOutcomeEngine.calculateForTransactions(charId, 34, txs, calcOpts);
+    const metrics = TraderAnalyticsService.processTransactions(charId, 'Test Pilot', txs, [], [], 5, 5, calcOpts);
+
+    assert(metrics.recent_trade_cycles.length === 3, 'Exactly 3 cycles for 3 sales');
+
+    const sumCycleNetProfit = roundIsk(metrics.recent_trade_cycles.reduce((sum, c) => sum + c.net_profit, 0));
+    const sumCycleGrossProfit = roundIsk(metrics.recent_trade_cycles.reduce((sum, c) => sum + c.gross_profit, 0));
+    const sumCycleFees = roundIsk(metrics.recent_trade_cycles.reduce((sum, c) => sum + c.estimated_fees_paid, 0));
+
+    assert(sumCycleNetProfit === outcome.net_realized_profit, `Sum of cycle net profit (${sumCycleNetProfit}) equals outcome (${outcome.net_realized_profit})`);
+    assert(sumCycleGrossProfit === outcome.gross_realized_profit, `Sum of cycle gross profit (${sumCycleGrossProfit}) equals outcome (${outcome.gross_realized_profit})`);
+    assert(sumCycleFees === outcome.fees.estimated_total_fees, `Sum of cycle fees (${sumCycleFees}) equals outcome fees (${outcome.fees.estimated_total_fees})`);
+
+    console.log('  [PASS] Test 2: Agrégation verified with exact ISK conservation.');
+  }
+
+  // Test 3 — Multi-lots: Plusieurs allocations d'une même vente restent cohérentes avec le résultat global
+  {
+    console.log('--- Test 3: Multi-Lots (Plusieurs Allocations pour une Vente) ---');
+    const charId = 2112001;
+    // 3 buy lots at different prices, 1 single sell covering all of them
+    const txs: EveCharacterTransaction[] = [
+      { transaction_id: 6301, date: '2026-09-20T08:00:00Z', type_id: 34, location_id: 60003760, unit_price: 10, quantity: 100, is_buy: true, is_personal: true, client_id: 1 },
+      { transaction_id: 6302, date: '2026-09-20T09:00:00Z', type_id: 34, location_id: 60003760, unit_price: 12, quantity: 150, is_buy: true, is_personal: true, client_id: 2 },
+      { transaction_id: 6303, date: '2026-09-20T10:00:00Z', type_id: 34, location_id: 60003760, unit_price: 15, quantity: 200, is_buy: true, is_personal: true, client_id: 3 },
+      { transaction_id: 6304, date: '2026-09-20T12:00:00Z', type_id: 34, location_id: 60003760, unit_price: 25, quantity: 350, is_buy: false, is_personal: true, client_id: 4 },
+    ];
+    const calcOpts = {
+      financialConfig: { accounting_level: 5, broker_relations_level: 5, enable_transport_costs: false },
+      executionFeeMode: 'MAKER_MAKER' as const,
+    };
+
+    const outcome = RealizedFinancialOutcomeEngine.calculateForTransactions(charId, 34, txs, calcOpts);
+    const metrics = TraderAnalyticsService.processTransactions(charId, 'Test Pilot', txs, [], [], 5, 5, calcOpts);
+
+    assert(outcome.fifo_allocations.length === 3, 'Outcome has 3 FIFO allocations');
+    assert(metrics.recent_trade_cycles.length === 1, 'Single cycle produced for the single sell');
+    const cycle = metrics.recent_trade_cycles[0];
+
+    // Cost: 100*10 + 150*12 + 100*15 = 1000 + 1800 + 1500 = 4300 ISK
+    assert(cycle.total_buy_cost === 4300, `Buy cost matches 4300 ISK (got ${cycle.total_buy_cost})`);
+    // Revenue: 350 * 25 = 8750 ISK
+    assert(cycle.total_sell_revenue === 8750, `Sell revenue matches 8750 ISK`);
+    assert(cycle.quantity === 350, `Cycle quantity is 350`);
+    assert(cycle.net_profit === outcome.net_realized_profit, `Net profit matches outcome`);
+    assert(cycle.estimated_fees_paid === outcome.fees.estimated_total_fees, `Estimated fees match outcome`);
+
+    console.log('  [PASS] Test 3: Multi-lots allocation consistency verified.');
+  }
+
+  // Test 4 — PARTIAL: Une vente excédentaire conserve unmatched_sell_quantity, financial_completeness = PARTIAL sans fabrication de coût
+  {
+    console.log('--- Test 4: PARTIAL (Vente Excédentaire sans Fabrication de Coût) ---');
+    const charId = 2112001;
+    const txs: EveCharacterTransaction[] = [
+      { transaction_id: 6401, date: '2026-09-20T10:00:00Z', type_id: 34, location_id: 60003760, unit_price: 100, quantity: 100, is_buy: true, is_personal: true, client_id: 1 },
+      { transaction_id: 6402, date: '2026-09-20T12:00:00Z', type_id: 34, location_id: 60003760, unit_price: 150, quantity: 250, is_buy: false, is_personal: true, client_id: 2 },
+    ];
+    const calcOpts = {
+      financialConfig: { accounting_level: 5, broker_relations_level: 5, enable_transport_costs: false },
+      executionFeeMode: 'MAKER_MAKER' as const,
+    };
+
+    const metrics = TraderAnalyticsService.processTransactions(charId, 'Test Pilot', txs, [], [], 5, 5, calcOpts);
+
+    assert(metrics.has_unmatched_trades === true, 'has_unmatched_trades is true');
+    assert(metrics.unmatched_trades_count === 1, 'unmatched_trades_count is 1');
+    assert(metrics.financial_completeness === 'PARTIAL', 'Overall metrics marked as PARTIAL');
+
+    const cycle = metrics.recent_trade_cycles[0];
+    assert(cycle.financial_completeness === 'PARTIAL', 'Cycle marked as PARTIAL');
+    assert(cycle.quantity === 100, 'Matched quantity is strictly 100');
+    assert(cycle.unmatched_sell_quantity === 150, 'Unmatched quantity is strictly 150');
+    assert(cycle.total_buy_cost === 10000, 'Total buy cost is strictly 100 * 100 = 10000 ISK (no fabricated cost for remaining 150)');
+    assert(cycle.avg_buy_price === 100, 'Avg buy price is real 100 ISK');
+
+    console.log('  [PASS] Test 4: PARTIAL trade preserves unmatched quantity without cost fabrication.');
+  }
+
+  // Test 5 — UNAVAILABLE: Une absence de configuration ne devient jamais frais = 0 réellement observés
+  {
+    console.log('--- Test 5: UNAVAILABLE (Absence de Configuration != 0 Frais Observés) ---');
+    const charId = 2112001;
+    const txs: EveCharacterTransaction[] = [
+      { transaction_id: 6501, date: '2026-09-20T10:00:00Z', type_id: 34, location_id: 60003760, unit_price: 100, quantity: 100, is_buy: true, is_personal: true, client_id: 1 },
+      { transaction_id: 6502, date: '2026-09-20T12:00:00Z', type_id: 34, location_id: 60003760, unit_price: 150, quantity: 100, is_buy: false, is_personal: true, client_id: 2 },
+    ];
+
+    // Explicitly pass undefined financialConfig
+    const metrics = TraderAnalyticsService.processTransactions(
+      charId,
+      'Test Pilot',
+      txs,
+      [],
+      [],
+      undefined,
+      undefined,
+      { financialConfig: undefined }
+    );
+
+    assert(metrics.financial_completeness === 'UNAVAILABLE', `Metrics completeness is UNAVAILABLE (got ${metrics.financial_completeness})`);
+    assert(metrics.recent_trade_cycles.length === 1, '1 cycle produced');
+    const cycle = metrics.recent_trade_cycles[0];
+    assert(cycle.financial_completeness === 'UNAVAILABLE', `Cycle completeness is UNAVAILABLE (got ${cycle.financial_completeness})`);
+    assert(cycle.fees_breakdown?.fee_mode === 'UNAVAILABLE', `Fees breakdown fee_mode is UNAVAILABLE`);
+    assert(cycle.estimated_fees_paid === 0, 'Estimated fees paid is 0');
+    assert(cycle.financial_completeness !== 'OBSERVED', 'Absence of config is NOT falsely marked as OBSERVED');
+
+    console.log('  [PASS] Test 5: UNAVAILABLE mode cleanly differentiated from observed zero fees.');
+  }
+
+  // Test 6 — ESTIMATED: Les frais calculés avec configuration restent explicitement identifiés comme estimation
+  {
+    console.log('--- Test 6: ESTIMATED (Identification Explicite comme Estimation) ---');
+    const charId = 2112001;
+    const txs: EveCharacterTransaction[] = [
+      { transaction_id: 6601, date: '2026-09-20T10:00:00Z', type_id: 34, location_id: 60003760, unit_price: 1000, quantity: 10, is_buy: true, is_personal: true, client_id: 1 },
+      { transaction_id: 6602, date: '2026-09-20T12:00:00Z', type_id: 34, location_id: 60003760, unit_price: 1500, quantity: 10, is_buy: false, is_personal: true, client_id: 2 },
+    ];
+
+    const metrics = TraderAnalyticsService.processTransactions(charId, 'Test Pilot', txs, [], [], 5, 5);
+
+    assert(metrics.financial_completeness === 'ESTIMATED', 'Overall completeness is ESTIMATED');
+    const cycle = metrics.recent_trade_cycles[0];
+    assert(cycle.financial_completeness === 'ESTIMATED', 'Cycle completeness is ESTIMATED');
+    assert(cycle.is_net_estimated === true, 'is_net_estimated is explicitly true');
+    assert(cycle.fees_breakdown?.fee_source === 'CONFIG_ESTIMATE', 'Fee source is CONFIG_ESTIMATE');
+    assert(cycle.fees_breakdown?.fee_mode === 'ESTIMATED', 'Fee mode is ESTIMATED');
+    assert(cycle.estimated_fees_paid > 0, 'Estimated fees paid is greater than 0');
+
+    console.log('  [PASS] Test 6: ESTIMATED fees explicitly provenance-tracked.');
+  }
+
+  // Test 7 — Déterminisme: Deux appels successifs avec les mêmes transactions produisent le même résultat
+  {
+    console.log('--- Test 7: Déterminisme (Invariance sur Appels Répétés) ---');
+    const charId = 2112001;
+    const txs: EveCharacterTransaction[] = [
+      { transaction_id: 6701, date: '2026-09-20T08:00:00Z', type_id: 34, location_id: 60003760, unit_price: 100, quantity: 500, is_buy: true, is_personal: true, client_id: 1 },
+      { transaction_id: 6702, date: '2026-09-20T09:00:00Z', type_id: 34, location_id: 60003760, unit_price: 110, quantity: 500, is_buy: true, is_personal: true, client_id: 2 },
+      { transaction_id: 6703, date: '2026-09-20T10:00:00Z', type_id: 34, location_id: 60003760, unit_price: 150, quantity: 800, is_buy: false, is_personal: true, client_id: 3 },
+    ];
+
+    const run1 = TraderAnalyticsService.processTransactions(charId, 'Test Pilot', txs, [], [], 5, 5);
+    const run2 = TraderAnalyticsService.processTransactions(charId, 'Test Pilot', txs, [], [], 5, 5);
+
+    assert(run1.total_realized_profit === run2.total_realized_profit, 'Net profit determinism');
+    assert(run1.total_realized_gross === run2.total_realized_gross, 'Gross profit determinism');
+    assert(run1.total_estimated_fees === run2.total_estimated_fees, 'Estimated fees determinism');
+    assert(run1.total_broker_fees_paid === run2.total_broker_fees_paid, 'Broker fees determinism');
+    assert(run1.total_sales_tax_paid === run2.total_sales_tax_paid, 'Sales tax determinism');
+    assert(run1.recent_trade_cycles.length === run2.recent_trade_cycles.length, 'Cycles count determinism');
+    assert(run1.recent_trade_cycles[0].net_profit === run2.recent_trade_cycles[0].net_profit, 'Cycle net profit determinism');
+
+    console.log('  [PASS] Test 7: Determinism across multiple executions verified.');
+  }
+
+  // Test 8 — Agrégat vs cycles: Démontrer que les métriques globales ne divergent pas des cycles détaillés
+  {
+    console.log('--- Test 8: Agrégat vs Cycles (Concordance Globale Métriques & Cycles) ---');
+    const charId = 2112001;
+    const txs: EveCharacterTransaction[] = [
+      { transaction_id: 6801, date: '2026-09-20T08:00:00Z', type_id: 34, location_id: 60003760, unit_price: 100, quantity: 1000, is_buy: true, is_personal: true, client_id: 1 },
+      { transaction_id: 6802, date: '2026-09-20T09:00:00Z', type_id: 35, location_id: 60003760, unit_price: 200, quantity: 500, is_buy: true, is_personal: true, client_id: 2 },
+      { transaction_id: 6803, date: '2026-09-20T11:00:00Z', type_id: 34, location_id: 60003760, unit_price: 140, quantity: 400, is_buy: false, is_personal: true, client_id: 3 },
+      { transaction_id: 6804, date: '2026-09-20T12:00:00Z', type_id: 34, location_id: 60003760, unit_price: 150, quantity: 600, is_buy: false, is_personal: true, client_id: 4 },
+      { transaction_id: 6805, date: '2026-09-20T14:00:00Z', type_id: 35, location_id: 60003760, unit_price: 260, quantity: 500, is_buy: false, is_personal: true, client_id: 5 },
+    ];
+
+    const metrics = TraderAnalyticsService.processTransactions(charId, 'Test Pilot', txs, [], [], 5, 5);
+
+    assert(metrics.recent_trade_cycles.length === 3, 'Exactly 3 trade cycles');
+
+    const sumCyclesNet = roundIsk(metrics.recent_trade_cycles.reduce((s, c) => s + c.net_profit, 0));
+    const sumCyclesGross = roundIsk(metrics.recent_trade_cycles.reduce((s, c) => s + c.gross_profit, 0));
+    const sumCyclesFees = roundIsk(metrics.recent_trade_cycles.reduce((s, c) => s + c.estimated_fees_paid, 0));
+
+    assert(metrics.total_realized_profit === sumCyclesNet, `total_realized_profit (${metrics.total_realized_profit}) == sum(cycles.net_profit) (${sumCyclesNet})`);
+    assert(metrics.total_realized_gross === sumCyclesGross, `total_realized_gross (${metrics.total_realized_gross}) == sum(cycles.gross_profit) (${sumCyclesGross})`);
+    assert(metrics.total_estimated_fees === sumCyclesFees, `total_estimated_fees (${metrics.total_estimated_fees}) == sum(cycles.fees) (${sumCyclesFees})`);
+
+    // Also check item breakdown matches
+    const type34ProfitFromTopItems = metrics.top_profitable_items.find(i => i.type_id === 34)?.total_profit ?? 0;
+    const type34ProfitFromCycles = roundIsk(metrics.recent_trade_cycles.filter(c => c.type_id === 34).reduce((s, c) => s + c.net_profit, 0));
+    assert(type34ProfitFromTopItems === type34ProfitFromCycles, `Top item profit for type 34 matches sum of type 34 cycles`);
+
+    console.log('  [PASS] Test 8: Aggregates vs detailed cycles concordance verified.');
+  }
+
+  // Test 9 — Multi-type: Le regroupement par type_id ne mélange jamais les inventaires
+  {
+    console.log('--- Test 9: Multi-Type Isolation (Aucun Mélange d Inventaire) ---');
+    const charId = 2112001;
+    const txs: EveCharacterTransaction[] = [
+      { transaction_id: 6901, date: '2026-09-20T10:00:00Z', type_id: 34, location_id: 60003760, unit_price: 5, quantity: 1000, is_buy: true, is_personal: true, client_id: 1 },
+      { transaction_id: 6902, date: '2026-09-20T10:05:00Z', type_id: 37, location_id: 60003760, unit_price: 50, quantity: 500, is_buy: true, is_personal: true, client_id: 2 },
+      { transaction_id: 6903, date: '2026-09-20T12:00:00Z', type_id: 34, location_id: 60003760, unit_price: 8, quantity: 1000, is_buy: false, is_personal: true, client_id: 3 },
+      { transaction_id: 6904, date: '2026-09-20T12:05:00Z', type_id: 37, location_id: 60003760, unit_price: 75, quantity: 500, is_buy: false, is_personal: true, client_id: 4 },
+    ];
+
+    const metrics = TraderAnalyticsService.processTransactions(charId, 'Test Pilot', txs, [], [], 5, 5);
+
+    const cycle34 = metrics.recent_trade_cycles.find(c => c.type_id === 34)!;
+    const cycle37 = metrics.recent_trade_cycles.find(c => c.type_id === 37)!;
+
+    assert(cycle34 !== undefined, 'Type 34 cycle exists');
+    assert(cycle37 !== undefined, 'Type 37 cycle exists');
+
+    assert(cycle34.avg_buy_price === 5, `Type 34 avg buy price is 5 (got ${cycle34.avg_buy_price})`);
+    assert(cycle34.avg_sell_price === 8, `Type 34 avg sell price is 8 (got ${cycle34.avg_sell_price})`);
+    assert(cycle34.total_buy_cost === 5000, `Type 34 buy cost is 5000`);
+    assert(cycle34.total_sell_revenue === 8000, `Type 34 sell revenue is 8000`);
+
+    assert(cycle37.avg_buy_price === 50, `Type 37 avg buy price is 50 (got ${cycle37.avg_buy_price})`);
+    assert(cycle37.avg_sell_price === 75, `Type 37 avg sell price is 75 (got ${cycle37.avg_sell_price})`);
+    assert(cycle37.total_buy_cost === 25000, `Type 37 buy cost is 25000`);
+    assert(cycle37.total_sell_revenue === 37500, `Type 37 sell revenue is 37500`);
+
+    console.log('  [PASS] Test 9: Multi-type inventory strict isolation verified.');
+  }
+
+  // Test 10 — Cross-character isolation: Une transaction appartenant à un autre personnage doit rester rejetée
+  {
+    console.log('--- Test 10: Cross-Character Isolation ---');
+    const charId = 2112001;
+    const foreignCharId = 9999999;
+    const txsWithForeign: (EveCharacterTransaction & { character_id?: number })[] = [
+      { transaction_id: 7001, date: '2026-09-20T10:00:00Z', type_id: 34, location_id: 60003760, unit_price: 100, quantity: 100, is_buy: true, is_personal: true, client_id: 1, character_id: charId },
+      { transaction_id: 7002, date: '2026-09-20T12:00:00Z', type_id: 34, location_id: 60003760, unit_price: 150, quantity: 100, is_buy: false, is_personal: true, client_id: 2, character_id: foreignCharId },
+    ];
+
+    let errorThrown: any = null;
+    try {
+      TraderAnalyticsService.processTransactions(charId, 'Test Pilot', txsWithForeign as EveCharacterTransaction[], [], [], 5, 5);
+    } catch (err) {
+      errorThrown = err;
+    }
+
+    assert(errorThrown !== null, 'Exception was thrown on cross-character transaction');
+    assert(
+      errorThrown instanceof CrossCharacterFinancialMappingViolationError || errorThrown?.name === 'CrossCharacterFinancialMappingViolationError',
+      `Error is CrossCharacterFinancialMappingViolationError (got ${errorThrown?.name})`
+    );
+
+    console.log('  [PASS] Test 10: Cross-character transaction strictly rejected.');
+  }
+
+  console.log('\n==========================================================================');
+  console.log('ALL CHANTIER 3B-4A, 3B-4A.1, 3B-4A.2 & 3B-4A.3 GATE TESTS PASSED (100%)');
   console.log('==========================================================================');
 }
 

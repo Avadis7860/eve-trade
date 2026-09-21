@@ -208,7 +208,7 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                 </div>
               </div>
 
-              {/* Financial Truth & Accounting Decomposition (Chantier 3B-4A.2) */}
+              {/* Financial Truth & Accounting Decomposition (Chantier 3B-4A.2 & 3B-4A.3) */}
               <div className="bg-[#0e1117] p-4 rounded-xl border border-blue-500/20 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="font-bold text-[#fafafa] text-xs flex items-center gap-2">
@@ -216,7 +216,7 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                     <span>Réconciliation Comptable &bull; Décomposition des Frais</span>
                   </div>
                   <span className="text-[10px] text-[#808495] font-mono">
-                    Mode: {metrics.financial_completeness || 'ESTIMATED'} (Frais MAKER)
+                    Mode: {metrics.financial_completeness === 'UNAVAILABLE' ? 'UNAVAILABLE (Non configuré)' : `${metrics.financial_completeness || 'ESTIMATED'} (Frais MAKER)`}
                   </span>
                 </div>
 
@@ -229,17 +229,25 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                   </div>
 
                   <div className="bg-[#161821] p-2.5 rounded-lg border border-[#262730]">
-                    <div className="text-[10px] text-[#808495]">Frais Estimés Déduits</div>
+                    <div className="text-[10px] text-[#808495]">
+                      {metrics.financial_completeness === 'UNAVAILABLE' ? 'Frais (Non Configurés)' : 'Frais Estimés Déduits'}
+                    </div>
                     <div className="text-xs font-bold font-mono text-amber-400 mt-0.5">
-                      -{fmtIsk(metrics.total_estimated_fees ?? (metrics.total_broker_fees_paid + metrics.total_sales_tax_paid))}
+                      {metrics.financial_completeness === 'UNAVAILABLE'
+                        ? 'Non disponibles'
+                        : `-${fmtIsk(metrics.total_estimated_fees ?? (metrics.total_broker_fees_paid + metrics.total_sales_tax_paid))}`}
                     </div>
                     <div className="text-[9px] text-[#808495] mt-0.5 font-mono">
-                      Courtage: {fmtIsk(metrics.total_broker_fees_paid)} | Taxe: {fmtIsk(metrics.total_sales_tax_paid)}
+                      {metrics.financial_completeness === 'UNAVAILABLE'
+                        ? 'Compétences requises pour calcul'
+                        : `Courtage: ${fmtIsk(metrics.total_broker_fees_paid)} | Taxe: ${fmtIsk(metrics.total_sales_tax_paid)}`}
                     </div>
                   </div>
 
                   <div className="bg-[#161821] p-2.5 rounded-lg border border-[#262730]">
-                    <div className="text-[10px] text-[#808495]">Bénéfice Net Réalisé Certifié</div>
+                    <div className="text-[10px] text-[#808495]">
+                      {metrics.financial_completeness === 'UNAVAILABLE' ? 'Bénéfice Réalisé (Hors Frais)' : 'Bénéfice Net Réalisé Certifié'}
+                    </div>
                     <div className="text-xs font-bold font-mono text-emerald-400 mt-0.5">
                       +{fmtIsk(metrics.total_realized_profit)}
                     </div>
@@ -396,9 +404,17 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                                 ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
                                 : cycle.financial_completeness === 'PARTIAL'
                                 ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                                : cycle.financial_completeness === 'UNAVAILABLE'
+                                ? 'bg-zinc-500/15 text-zinc-400 border-zinc-500/30'
                                 : 'bg-blue-500/15 text-blue-400 border-blue-500/30'
                             }`}
-                            title={cycle.is_net_estimated ? 'Frais estimés basés sur compétences' : 'Frais certifiés'}
+                            title={
+                              cycle.financial_completeness === 'UNAVAILABLE'
+                                ? 'Frais non configurés (non disponibles)'
+                                : cycle.is_net_estimated
+                                ? 'Frais estimés basés sur compétences'
+                                : 'Frais certifiés'
+                            }
                           >
                             {cycle.financial_completeness || 'ESTIMATED'}
                           </span>
@@ -414,7 +430,9 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                           <div>{cycle.is_profitable ? `+${fmtIsk(cycle.net_profit)}` : fmtIsk(cycle.net_profit)}</div>
                           {cycle.estimated_fees_paid !== undefined && (
                             <div className="text-[9px] text-[#808495] font-normal font-mono">
-                              Frais: -{fmtIsk(cycle.estimated_fees_paid)}
+                              {cycle.financial_completeness === 'UNAVAILABLE'
+                                ? 'Frais: Non configurés'
+                                : `Frais: -${fmtIsk(cycle.estimated_fees_paid)}`}
                             </div>
                           )}
                         </td>

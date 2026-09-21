@@ -1508,6 +1508,7 @@ export interface TransactionCorrelationCandidate {
 
 export interface TransactionCorrelationResult {
   readonly transaction_id: number;
+  readonly character_id?: number;
   readonly candidate_observation_ids: readonly string[];
   readonly selected_observation_id: string | null;
   readonly match_level: CorrelationMatchLevel;
@@ -1564,4 +1565,69 @@ export interface ExecutionOutcomeCalculationOptions {
   readonly candidate_observation_ids?: readonly string[];
   readonly force_status?: ExecutionStatus;
   readonly linked_order_ids?: readonly number[];
+}
+
+// ==========================================
+// PHASE 2B: CHARACTER-SCOPED EXECUTION TRACKING (CHANTIER 3B-3)
+// ==========================================
+
+export interface CharacterExecutionRecord {
+  readonly execution_id: string; // Deterministic format: "exec_{character_id}_{observation_id}"
+  readonly character_id: number;
+  readonly observation_id: string;
+  readonly opportunity_id: string;
+
+  readonly execution_outcome: OpportunityExecutionOutcome;
+
+  readonly match_level: CorrelationMatchLevel;
+  readonly transaction_ids: readonly number[]; // Explicit list of linked transaction IDs
+
+  readonly first_correlated_at: string; // ISO UTC when first attributed
+  readonly last_updated_at: string;     // ISO UTC when last recomputed/updated
+
+  readonly correlation_engine_version: string; // "1.0.0"
+
+  readonly data_state: 'VALID' | 'PARTIAL' | 'AMBIGUOUS';
+  readonly validation_errors?: readonly string[];
+}
+
+export interface UnassignedTransactionRecord {
+  readonly transaction_id: number;
+  readonly character_id: number;
+  readonly reason: string;
+  readonly match_level: CorrelationMatchLevel;
+  readonly candidate_observation_ids: readonly string[];
+}
+
+export interface ExecutionTrackingSummary {
+  readonly character_id: number;
+  readonly started_at: string;
+  readonly completed_at: string;
+  readonly duration_ms: number;
+
+  readonly transactions_considered: number;
+  readonly transactions_correlated: number;
+
+  readonly direct_matches: number;
+  readonly strong_matches: number;
+  readonly probable_matches: number;
+  readonly ambiguous_matches: number;
+  readonly unmatched_transactions: number;
+
+  readonly execution_records_created: number;
+  readonly execution_records_updated: number;
+
+  readonly execution_records: readonly CharacterExecutionRecord[];
+  readonly unassigned_transactions: readonly UnassignedTransactionRecord[];
+
+  readonly errors: readonly string[];
+}
+
+export interface ExecutionTrackingOptions {
+  readonly transactions?: readonly PersistedCharacterTransaction[];
+  readonly observations?: readonly OpportunityObservation[];
+  readonly directMappings?: Readonly<Record<number, string>>; // transaction_id -> observation_id or opportunity_id
+  readonly correlationOptions?: CorrelationEngineOptions;
+  readonly now?: () => string; // Deterministic clock injection
+  readonly forceRecompute?: boolean;
 }

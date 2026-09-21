@@ -549,6 +549,7 @@ export function correlateTransaction(
     const directCandidate = directMatches[0];
     return Object.freeze({
       transaction_id: transaction.transaction_id,
+      character_id: transaction.character_id,
       candidate_observation_ids: Object.freeze([directCandidate.observation_id]),
       selected_observation_id: directCandidate.observation_id,
       match_level: 'DIRECT_MATCH',
@@ -571,6 +572,7 @@ export function correlateTransaction(
     const directIds = directMatches.map((c) => c.observation_id).sort();
     return Object.freeze({
       transaction_id: transaction.transaction_id,
+      character_id: transaction.character_id,
       candidate_observation_ids: Object.freeze(directIds),
       selected_observation_id: null,
       match_level: 'AMBIGUOUS',
@@ -598,6 +600,7 @@ export function correlateTransaction(
     const nonMatchingReasons = allCandidates.flatMap((c) => c.reasons).slice(0, 5);
     return Object.freeze({
       transaction_id: transaction.transaction_id,
+      character_id: transaction.character_id,
       candidate_observation_ids: Object.freeze([]),
       selected_observation_id: null,
       match_level: 'UNMATCHED',
@@ -615,6 +618,7 @@ export function correlateTransaction(
     const single = qualifyingCandidates[0];
     return Object.freeze({
       transaction_id: transaction.transaction_id,
+      character_id: transaction.character_id,
       candidate_observation_ids: Object.freeze([single.observation_id]),
       selected_observation_id: single.observation_id,
       match_level: single.match_level,
@@ -639,6 +643,7 @@ export function correlateTransaction(
   if (scoreDiff > ambiguityThreshold && top1.match_level === 'STRONG_MATCH') {
     return Object.freeze({
       transaction_id: transaction.transaction_id,
+      character_id: transaction.character_id,
       candidate_observation_ids: Object.freeze(candidateIds),
       selected_observation_id: top1.observation_id,
       match_level: 'STRONG_MATCH',
@@ -656,6 +661,7 @@ export function correlateTransaction(
   // Do NOT select candidate 1 just because of slight chronological or array-index difference!
   return Object.freeze({
     transaction_id: transaction.transaction_id,
+    character_id: transaction.character_id,
     candidate_observation_ids: Object.freeze(candidateIds),
     selected_observation_id: null,
     match_level: 'AMBIGUOUS',

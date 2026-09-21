@@ -10,11 +10,35 @@ import {
   EveTypeDetail,
   TypeCatalogMetadata,
   PersistedCharacterTransaction,
+  CharacterExecutionRecord,
 } from '../types';
 import {
   mergePersistedCharacterTransactions,
   PersistenceValidationError,
 } from '../engine/characterTransaction';
+
+function assertValidExecutionRecord(record: CharacterExecutionRecord): void {
+  if (
+    !record ||
+    typeof record !== 'object' ||
+    typeof record.execution_id !== 'string' ||
+    record.execution_id.trim() === '' ||
+    !Number.isSafeInteger(record.character_id) ||
+    record.character_id <= 0 ||
+    typeof record.observation_id !== 'string' ||
+    record.observation_id.trim() === '' ||
+    typeof record.opportunity_id !== 'string' ||
+    record.opportunity_id.trim() === '' ||
+    !record.execution_outcome ||
+    typeof record.execution_outcome !== 'object'
+  ) {
+    throw new PersistenceValidationError(
+      `Cannot persist invalid character execution record: execution_id=${(record as any)?.execution_id}, character_id=${(record as any)?.character_id}`,
+      ['Invalid character execution record payload or boundary violation.'],
+      record
+    );
+  }
+}
 
 function assertValidForPersistence(tx: PersistedCharacterTransaction): void {
   if (
@@ -51,6 +75,7 @@ export interface StorageStats {
   observations_count: number;
   opportunity_observations_count: number;
   character_transactions_count: number;
+  character_executions_count: number;
   types_count: number;
   estimated_bytes: number;
   db_ready: boolean;
@@ -81,7 +106,7 @@ export interface EsiHttpCacheEntry {
 }
 
 const DB_NAME = 'eve_trade_durable_store';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 export class IndexedDbStore {
   private static db: IDBDatabase | null = null;
@@ -96,6 +121,7 @@ export class IndexedDbStore {
   private static memoryTypes = new Map<number, EveTypeDetail>();
   private static memoryCatalogMetadata: TypeCatalogMetadata | null = null;
   private static memoryTransactions = new Map<number, PersistedCharacterTransaction>();
+  private static memoryCharacterExecutions = new Map<string, CharacterExecutionRecord>();
   private static lastPersistedAt: string | null = null;
 
   // Storage Write Audit Tracking
@@ -226,6 +252,15 @@ export class IndexedDbStore {
             charTxStore.createIndex('date', 'timestamp', { unique: false });
             charTxStore.createIndex('char_date', ['character_id', 'timestamp'], { unique: false });
             charTxStore.createIndex('char_type', ['character_id', 'type_id'], { unique: false });
+          }
+
+          // 11. Character Executions (Phase 2B: Character-Scoped Execution Tracking)
+          if (!db.objectStoreNames.contains('character_executions')) {
+            const execStore = db.createObjectStore('character_executions', { keyPath: 'execution_id' });
+            execStore.createIndex('character_id', 'character_id', { unique: false });
+            execStore.createIndex('observation_id', 'observation_id', { unique: false });
+            execStore.createIndex('opportunity_id', 'opportunity_id', { unique: false });
+            execStore.createIndex('char_obs', ['character_id', 'observation_id'], { unique: true });
           }
         };
 
@@ -1587,6 +1622,7 @@ export class IndexedDbStore {
       observations_count: this.memoryObservations.length,
       opportunity_observations_count: this.memoryOpportunityObservations.length,
       character_transactions_count: this.memoryTransactions.size,
+      character_executions_count: this.memoryCharacterExecutions.size,
       types_count: this.memoryTypes.size,
       estimated_bytes: jsonLength,
       db_ready: Boolean(this.db),
@@ -1595,6 +1631,352 @@ export class IndexedDbStore {
       write_success_count: this.writeSuccessesCount,
       write_failure_count: this.writeFailuresCount,
     };
+  }
+
+  // ==========================================
+  // PHASE 2B: CHARACTER-SCOPED EXECUTION RECORDS (CHANTIER 3B-3)
+  // ==========================================
+
+  /**
+   * Saves or updates a single CharacterExecutionRecord.
+   * Atomic, deterministic, and idempotent.
+   */
+  static async saveCharacterExecution(record: CharacterExecutionRecord): Promise<void> {
+    assertValidExecutionRecord(record);
+    this.recordWriteAttempt();
+
+    this.memoryCharacterExecutions.set(record.execution_id, record);
+    this.lastPersistedAt = new Date().toISOString();
+
+    const isReady = (await this.init()) || Boolean(this.db);
+    if (!isReady || !this.db) {
+      this.recordWriteSuccess();
+      return;
+    }
+
+    return new Promise((resolve, reject) => {
+      try {
+        const tx = this.db!.transaction('character_executions', 'readwrite');
+        const store = tx.objectStore('character_executions');
+        store.put(record);
+
+        tx.oncomplete = () => {
+          this.recordWriteSuccess();
+          resolve();
+        };
+
+        tx.onerror = (e) => {
+          this.recordWriteFailure(e);
+          const err = (e.target as any)?.error || new Error('Failed to save CharacterExecutionRecord in IndexedDB');
+          reject(err);
+        };
+
+        tx.onabort = (e) => {
+          this.recordWriteFailure(e);
+          const err = (e.target as any)?.error || new Error('Transaction aborted while saving CharacterExecutionRecord');
+          reject(err);
+        };
+      } catch (err) {
+        this.recordWriteFailure(err);
+        reject(err);
+      }
+    });
+  }
+
+  /**
+   * Bulk saves multiple CharacterExecutionRecords in a single transactional batch.
+   */
+  static async saveCharacterExecutions(records: readonly CharacterExecutionRecord[]): Promise<void> {
+    if (!records || records.length === 0) return;
+
+    for (const rec of records) {
+      assertValidExecutionRecord(rec);
+      this.memoryCharacterExecutions.set(rec.execution_id, rec);
+    }
+    this.lastPersistedAt = new Date().toISOString();
+
+    const isReady = (await this.init()) || Boolean(this.db);
+    if (!isReady || !this.db) {
+      this.recordWriteSuccess();
+      return;
+    }
+
+    this.recordWriteAttempt();
+
+    return new Promise((resolve, reject) => {
+      try {
+        const tx = this.db!.transaction('character_executions', 'readwrite');
+        const store = tx.objectStore('character_executions');
+
+        for (const rec of records) {
+          store.put(rec);
+        }
+
+        tx.oncomplete = () => {
+          this.recordWriteSuccess();
+          resolve();
+        };
+
+        tx.onerror = (e) => {
+          this.recordWriteFailure(e);
+          const err = (e.target as any)?.error || new Error('Failed to bulk save CharacterExecutionRecords in IndexedDB');
+          reject(err);
+        };
+
+        tx.onabort = (e) => {
+          this.recordWriteFailure(e);
+          const err = (e.target as any)?.error || new Error('Transaction aborted while bulk saving CharacterExecutionRecords');
+          reject(err);
+        };
+      } catch (err) {
+        this.recordWriteFailure(err);
+        reject(err);
+      }
+    });
+  }
+
+  /**
+   * Retrieves a single CharacterExecutionRecord by execution_id.
+   */
+  static async getCharacterExecution(executionId: string): Promise<CharacterExecutionRecord | null> {
+    if (this.memoryCharacterExecutions.has(executionId)) {
+      return this.memoryCharacterExecutions.get(executionId)!;
+    }
+
+    const isReady = (await this.init()) || Boolean(this.db);
+    if (!isReady || !this.db) {
+      return null;
+    }
+
+    return new Promise((resolve) => {
+      try {
+        const tx = this.db!.transaction('character_executions', 'readonly');
+        const store = tx.objectStore('character_executions');
+        const req = store.get(executionId);
+
+        req.onsuccess = () => {
+          if (req.result) {
+            this.memoryCharacterExecutions.set(executionId, req.result);
+            resolve(req.result);
+          } else {
+            resolve(null);
+          }
+        };
+
+        req.onerror = () => resolve(null);
+      } catch {
+        resolve(null);
+      }
+    });
+  }
+
+  /**
+   * Retrieves a single CharacterExecutionRecord for a given character and observation ID.
+   */
+  static async getCharacterExecutionByObservation(
+    characterId: number,
+    observationId: string
+  ): Promise<CharacterExecutionRecord | null> {
+    const expectedKey = `exec_${characterId}_${observationId}`;
+    if (this.memoryCharacterExecutions.has(expectedKey)) {
+      return this.memoryCharacterExecutions.get(expectedKey)!;
+    }
+
+    // Fallback scan in memory
+    for (const rec of this.memoryCharacterExecutions.values()) {
+      if (rec.character_id === characterId && rec.observation_id === observationId) {
+        return rec;
+      }
+    }
+
+    const isReady = (await this.init()) || Boolean(this.db);
+    if (!isReady || !this.db) {
+      return null;
+    }
+
+    return new Promise((resolve) => {
+      try {
+        const tx = this.db!.transaction('character_executions', 'readonly');
+        const store = tx.objectStore('character_executions');
+
+        if (store.indexNames.contains('char_obs')) {
+          const req = store.index('char_obs').get([characterId, observationId]);
+          req.onsuccess = () => {
+            if (req.result) {
+              this.memoryCharacterExecutions.set(req.result.execution_id, req.result);
+              resolve(req.result);
+            } else {
+              resolve(null);
+            }
+          };
+          req.onerror = () => resolve(null);
+        } else {
+          // Fallback to get by key
+          const req = store.get(expectedKey);
+          req.onsuccess = () => {
+            if (req.result) {
+              this.memoryCharacterExecutions.set(req.result.execution_id, req.result);
+              resolve(req.result);
+            } else {
+              resolve(null);
+            }
+          };
+          req.onerror = () => resolve(null);
+        }
+      } catch {
+        resolve(null);
+      }
+    });
+  }
+
+  /**
+   * Retrieves all CharacterExecutionRecords for a character, sorted by last_updated_at descending.
+   */
+  static async getCharacterExecutions(
+    characterId: number,
+    options?: { limit?: number; observationId?: string }
+  ): Promise<CharacterExecutionRecord[]> {
+    const limit = options?.limit ?? 200;
+    const obsId = options?.observationId;
+
+    const memMatches: CharacterExecutionRecord[] = [];
+    for (const rec of this.memoryCharacterExecutions.values()) {
+      if (rec.character_id === characterId) {
+        if (!obsId || rec.observation_id === obsId) {
+          memMatches.push(rec);
+        }
+      }
+    }
+    memMatches.sort((a, b) => new Date(b.last_updated_at).getTime() - new Date(a.last_updated_at).getTime());
+
+    const isReady = (await this.init()) || Boolean(this.db);
+    if (!isReady || !this.db) {
+      return memMatches.slice(0, limit);
+    }
+
+    return new Promise((resolve) => {
+      try {
+        const tx = this.db!.transaction('character_executions', 'readonly');
+        const store = tx.objectStore('character_executions');
+
+        if (store.indexNames.contains('character_id')) {
+          const req = store.index('character_id').getAll(characterId);
+          req.onsuccess = () => {
+            const list = (req.result as CharacterExecutionRecord[]) || [];
+            for (const item of list) {
+              this.memoryCharacterExecutions.set(item.execution_id, item);
+            }
+            let filtered = list;
+            if (obsId) {
+              filtered = filtered.filter((r) => r.observation_id === obsId);
+            }
+            filtered.sort((a, b) => new Date(b.last_updated_at).getTime() - new Date(a.last_updated_at).getTime());
+            resolve(filtered.slice(0, limit));
+          };
+          req.onerror = () => resolve(memMatches.slice(0, limit));
+        } else {
+          resolve(memMatches.slice(0, limit));
+        }
+      } catch {
+        resolve(memMatches.slice(0, limit));
+      }
+    });
+  }
+
+  /**
+   * Retrieves all CharacterExecutionRecords across all characters.
+   */
+  static async getAllCharacterExecutions(limit: number = 200): Promise<CharacterExecutionRecord[]> {
+    const memList = Array.from(this.memoryCharacterExecutions.values());
+    memList.sort((a, b) => new Date(b.last_updated_at).getTime() - new Date(a.last_updated_at).getTime());
+
+    const isReady = (await this.init()) || Boolean(this.db);
+    if (!isReady || !this.db) {
+      return memList.slice(0, limit);
+    }
+
+    return new Promise((resolve) => {
+      try {
+        const tx = this.db!.transaction('character_executions', 'readonly');
+        const store = tx.objectStore('character_executions');
+        const req = store.getAll();
+
+        req.onsuccess = () => {
+          const list = (req.result as CharacterExecutionRecord[]) || [];
+          for (const item of list) {
+            this.memoryCharacterExecutions.set(item.execution_id, item);
+          }
+          list.sort((a, b) => new Date(b.last_updated_at).getTime() - new Date(a.last_updated_at).getTime());
+          resolve(list.slice(0, limit));
+        };
+        req.onerror = () => resolve(memList.slice(0, limit));
+      } catch {
+        resolve(memList.slice(0, limit));
+      }
+    });
+  }
+
+  /**
+   * Clears character executions (either for a specific character or entirely).
+   */
+  static async clearCharacterExecutions(characterId?: number): Promise<void> {
+    const isReady = (await this.init()) || Boolean(this.db);
+    if (!isReady || !this.db) {
+      if (characterId !== undefined) {
+        for (const [id, rec] of this.memoryCharacterExecutions.entries()) {
+          if (rec.character_id === characterId) {
+            this.memoryCharacterExecutions.delete(id);
+          }
+        }
+      } else {
+        this.memoryCharacterExecutions.clear();
+      }
+      return;
+    }
+
+    return new Promise((resolve, reject) => {
+      try {
+        const dbTx = this.db!.transaction('character_executions', 'readwrite');
+        const store = dbTx.objectStore('character_executions');
+
+        if (characterId !== undefined && store.indexNames.contains('character_id')) {
+          const req = store.index('character_id').getAll(characterId);
+          req.onsuccess = () => {
+            const list = (req.result as CharacterExecutionRecord[]) || [];
+            for (const item of list) {
+              store.delete(item.execution_id);
+            }
+          };
+        } else {
+          store.clear();
+        }
+
+        dbTx.oncomplete = () => {
+          if (characterId !== undefined) {
+            for (const [id, rec] of this.memoryCharacterExecutions.entries()) {
+              if (rec.character_id === characterId) {
+                this.memoryCharacterExecutions.delete(id);
+              }
+            }
+          } else {
+            this.memoryCharacterExecutions.clear();
+          }
+          resolve();
+        };
+
+        dbTx.onerror = (e) => {
+          const err = (e.target as any)?.error || new Error('Failed to clear character executions in IndexedDB');
+          reject(err);
+        };
+
+        dbTx.onabort = (e) => {
+          const err = (e.target as any)?.error || new Error('Clear character executions aborted');
+          reject(err);
+        };
+      } catch (err) {
+        reject(err);
+      }
+    });
   }
 
   /**
@@ -1610,6 +1992,7 @@ export class IndexedDbStore {
     this.memoryDailyHistory.clear();
     this.memoryTypes.clear();
     this.memoryTransactions.clear();
+    this.memoryCharacterExecutions.clear();
     this.lastPersistedAt = null;
 
     try {
@@ -1633,6 +2016,7 @@ export class IndexedDbStore {
             'eve_types',
             'catalog_metadata',
             'character_transactions',
+            'character_executions',
           ],
           'readwrite'
         );
@@ -1646,6 +2030,7 @@ export class IndexedDbStore {
         tx.objectStore('eve_types').clear();
         tx.objectStore('catalog_metadata').clear();
         tx.objectStore('character_transactions').clear();
+        tx.objectStore('character_executions').clear();
         tx.oncomplete = () => resolve();
         tx.onerror = () => resolve();
       } catch {

@@ -121,38 +121,42 @@ export class ExecutionTrackingService {
     const validTransactions = sourceTransactions.filter((tx) => tx.data_state !== 'INVALID');
 
     // 4. Retrieve candidate observations (read-only reference)
-    let allObservations: readonly OpportunityObservation[];
+    let candidateObservations: readonly OpportunityObservation[];
     if (options?.observations) {
-      allObservations = options.observations;
+      candidateObservations = options.observations;
     } else {
-      allObservations = await IndexedDbStore.getOpportunityObservations(undefined, 1000);
-    }
+      const allObservations = await IndexedDbStore.getOpportunityObservations(undefined, 1000);
+      const relevantTypeIds = new Set<number>();
+      const explicitObservationIds = new Set<string>();
+      const explicitOpportunityIds = new Set<string>();
 
-    // 5. Pre-filter candidate observations based on transactions' type_ids and explicit targets
-    const relevantTypeIds = new Set<number>();
-    const explicitObservationIds = new Set<string>();
-    const explicitOpportunityIds = new Set<string>();
+      for (const tx of validTransactions) {
+        relevantTypeIds.add(tx.type_id);
+      }
 
-    for (const tx of validTransactions) {
-      relevantTypeIds.add(tx.type_id);
-    }
-
-    if (options?.directMappings) {
-      for (const [txIdStr, targetRef] of Object.entries(options.directMappings)) {
-        if (targetRef.startsWith('obs_')) {
-          explicitObservationIds.add(targetRef);
-        } else {
-          explicitOpportunityIds.add(targetRef);
+      if (options?.directMappings) {
+        for (const [txIdStr, targetRef] of Object.entries(options.directMappings)) {
+          if (targetRef.startsWith('obs_')) {
+            explicitObservationIds.add(targetRef);
+          } else {
+            explicitOpportunityIds.add(targetRef);
+          }
         }
       }
-    }
 
-    const candidateObservations = allObservations.filter(
-      (obs) =>
-        relevantTypeIds.has(obs.type_id) ||
-        explicitObservationIds.has(obs.observation_id) ||
-        explicitOpportunityIds.has(obs.opportunity_id)
-    );
+      // Also include existing execution observations for this character to evaluate in recompute
+      const existingExecutions = await IndexedDbStore.getCharacterExecutions(characterId);
+      for (const exec of existingExecutions) {
+        explicitObservationIds.add(exec.observation_id);
+      }
+
+      candidateObservations = allObservations.filter(
+        (obs) =>
+          relevantTypeIds.has(obs.type_id) ||
+          explicitObservationIds.has(obs.observation_id) ||
+          explicitOpportunityIds.has(obs.opportunity_id)
+      );
+    }
 
     // 6. Convert PersistedCharacterTransaction -> ExecutionTransactionRef
     const transactionRefs: ExecutionTransactionRef[] = validTransactions.map((tx) =>
@@ -326,7 +330,16 @@ export class ExecutionTrackingService {
     }
 
     // 10. Persist execution records atomically to IndexedDB
-    if (executionRecords.length > 0) {
+    let recordsDeleted = 0;
+    if (options?.forceRecompute) {
+      const scopeObservationIds = new Set(candidateObservations.map((o) => o.observation_id));
+      const reconcileResult = await IndexedDbStore.reconcileCharacterExecutions(
+        characterId,
+        executionRecords,
+        scopeObservationIds
+      );
+      recordsDeleted = reconcileResult.deleted;
+    } else if (executionRecords.length > 0) {
       await IndexedDbStore.saveCharacterExecutions(executionRecords);
     }
 
@@ -347,6 +360,7 @@ export class ExecutionTrackingService {
       unmatched_transactions: unmatchedTransactions,
       execution_records_created: recordsCreated,
       execution_records_updated: recordsUpdated,
+      execution_records_deleted: recordsDeleted,
       execution_records: Object.freeze(executionRecords),
       unassigned_transactions: Object.freeze(unassignedTransactions),
       errors: Object.freeze([]),

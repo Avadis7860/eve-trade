@@ -1591,6 +1591,15 @@ export interface CharacterExecutionRecord {
   readonly validation_errors?: readonly string[];
 }
 
+/**
+ * UnassignedTransactionRecord represents an EPHEMERAL in-run diagnostic artifact
+ * indicating a transaction that could not be attributed to an execution during this specific tracking run
+ * (e.g. AMBIGUOUS match or UNMATCHED).
+ * 
+ * IMPORTANT ARCHITECTURAL INVARIANT (CHANTIER 3B-3.1):
+ * This is an ephemeral in-memory diagnostic produced per-run. It is NOT a durable persisted record,
+ * object store, or historical ledger table.
+ */
 export interface UnassignedTransactionRecord {
   readonly transaction_id: number;
   readonly character_id: number;
@@ -1616,8 +1625,13 @@ export interface ExecutionTrackingSummary {
 
   readonly execution_records_created: number;
   readonly execution_records_updated: number;
+  readonly execution_records_deleted?: number;
 
   readonly execution_records: readonly CharacterExecutionRecord[];
+  /**
+   * Ephemeral run-time diagnostic results of unassigned transactions.
+   * Note: This is NOT stored in any durable table.
+   */
   readonly unassigned_transactions: readonly UnassignedTransactionRecord[];
 
   readonly errors: readonly string[];

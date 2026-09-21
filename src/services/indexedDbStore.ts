@@ -1250,6 +1250,20 @@ export class IndexedDbStore {
   }
 
   /**
+   * Diagnostic helper: inspect memory character execution state
+   */
+  static getMemoryCharacterExecution(executionId: string): CharacterExecutionRecord | undefined {
+    return this.memoryCharacterExecutions.get(executionId);
+  }
+
+  /**
+   * Diagnostic helper: inspect total execution count in memory
+   */
+  static getMemoryCharacterExecutionsCount(): number {
+    return this.memoryCharacterExecutions.size;
+  }
+
+  /**
    * Saves or merges a PersistedCharacterTransaction (Idempotent & Auditable)
    * Preserves historical facts, updates last_seen_at.
    * Enforces strict validation and guarantees durable commit before memory mutation.
@@ -1640,16 +1654,21 @@ export class IndexedDbStore {
   /**
    * Saves or updates a single CharacterExecutionRecord.
    * Atomic, deterministic, and idempotent.
+   * Commit point: memory is updated ONLY on transaction oncomplete.
+   * On failure or abort: memory is not mutated and error is explicitly rejected.
    */
   static async saveCharacterExecution(record: CharacterExecutionRecord): Promise<void> {
     assertValidExecutionRecord(record);
     this.recordWriteAttempt();
 
-    this.memoryCharacterExecutions.set(record.execution_id, record);
-    this.lastPersistedAt = new Date().toISOString();
-
     const isReady = (await this.init()) || Boolean(this.db);
     if (!isReady || !this.db) {
+      const existing = this.memoryCharacterExecutions.get(record.execution_id);
+      const toSave = existing?.first_correlated_at
+        ? { ...record, first_correlated_at: existing.first_correlated_at }
+        : record;
+      this.memoryCharacterExecutions.set(toSave.execution_id, toSave);
+      this.lastPersistedAt = new Date().toISOString();
       this.recordWriteSuccess();
       return;
     }
@@ -1658,9 +1677,21 @@ export class IndexedDbStore {
       try {
         const tx = this.db!.transaction('character_executions', 'readwrite');
         const store = tx.objectStore('character_executions');
-        store.put(record);
+        const getReq = store.get(record.execution_id);
+        let finalRecord = record;
+
+        getReq.onsuccess = () => {
+          const existing = (getReq.result as CharacterExecutionRecord | undefined) || this.memoryCharacterExecutions.get(record.execution_id);
+          if (existing?.first_correlated_at) {
+            finalRecord = { ...record, first_correlated_at: existing.first_correlated_at };
+          }
+          store.put(finalRecord);
+        };
 
         tx.oncomplete = () => {
+          // Durable commit point: update memory ONLY upon successful completion
+          this.memoryCharacterExecutions.set(finalRecord.execution_id, finalRecord);
+          this.lastPersistedAt = new Date().toISOString();
           this.recordWriteSuccess();
           resolve();
         };
@@ -1685,34 +1716,53 @@ export class IndexedDbStore {
 
   /**
    * Bulk saves multiple CharacterExecutionRecords in a single transactional batch.
+   * Guarantees zero partial commit: memory is updated ONLY after durable oncomplete.
+   * Preserves first_correlated_at for any previously existing execution records.
    */
   static async saveCharacterExecutions(records: readonly CharacterExecutionRecord[]): Promise<void> {
     if (!records || records.length === 0) return;
 
     for (const rec of records) {
       assertValidExecutionRecord(rec);
-      this.memoryCharacterExecutions.set(rec.execution_id, rec);
-    }
-    this.lastPersistedAt = new Date().toISOString();
-
-    const isReady = (await this.init()) || Boolean(this.db);
-    if (!isReady || !this.db) {
-      this.recordWriteSuccess();
-      return;
     }
 
     this.recordWriteAttempt();
+
+    const isReady = (await this.init()) || Boolean(this.db);
+    if (!isReady || !this.db) {
+      for (const rec of records) {
+        const existing = this.memoryCharacterExecutions.get(rec.execution_id);
+        const toSave = existing?.first_correlated_at
+          ? { ...rec, first_correlated_at: existing.first_correlated_at }
+          : rec;
+        this.memoryCharacterExecutions.set(toSave.execution_id, toSave);
+      }
+      this.lastPersistedAt = new Date().toISOString();
+      this.recordWriteSuccess();
+      return;
+    }
 
     return new Promise((resolve, reject) => {
       try {
         const tx = this.db!.transaction('character_executions', 'readwrite');
         const store = tx.objectStore('character_executions');
+        const stagedToCommit: CharacterExecutionRecord[] = [];
 
         for (const rec of records) {
-          store.put(rec);
+          const existingMem = this.memoryCharacterExecutions.get(rec.execution_id);
+          const finalRec = existingMem?.first_correlated_at
+            ? { ...rec, first_correlated_at: existingMem.first_correlated_at }
+            : rec;
+          stagedToCommit.push(finalRec);
+          store.put(finalRec);
         }
 
         tx.oncomplete = () => {
+          // Durable commit point: update memory ONLY after oncomplete
+          for (const rec of stagedToCommit) {
+            this.memoryCharacterExecutions.set(rec.execution_id, rec);
+          }
+          this.lastPersistedAt = new Date().toISOString();
           this.recordWriteSuccess();
           resolve();
         };
@@ -1736,19 +1786,173 @@ export class IndexedDbStore {
   }
 
   /**
-   * Retrieves a single CharacterExecutionRecord by execution_id.
+   * Atomically reconciles CharacterExecutionRecords for a character in a single readwrite transaction:
+   * 1. Reads all existing execution records for characterId
+   * 2. Preserves first_correlated_at from existing records
+   * 3. Deletes records that are obsolete within the scope (no longer generated by recompute)
+   * 4. Puts valid and updated records
+   * 5. On complete: updates memory cache (deletes obsolete, sets active)
+   * 6. On error/abort: zero memory mutations, rejects with explicit error
    */
-  static async getCharacterExecution(executionId: string): Promise<CharacterExecutionRecord | null> {
-    if (this.memoryCharacterExecutions.has(executionId)) {
-      return this.memoryCharacterExecutions.get(executionId)!;
+  static async reconcileCharacterExecutions(
+    characterId: number,
+    activeRecords: readonly CharacterExecutionRecord[],
+    scopeObservationIds?: ReadonlySet<string> | readonly string[]
+  ): Promise<{ saved: number; updated: number; deleted: number }> {
+    if (!Number.isSafeInteger(characterId) || characterId <= 0) {
+      throw new Error(`Invalid characterId for reconciliation: ${characterId}`);
     }
+
+    for (const rec of activeRecords) {
+      assertValidExecutionRecord(rec);
+      if (rec.character_id !== characterId) {
+        throw new Error(
+          `Cross-character violation in reconcile: Record ${rec.execution_id} belongs to character ${rec.character_id}, but recomputing for character ${characterId}.`
+        );
+      }
+    }
+
+    const scopeSet = scopeObservationIds
+      ? (scopeObservationIds instanceof Set ? scopeObservationIds : new Set(scopeObservationIds))
+      : null;
+
+    this.recordWriteAttempt();
 
     const isReady = (await this.init()) || Boolean(this.db);
     if (!isReady || !this.db) {
-      return null;
+      // In-memory fallback
+      const activeMap = new Map(activeRecords.map((r) => [r.execution_id, r]));
+      let deletedCount = 0;
+      let updatedCount = 0;
+      let savedCount = 0;
+
+      for (const [id, existing] of Array.from(this.memoryCharacterExecutions.entries())) {
+        if (existing.character_id !== characterId) continue;
+        if (scopeSet && !scopeSet.has(existing.observation_id)) continue;
+
+        if (!activeMap.has(id)) {
+          this.memoryCharacterExecutions.delete(id);
+          deletedCount++;
+        }
+      }
+
+      for (const rec of activeRecords) {
+        const existing = this.memoryCharacterExecutions.get(rec.execution_id);
+        if (existing) {
+          updatedCount++;
+        } else {
+          savedCount++;
+        }
+        const finalRec = existing?.first_correlated_at
+          ? { ...rec, first_correlated_at: existing.first_correlated_at }
+          : rec;
+        this.memoryCharacterExecutions.set(finalRec.execution_id, finalRec);
+      }
+
+      this.lastPersistedAt = new Date().toISOString();
+      this.recordWriteSuccess();
+      return { saved: savedCount, updated: updatedCount, deleted: deletedCount };
     }
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+      try {
+        const tx = this.db!.transaction('character_executions', 'readwrite');
+        const store = tx.objectStore('character_executions');
+        const activeMap = new Map(activeRecords.map((r) => [r.execution_id, r]));
+        const stagedDeletes: string[] = [];
+        const stagedPuts: CharacterExecutionRecord[] = [];
+        let deletedCount = 0;
+        let updatedCount = 0;
+        let savedCount = 0;
+
+        let req: IDBRequest;
+        if (store.indexNames.contains('character_id')) {
+          req = store.index('character_id').getAll(characterId);
+        } else {
+          req = store.getAll();
+        }
+
+        req.onsuccess = () => {
+          const allFound = (req.result as CharacterExecutionRecord[]) || [];
+          const existingForChar = allFound.filter((r) => r.character_id === characterId);
+          const existingMap = new Map(existingForChar.map((r) => [r.execution_id, r]));
+
+          // Find obsolete records to delete
+          for (const existing of existingForChar) {
+            if (scopeSet && !scopeSet.has(existing.observation_id)) {
+              continue; // Outside scope of recompute, leave untouched
+            }
+            if (!activeMap.has(existing.execution_id)) {
+              stagedDeletes.push(existing.execution_id);
+              store.delete(existing.execution_id);
+              deletedCount++;
+            }
+          }
+
+          // Stage active records for put, preserving first_correlated_at
+          for (const rec of activeRecords) {
+            const existing = existingMap.get(rec.execution_id) || this.memoryCharacterExecutions.get(rec.execution_id);
+            if (existing) {
+              updatedCount++;
+            } else {
+              savedCount++;
+            }
+            const finalRec = existing?.first_correlated_at
+              ? { ...rec, first_correlated_at: existing.first_correlated_at }
+              : rec;
+            stagedPuts.push(finalRec);
+            store.put(finalRec);
+          }
+        };
+
+        req.onerror = (e) => {
+          const err = (e.target as any)?.error || new Error('Query failed in reconciliation transaction');
+          this.recordWriteFailure(err);
+          reject(err);
+        };
+
+        tx.oncomplete = () => {
+          // Commit to memory ONLY after successful IDB transaction commit
+          for (const delId of stagedDeletes) {
+            this.memoryCharacterExecutions.delete(delId);
+          }
+          for (const putRec of stagedPuts) {
+            this.memoryCharacterExecutions.set(putRec.execution_id, putRec);
+          }
+          this.lastPersistedAt = new Date().toISOString();
+          this.recordWriteSuccess();
+          resolve({ saved: savedCount, updated: updatedCount, deleted: deletedCount });
+        };
+
+        tx.onerror = (e) => {
+          this.recordWriteFailure(e);
+          const err = (e.target as any)?.error || new Error('IndexedDB reconciliation transaction failed');
+          reject(err);
+        };
+
+        tx.onabort = (e) => {
+          this.recordWriteFailure(e);
+          const err = (e.target as any)?.error || new Error('IndexedDB reconciliation transaction aborted');
+          reject(err);
+        };
+      } catch (err) {
+        this.recordWriteFailure(err);
+        reject(err);
+      }
+    });
+  }
+
+  /**
+   * Retrieves a single CharacterExecutionRecord by execution_id.
+   * Invariant: Distinguishes absence of record (resolves null) from storage errors (rejects).
+   */
+  static async getCharacterExecution(executionId: string): Promise<CharacterExecutionRecord | null> {
+    const isReady = (await this.init()) || Boolean(this.db);
+    if (!isReady || !this.db) {
+      return this.memoryCharacterExecutions.get(executionId) || null;
+    }
+
+    return new Promise((resolve, reject) => {
       try {
         const tx = this.db!.transaction('character_executions', 'readonly');
         const store = tx.objectStore('character_executions');
@@ -1759,78 +1963,92 @@ export class IndexedDbStore {
             this.memoryCharacterExecutions.set(executionId, req.result);
             resolve(req.result);
           } else {
+            this.memoryCharacterExecutions.delete(executionId);
             resolve(null);
           }
         };
 
-        req.onerror = () => resolve(null);
-      } catch {
-        resolve(null);
+        req.onerror = (e) => {
+          const err = (e.target as any)?.error || new Error(`Failed to read CharacterExecutionRecord ${executionId} from IndexedDB`);
+          reject(err);
+        };
+
+        tx.onerror = (e) => {
+          const err = (e.target as any)?.error || new Error(`Transaction error reading CharacterExecutionRecord ${executionId}`);
+          reject(err);
+        };
+      } catch (err) {
+        reject(err);
       }
     });
   }
 
   /**
    * Retrieves a single CharacterExecutionRecord for a given character and observation ID.
+   * Invariant: Distinguishes absence of record (resolves null) from storage errors (rejects).
    */
   static async getCharacterExecutionByObservation(
     characterId: number,
     observationId: string
   ): Promise<CharacterExecutionRecord | null> {
     const expectedKey = `exec_${characterId}_${observationId}`;
-    if (this.memoryCharacterExecutions.has(expectedKey)) {
-      return this.memoryCharacterExecutions.get(expectedKey)!;
-    }
-
-    // Fallback scan in memory
-    for (const rec of this.memoryCharacterExecutions.values()) {
-      if (rec.character_id === characterId && rec.observation_id === observationId) {
-        return rec;
-      }
-    }
 
     const isReady = (await this.init()) || Boolean(this.db);
     if (!isReady || !this.db) {
+      if (this.memoryCharacterExecutions.has(expectedKey)) {
+        return this.memoryCharacterExecutions.get(expectedKey)!;
+      }
+      for (const rec of this.memoryCharacterExecutions.values()) {
+        if (rec.character_id === characterId && rec.observation_id === observationId) {
+          return rec;
+        }
+      }
       return null;
     }
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       try {
         const tx = this.db!.transaction('character_executions', 'readonly');
         const store = tx.objectStore('character_executions');
 
+        const handleSuccess = (req: IDBRequest) => {
+          if (req.result) {
+            this.memoryCharacterExecutions.set(req.result.execution_id, req.result);
+            resolve(req.result);
+          } else {
+            resolve(null);
+          }
+        };
+
         if (store.indexNames.contains('char_obs')) {
           const req = store.index('char_obs').get([characterId, observationId]);
-          req.onsuccess = () => {
-            if (req.result) {
-              this.memoryCharacterExecutions.set(req.result.execution_id, req.result);
-              resolve(req.result);
-            } else {
-              resolve(null);
-            }
+          req.onsuccess = () => handleSuccess(req);
+          req.onerror = (e) => {
+            const err = (e.target as any)?.error || new Error('Failed to query char_obs index in IndexedDB');
+            reject(err);
           };
-          req.onerror = () => resolve(null);
         } else {
-          // Fallback to get by key
           const req = store.get(expectedKey);
-          req.onsuccess = () => {
-            if (req.result) {
-              this.memoryCharacterExecutions.set(req.result.execution_id, req.result);
-              resolve(req.result);
-            } else {
-              resolve(null);
-            }
+          req.onsuccess = () => handleSuccess(req);
+          req.onerror = (e) => {
+            const err = (e.target as any)?.error || new Error('Failed to query character execution by key in IndexedDB');
+            reject(err);
           };
-          req.onerror = () => resolve(null);
         }
-      } catch {
-        resolve(null);
+
+        tx.onerror = (e) => {
+          const err = (e.target as any)?.error || new Error('Transaction error reading character execution by observation');
+          reject(err);
+        };
+      } catch (err) {
+        reject(err);
       }
     });
   }
 
   /**
    * Retrieves all CharacterExecutionRecords for a character, sorted by last_updated_at descending.
+   * Invariant: Distinguishes empty results (resolves []) from storage errors (rejects).
    */
   static async getCharacterExecutions(
     characterId: number,
@@ -1839,22 +2057,21 @@ export class IndexedDbStore {
     const limit = options?.limit ?? 200;
     const obsId = options?.observationId;
 
-    const memMatches: CharacterExecutionRecord[] = [];
-    for (const rec of this.memoryCharacterExecutions.values()) {
-      if (rec.character_id === characterId) {
-        if (!obsId || rec.observation_id === obsId) {
-          memMatches.push(rec);
-        }
-      }
-    }
-    memMatches.sort((a, b) => new Date(b.last_updated_at).getTime() - new Date(a.last_updated_at).getTime());
-
     const isReady = (await this.init()) || Boolean(this.db);
     if (!isReady || !this.db) {
+      const memMatches: CharacterExecutionRecord[] = [];
+      for (const rec of this.memoryCharacterExecutions.values()) {
+        if (rec.character_id === characterId) {
+          if (!obsId || rec.observation_id === obsId) {
+            memMatches.push(rec);
+          }
+        }
+      }
+      memMatches.sort((a, b) => new Date(b.last_updated_at).getTime() - new Date(a.last_updated_at).getTime());
       return memMatches.slice(0, limit);
     }
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       try {
         const tx = this.db!.transaction('character_executions', 'readonly');
         const store = tx.objectStore('character_executions');
@@ -1873,29 +2090,53 @@ export class IndexedDbStore {
             filtered.sort((a, b) => new Date(b.last_updated_at).getTime() - new Date(a.last_updated_at).getTime());
             resolve(filtered.slice(0, limit));
           };
-          req.onerror = () => resolve(memMatches.slice(0, limit));
+          req.onerror = (e) => {
+            const err = (e.target as any)?.error || new Error('Failed to query character_executions by character_id');
+            reject(err);
+          };
         } else {
-          resolve(memMatches.slice(0, limit));
+          const req = store.getAll();
+          req.onsuccess = () => {
+            const list = ((req.result as CharacterExecutionRecord[]) || []).filter((r) => r.character_id === characterId);
+            for (const item of list) {
+              this.memoryCharacterExecutions.set(item.execution_id, item);
+            }
+            let filtered = list;
+            if (obsId) {
+              filtered = filtered.filter((r) => r.observation_id === obsId);
+            }
+            filtered.sort((a, b) => new Date(b.last_updated_at).getTime() - new Date(a.last_updated_at).getTime());
+            resolve(filtered.slice(0, limit));
+          };
+          req.onerror = (e) => {
+            const err = (e.target as any)?.error || new Error('Failed to get all character_executions in fallback');
+            reject(err);
+          };
         }
-      } catch {
-        resolve(memMatches.slice(0, limit));
+
+        tx.onerror = (e) => {
+          const err = (e.target as any)?.error || new Error('Transaction error reading character executions');
+          reject(err);
+        };
+      } catch (err) {
+        reject(err);
       }
     });
   }
 
   /**
    * Retrieves all CharacterExecutionRecords across all characters.
+   * Invariant: Distinguishes empty results (resolves []) from storage errors (rejects).
    */
   static async getAllCharacterExecutions(limit: number = 200): Promise<CharacterExecutionRecord[]> {
-    const memList = Array.from(this.memoryCharacterExecutions.values());
-    memList.sort((a, b) => new Date(b.last_updated_at).getTime() - new Date(a.last_updated_at).getTime());
-
     const isReady = (await this.init()) || Boolean(this.db);
     if (!isReady || !this.db) {
+      const memList = Array.from(this.memoryCharacterExecutions.values());
+      memList.sort((a, b) => new Date(b.last_updated_at).getTime() - new Date(a.last_updated_at).getTime());
       return memList.slice(0, limit);
     }
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       try {
         const tx = this.db!.transaction('character_executions', 'readonly');
         const store = tx.objectStore('character_executions');
@@ -1909,9 +2150,18 @@ export class IndexedDbStore {
           list.sort((a, b) => new Date(b.last_updated_at).getTime() - new Date(a.last_updated_at).getTime());
           resolve(list.slice(0, limit));
         };
-        req.onerror = () => resolve(memList.slice(0, limit));
-      } catch {
-        resolve(memList.slice(0, limit));
+
+        req.onerror = (e) => {
+          const err = (e.target as any)?.error || new Error('Failed to read all character executions from IndexedDB');
+          reject(err);
+        };
+
+        tx.onerror = (e) => {
+          const err = (e.target as any)?.error || new Error('Transaction error reading all character executions');
+          reject(err);
+        };
+      } catch (err) {
+        reject(err);
       }
     });
   }

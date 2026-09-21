@@ -707,9 +707,532 @@ async function runAllTests() {
     console.log('  [PASS] Test 18: Concurrency and parallel tracking verified.');
   }
 
-  console.log('\n=======================================================');
-  console.log('ALL 18 CHANTIER 3B-3 INTEGRATION TESTS PASSED WITH ZERO ERRORS');
-  console.log('=======================================================\n');
+  // ==========================================================================
+  // PHASE 2B — CHANTIER 3B-3.1: EXECUTION STATE INTEGRITY & RECONCILIATION GATE
+  // ==========================================================================
+  console.log('\n==========================================================================');
+  console.log('--- RUNNING CHANTIER 3B-3.1 RECONCILIATION & INTEGRITY GATE TESTS (1 -> 9) ---');
+  console.log('==========================================================================\n');
+
+  // Reset test database to clean in-memory state
+  IndexedDbStore.setTestDatabase(null);
+
+  // --------------------------------------------------------------------------
+  // Scenario 1: forceRecompute supprime le record devenu non attribuable
+  // --------------------------------------------------------------------------
+  console.log('--- Gate Scenario 1: forceRecompute Removes Obsolete / Unattributable Records ---');
+  {
+    await IndexedDbStore.clearCharacterExecutions();
+    const obs = createTestObservation({ observation_id: 'obs-gate-001' });
+    const tx1 = createTestPersistedTransaction({ transaction_id: 20001, character_id: 2112001, unit_price: 5.0 });
+
+    // Initial run attributes tx1 to obs-gate-001
+    const initialSummary = await ExecutionTrackingService.trackCharacterExecutions(2112001, {
+      transactions: [tx1],
+      observations: [obs],
+    });
+    assert(initialSummary.execution_records_created === 1, 'Initial record created');
+    assert(initialSummary.execution_records.length === 1, '1 execution record returned');
+    assert((await IndexedDbStore.getCharacterExecutionByObservation(2112001, 'obs-gate-001')) !== null, 'Record exists in DB');
+
+    // Recompute without transactions (or transactions that do not correlate)
+    const recomputeSummary = await ExecutionTrackingService.recomputeCharacterExecutions(2112001, {
+      transactions: [],
+      observations: [obs],
+    });
+
+    assert(recomputeSummary.execution_records.length === 0, 'No active execution records returned');
+    assert(recomputeSummary.execution_records_deleted === 1, '1 execution record reported as deleted');
+    const storedAfter = await IndexedDbStore.getCharacterExecutionByObservation(2112001, 'obs-gate-001');
+    assert(storedAfter === null, 'Obsolete record was deleted from durable storage and memory');
+
+    console.log('  [PASS] Gate Scenario 1: Obsolete record cleanly deleted during forceRecompute.');
+  }
+
+  // --------------------------------------------------------------------------
+  // Scenario 2: forceRecompute d'un personnage ne supprime pas les records des autres personnages
+  // --------------------------------------------------------------------------
+  console.log('--- Gate Scenario 2: Cross-Character Isolation During forceRecompute ---');
+  {
+    await IndexedDbStore.clearCharacterExecutions();
+    const obs = createTestObservation({ observation_id: 'obs-gate-002' });
+    const txA = createTestPersistedTransaction({ transaction_id: 20002, character_id: 2112001 });
+    const txB = createTestPersistedTransaction({ transaction_id: 20003, character_id: 2112002 });
+
+    // Both characters track executions on obs-gate-002
+    await ExecutionTrackingService.trackCharacterExecutions(2112001, {
+      transactions: [txA],
+      observations: [obs],
+    });
+    await ExecutionTrackingService.trackCharacterExecutions(2112002, {
+      transactions: [txB],
+      observations: [obs],
+    });
+
+    assert((await IndexedDbStore.getCharacterExecutionByObservation(2112001, 'obs-gate-002')) !== null, 'Char A record exists');
+    assert((await IndexedDbStore.getCharacterExecutionByObservation(2112002, 'obs-gate-002')) !== null, 'Char B record exists');
+
+    // Force recompute Char A with empty transactions
+    const recomputeA = await ExecutionTrackingService.recomputeCharacterExecutions(2112001, {
+      transactions: [],
+      observations: [obs],
+    });
+    assert(recomputeA.execution_records_deleted === 1, 'Char A record deleted');
+
+    // Verify Char A has 0 records, but Char B has 1 record intact!
+    assert((await IndexedDbStore.getCharacterExecutionByObservation(2112001, 'obs-gate-002')) === null, 'Char A record removed');
+    const recordBAfter = await IndexedDbStore.getCharacterExecutionByObservation(2112002, 'obs-gate-002');
+    assert(recordBAfter !== null, 'Char B record preserved completely without any side effects');
+    assert(recordBAfter?.character_id === 2112002, 'Char B identity preserved');
+
+    console.log('  [PASS] Gate Scenario 2: Cross-character isolation during forceRecompute verified.');
+  }
+
+  // --------------------------------------------------------------------------
+  // Scenario 3: Isolation multi-personnages : injection d'une transaction étrangère rejetée sans mutation d'état
+  // --------------------------------------------------------------------------
+  console.log('--- Gate Scenario 3: Foreign Transaction Rejected Without State Mutation ---');
+  {
+    await IndexedDbStore.clearCharacterExecutions();
+    const obs = createTestObservation({ observation_id: 'obs-gate-003' });
+    const txLegit = createTestPersistedTransaction({ transaction_id: 20004, character_id: 2112001, quantity: 1000 });
+    const txForeign = createTestPersistedTransaction({ transaction_id: 20005, character_id: 9999999, quantity: 500 });
+
+    // First create legitimate state
+    await ExecutionTrackingService.trackCharacterExecutions(2112001, {
+      transactions: [txLegit],
+      observations: [obs],
+    });
+    const stateBefore = await IndexedDbStore.getCharacterExecutionByObservation(2112001, 'obs-gate-003');
+    assert(stateBefore !== null, 'Legitimate record exists');
+    const hashBefore = JSON.stringify(stateBefore);
+
+    // Attempt to inject foreign transaction into 2112001's pipeline
+    let caught = false;
+    try {
+      await ExecutionTrackingService.trackCharacterExecutions(2112001, {
+        transactions: [txLegit, txForeign],
+        observations: [obs],
+      });
+    } catch (err: any) {
+      caught = true;
+      assert(err instanceof CrossCharacterMappingViolationError, 'Must throw CrossCharacterMappingViolationError');
+      assert(err.transactionCharacterId === 9999999, 'Violating character ID reported');
+      assert(err.targetCharacterId === 2112001, 'Target character ID reported');
+    }
+    assert(caught, 'Cross-character transaction injection must throw error');
+
+    // Verify state was NOT mutated
+    const stateAfter = await IndexedDbStore.getCharacterExecutionByObservation(2112001, 'obs-gate-003');
+    assert(JSON.stringify(stateAfter) === hashBefore, 'Database state unchanged after rejection');
+
+    console.log('  [PASS] Gate Scenario 3: Foreign transaction rejection without state mutation verified.');
+  }
+
+  // --------------------------------------------------------------------------
+  // Scenario 4: Concurrence même personnage + même observation : aucune corruption, aucun doublon, first_correlated_at invariant
+  // --------------------------------------------------------------------------
+  console.log('--- Gate Scenario 4: Concurrency Same Character & Same Observation ---');
+  {
+    await IndexedDbStore.clearCharacterExecutions();
+    const obs = createTestObservation({ observation_id: 'obs-gate-004' });
+    const tx1 = createTestPersistedTransaction({ transaction_id: 20006, character_id: 2112001, quantity: 2000 });
+    const tx2 = createTestPersistedTransaction({ transaction_id: 20007, character_id: 2112001, quantity: 3000 });
+
+    // Initial run to establish first_correlated_at
+    const initial = await ExecutionTrackingService.trackCharacterExecutions(2112001, {
+      transactions: [tx1],
+      observations: [obs],
+    });
+    const originalFirstCorrelatedAt = initial.execution_records[0].first_correlated_at;
+
+    // Concurrently execute 3 tracking operations on the same character and observation
+    await Promise.all([
+      ExecutionTrackingService.trackCharacterExecutions(2112001, { transactions: [tx1, tx2], observations: [obs] }),
+      ExecutionTrackingService.trackCharacterExecutions(2112001, { transactions: [tx1, tx2], observations: [obs] }),
+      ExecutionTrackingService.trackCharacterExecutions(2112001, { transactions: [tx1, tx2], observations: [obs] }),
+    ]);
+
+    // Check records in database
+    const allExecs = await IndexedDbStore.getCharacterExecutions(2112001, { observationId: 'obs-gate-004' });
+    assert(allExecs.length === 1, 'Exactly 1 execution record exists (no duplicates)');
+    assert(allExecs[0].first_correlated_at === originalFirstCorrelatedAt, 'first_correlated_at remains strictly invariant under concurrency');
+    assert(allExecs[0].execution_outcome.executed_buy_quantity === 5000, 'Quantities aggregated cleanly');
+
+    console.log('  [PASS] Gate Scenario 4: Concurrency without duplication or first_correlated_at drift verified.');
+  }
+
+  // --------------------------------------------------------------------------
+  // Scenario 5: IndexedDB write failure simulée : aucun record dans le cache mémoire
+  // --------------------------------------------------------------------------
+  console.log('--- Gate Scenario 5: Simulated IndexedDB Write Failure (Zero Cache Pollution) ---');
+  {
+    await IndexedDbStore.clearCharacterExecutions();
+    const mockDbFailWrite = {
+      transaction: () => {
+        let errorCb: any = null;
+        const txObj = {
+          objectStore: () => ({
+            get: () => ({ onsuccess: null as any }),
+            put: () => {},
+          }),
+          set oncomplete(_cb: any) {},
+          set onerror(cb: any) {
+            errorCb = cb;
+            setTimeout(() => {
+              if (errorCb) errorCb({ target: { error: new Error('Simulated IDB Write Failure') } });
+            }, 5);
+          },
+          set onabort(_cb: any) {},
+        };
+        return txObj;
+      },
+    };
+
+    IndexedDbStore.setTestDatabase(mockDbFailWrite as any);
+    const mockRecord = Object.freeze({
+      execution_id: 'exec_2112001_fail-001',
+      character_id: 2112001,
+      observation_id: 'obs-fail-001',
+      opportunity_id: 'opp-fail-001',
+      execution_outcome: {
+        execution_status: 'BUY_FILLED',
+        match_level: 'STRONG_MATCH',
+        planned_quantity: 100,
+        executed_buy_quantity: 100,
+        executed_sell_quantity: 0,
+        remaining_inventory_quantity: 100,
+        buy_fill_ratio: 1.0,
+        sell_fill_ratio: 0.0,
+        vwap_buy_price: 100.0,
+        vwap_sell_price: null,
+        first_buy_at: '2026-09-20T10:00:00Z',
+        last_buy_at: '2026-09-20T10:00:00Z',
+        first_sell_at: null,
+        last_sell_at: null,
+        buy_transactions: [],
+        sell_transactions: [],
+        linked_order_ids: [],
+        candidate_observation_ids: ['obs-fail-001'],
+      },
+      match_level: 'STRONG_MATCH',
+      transaction_ids: [29991],
+      first_correlated_at: '2026-09-20T10:00:00Z',
+      last_updated_at: '2026-09-20T10:00:00Z',
+      correlation_engine_version: '1.0.0',
+      data_state: 'VALID',
+    } as CharacterExecutionRecord);
+
+    let caught = false;
+    try {
+      await IndexedDbStore.saveCharacterExecution(mockRecord);
+    } catch (err: any) {
+      caught = true;
+      assert(err.message.includes('Simulated IDB Write Failure'), 'Error propagated');
+    }
+    assert(caught, 'saveCharacterExecution must reject when DB write fails');
+    assert(IndexedDbStore.getMemoryCharacterExecution('exec_2112001_fail-001') === undefined, 'Cache memory MUST NOT be polluted on write failure');
+
+    // Reset database to in-memory mode
+    IndexedDbStore.setTestDatabase(null);
+
+    console.log('  [PASS] Gate Scenario 5: Write failure rejection and zero cache pollution verified.');
+  }
+
+  // --------------------------------------------------------------------------
+  // Scenario 6: Batch failure : 0 record partiellement persisté
+  // --------------------------------------------------------------------------
+  console.log('--- Gate Scenario 6: Batch Write Failure (Zero Partial Commit) ---');
+  {
+    await IndexedDbStore.clearCharacterExecutions();
+    const mockDbBatchAbort = {
+      transaction: () => {
+        let abortCb: any = null;
+        const txObj = {
+          objectStore: () => ({
+            put: () => {},
+          }),
+          set oncomplete(_cb: any) {},
+          set onerror(_cb: any) {},
+          set onabort(cb: any) {
+            abortCb = cb;
+            setTimeout(() => {
+              if (abortCb) abortCb({ target: { error: new Error('Batch Quota Exceeded Abort') } });
+            }, 5);
+          },
+        };
+        return txObj;
+      },
+    };
+
+    IndexedDbStore.setTestDatabase(mockDbBatchAbort as any);
+    const rec1 = Object.freeze({
+      execution_id: 'exec_2112001_batch-001',
+      character_id: 2112001,
+      observation_id: 'obs-batch-001',
+      opportunity_id: 'opp-batch-001',
+      execution_outcome: {
+        execution_status: 'BUY_FILLED',
+        match_level: 'STRONG_MATCH',
+        planned_quantity: 100,
+        executed_buy_quantity: 100,
+        executed_sell_quantity: 0,
+        remaining_inventory_quantity: 100,
+        buy_fill_ratio: 1.0,
+        sell_fill_ratio: 0.0,
+        vwap_buy_price: 100.0,
+        vwap_sell_price: null,
+        first_buy_at: '2026-09-20T10:00:00Z',
+        last_buy_at: '2026-09-20T10:00:00Z',
+        first_sell_at: null,
+        last_sell_at: null,
+        buy_transactions: [],
+        sell_transactions: [],
+        linked_order_ids: [],
+        candidate_observation_ids: ['obs-batch-001'],
+      },
+      match_level: 'STRONG_MATCH',
+      transaction_ids: [29992],
+      first_correlated_at: '2026-09-20T10:00:00Z',
+      last_updated_at: '2026-09-20T10:00:00Z',
+      correlation_engine_version: '1.0.0',
+      data_state: 'VALID',
+    } as CharacterExecutionRecord);
+
+    const rec2 = Object.freeze({
+      ...rec1,
+      execution_id: 'exec_2112001_batch-002',
+      observation_id: 'obs-batch-002',
+      transaction_ids: [29993],
+    } as CharacterExecutionRecord);
+
+    let caught = false;
+    try {
+      await IndexedDbStore.saveCharacterExecutions([rec1, rec2]);
+    } catch (err: any) {
+      caught = true;
+      assert(err.message.includes('Batch Quota Exceeded Abort'), 'Abort error propagated');
+    }
+    assert(caught, 'saveCharacterExecutions must reject on abort');
+    assert(IndexedDbStore.getMemoryCharacterExecution('exec_2112001_batch-001') === undefined, 'rec1 not in memory');
+    assert(IndexedDbStore.getMemoryCharacterExecution('exec_2112001_batch-002') === undefined, 'rec2 not in memory');
+
+    IndexedDbStore.setTestDatabase(null);
+
+    console.log('  [PASS] Gate Scenario 6: Batch failure zero partial commit verified.');
+  }
+
+  // --------------------------------------------------------------------------
+  // Scenario 7: Échec de lecture IndexedDB : erreur explicite, pas de faux null ni masque silencieux
+  // --------------------------------------------------------------------------
+  console.log('--- Gate Scenario 7: Explicit Error on Read Failures (No False Null) ---');
+  {
+    const mockDbReadFail = {
+      transaction: () => {
+        let errorCb: any = null;
+        const req = {
+          onsuccess: null as any,
+          onerror: null as any,
+        };
+        const txObj = {
+          objectStore: () => ({
+            get: () => {
+              setTimeout(() => {
+                if (req.onerror) req.onerror({ target: { error: new Error('Corrupted IDB Sector Read Error') } });
+              }, 5);
+              return req;
+            },
+            index: () => ({
+              get: () => {
+                setTimeout(() => {
+                  if (req.onerror) req.onerror({ target: { error: new Error('Corrupted Index Sector Read Error') } });
+                }, 5);
+                return req;
+              },
+              getAll: () => {
+                setTimeout(() => {
+                  if (req.onerror) req.onerror({ target: { error: new Error('Corrupted Table Read Error') } });
+                }, 5);
+                return req;
+              },
+            }),
+            indexNames: { contains: (name: string) => true },
+            getAll: () => {
+              setTimeout(() => {
+                if (req.onerror) req.onerror({ target: { error: new Error('Corrupted Table Read Error') } });
+              }, 5);
+              return req;
+            },
+          }),
+          set onerror(cb: any) {
+            errorCb = cb;
+          },
+        };
+        return txObj;
+      },
+    };
+
+    IndexedDbStore.setTestDatabase(mockDbReadFail as any);
+
+    // 1. getCharacterExecution must reject
+    let caughtRead1 = false;
+    try {
+      await IndexedDbStore.getCharacterExecution('exec_2112001_test');
+    } catch (err: any) {
+      caughtRead1 = true;
+      assert(
+        err.message.includes('Corrupted IDB Sector Read Error') ||
+          err.message.includes('Failed to read CharacterExecutionRecord'),
+        'Error propagated'
+      );
+    }
+    assert(caughtRead1, 'getCharacterExecution must reject on read failure instead of returning null');
+
+    // 2. getCharacterExecutionByObservation must reject
+    let caughtRead2 = false;
+    try {
+      await IndexedDbStore.getCharacterExecutionByObservation(2112001, 'obs-test');
+    } catch (err: any) {
+      caughtRead2 = true;
+    }
+    assert(caughtRead2, 'getCharacterExecutionByObservation must reject on read failure instead of returning null');
+
+    // 3. getCharacterExecutions must reject
+    let caughtRead3 = false;
+    try {
+      await IndexedDbStore.getCharacterExecutions(2112001);
+    } catch (err: any) {
+      caughtRead3 = true;
+    }
+    assert(caughtRead3, 'getCharacterExecutions must reject on read failure instead of returning empty array');
+
+    // 4. getAllCharacterExecutions must reject
+    let caughtRead4 = false;
+    try {
+      await IndexedDbStore.getAllCharacterExecutions();
+    } catch (err: any) {
+      caughtRead4 = true;
+    }
+    assert(caughtRead4, 'getAllCharacterExecutions must reject on read failure instead of returning empty array');
+
+    IndexedDbStore.setTestDatabase(null);
+
+    console.log('  [PASS] Gate Scenario 7: Read failure explicit rejection verified without masking.');
+  }
+
+  // --------------------------------------------------------------------------
+  // Scenario 8: Non-régression d'idempotence : run 1 -> run 2 identique -> run 3 recompute
+  // --------------------------------------------------------------------------
+  console.log('--- Gate Scenario 8: Idempotence Chain (Run 1 -> Run 2 Identical -> Run 3 Recompute) ---');
+  {
+    await IndexedDbStore.clearCharacterExecutions();
+    const obs = createTestObservation({ observation_id: 'obs-gate-008', quantity: 5000 });
+    const txBuy = createTestPersistedTransaction({
+      transaction_id: 20008,
+      character_id: 2112001,
+      is_buy: true,
+      quantity: 5000,
+      unit_price: 5.0,
+      location_id: 60003760,
+      timestamp: '2026-09-20T12:05:00.000Z',
+    });
+    const txSell = createTestPersistedTransaction({
+      transaction_id: 20009,
+      character_id: 2112001,
+      is_buy: false,
+      quantity: 5000,
+      unit_price: 6.48,
+      location_id: 60008494,
+      timestamp: '2026-09-20T14:30:00.000Z',
+    });
+
+    const clock1 = () => '2026-09-20T12:00:00.000Z';
+    const clock2 = () => '2026-09-20T13:00:00.000Z';
+    const clock3 = () => '2026-09-20T14:00:00.000Z';
+
+    // Run 1
+    const run1 = await ExecutionTrackingService.trackCharacterExecutions(2112001, {
+      transactions: [txBuy, txSell],
+      observations: [obs],
+      now: clock1,
+    });
+    const rec1 = run1.execution_records[0];
+
+    // Run 2: Identical run at later time
+    const run2 = await ExecutionTrackingService.trackCharacterExecutions(2112001, {
+      transactions: [txBuy, txSell],
+      observations: [obs],
+      now: clock2,
+    });
+    const rec2 = run2.execution_records[0];
+
+    // Run 3: Force recompute at later time
+    const run3 = await ExecutionTrackingService.recomputeCharacterExecutions(2112001, {
+      transactions: [txBuy, txSell],
+      observations: [obs],
+      now: clock3,
+    });
+    const rec3 = run3.execution_records[0];
+
+    // Assert strict invariants across the chain
+    assert(
+      rec1.execution_id === rec2.execution_id && rec2.execution_id === rec3.execution_id,
+      'Execution IDs match'
+    );
+    assert(rec1.first_correlated_at === '2026-09-20T12:00:00.000Z', 'first_correlated_at initialized in run 1');
+    assert(rec2.first_correlated_at === rec1.first_correlated_at, 'first_correlated_at strictly invariant in run 2');
+    assert(rec3.first_correlated_at === rec1.first_correlated_at, 'first_correlated_at strictly invariant in run 3 recompute');
+
+    assert(rec1.execution_outcome.execution_status === 'CLOSED', 'Status is CLOSED');
+    assert(rec2.execution_outcome.execution_status === 'CLOSED', 'Status is CLOSED in run 2');
+    assert(rec3.execution_outcome.execution_status === 'CLOSED', 'Status is CLOSED in run 3');
+
+    assert(
+      rec1.execution_outcome.executed_buy_quantity === rec3.execution_outcome.executed_buy_quantity,
+      'Buy quantity strictly invariant'
+    );
+    assert(
+      rec1.execution_outcome.executed_sell_quantity === rec3.execution_outcome.executed_sell_quantity,
+      'Sell quantity strictly invariant'
+    );
+    assert(
+      rec1.execution_outcome.vwap_buy_price === rec3.execution_outcome.vwap_buy_price,
+      'VWAP buy strictly invariant'
+    );
+    assert(
+      rec1.execution_outcome.vwap_sell_price === rec3.execution_outcome.vwap_sell_price,
+      'VWAP sell strictly invariant'
+    );
+    assert(
+      JSON.stringify(rec1.transaction_ids) === JSON.stringify(rec3.transaction_ids),
+      'Transaction IDs array identical'
+    );
+
+    console.log('  [PASS] Gate Scenario 8: Strict multi-run idempotence and temporal metadata invariance verified.');
+  }
+
+  // --------------------------------------------------------------------------
+  // Scenario 9: Respect des versions : correlation_engine_version immuable et présent
+  // --------------------------------------------------------------------------
+  console.log('--- Gate Scenario 9: Immutable correlation_engine_version Enforcement ---');
+  {
+    const allRecords = await IndexedDbStore.getAllCharacterExecutions();
+    assert(allRecords.length > 0, 'Database contains execution records');
+    for (const rec of allRecords) {
+      assert(typeof rec.correlation_engine_version === 'string', 'Version must be string');
+      assert(
+        rec.correlation_engine_version === '1.0.0',
+        `Version must be "1.0.0", got: ${rec.correlation_engine_version}`
+      );
+      assert(rec.correlation_engine_version === CORRELATION_ENGINE_VERSION, 'Matches constant');
+    }
+
+    console.log('  [PASS] Gate Scenario 9: correlation_engine_version immutable and present across all records.');
+  }
+
+  console.log('\n==========================================================================');
+  console.log('ALL CHANTIER 3B-3 & 3B-3.1 GATE TESTS (18 + 9 = 27) PASSED (100%)');
+  console.log('==========================================================================\n');
 }
 
 runAllTests().catch((err) => {

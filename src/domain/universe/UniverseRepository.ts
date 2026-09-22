@@ -115,8 +115,18 @@ export class UniverseRepository {
         is_hub: true,
         hub_id: hub.id,
         source: 'hub',
-        is_verified: true,
-        confidence: 1.0,
+        is_verified: this.integrity.isReady,
+        confidence: this.integrity.isReady ? 1.0 : 0,
+        provenance: {
+          source: 'static_dataset',
+          dataset_version: CANONICAL_UNIVERSE_MANIFEST.version,
+          dataset_checksum: CANONICAL_UNIVERSE_MANIFEST.checksum,
+          loaded_at: new Date().toISOString(),
+          verified: this.integrity.isReady,
+          confidence: this.integrity.isReady ? 1.0 : 0,
+          completeness: this.integrity.isReady ? 'complete' : 'partial',
+          scope: 'major_market_hub',
+        },
       });
     }
 

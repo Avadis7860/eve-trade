@@ -14,7 +14,7 @@ const jita = MAJOR_MARKET_HUBS.find((hub) => hub.id === 'jita')!;
 const amarr = MAJOR_MARKET_HUBS.find((hub) => hub.id === 'amarr')!;
 
 const destinationBuyOrder = {
-  order_id: 880001,
+  order_id: '880001',
   type_id: item.type_id,
   region_id: amarr.region_id,
   system_id: jita.system_id,
@@ -70,7 +70,7 @@ const filteredAtEleven = InterRegionalCalculationEngine.filterAccessibleOrdersFo
 );
 assert.equal(filteredAtEleven.length, 1);
 
-const tooShortRange = { ...destinationBuyOrder, order_id: 880002, order_range: '10' };
+const tooShortRange = { ...destinationBuyOrder, order_id: '880002', order_range: '10' };
 const resolvedTooShort = InterRegionalResolver.resolve(
   item,
   jita,
@@ -117,7 +117,7 @@ assert.equal(
   0,
 );
 
-const malformedRange = { ...destinationBuyOrder, order_id: 880003, order_range: '9-jumps' };
+const malformedRange = { ...destinationBuyOrder, order_id: '880003', order_range: '9-jumps' };
 assert.equal(
   InterRegionalCalculationEngine.filterAccessibleOrdersForHub(
     [malformedRange],

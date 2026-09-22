@@ -1,9 +1,3 @@
-> **Statut documentaire — 22 septembre 2026**
->
-> Ce document conserve l'historique du plan d'audit et de ses lots initiaux. Il n'est plus la source de vérité de l'état courant du dépôt : certaines phases ont déjà été réalisées, fusionnées ou reclassées. Pour l'état réel de `main` et le roadmap actif, consulter [`docs/audit/current-state.md`](./current-state.md) ainsi que les index sous [`docs/agent/`](../agent/).
->
-> Les sections historiques mentionnant Gemini, AI Studio, des versions anciennes d'IndexedDB, des nombres de tests antérieurs ou des lockfiles absents doivent être interprétées comme des comptes rendus datés, pas comme des prescriptions actuelles.
->
 # MASTER-PLAN — EVE TRADE
 
 ## Stabilisation, fiabilisation, architecture et qualité UI/UX

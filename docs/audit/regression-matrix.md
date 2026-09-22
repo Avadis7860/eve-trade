@@ -1,5 +1,3 @@
-> **Note de traçabilité — document historique.** Ce rapport décrit un état daté au moment de son lot. Pour l'état actuel du dépôt, consulter [`docs/audit/current-state.md`](./current-state.md) et les index [`docs/agent/`](../agent/).
->
 # EVE Trade — Matrice de Couverture et Non-Régression
 
 Cette matrice documente les mécanismes de protection actuels et dans le pipeline CI à l'issue de **LOT-003 & LOT-003.1** (Security & ESI Hardening).

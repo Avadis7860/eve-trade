@@ -10,7 +10,7 @@ Merci de votre intérêt pour le projet **EVE Trade** ! Ce document définit les
    ```bash
    git clone https://github.com/votre-compte/eve-trade.git
    cd eve-trade
-   npm ci
+   npm install
    ```
 
 2. **Lancement du serveur de développement :**

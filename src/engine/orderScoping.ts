@@ -88,6 +88,7 @@ export function selectOrdersByScope(
     default:
       return [];
   }
+}
 
 /**
  * Pure helper to construct a normalized OrderCollection.

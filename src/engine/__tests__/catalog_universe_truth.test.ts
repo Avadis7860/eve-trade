@@ -17,7 +17,10 @@ console.log('=== RUNNING CATALOG & UNIVERSE TRUTH TESTS ===');
 
 const canonicalCatalogChecksum = CatalogValidator.computeCanonicalChecksum(EVE_TYPES_CATALOG);
 assert(EVE_TYPES_CATALOG.length === CANONICAL_CATALOG_MANIFEST.expectedCount, 'Bundled catalog cardinality must match manifest');
-assert(canonicalCatalogChecksum === CANONICAL_CATALOG_MANIFEST.checksum, 'Bundled catalog checksum must match manifest');
+assert(
+  canonicalCatalogChecksum === CANONICAL_CATALOG_MANIFEST.checksum,
+  `Bundled catalog checksum must match manifest: expected ${CANONICAL_CATALOG_MANIFEST.checksum}, got ${canonicalCatalogChecksum}`
+);
 
 const truncatedCatalog = EVE_TYPES_CATALOG.slice(0, -1);
 const truncated = CatalogValidator.validateCatalogCompleteness(truncatedCatalog, {
@@ -79,7 +82,10 @@ assert(universeIntegrity.isReady, 'Bundled universe dataset must pass its canoni
 assert(universeIntegrity.regionsCount === CANONICAL_UNIVERSE_MANIFEST.regionsCount, 'Region count mismatch');
 assert(universeIntegrity.systemsCount === CANONICAL_UNIVERSE_MANIFEST.systemsCount, 'System count mismatch');
 assert(universeIntegrity.stationsCount === CANONICAL_UNIVERSE_MANIFEST.stationsCount, 'Station count mismatch');
-assert(universeIntegrity.checksum === CANONICAL_UNIVERSE_MANIFEST.checksum, 'Universe checksum mismatch');
+assert(
+  universeIntegrity.checksum === CANONICAL_UNIVERSE_MANIFEST.checksum,
+  `Universe checksum mismatch: expected ${CANONICAL_UNIVERSE_MANIFEST.checksum}, got ${universeIntegrity.checksum}`
+);
 
 const truncatedUniverse = {
   ...universeDataRaw,

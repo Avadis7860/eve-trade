@@ -43,7 +43,7 @@ function assert(condition: boolean, message: string) {
 function createTestOrders(): EveCharacterOrder[] {
   return [
     {
-      order_id: 10001,
+      order_id: '10001',
       character_id: 1001,
       character_name: 'Pilot Alpha',
       type_id: 34,
@@ -60,7 +60,7 @@ function createTestOrders(): EveCharacterOrder[] {
       escrow: 2750000,
     },
     {
-      order_id: 10002,
+      order_id: '10002',
       character_id: 1001,
       character_name: 'Pilot Alpha',
       type_id: 35,
@@ -76,7 +76,7 @@ function createTestOrders(): EveCharacterOrder[] {
       duration: 90,
     },
     {
-      order_id: 20001,
+      order_id: '20001',
       character_id: 1002,
       character_name: 'Pilot Beta',
       type_id: 36,
@@ -257,7 +257,7 @@ function runEndToEndIntegrationTests() {
   });
   assert(ordersBeta.length === 1, 'Beta should have 1 active order');
   assert(ordersBeta[0].character_id === 1002, 'Beta order must belong to 1002');
-  assert(ordersBeta[0].order_id === 20001, 'Beta order ID must remain 20001');
+  assert(ordersBeta[0].order_id === '20001', 'Beta order ID must remain 20001');
 
   // Scope: Fleet -> All orders from fleet participants
   const scopeFleet: OrderScope = { type: 'fleet' };
@@ -267,8 +267,8 @@ function runEndToEndIntegrationTests() {
   });
   assert(ordersFleet.length === 3, 'Fleet scope should contain all 3 orders');
   // Invariant: Orders retain original character_id (no replacement with 0 or fleet id)
-  assert(ordersFleet.find((o: EveCharacterOrder) => o.order_id === 10001)?.character_id === 1001, 'Order 10001 must keep character_id 1001');
-  assert(ordersFleet.find((o: EveCharacterOrder) => o.order_id === 20001)?.character_id === 1002, 'Order 20001 must keep character_id 1002');
+  assert(ordersFleet.find((o: EveCharacterOrder) => o.order_id === '10001')?.character_id === 1001, 'Order 10001 must keep character_id 1001');
+  assert(ordersFleet.find((o: EveCharacterOrder) => o.order_id === '20001')?.character_id === 1002, 'Order 20001 must keep character_id 1002');
   console.log('  [PASS] Gate Check 3: Order scoping and active character switching verified.');
 
   // --------------------------------------------------------------------------

@@ -36,10 +36,33 @@ Le backend local Express fait office de proxy sécurisé, de gestionnaire de ses
 | `/api/auth/url` | `GET` | `?redirect_uri=...` | Génère l'URL d'autorisation EVE SSO v2 avec jeton CSRF `state`. |
 | `/api/auth/token` | `POST` | `{ code, state }` | Échange sécurisé du code d'autorisation contre les tokens JWT. |
 | `/api/auth/refresh` | `POST` | `{ refresh_token }` | Renouvellement atomique avec verrouillage anti-concurrence. |
-| `/api/character/:id/wallet` | `GET` | En-tête `Authorization` | Proxy sécurisé vers `/characters/{id}/wallet/`. |
+| `/api/character/:id/wallet` | `GET` | En-tête `Authorization` | Proxy sécurisé vers `/characters/{id}/wallet/`; le solde est renvoyé inchangé sous `{ balance }`. |
 | `/api/character/:id/orders` | `GET` | En-tête `Authorization` | Proxy sécurisé vers `/characters/{id}/orders/`. |
+| `/api/character/:id/orders/history` | `GET` | `?page=1..1000` & `Authorization` | Historique des ordres caractère, page ESI explicitement conservée. |
 | `/api/character/:id/skills` | `GET` | En-tête `Authorization` | Proxy sécurisé vers `/characters/{id}/skills/`. |
 | `/api/character/:id/transactions` | `GET` | `?from_id=...` & `Authorization` | Ingestion paginée des transactions de portefeuille. |
+| `/api/character/:id/journal` | `GET` | En-tête `Authorization` | Proxy vers le journal financier caractère. |
+| `/api/character/:id/corporation` | `GET` | Facultatif | Résolution de l'identité publique caractère puis du profil public de corporation; l'identité ESI est toujours appelée anonymement. |
+| `/api/character/:id/corporation/wallets` | `GET` | En-tête `Authorization` | Route corporation legacy maintenue en non-régression; expose divisions et soldes tels que fournis par ESI. |
+
+---
+
+## 🔐 Contrat de frontière ESI des routes caractère
+
+Les routes caractère authentifiées utilisent exclusivement la chaîne `charactersRouter -> CharacterEsiGateway -> EsiGateway -> fetchEsi`. La route ne reconstruit pas de politique ESI parallèle.
+
+Règles durables :
+* `characterId` doit être un entier positif sous sa forme canonique;
+* le schéma Bearer est insensible à la casse et les espaces entre schéma et credential sont normalisés;
+* une requête anonyme ne transmet jamais l'Authorization fournie par le caller;
+* les credentials de deux personnages ne peuvent pas partager une requête privée dédupliquée;
+* le payload CCP n'est pas transformé en zéro, tableau vide ou valeur synthétique en cas d'erreur;
+* les métadonnées de transport sont conservées lorsque CCP les fournit : ETag, expiration, Last-Modified, Cache-Control, X-Pages, compatibilité ESI, rate-limit et Retry-After;
+* un `304 Not Modified` reste un résultat de cache sans corps JSON;
+* un succès de transport sans payload exploitable produit une réponse fail-closed `INVALID_ESI_RESPONSE`;
+* les erreurs ESI gardent leur statut et leur classification au niveau HTTP.
+
+La suite dédiée `server/__tests__/character_routes_contract.test.ts` couvre la chaîne HTTP complète avec un transport CCP mocké et vérifie également l'isolation des credentials et les routes corporation legacy.
 
 ---
 

@@ -73,11 +73,12 @@ async function runCatalogIntegrityTests() {
 
   // Test 5: Checksum Mismatch Detection
   console.log('5. Testing checksum mismatch detection...');
-  const mismatchCheck = CatalogValidator.validateCatalogCompleteness(fallbackItems, {
-    expectedCount: 2,
+  const canonicalChecksum = CatalogHashing.computeCatalogChecksum(EVE_TYPES_CATALOG);
+  const mismatchCheck = CatalogValidator.validateCatalogCompleteness(EVE_TYPES_CATALOG, {
+    expectedCount: CANONICAL_CATALOG_MANIFEST.expectedCount,
     expectedChecksum: '0000000000000000000000000000000000000000000000000000000000000000',
-    currentChecksum: fallbackChecksum,
-    source: 'canonical_server',
+    currentChecksum: canonicalChecksum,
+    source: 'canonical_asset',
   });
   assert(
     mismatchCheck.status === 'CATALOG_CORRUPTED',

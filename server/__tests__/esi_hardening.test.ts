@@ -199,6 +199,30 @@ async function runTests() {
     assert(callCount === 1, `Expected immediate abort without retrying (callCount=1), got ${callCount}`);
   });
 
+  await test('fetchEsi preserves typed metadata when a long Retry-After stops the request', async () => {
+    const mockFetch = async () => new Response('Too Many Requests', {
+      status: 429,
+      headers: {
+        'Content-Type': 'text/plain',
+        'Retry-After': '6',
+        'X-Ratelimit-Group': 'wallet',
+        'X-Ratelimit-Remaining': '0',
+      },
+    });
+
+    const res = await fetchEsi('/characters/1/wallet/', {
+      customFetch: mockFetch,
+      retries: 1,
+    });
+
+    assert(res.ok === false, 'Expected request to stop on long Retry-After');
+    assert(res.status === 429, 'Expected status 429');
+    assert(res.retryAfterSeconds === 6, 'Expected Retry-After to be preserved');
+    assert(res.metadata.rateLimit.retryAfterSeconds === 6, 'Expected typed Retry-After metadata');
+    assert(res.metadata.rateLimit.rateLimitGroup === 'wallet', 'Expected rate-limit group metadata');
+    assert(res.metadata.rateLimit.rateLimitRemaining === 0, 'Expected rate-limit remaining metadata');
+  });
+
   await test('fetchEsi captures and respects Retry-After on 429 rate limit', async () => {
     let callCount = 0;
     const mockFetch = async () => {

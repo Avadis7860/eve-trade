@@ -96,7 +96,7 @@ assert(
 
 const jitaHub = MAJOR_MARKET_HUBS.find((h) => h.id === 'jita')!;
 const unknownRangeOrder: RawMarketOrder = {
-  order_id: 990001,
+  order_id: '990001',
   type_id: 34,
   region_id: jitaHub.region_id,
   system_id: 39999999,

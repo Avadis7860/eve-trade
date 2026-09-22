@@ -323,9 +323,6 @@ if (oppNullsecUniverse !== null) {
   throw new Error('Non-canonical/non-Highsec universe input must be rejected before financial calculation');
 }
 console.log('✅ Scenario 5 (Non-Highsec universe -> rejected) verified.');
-  throw new Error('Universe pillar must be DEGRADED');
-}
-console.log('✅ Scenario 5 (Universe Structure/Lowsec -> DEGRADED) verified.');
 
 // 6. Scenario: Financial Engine Pillar FAIL (Negative profit) -> REJECTED
 console.log('6. Testing Financial Engine Pillar FAIL (High transport costs -> Net loss)...');

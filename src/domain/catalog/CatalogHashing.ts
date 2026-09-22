@@ -1,5 +1,6 @@
 import { EveTypeDetail } from '../../types';
 import { Sha256 } from '../integrity/Sha256';
+export { Sha256 } from '../integrity/Sha256';
 
 /**
  * Deterministic Normalizer and Checksum Engine for EVE Type Catalogs.

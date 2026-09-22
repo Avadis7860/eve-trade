@@ -75,6 +75,11 @@ const AppShell: React.FC = () => {
   const [isGlobalSyncModalOpen, setIsGlobalSyncModalOpen] = useState<boolean>(false);
   const [isMobileCatalogOpen, setIsMobileCatalogOpen] = useState<boolean>(false);
 
+  // Initialize global opportunities from storage on mount
+  useEffect(() => {
+    GlobalMarketSyncService.initFromStorage();
+  }, []);
+
   // Market Data (Live ESI & cached books)
   const {
     orderBooks,

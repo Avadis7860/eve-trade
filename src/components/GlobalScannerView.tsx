@@ -52,64 +52,104 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
 
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const [minProfitFilter, setMinProfitFilter] = useState<number>(500000); // 500k ISK default
-  const [minRoiFilter, setMinRoiFilter] = useState<number>(0.02); // 2%
-  const [maxJumpsFilter, setMaxJumpsFilter] = useState<number>(25);
-  const [highSecOnly, setHighSecOnly] = useState<boolean>(true);
+  const [minProfitFilter, setMinProfitFilter] = useState<number>(0); // Default 0 to show all discovered opportunities
+  const [minRoiFilter, setMinRoiFilter] = useState<number>(0); // Default 0 to show all positive ROIs
+  const [maxJumpsFilter, setMaxJumpsFilter] = useState<number>(50); // Default 50 to cover all routes
+  const [highSecOnly, setHighSecOnly] = useState<boolean>(false); // Default false to show all discovered routes
   const [sortBy, setSortBy] = useState<'score' | 'profit' | 'roi' | 'turnover' | 'capital'>('score');
 
   useEffect(() => {
+    // 1. If memory has opportunities, set them
+    const mem = GlobalMarketSyncService.getUniverseOpportunities();
+    if (mem.length > 0) {
+      setOpportunities(mem);
+    } else {
+      // Hydrate asynchronously from IndexedDB / Storage
+      GlobalMarketSyncService.initFromStorage().then((stored) => {
+        if (stored && stored.length > 0) {
+          setOpportunities(stored);
+        }
+      });
+    }
+
+    // 2. Subscribe to live stream
     const unsub = GlobalMarketSyncService.subscribeOpportunities((opps) => {
       setOpportunities(opps);
     });
     return () => unsub();
   }, []);
 
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setCategoryFilter('all');
+    setMinProfitFilter(0);
+    setMinRoiFilter(0);
+    setMaxJumpsFilter(50);
+    setHighSecOnly(false);
+    setSortBy('score');
+  };
+
+  const isFiltered = Boolean(
+    searchQuery.trim() ||
+    categoryFilter !== 'all' ||
+    minProfitFilter > 0 ||
+    minRoiFilter > 0 ||
+    maxJumpsFilter < 50 ||
+    highSecOnly
+  );
+
   const filteredOpportunities = useMemo(() => {
     return opportunities
       .filter((opp) => {
+        if (!opp) return false;
+
         // High Sec filter
-        if (highSecOnly && !opp.route.is_highsec_only) return false;
+        if (highSecOnly && opp.route && !opp.route.is_highsec_only) return false;
 
         // Jumps filter
-        if (opp.route.jumps > maxJumpsFilter) return false;
+        if (opp.route && opp.route.jumps > maxJumpsFilter) return false;
 
         // Profit filter
-        if (opp.costs.net_profit < minProfitFilter) return false;
+        const profit = opp.costs?.net_profit ?? 0;
+        if (profit < minProfitFilter) return false;
 
         // ROI filter
-        if (opp.costs.roi < minRoiFilter) return false;
+        const roi = opp.costs?.roi ?? 0;
+        if (roi < minRoiFilter) return false;
 
         // Chokepoints filter if avoid_chokepoints enabled in config
-        if (config.avoid_chokepoints && opp.route.chokepoints && opp.route.chokepoints.length > 0) {
+        if (config.avoid_chokepoints && opp.route?.chokepoints && opp.route.chokepoints.length > 0) {
           return false;
         }
 
         // Category filter
-        if (categoryFilter !== 'all' && opp.category_name !== categoryFilter) {
+        const oppCategory = opp.category_name || '';
+        if (categoryFilter !== 'all' && oppCategory !== categoryFilter) {
           return false;
         }
 
         // Search query
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase();
-          const matchName = opp.item_name.toLowerCase().includes(q);
-          const matchGroup = opp.group_name.toLowerCase().includes(q);
-          const matchHub = opp.buy_hub.name.toLowerCase().includes(q) || opp.sell_hub.name.toLowerCase().includes(q);
-          if (!matchName && !matchGroup && !matchHub) return false;
+          const matchName = (opp.item_name || opp.type_name || '').toLowerCase().includes(q);
+          const matchGroup = (opp.group_name || '').toLowerCase().includes(q);
+          const matchCategory = (opp.category_name || '').toLowerCase().includes(q);
+          const matchBuyHub = (opp.buy_hub?.name || '').toLowerCase().includes(q);
+          const matchSellHub = (opp.sell_hub?.name || '').toLowerCase().includes(q);
+          if (!matchName && !matchGroup && !matchCategory && !matchBuyHub && !matchSellHub) return false;
         }
 
         return true;
       })
       .sort((a, b) => {
-        if (sortBy === 'score') return b.scores.overall_score - a.scores.overall_score;
-        if (sortBy === 'profit') return b.costs.net_profit - a.costs.net_profit;
-        if (sortBy === 'roi') return b.costs.roi - a.costs.roi;
-        if (sortBy === 'turnover') return a.expected_days_to_sell - b.expected_days_to_sell;
-        if (sortBy === 'capital') return b.costs.purchase_cost - a.costs.purchase_cost;
+        if (sortBy === 'score') return (b.scores?.overall_score ?? 0) - (a.scores?.overall_score ?? 0);
+        if (sortBy === 'profit') return (b.costs?.net_profit ?? 0) - (a.costs?.net_profit ?? 0);
+        if (sortBy === 'roi') return (b.costs?.roi ?? 0) - (a.costs?.roi ?? 0);
+        if (sortBy === 'turnover') return (a.expected_days_to_sell ?? 0) - (b.expected_days_to_sell ?? 0);
+        if (sortBy === 'capital') return (b.costs?.purchase_cost ?? 0) - (a.costs?.purchase_cost ?? 0);
         return 0;
       });
-  }, [opportunities, searchQuery, categoryFilter, minProfitFilter, minRoiFilter, maxJumpsFilter, highSecOnly, sortBy]);
+  }, [opportunities, searchQuery, categoryFilter, minProfitFilter, minRoiFilter, maxJumpsFilter, highSecOnly, sortBy, config.avoid_chokepoints]);
 
   // Unique categories for dropdown
   const availableCategories = useMemo(() => {
@@ -132,8 +172,16 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
             <h1 className="text-lg font-bold text-[#fafafa] flex items-center gap-2">
               Découverte Globale d'Arbitrage Universel
               <span className="text-xs px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono font-semibold">
-                {filteredOpportunities.length} opportunité{filteredOpportunities.length > 1 ? 's' : ''} active{filteredOpportunities.length > 1 ? 's' : ''}
+                {filteredOpportunities.length} / {opportunities.length} opportunité{opportunities.length > 1 ? 's' : ''}
               </span>
+              {isFiltered && (
+                <button
+                  onClick={handleResetFilters}
+                  className="text-[11px] px-2 py-0.5 rounded bg-[#262730] hover:bg-[#31333f] text-[#808495] hover:text-[#fafafa] transition-colors"
+                >
+                  Réinitialiser filtres
+                </button>
+              )}
             </h1>
             <p className="text-xs text-[#808495] mt-0.5">
               Classement universel des meilleurs flux commerciaux inter-régionaux analysés en temps réel
@@ -188,7 +236,10 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
               onChange={(e) => setMinProfitFilter(Number(e.target.value))}
               className="w-full bg-[#0e1117] border border-[#262730] text-[#fafafa] p-2 rounded-lg focus:border-purple-500 focus:outline-none"
             >
+              <option value={0}>Tous les profits (0+ ISK)</option>
+              <option value={50000}>Profit Net &gt; 50k ISK</option>
               <option value={100000}>Profit Net &gt; 100k ISK</option>
+              <option value={250000}>Profit Net &gt; 250k ISK</option>
               <option value={500000}>Profit Net &gt; 500k ISK</option>
               <option value={2000000}>Profit Net &gt; 2M ISK</option>
               <option value={10000000}>Profit Net &gt; 10M ISK</option>
@@ -230,7 +281,7 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
               <input
                 type="range"
                 min={5}
-                max={40}
+                max={60}
                 value={maxJumpsFilter}
                 onChange={(e) => setMaxJumpsFilter(Number(e.target.value))}
                 className="accent-purple-500 w-24"
@@ -245,11 +296,12 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
                 onChange={(e) => setMinRoiFilter(Number(e.target.value))}
                 className="bg-[#0e1117] border border-[#262730] text-[#cfd3dc] rounded px-1.5 py-0.5"
               >
-                <option value={0.01}>1%</option>
-                <option value={0.02}>2%</option>
-                <option value={0.05}>5%</option>
-                <option value={0.10}>10%</option>
-                <option value={0.20}>20%</option>
+                <option value={0}>Tous (0%+)</option>
+                <option value={0.01}>1%+</option>
+                <option value={0.02}>2%+</option>
+                <option value={0.05}>5%+</option>
+                <option value={0.10}>10%+</option>
+                <option value={0.20}>20%+</option>
               </select>
             </div>
           </div>
@@ -264,17 +316,37 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
       {filteredOpportunities.length === 0 ? (
         <div className="bg-[#161821] border border-[#262730] p-12 rounded-2xl text-center space-y-3">
           <Globe className="w-12 h-12 mx-auto text-[#808495] opacity-40" />
-          <h3 className="font-bold text-base text-[#fafafa]">Aucune opportunité ne correspond à vos filtres</h3>
-          <p className="text-xs text-[#808495] max-w-md mx-auto">
-            Ajustez vos filtres de profit minimum ou lancez une nouvelle synchronisation globale du marché pour découvrir de nouveaux flux.
-          </p>
-          <button
-            onClick={onOpenGlobalSyncModal}
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg text-xs inline-flex items-center gap-2"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            Lancer un Scan Global du Marché
-          </button>
+          {opportunities.length > 0 ? (
+            <>
+              <h3 className="font-bold text-base text-amber-300">
+                {opportunities.length} opportunité{opportunities.length > 1 ? 's' : ''} masquée{opportunities.length > 1 ? 's' : ''} par vos filtres actuels
+              </h3>
+              <p className="text-xs text-[#808495] max-w-md mx-auto">
+                Des opportunités existent en mémoire mais ne correspondent pas à vos critères (profit min, max sauts, high-sec, catégorie ou recherche).
+              </p>
+              <button
+                onClick={handleResetFilters}
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg text-xs inline-flex items-center gap-2 transition-colors"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                Réinitialiser tous les filtres ({opportunities.length} disponibles)
+              </button>
+            </>
+          ) : (
+            <>
+              <h3 className="font-bold text-base text-[#fafafa]">Aucune opportunité globale en mémoire</h3>
+              <p className="text-xs text-[#808495] max-w-md mx-auto">
+                Lancez une synchronisation globale du marché pour scanner l'univers et découvrir les flux d'arbitrage inter-hubs en temps réel.
+              </p>
+              <button
+                onClick={onOpenGlobalSyncModal}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg text-xs inline-flex items-center gap-2"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                Lancer un Scan Global du Marché
+              </button>
+            </>
+          )}
         </div>
       ) : (
         <div className="bg-[#161821] border border-[#262730] rounded-2xl overflow-hidden shadow-xl">
@@ -294,11 +366,18 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
               </thead>
               <tbody className="divide-y divide-[#262730]">
                 {filteredOpportunities.map((opp) => {
-                  const score = opp.scores.overall_score;
+                  const score = opp.scores?.overall_score ?? 0;
                   const scoreColor =
                     score >= 80 ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' :
                     score >= 60 ? 'text-blue-400 bg-blue-500/10 border-blue-500/30' :
                     'text-amber-400 bg-amber-500/10 border-amber-500/30';
+
+                  const itemName = opp.item_name || opp.type_name || `Type #${opp.type_id}`;
+                  const buyHubName = opp.buy_hub?.name || 'Hub Achat';
+                  const sellHubName = opp.sell_hub?.name || 'Hub Vente';
+                  const jumps = opp.route?.jumps ?? 0;
+                  const isHighSec = Boolean(opp.route?.is_highsec_only);
+                  const minSec = opp.route?.min_security ?? 1.0;
 
                   return (
                     <tr
@@ -315,7 +394,7 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
                       {/* Item Details */}
                       <td className="p-3.5">
                         <div className="font-bold text-[#fafafa] text-xs flex items-center gap-1.5 flex-wrap">
-                          <span>{opp.item_name}</span>
+                          <span>{itemName}</span>
                           {opp.certification && (
                             <span
                               className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase font-mono ${
@@ -340,7 +419,7 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
                             {opp.category_name || 'Item'}
                           </span>
                           <span>&bull;</span>
-                          <span>{opp.group_name}</span>
+                          <span>{opp.group_name || 'Groupe'}</span>
                           {opp.certification?.evidence_hash && (
                             <>
                               <span>&bull;</span>
@@ -358,22 +437,22 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
                       {/* Route Details */}
                       <td className="p-3.5">
                         <div className="flex items-center gap-1.5 font-semibold">
-                          <span className="text-emerald-400">{opp.buy_hub.name}</span>
+                          <span className="text-emerald-400">{buyHubName}</span>
                           <span className="text-[#808495]">&rarr;</span>
-                          <span className="text-blue-400">{opp.sell_hub.name}</span>
+                          <span className="text-blue-400">{sellHubName}</span>
                         </div>
                         <div className="text-[10px] text-[#808495] flex items-center gap-2 mt-0.5 flex-wrap">
                           <span className="flex items-center gap-1">
-                            {opp.route.is_highsec_only ? (
+                            {isHighSec ? (
                               <ShieldCheck className="w-3 h-3 text-emerald-400" />
                             ) : (
                               <ShieldAlert className="w-3 h-3 text-amber-400" />
                             )}
-                            {opp.route.jumps} sauts
+                            {jumps} sauts
                           </span>
                           <span>&bull;</span>
-                          <span>Sec: {opp.route.min_security.toFixed(1)}</span>
-                          {opp.route.chokepoints && opp.route.chokepoints.length > 0 && (
+                          <span>Sec: {minSec.toFixed(1)}</span>
+                          {opp.route?.chokepoints && opp.route.chokepoints.length > 0 && (
                             <span className="px-1.5 py-0.2 rounded bg-red-500/20 text-red-300 border border-red-500/40 text-[9px] font-bold">
                               ⚠️ {opp.route.chokepoints.join(', ')}
                             </span>
@@ -384,40 +463,40 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
                       {/* Pricing */}
                       <td className="p-3.5 text-right font-mono">
                         <div className="text-[#cfd3dc]">
-                          {opp.effective_buy_price.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} ISK
+                          {(opp.effective_buy_price ?? 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} ISK
                         </div>
                         <div className="text-[10px] text-purple-300">
-                          &rarr; {opp.effective_sell_price.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} ISK
+                          &rarr; {(opp.effective_sell_price ?? 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} ISK
                         </div>
                       </td>
 
                       {/* Quantity & Cargo */}
                       <td className="p-3.5 text-right font-mono">
                         <div className="text-[#fafafa] font-bold">
-                          {opp.quantity_tradable.toLocaleString('fr-FR')} u.
+                          {(opp.quantity_tradable ?? 0).toLocaleString('fr-FR')} u.
                         </div>
                         <div className="text-[10px] text-[#808495]">
-                          {opp.total_cargo_volume.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} m³
+                          {(opp.total_cargo_volume ?? 0).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} m³
                         </div>
                       </td>
 
                       {/* Net Profit */}
                       <td className="p-3.5 text-right font-mono">
                         <div className="text-emerald-400 font-bold text-sm">
-                          +{opp.costs.net_profit.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} ISK
+                          +{(opp.costs?.net_profit ?? 0).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} ISK
                         </div>
                         <div className="text-[10px] text-[#808495]">
-                          +{opp.costs.profit_per_unit.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} ISK / u
+                          +{(opp.costs?.profit_per_unit ?? 0).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} ISK / u
                         </div>
                       </td>
 
                       {/* ROI */}
                       <td className="p-3.5 text-right font-mono">
                         <div className="text-purple-300 font-bold">
-                          +{(opp.costs.roi * 100).toFixed(1)}%
+                          +{((opp.costs?.roi ?? 0) * 100).toFixed(1)}%
                         </div>
                         <div className="text-[10px] text-[#808495]">
-                          ~{opp.expected_days_to_sell.toFixed(1)}j vente
+                          ~{(opp.expected_days_to_sell ?? 0).toFixed(1)}j vente
                         </div>
                       </td>
 

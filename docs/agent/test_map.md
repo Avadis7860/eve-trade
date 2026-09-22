@@ -15,6 +15,8 @@ A task is not complete until its affected validation surface is identified. This
 | IndexedDB | Persistence/schema-related engine suites plus TypeScript/build | Full regression suite and build |
 | Catalog/data | `catalog_integrity.test.ts` / `type_catalog.test.ts` | Data-contract/provenance and API status checks |
 | React components/context/hooks | TypeScript + production build | Relevant integration tests where present |
+| OAuth/SSO | `server/__tests__/security_hardening.test.ts` + API | navigateur local hors Google AI Studio avant E2E produit |
+| Route engine 2.7B | suites graph/route à créer | pathfinding + security traversal + truth/financial integration |
 | Documentation only | Diff review, path/reference consistency | No application tests unless a documented contract changes |
 
 ## Current CI validation
@@ -51,3 +53,10 @@ Agents must report the checks actually executed; documentation alone is never ev
 
 
 - Inter-regional purity: `interregional_purity.test.ts` — deterministic core, repository isolation, UNKNOWN/dynamic rejection and architectural import/time guard.
+
+
+## E2E navigateur — ordre obligatoire
+1. Corriger et valider OAuth/SSO dans un navigateur local.
+2. Vérifier callback, session, refresh et accès authentifié.
+3. Seulement ensuite lancer l'E2E fonctionnel complet.
+4. Couvrir aussi UNKNOWN/PARTIAL/ERROR, pas seulement le chemin nominal.

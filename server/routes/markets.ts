@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { fetchEsi } from '../utils/esiClient';
+import { fetchEsi, EsiFetchResult } from '../utils/esiClient';
 
 export const marketsRouter = Router();
 
@@ -96,15 +96,10 @@ marketsRouter.get('/:regionId/orders', async (req: Request, res: Response) => {
 
     // If ESI returned 304 Not Modified, refresh TTL and return cached data
     if (result.status === 304 && cached) {
-      const expiresAt = result.expires ? new Date(result.expires).getTime() : now + 180000;
-      cached.expiresAt = Math.max(now + 60000, expiresAt);
-      if (result.etag) cached.etag = result.etag;
-      if (result.xPages) cached.headers['X-Pages'] = result.xPages;
-      if (result.errorLimitRemain !== undefined) cached.headers['X-ESI-Error-Limit-Remain'] = String(result.errorLimitRemain);
-      if (result.errorLimitReset !== undefined) cached.headers['X-ESI-Error-Limit-Reset'] = String(result.errorLimitReset);
-      applyCachedHeaders(res, cached.headers);
+      const refreshed = mergeEsi304CacheEntry(cached, result, now);
+      applyCachedHeaders(res, refreshed.headers);
       res.setHeader('X-Cache-Status', 'REVALIDATED');
-      return res.json(cached.data);
+      return res.json(refreshed.data);
     }
 
     // Forward ESI pagination and rate limit headers
@@ -178,11 +173,11 @@ marketsRouter.get('/:regionId/history', async (req: Request, res: Response) => {
     const result = await fetchEsi<any[]>(url, { etag: cached?.etag });
 
     if (result.status === 304 && cached) {
-      const expiresAt = result.expires ? new Date(result.expires).getTime() : now + 1800000;
-      cached.expiresAt = Math.max(now + 300000, expiresAt);
-      if (result.etag) cached.etag = result.etag;
+      const refreshed = mergeEsi304CacheEntry(cached, result, now);
+      refreshed.expiresAt = Math.max(now + 300000, refreshed.expiresAt);
+      applyCachedHeaders(res, refreshed.headers);
       res.setHeader('X-Cache-Status', 'REVALIDATED');
-      return res.json(cached.data);
+      return res.json(refreshed.data);
     }
 
     if (!result.ok || !result.data) {

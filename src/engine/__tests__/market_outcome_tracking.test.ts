@@ -485,7 +485,7 @@ async function testBatchScheduler() {
   await IndexedDbStore.saveOpportunityObservations([obs1, obs2]);
 
   // Seed deterministic fresh market snapshots so the scheduler does not depend on live ESI/network state.
-  const freshQuality = (regionId: number): MarketDataQuality => ({
+  const freshQuality = (): MarketDataQuality => ({
     source: 'esi',
     freshness: 'fresh',
     completeness: 'complete',
@@ -505,7 +505,7 @@ async function testBatchScheduler() {
     sync_duration_ms: 0,
     last_error: undefined,
   });
-  MarketDataStore.setOrders(10000002 === 10000002 ? 34 : 34, 10000002, initialSourceOrders, true, freshQuality(10000002));
+  MarketDataStore.setOrders(34, 10000002, initialSourceOrders, true, freshQuality());
   MarketDataStore.setOrders(34, 10000043, [{
     order_id: 2002,
     type_id: 34,
@@ -518,7 +518,7 @@ async function testBatchScheduler() {
     is_buy_order: true,
     issued: '2026-09-20T00:00:00Z',
     duration: 90,
-  }], true, freshQuality(10000043));
+  }], true, freshQuality());
 
   // Execute batch processing at T0 + 2 hours (120 mins)
   const currentTime = t0 + 120 * 60 * 1000;

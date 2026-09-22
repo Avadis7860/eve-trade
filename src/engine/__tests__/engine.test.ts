@@ -53,9 +53,9 @@ function runAllTests() {
   assert(emptyLadder.fulfilled_quantity === 0 && emptyLadder.levels.length === 0, 'Empty orders should produce 0 fill');
 
   const testSellOrders: RawMarketOrder[] = [
-    { order_id: 1, type_id: 34, location_id: 60003760, system_id: 30000142, region_id: 10000002, price: 5.0, volume_remain: 100, volume_total: 100, is_buy_order: false, duration: 90, issued: new Date().toISOString(), order_range: 'region', min_volume: 1 },
-    { order_id: 2, type_id: 34, location_id: 60003760, system_id: 30000142, region_id: 10000002, price: 5.0, volume_remain: 200, volume_total: 200, is_buy_order: false, duration: 90, issued: new Date().toISOString(), order_range: 'region', min_volume: 1 },
-    { order_id: 3, type_id: 34, location_id: 60003760, system_id: 30000142, region_id: 10000002, price: 6.0, volume_remain: 300, volume_total: 300, is_buy_order: false, duration: 90, issued: new Date().toISOString(), order_range: 'region', min_volume: 1 },
+    { order_id: '1', type_id: 34, location_id: 60003760, system_id: 30000142, region_id: 10000002, price: 5.0, volume_remain: 100, volume_total: 100, is_buy_order: false, duration: 90, issued: new Date().toISOString(), order_range: 'region', min_volume: 1 },
+    { order_id: '2', type_id: 34, location_id: 60003760, system_id: 30000142, region_id: 10000002, price: 5.0, volume_remain: 200, volume_total: 200, is_buy_order: false, duration: 90, issued: new Date().toISOString(), order_range: 'region', min_volume: 1 },
+    { order_id: '3', type_id: 34, location_id: 60003760, system_id: 30000142, region_id: 10000002, price: 6.0, volume_remain: 300, volume_total: 300, is_buy_order: false, duration: 90, issued: new Date().toISOString(), order_range: 'region', min_volume: 1 },
   ];
 
   // Consume 250 units (all at price 5.0 across orders 1 & 2)
@@ -178,16 +178,16 @@ function runAllTests() {
     // The Forge (10000002) - Jita
     10000002: [
       // Sell order at Jita 4-4 station
-      { order_id: 101, type_id: 34, location_id: 60003760, system_id: 30000142, region_id: 10000002, price: 4.5, volume_remain: 1000000, volume_total: 1000000, is_buy_order: false, duration: 90, issued: new Date().toISOString(), order_range: 'region', min_volume: 1 },
+      { order_id: '101', type_id: 34, location_id: 60003760, system_id: 30000142, region_id: 10000002, price: 4.5, volume_remain: 1000000, volume_total: 1000000, is_buy_order: false, duration: 90, issued: new Date().toISOString(), order_range: 'region', min_volume: 1 },
       // Sell order at remote station in The Forge (should NOT be accessible at Jita 4-4!)
-      { order_id: 102, type_id: 34, location_id: 60003761, system_id: 30000143, region_id: 10000002, price: 2.0, volume_remain: 5000000, volume_total: 5000000, is_buy_order: false, duration: 90, issued: new Date().toISOString(), order_range: 'region', min_volume: 1 },
+      { order_id: '102', type_id: 34, location_id: 60003761, system_id: 30000143, region_id: 10000002, price: 2.0, volume_remain: 5000000, volume_total: 5000000, is_buy_order: false, duration: 90, issued: new Date().toISOString(), order_range: 'region', min_volume: 1 },
     ],
     // Domain (10000043) - Amarr
     10000043: [
       // Sell orders at Amarr VIII station for relist competition
-      { order_id: 201, type_id: 34, location_id: 60008494, system_id: 30002187, region_id: 10000043, price: 6.5, volume_remain: 500000, volume_total: 500000, is_buy_order: false, duration: 90, issued: new Date().toISOString(), order_range: 'region', min_volume: 1 },
+      { order_id: '201', type_id: 34, location_id: 60008494, system_id: 30002187, region_id: 10000043, price: 6.5, volume_remain: 500000, volume_total: 500000, is_buy_order: false, duration: 90, issued: new Date().toISOString(), order_range: 'region', min_volume: 1 },
       // Buy order with region-wide range (accessible from Amarr)
-      { order_id: 202, type_id: 34, location_id: 60008494, system_id: 30002187, region_id: 10000043, price: 5.8, volume_remain: 200000, volume_total: 200000, is_buy_order: true, duration: 90, issued: new Date().toISOString(), order_range: 'region', min_volume: 1 },
+      { order_id: '202', type_id: 34, location_id: 60008494, system_id: 30002187, region_id: 10000043, price: 5.8, volume_remain: 200000, volume_total: 200000, is_buy_order: true, duration: 90, issued: new Date().toISOString(), order_range: 'region', min_volume: 1 },
     ],
   };
 

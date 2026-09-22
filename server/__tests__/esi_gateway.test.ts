@@ -171,6 +171,30 @@ async function runTests(): Promise<void> {
     assert(calls === 2, 'Different ETags must not share a request, got ' + calls);
   });
 
+
+  await test('does not coalesce a character request across credential rotation', async () => {
+    let calls = 0;
+
+    const gateway = createEsiGateway(async () => {
+      calls++;
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      return successfulResult({ ok: true });
+    });
+
+    await Promise.all([
+      gateway.request(
+        { path: '/characters/123/orders/' },
+        { type: 'character', id: 123, bearerCredential: 'credential-old' },
+      ),
+      gateway.request(
+        { path: '/characters/123/orders/' },
+        { type: 'character', id: 123, bearerCredential: 'credential-new' },
+      ),
+    ]);
+
+    assert(calls === 2, 'Credential rotation must isolate concurrent private requests');
+  });
+
   await test('does not share private requests across different credentials', async () => {
     let calls = 0;
 

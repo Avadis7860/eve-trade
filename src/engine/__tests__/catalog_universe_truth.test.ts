@@ -60,6 +60,20 @@ assert(catalog.getMetadata().status === 'CATALOG_PARTIAL', 'Self-declared trunca
 const dynamic = catalog.resolveType(987654321, { type_id: 987654321, name: 'Synthetic Type', volume: 1 });
 assert(!dynamic.is_verified && dynamic.confidence === 0, 'Dynamic fallback resolution must remain unverified');
 
+const canonicalCollision = catalog.registerCustomType({
+  type_id: 34,
+  name: 'Fake Canonical Override',
+  volume: 999,
+  group_id: 1,
+  category_id: 1,
+});
+assert(
+  canonicalCollision.status === 'RESOLVED_CATALOG' &&
+    canonicalCollision.is_verified === true &&
+    canonicalCollision.name === 'Tritanium',
+  'Dynamic registration must never shadow a canonical catalog type'
+);
+
 const universeIntegrity = UniverseValidator.validate(universeDataRaw);
 assert(universeIntegrity.isReady, 'Bundled universe dataset must pass its canonical integrity manifest');
 assert(universeIntegrity.regionsCount === CANONICAL_UNIVERSE_MANIFEST.regionsCount, 'Region count mismatch');
@@ -86,6 +100,23 @@ assert(unknownRoute.status === 'UNKNOWN' && unknownRoute.is_verified === false &
 
 const unknownLocation = universe.resolveLocationSync(999999999);
 assert(unknownLocation.status === 'LOCATION_UNKNOWN' && unknownLocation.is_verified === false, 'Unknown location must remain UNKNOWN');
+
+const dynamicStructureId = 1000000000001;
+const registeredStructure = universe.registerStructure({
+  location_id: dynamicStructureId,
+  name: 'Dynamic Test Structure',
+  system_id: 30000142,
+  system_name: 'Jita',
+  region_id: 10000002,
+  region_name: 'The Forge',
+  security_status: 0.95,
+}, true);
+assert(registeredStructure.is_verified, 'Dynamic structure resolution may be verified for display/orchestration');
+const dynamicSyncLookup = universe.resolveLocationSync(dynamicStructureId);
+assert(
+  dynamicSyncLookup.status === 'LOCATION_UNKNOWN' && dynamicSyncLookup.is_verified === false,
+  'Dynamic/ESI structure cache must never become canonical synchronous financial resolution'
+);
 
 const amarrHub: MarketHub = {
   id: 'amarr-test',

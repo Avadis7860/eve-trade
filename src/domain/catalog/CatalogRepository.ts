@@ -571,7 +571,17 @@ export class CatalogRepository {
       source: metadata.source,
     });
 
-    const status: TypeCatalogStatus = errors.length > 0 ? 'CATALOG_CORRUPTED' : integrity.status;
+    const trustedSource =
+      metadata.source === 'canonical_asset' ||
+      metadata.source === 'server' ||
+      metadata.source === 'indexeddb';
+
+    const status: TypeCatalogStatus =
+      errors.length > 0
+        ? 'CATALOG_CORRUPTED'
+        : !trustedSource && integrity.isReady
+          ? 'CATALOG_CORRUPTED'
+          : integrity.status;
 
     this.typeMap.clear();
     for (const t of validTypes) {

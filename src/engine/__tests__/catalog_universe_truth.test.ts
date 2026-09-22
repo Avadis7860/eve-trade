@@ -138,11 +138,38 @@ UniverseRepository.resetInstance();
 const universe = UniverseRepository.getInstance();
 assert(universe.getIntegrity().isReady, 'UniverseRepository must expose READY integrity for bundled dataset');
 
-const knownRoute = universe.getRoute(30000142, 30002187);
-assert(knownRoute.status === 'KNOWN' && knownRoute.is_verified === true && knownRoute.jumps === 9, 'Known hub route must be verified');
+const knownRoute = universe.getRoute(30000142, 30002187, 'SAFE');
+assert(
+  knownRoute.status === 'KNOWN' &&
+    knownRoute.is_verified === true &&
+    knownRoute.source === 'canonical_graph' &&
+    knownRoute.is_highsec_only === true &&
+    knownRoute.jumps === 9,
+  'Jita -> Amarr must resolve as a certified canonical SDE high-sec route',
+);
+assert(
+  knownRoute.provenance?.source === 'sde_canonical' &&
+    knownRoute.provenance.dataset_version === '3503375',
+  'Runtime route provenance must identify the pinned CCP SDE graph',
+);
 
-const unknownRoute = universe.getRoute(30000142, 999999999);
-assert(unknownRoute.status === 'UNKNOWN' && unknownRoute.is_verified === false && unknownRoute.jumps === -1, 'Unknown route must never receive synthetic values');
+const shortestRoute = universe.getRoute(30000142, 30002187, 'SHORTEST');
+assert(
+  shortestRoute.status === 'KNOWN' &&
+    shortestRoute.is_verified === true &&
+    shortestRoute.source === 'canonical_graph' &&
+    Number.isFinite(shortestRoute.jumps) &&
+    shortestRoute.jumps >= 0,
+  'Shortest route policy must also resolve through the canonical graph',
+);
+
+const unknownRoute = universe.getRoute(30000142, 999999999, 'SHORTEST');
+assert(
+  unknownRoute.status === 'UNKNOWN' &&
+    unknownRoute.is_verified === false &&
+    unknownRoute.jumps === -1,
+  'Unknown route must never receive synthetic values',
+);
 
 const unknownLocation = universe.resolveLocationSync(999999999);
 assert(unknownLocation.status === 'LOCATION_UNKNOWN' && unknownLocation.is_verified === false, 'Unknown location must remain UNKNOWN');

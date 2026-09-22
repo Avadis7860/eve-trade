@@ -223,7 +223,7 @@
 │   │   ├── scanner.ts                     # Orchestrateur de scan inter-hubs
 │   │   ├── traderAnalytics.ts             # Calculateur FIFO P&L et métriques
 │   │   └── typeCatalog.ts                 # Service de validation du catalogue
-│   ├── types/                             # Contrats TypeScript organisés par domainerations TypeScript unifiées
+│   ├── types/                             # Contrats TypeScript organisés par domaine
 │   ├── App.tsx                            # Composant racine
 │   ├── main.tsx                           # Point d'entrée React
 │   └── index.css                          # Styles globaux Tailwind

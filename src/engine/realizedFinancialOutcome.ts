@@ -77,6 +77,11 @@ export class RealizedFinancialOutcomeEngine {
     }
 
     const characterId = executionRecord.character_id;
+    if (!characterId || characterId <= 0) {
+      throw new Error(
+        `RealizedFinancialOutcomeEngine.calculate requires a valid positive character_id. Received: ${characterId} (character_id=0 is reserved for fleet contexts and cannot be used for individual character calculations)`
+      );
+    }
     const observationId = executionRecord.observation_id;
     const executionId = executionRecord.execution_id;
     const opportunityId = executionRecord.opportunity_id;
@@ -583,6 +588,12 @@ export class RealizedFinancialOutcomeEngine {
     })[],
     options?: RealizedFinancialCalculationOptions
   ): RealizedFinancialOutcome {
+    if (!characterId || characterId <= 0) {
+      throw new Error(
+        `RealizedFinancialOutcomeEngine.calculateForTransactions requires a valid positive characterId. Received: ${characterId} (character_id=0 is reserved for fleet contexts and cannot be used for individual character calculations)`
+      );
+    }
+
     // Invariant: Direct cross-character isolation check across ALL provided transactions BEFORE any type_id filtering.
     // If ANY transaction contains a character_id different from characterId, immediately reject with
     // CrossCharacterFinancialMappingViolationError, regardless of its type_id.

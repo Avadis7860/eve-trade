@@ -181,7 +181,7 @@ const AppShell: React.FC = () => {
         new Set(
           orderContextCharacters
             .map((c) => c.corporation_id)
-            .filter((id): id is number => Number.isInteger(id) && id > 0)
+            .filter((id): id is number => typeof id === 'number' && Number.isInteger(id) && id > 0)
             .map((id) => String(id))
         )
       ),

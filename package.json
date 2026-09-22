@@ -14,6 +14,7 @@
     "test:smoke": "tsx server/__tests__/server_smoke.test.ts",
     "test:security": "tsx server/__tests__/security_hardening.test.ts",
     "test:esi": "tsx server/__tests__/esi_gateway.test.ts && tsx server/__tests__/market_esi_gateway.test.ts && tsx server/__tests__/character_esi_gateway.test.ts && tsx server/__tests__/corporation_esi_gateway.test.ts && tsx server/__tests__/corporation_esi_architecture.test.ts && tsx server/__tests__/esi_hardening.test.ts",
+    "test:corporation-boundary": "tsx src/engine/__tests__/financial_config.test.ts && tsx src/engine/__tests__/treasury.test.ts && tsx server/__tests__/corporation_esi_gateway.test.ts && tsx server/__tests__/character_routes_contract.test.ts && tsx server/__tests__/corporation_esi_architecture.test.ts",
     "test:server": "npm run test:api && npm run test:smoke && npm run test:security && npm run test:esi",
     "start": "node dist/server.cjs",
     "preview": "vite preview --host 0.0.0.0 --port 3000",

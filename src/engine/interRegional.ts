@@ -1132,14 +1132,12 @@ export class InterRegionalFinancialEngine {
     if (
       marketDataPillarStatus === 'FAIL' ||
       catalogPillarStatus === 'FAIL' ||
-      universePillarStatus === 'FAIL' ||
       financialPillarStatus === 'FAIL'
     ) {
       certificationStatus = 'REJECTED';
       isActionable = false;
     } else if (
       marketDataPillarStatus === 'DEGRADED' ||
-      catalogPillarStatus === 'DEGRADED' ||
       universePillarStatus === 'DEGRADED' ||
       financialPillarStatus === 'DEGRADED'
     ) {
@@ -1153,7 +1151,6 @@ export class InterRegionalFinancialEngine {
         ...scoringEvaluation.rejectionReasons,
         ...(marketDataPillarStatus === 'FAIL' ? [marketDataDetail] : []),
         ...(catalogPillarStatus === 'FAIL' ? [catalogDetail] : []),
-        ...(universePillarStatus === 'FAIL' ? [universeDetail] : []),
         ...(financialPillarStatus === 'FAIL' ? [financialDetail] : []),
       ])
     );
@@ -1163,7 +1160,6 @@ export class InterRegionalFinancialEngine {
         ...hardRejection.anomaly_reasons,
         ...scoringEvaluation.anomalyReasons,
         ...(marketDataPillarStatus === 'DEGRADED' ? [marketDataDetail] : []),
-        ...(catalogPillarStatus === 'DEGRADED' ? [catalogDetail] : []),
         ...(universePillarStatus === 'DEGRADED' ? [universeDetail] : []),
         ...(financialPillarStatus === 'DEGRADED' ? [financialDetail] : []),
       ])

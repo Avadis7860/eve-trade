@@ -1,4 +1,4 @@
-import { loadPersistedFinancialConfig, normalizeFinancialConfig } from '../financialConfig';
+import { loadPersistedFinancialConfig, normalizeFinancialConfig, selectCorporationWalletDivision } from '../financialConfig';
 import type { FinancialConfig } from '../../types';
 
 function assert(condition: boolean, message: string): void {
@@ -37,6 +37,50 @@ async function runTests(): Promise<void> {
 
     assert(result.corporation_wallet_source === 'unavailable', 'Missing source must become unavailable');
     assert(result.corporation_wallet_balance === 5_000_000_000, 'Raw legacy balance must remain readable');
+  });
+
+  test('manual corporation budget is preserved when switching divisions despite stale ESI rows', () => {
+    const result = selectCorporationWalletDivision(
+      {
+        treasury_source_mode: 'corporation',
+        corporation_wallet_source: 'manual',
+        corporation_wallet_division: 1,
+        corporation_wallet_balance: 2_000_000_000,
+        corporation_divisions: [
+          { division: 1, name: 'Observed 1', balance: 5_000_000_000 },
+          { division: 2, name: 'Observed 2', balance: 750_000_000 },
+        ],
+      },
+      2,
+    );
+
+    assert(result.corporation_wallet_division === 2, 'Selected division must change');
+    assert(
+      result.corporation_wallet_balance === undefined,
+      'Manual division changes must not import a stale ESI division balance',
+    );
+  });
+
+  test('ESI corporation division selection uses the observed selected division balance', () => {
+    const result = selectCorporationWalletDivision(
+      {
+        treasury_source_mode: 'corporation',
+        corporation_wallet_source: 'esi',
+        corporation_wallet_division: 1,
+        corporation_wallet_balance: 5_000_000_000,
+        corporation_divisions: [
+          { division: 1, name: 'Observed 1', balance: 5_000_000_000 },
+          { division: 2, name: 'Observed 2', balance: 750_000_000 },
+        ],
+      },
+      2,
+    );
+
+    assert(result.corporation_wallet_division === 2, 'Selected division must change');
+    assert(
+      result.corporation_wallet_balance === 750_000_000,
+      'ESI division selection must use the observed selected division balance',
+    );
   });
 
   test('explicit ESI provenance is preserved', () => {

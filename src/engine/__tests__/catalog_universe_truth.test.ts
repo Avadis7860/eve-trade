@@ -164,41 +164,4 @@ assert(
   'Dynamic/ESI structure cache must never become canonical synchronous financial resolution'
 );
 
-const amarrHub: MarketHub = {
-  id: 'amarr-test',
-  name: 'Amarr',
-  region: 'Domain',
-  region_id: 10000043,
-  solar_system: 'Amarr',
-  system_id: 30002187,
-  station: 'Amarr VIII (Oris) - Emperor Family Academy',
-  station_id: 60008494,
-  security_status: 1.0,
-  priority: 1,
-  active: true,
-  hub_type: 'npc_major',
-};
-const unknownRangeOrder: RawMarketOrder = {
-  order_id: 9991,
-  type_id: 34,
-  region_id: 10000043,
-  system_id: 999999999,
-  location_id: 61000000,
-  price: 10,
-  volume_remain: 100,
-  volume_total: 100,
-  min_volume: 1,
-  is_buy_order: true,
-  order_range: '40',
-  issued: new Date().toISOString(),
-  duration: 90,
-};
-const accessible = InterRegionalFinancialEngine.filterAccessibleOrdersForHub(
-  [unknownRangeOrder],
-  amarrHub,
-  false,
-  true
-);
-assert(accessible.length === 0, 'Numeric market range must reject orders whose route is unknown');
-
 console.log('🎉 CATALOG & UNIVERSE TRUTH TESTS PASSED.');

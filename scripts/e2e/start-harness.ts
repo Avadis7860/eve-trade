@@ -14,6 +14,15 @@ interface CharacterFixture {
 const APP_PORT = Number(process.env.E2E_APP_PORT || 3000);
 const MOCK_PORT = Number(process.env.E2E_MOCK_PORT || 43123);
 
+interface NextAuthControl {
+  character: CharacterKey;
+  errorCode?: string;
+  errorDescription?: string;
+  delayMs?: number;
+}
+
+let nextAuthControl: NextAuthControl = { character: 'alpha' };
+
 const fixtures: Record<CharacterKey, CharacterFixture> = {
   alpha: {
     id: 1001,
@@ -109,7 +118,46 @@ function resolveCharacterById(id: number): CharacterFixture | null {
 }
 
 async function handleMock(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
-  const url = new URL(req.url || '/', `http://127.0.0.1:${MOCK_PORT}`);
+  const url = new URL(req.url || '/', 'http://127.0.0.1:' + MOCK_PORT);
+
+  if (req.method === 'POST' && url.pathname === '/__control__/next-auth') {
+    let body: unknown = {};
+    try {
+      const raw = await readBody(req);
+      body = raw ? JSON.parse(raw) : {};
+    } catch {
+      return json(res, 400, { error: 'INVALID_CONTROL_PAYLOAD' });
+    }
+
+    const control = body as Partial<NextAuthControl>;
+    const character =
+      control.character === 'beta' ? 'beta' :
+      control.character === 'alpha' ? 'alpha' : null;
+    if (!character) {
+      return json(res, 400, { error: 'INVALID_CHARACTER' });
+    }
+
+    const delayMs = Number.isFinite(control.delayMs)
+      ? Math.min(Math.max(Number(control.delayMs), 0), 10_000)
+      : 0;
+
+    nextAuthControl = {
+      character,
+      errorCode: typeof control.errorCode === 'string' && control.errorCode.trim()
+        ? control.errorCode.trim()
+        : undefined,
+      errorDescription: typeof control.errorDescription === 'string' && control.errorDescription.trim()
+        ? control.errorDescription.trim()
+        : undefined,
+      delayMs,
+    };
+    return json(res, 200, { ok: true });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/__control__/reset') {
+    nextAuthControl = { character: 'alpha' };
+    return json(res, 200, { ok: true });
+  }
 
   if (req.method === 'GET' && url.pathname === '/health') {
     return json(res, 200, { ok: true, service: 'eve-trade-e2e-mock' });
@@ -122,17 +170,23 @@ async function handleMock(req: http.IncomingMessage, res: http.ServerResponse): 
       return json(res, 400, { error: 'MISSING_OAUTH_PARAMETERS' });
     }
 
-    const key: CharacterKey = url.searchParams.get('character') === 'beta' ? 'beta' : 'alpha';
+    const control = nextAuthControl;
+    nextAuthControl = { character: 'alpha' };
+
+    if (control.delayMs) {
+      await new Promise(resolve => setTimeout(resolve, control.delayMs));
+    }
+
+    const key = control.character;
     const callback = new URL(redirectUri);
-    const forcedError = url.searchParams.get('e2e_error');
-    if (forcedError) {
-      callback.searchParams.set('error', forcedError);
+    if (control.errorCode) {
+      callback.searchParams.set('error', control.errorCode);
       callback.searchParams.set(
         'error_description',
-        url.searchParams.get('e2e_error_description') || 'E2E deterministic OAuth failure',
+        control.errorDescription || 'E2E deterministic OAuth failure',
       );
     } else {
-      callback.searchParams.set('code', `e2e-code-${key}`);
+      callback.searchParams.set('code', 'e2e-code-' + key);
       callback.searchParams.set('state', state);
     }
     return redirect(res, callback.toString());
@@ -310,6 +364,7 @@ process.env.EVE_SSO_AUTHORIZE_URL = `http://127.0.0.1:${MOCK_PORT}/v2/oauth/auth
 process.env.EVE_SSO_TOKEN_URL = `http://127.0.0.1:${MOCK_PORT}/v2/oauth/token`;
 process.env.EVE_SSO_VERIFY_URL = `http://127.0.0.1:${MOCK_PORT}/oauth/verify`;
 process.env.ESI_BASE_URL = `http://127.0.0.1:${MOCK_PORT}/latest`;
+process.env.E2E_OAUTH_STATE_TTL_MS = process.env.E2E_OAUTH_STATE_TTL_MS || '1000';
 process.env.EVE_CLIENT_ID = process.env.EVE_CLIENT_ID || 'e2e-deterministic-client';
 process.env.EVE_CLIENT_SECRET = process.env.EVE_CLIENT_SECRET || 'e2e-deterministic-secret';
 process.env.EVE_CALLBACK_URL = process.env.EVE_CALLBACK_URL || `http://127.0.0.1:${APP_PORT}/auth/callback`;

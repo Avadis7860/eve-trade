@@ -68,6 +68,7 @@ The corporation boundary has a dedicated gateway contract suite and is included 
 Required regression surfaces:
 
 - gateway endpoint/path/query/principal mapping;
+- static architecture guard preventing direct `fetchEsi` calls from character routes;
 - anonymous vs character credential isolation;
 - metadata propagation;
 - ESI error status preservation;

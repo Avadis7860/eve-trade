@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { EsiService } from '../services/esi';
 import { useAuth } from '../context/AuthProvider';
 import { useTradingConfig } from '../context/TradingConfigProvider';
@@ -8,11 +8,27 @@ export function useCorporationTreasurySync(): void {
   const { config: tradingConfig, setConfig } = useTradingConfig();
 
   const treasurySourceMode = tradingConfig.treasury_source_mode ?? 'corporation';
+  const corporationWalletSource = tradingConfig.corporation_wallet_source ?? 'unavailable';
+  const division = tradingConfig.corporation_wallet_division || 1;
+  const lastSyncedKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     const activeCharacter = characterSession;
-    if (!activeCharacter || treasurySourceMode !== 'corporation') return;
+    if (!activeCharacter || treasurySourceMode !== 'corporation') {
+      lastSyncedKeyRef.current = null;
+      return;
+    }
 
+    const syncKey = `${activeCharacter.character_id}:${division}`;
+
+    if (corporationWalletSource === 'manual') {
+      lastSyncedKeyRef.current = null;
+      return;
+    }
+
+    if (lastSyncedKeyRef.current === syncKey) return;
+
+    lastSyncedKeyRef.current = syncKey;
     let cancelled = false;
 
     const syncCorporationTreasury = async () => {
@@ -49,7 +65,6 @@ export function useCorporationTreasurySync(): void {
           return;
         }
 
-        const division = tradingConfig.corporation_wallet_division || 1;
         const selected =
           corpWallets.data.wallets.find((wallet) => wallet.division === division)
           || corpWallets.data.wallets[0];
@@ -81,7 +96,8 @@ export function useCorporationTreasurySync(): void {
     characterSession?.character_id,
     characterSession?.access_token,
     treasurySourceMode,
-    tradingConfig.corporation_wallet_division,
+    corporationWalletSource,
+    division,
     setConfig,
   ]);
 }

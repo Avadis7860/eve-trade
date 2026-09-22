@@ -167,6 +167,10 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
         }
       }
     } catch (err) {
+      setForm((prev) => ({
+        ...prev,
+        corporation_wallet_source: 'unavailable',
+      }));
       setCorpSyncStatus({
         success: false,
         message: `Erreur lors de la synchronisation : ${String(err)}`,

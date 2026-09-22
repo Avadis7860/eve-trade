@@ -36,6 +36,28 @@ A missing security value makes the route \`UNKNOWN\` and therefore non-certifiab
 
 The graph adjacency lists are sorted by system ID and pathfinding uses deterministic breadth-first traversal. Repeated executions over the same graph therefore produce the same ordered shortest path.
 
+## Canonical artifact generation
+
+The repository now contains a deterministic importer:
+
+\`node scripts/build-universe-graph.mjs <sde-directory> <output-json> <sde-build>\`
+
+It consumes only:
+
+- \`mapSolarSystems.jsonl\` for canonical systems/security;
+- \`mapStargates.jsonl\` for canonical topology.
+
+The importer rejects:
+
+- unknown system references;
+- self-loop stargates;
+- non-finite security status;
+- asymmetric stargate topology.
+
+The generated artifact records the exact SDE build and a SHA-256 checksum of the normalized graph input.
+
+The importer is deliberately not wired to ESI and does not infer topology from names, regions, distances, or the legacy route table.
+
 ## Current integration boundary
 
 The route engine and certification layer are intentionally implemented independently of the existing \`KNOWN_ROUTES\` compatibility table.
@@ -46,11 +68,6 @@ This prevents a temporary dataset or inferred topology from becoming financial t
 
 ## Canonical SDE requirements
 
-The official CCP SDE currently exposes:
-
-- \`mapSolarSystems.jsonl\`, including \`securityStatus\`;
-- \`mapStargates.jsonl\`, including the source system and destination system/stargate IDs.
-
-The graph artifact must record the exact SDE build/version and deterministic checksum used to generate it.
+CCP's SDE exposes \`mapSolarSystems.jsonl\`, including \`securityStatus\`, and \`mapStargates.jsonl\`, including source and destination system/stargate IDs.
 
 No ESI response is accepted as a substitute for the canonical graph source.

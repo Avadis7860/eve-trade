@@ -10,9 +10,10 @@ import {
  * 🎯 Order Scoping Engine — Pure Mathematical / Structural Selection Module
  *
  * Sémantique obligatoire:
- * - active_character: ordre appartenant au personnage actif (context.activeCharacterId)
- * - character: ordre appartenant au personnage spécifié (scope.characterId)
- * - fleet: ordre appartenant à l'un des personnages de la Fleet (context.fleetCharacterIds)
+ * - active_character: ordre économiquement détenu par le personnage actif.
+ * - character: ordre économiquement détenu par le personnage spécifié.
+ * - fleet: ordre économiquement détenu par l'un des personnages de la Fleet.
+ * - corporation: ordre économiquement détenu par la corporation spécifiée.
  *
  * Invariants majeurs:
  * - ZÉRO effet de bord, aucun appel réseau, aucun accès localStorage ou hook React.
@@ -30,7 +31,7 @@ import {
  *
  * @param orders Source list of EveCharacterOrder
  * @param scope OrderScope context requested
- * @param context OrderSelectionContext with activeCharacterId and fleetCharacterIds
+ * @param context OrderSelectionContext with character and corporation IDs
  * @returns Filtered EveCharacterOrder array
  */
 export function selectOrdersByScope(
@@ -83,6 +84,13 @@ export function selectOrdersByScope(
           characterOwnerId(order) !== undefined &&
           Array.isArray(fleetCharacterIds) &&
           fleetCharacterIds.includes(String(characterOwnerId(order)))
+      );
+
+    case 'corporation':
+      return orders.filter(
+        (order) =>
+          order.ownership?.owner_type === 'corporation' &&
+          String(order.ownership.owner_id) === scope.corporationId
       );
 
     default:

@@ -39,9 +39,13 @@ function runTests(): void {
     'Character routes must use the corporation ESI gateway for corporation resources',
   );
   assert(
-    !characterSyncSource.includes('fetchCorporationInfo') &&
-      !characterSyncSource.includes('fetchCorporationWallets'),
+    !characterSyncSource.includes('fetchCorporationWallets') &&
+      !characterSyncSource.includes('syncCorporationTreasury'),
     'Character synchronization must not own corporation treasury acquisition',
+  );
+  assert(
+    characterSyncSource.includes('fetchCharacterCorporationOrders'),
+    'Character synchronization may acquire corporation trading orders through EsiService',
   );
   assert(
     corporationTreasuryServiceSource.includes('fetchCorporationInfo') &&

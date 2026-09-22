@@ -159,3 +159,15 @@ Validation: `interregional_purity.test.ts`, typecheck, full engine regression an
 - Rule: `ERROR` and `UNAVAILABLE` must never be silently converted to `[]` by collection consumers.
 - Rule: `requireUsableCollection` may only release `AVAILABLE` and `EMPTY` data to business consumers.
 - Validation: `src/services/__tests__/esi.test.ts`, `useCharacterSync` and `MyOrdersView` consumer paths, full ESI/API/build CI.
+
+
+## CORPORATION-ORDER-NORMALIZATION-001 — Corporate orders are canonically owned by the corporation
+
+- Scope: `src/engine/corporationOrder.ts`, corporation order acquisition and sync.
+- Rule: every normalized corporation order has `ownership.owner_type = 'corporation'` and `ownership.owner_id = corporation_id`.
+- Rule: `ownership.principal_character_id` identifies the character credential that observed/acquired the order and is never substituted for the economic owner.
+- Rule: normalized corporation orders have no synthetic `character_id`/`character_name` projection.
+- Rule: issuer character and wallet division are omitted unless a source explicitly provides them; no inference is allowed.
+- Rule: when a corporation order appears in both the character and corporation feeds, the corporation feed is authoritative for ownership and replaces the duplicate by canonical `order_id`.
+- Rule: if corporation acquisition is unavailable, legacy corporate observations remain unscopable rather than being converted to personal orders.
+- Validation: `src/engine/__tests__/corporation_order.test.ts`, `src/services/__tests__/esi.test.ts`, order-scoping contracts and full CI.

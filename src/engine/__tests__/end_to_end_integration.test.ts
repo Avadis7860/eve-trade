@@ -246,6 +246,7 @@ function runEndToEndIntegrationTests() {
   const ordersAlpha = selectOrdersByScope(allOrders, scopeActiveAlpha, {
     activeCharacterId: '1001',
     fleetCharacterIds: fleetCharIds,
+    corporationIds: [],
   });
   assert(ordersAlpha.length === 2, 'Alpha should have 2 active orders');
   assert(ordersAlpha.every((o: EveCharacterOrder) => o.character_id === 1001), 'All orders in Alpha scope must belong to 1001');
@@ -254,6 +255,7 @@ function runEndToEndIntegrationTests() {
   const ordersBeta = selectOrdersByScope(allOrders, scopeActiveAlpha, {
     activeCharacterId: '1002',
     fleetCharacterIds: fleetCharIds,
+    corporationIds: [],
   });
   assert(ordersBeta.length === 1, 'Beta should have 1 active order');
   assert(ordersBeta[0].character_id === 1002, 'Beta order must belong to 1002');
@@ -264,6 +266,7 @@ function runEndToEndIntegrationTests() {
   const ordersFleet = selectOrdersByScope(allOrders, scopeFleet, {
     activeCharacterId: '1001',
     fleetCharacterIds: fleetCharIds,
+    corporationIds: [],
   });
   assert(ordersFleet.length === 3, 'Fleet scope should contain all 3 orders');
   // Invariant: Orders retain original character_id (no replacement with 0 or fleet id)

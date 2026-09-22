@@ -13,6 +13,10 @@ import { UniverseRepository } from '../domain/universe/UniverseRepository';
 import { AuthService } from './authService';
 import { fetchBackendApi } from './backendApiClient';
 import { normalizeOrderId } from '../engine/orderIdentity';
+import {
+  normalizeCorporationOrder,
+  normalizeCorporationOrderHistory,
+} from '../engine/corporationOrder';
 
 export type EsiCollectionState =
   | 'AVAILABLE'
@@ -451,6 +455,142 @@ export class EsiService {
 
     return classifyCollectionResult(result);
   }
+  /** Fetches normalized active corporation orders observed by a character. */
+  static async fetchCharacterCorporationOrders(
+    characterId: number,
+    accessToken: string,
+    corporationId: number,
+    corporationName?: string,
+  ): Promise<EsiCollectionResult<EveCharacterOrder>> {
+    if (!accessToken || !accessToken.trim()) {
+      return unavailableCollection(401, 'MISSING_ACCESS_TOKEN');
+    }
+    if (!Number.isInteger(corporationId) || corporationId <= 0) {
+      return classifyCollectionResult({
+        ok: false,
+        status: 400,
+        error: 'INVALID_CORPORATION_ID',
+      });
+    }
+
+    const result = await this.executeWithAuthRefreshResult<EveCharacterOrder[]>(
+      characterId,
+      accessToken,
+      async token => {
+        const response = await fetchBackendApi<EveCharacterOrder[]>(
+          `/api/character/${characterId}/corporation/orders`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        return {
+          ok: response.ok,
+          status: response.status,
+          data: response.data ?? undefined,
+          error: !response.ok ? `HTTP_${response.status}` : undefined,
+        };
+      },
+    );
+
+    const classified = classifyCollectionResult(result);
+    if (classified.state !== 'AVAILABLE' && classified.state !== 'EMPTY') {
+      return classified;
+    }
+
+    const normalized = classified.data.map((raw) =>
+      normalizeCorporationOrder(
+        raw,
+        characterId,
+        corporationId,
+        corporationName,
+      ),
+    );
+
+    if (normalized.some((order) => order === null)) {
+      return {
+        state: 'ERROR',
+        data: [],
+        status: 502,
+        error: 'INVALID_CORPORATION_ORDER_PAYLOAD',
+      };
+    }
+
+    return {
+      ...classified,
+      data: normalized as EveCharacterOrder[],
+    };
+  }
+
+  /** Fetches normalized corporation order history observed by a character. */
+  static async fetchCharacterCorporationOrderHistory(
+    characterId: number,
+    accessToken: string,
+    corporationId: number,
+    corporationName?: string,
+    page = 1,
+  ): Promise<EsiCollectionResult<EveCharacterOrderHistory>> {
+    if (!accessToken || !accessToken.trim()) {
+      return unavailableCollection(401, 'MISSING_ACCESS_TOKEN');
+    }
+    if (!Number.isInteger(corporationId) || corporationId <= 0) {
+      return classifyCollectionResult({
+        ok: false,
+        status: 400,
+        error: 'INVALID_CORPORATION_ID',
+      });
+    }
+    if (!Number.isInteger(page) || page < 1 || page > 1000) {
+      return classifyCollectionResult({
+        ok: false,
+        status: 400,
+        error: 'INVALID_PAGE',
+      });
+    }
+
+    const result = await this.executeWithAuthRefreshResult<EveCharacterOrderHistory[]>(
+      characterId,
+      accessToken,
+      async token => {
+        const response = await fetchBackendApi<EveCharacterOrderHistory[]>(
+          `/api/character/${characterId}/corporation/orders/history?page=${page}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        return {
+          ok: response.ok,
+          status: response.status,
+          data: response.data ?? undefined,
+          error: !response.ok ? `HTTP_${response.status}` : undefined,
+        };
+      },
+    );
+
+    const classified = classifyCollectionResult(result);
+    if (classified.state !== 'AVAILABLE' && classified.state !== 'EMPTY') {
+      return classified;
+    }
+
+    const normalized = classified.data.map((raw) =>
+      normalizeCorporationOrderHistory(
+        raw,
+        characterId,
+        corporationId,
+        corporationName,
+      ),
+    );
+
+    if (normalized.some((order) => order === null)) {
+      return {
+        state: 'ERROR',
+        data: [],
+        status: 502,
+        error: 'INVALID_CORPORATION_ORDER_HISTORY_PAYLOAD',
+      };
+    }
+
+    return {
+      ...classified,
+      data: normalized as EveCharacterOrderHistory[],
+    };
+  }
+
   /**
    * Resolves any New Eden station or structure ID to a clean name via UniverseRepository
    */

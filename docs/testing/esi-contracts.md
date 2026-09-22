@@ -181,3 +181,15 @@ The frontend character collection boundary distinguishes source states instead o
 `requireUsableCollection()` is the consumer gate and only accepts `AVAILABLE`/`EMPTY`. This prevents a 403, 404, expired session, malformed JSON response or partial source from being interpreted as a trader with zero activity.
 
 Focused coverage lives in `src/services/__tests__/esi.test.ts` and must remain part of the regular `npm test` and `npm run test:esi` regression surfaces.
+
+
+## Phase 4.7 — Corporation order normalization
+
+Frontend corporation orders are normalized only after successful collection acquisition and explicit corporation identity are known. Invalid payload rows cause the collection to fail closed rather than returning partially trusted business objects.
+
+Ownership assertions must verify:
+- principal character remains the authenticated observer;
+- owner is the corporation;
+- character owner fields remain absent;
+- large canonical OrderIds are preserved exactly;
+- duplicate personal/corporation observations resolve to a single canonical corporation-owned order.

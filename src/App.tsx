@@ -9,6 +9,7 @@ import {
   OrderCollection,
   OrderSelectionContext,
   OrderCharacterContext,
+  OrderCorporationContext,
   EveCharacterOrder,
 } from './types';
 import { EsiService } from './services/esi';
@@ -161,12 +162,31 @@ const AppShell: React.FC = () => {
     return Array.from(orderMap.values());
   }, [linkedCharacters, characterSession, characterOrders]);
 
+  const orderContextCharacters = useMemo(
+    () => (
+      linkedCharacters.length > 0
+        ? linkedCharacters
+        : characterSession
+          ? [characterSession]
+          : []
+    ),
+    [linkedCharacters, characterSession]
+  );
+
   const orderSelectionContext: OrderSelectionContext = useMemo(
     () => ({
       activeCharacterId: characterSession ? String(characterSession.character_id) : '',
-      fleetCharacterIds: linkedCharacters.map((c) => String(c.character_id)),
+      fleetCharacterIds: orderContextCharacters.map((c) => String(c.character_id)),
+      corporationIds: Array.from(
+        new Set(
+          orderContextCharacters
+            .map((c) => c.corporation_id)
+            .filter((id): id is number => typeof id === 'number' && Number.isInteger(id) && id > 0)
+            .map((id) => String(id))
+        )
+      ),
     }),
-    [characterSession, linkedCharacters]
+    [characterSession, orderContextCharacters]
   );
 
   const scopedOrders = useMemo(() => {
@@ -191,13 +211,32 @@ const AppShell: React.FC = () => {
     return [];
   }, [linkedCharacters, characterSession]);
 
+  const orderCorporationContexts = useMemo(() => {
+    const byId = new Map<string, OrderCorporationContext>();
+
+    for (const char of orderContextCharacters) {
+      if (char.corporation_id && char.corporation_id > 0) {
+        byId.set(String(char.corporation_id), {
+          corporationId: String(char.corporation_id),
+          corporationName: char.corporation_name,
+        });
+      }
+    }
+
+    return Array.from(byId.values()).map((entry) => ({
+      corporationId: entry.corporationId,
+      corporationName: entry.corporationName,
+    }));
+  }, [orderContextCharacters]);
+
   const orderCollection: OrderCollection = useMemo(
     () => ({
       orders: scopedOrders,
       characters: orderCharacterContexts,
+      corporations: orderCorporationContexts,
       scope: orderScope,
     }),
-    [scopedOrders, orderCharacterContexts, orderScope]
+    [scopedOrders, orderCharacterContexts, orderCorporationContexts, orderScope]
   );
 
   // Global Sync Progress

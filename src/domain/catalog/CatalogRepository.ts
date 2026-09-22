@@ -588,6 +588,14 @@ export class CatalogRepository {
       this.typeMap.set(t.type_id, t);
     }
 
+    const provenanceSource: CatalogProvenanceSource =
+      status === 'CATALOG_READY' &&
+      (metadata.source === 'canonical_asset' ||
+        metadata.source === 'server' ||
+        metadata.source === 'indexeddb')
+        ? metadata.source
+        : 'unknown';
+
     this.metadata = {
       ...metadata,
       version: CANONICAL_CATALOG_MANIFEST.version,
@@ -598,7 +606,7 @@ export class CatalogRepository {
       is_degraded: status !== 'CATALOG_READY',
       error: errors.length > 0 ? errors.join('; ') : integrity.reason,
       provenance: {
-        source: status === 'CATALOG_READY' ? (metadata.source as any) : 'unknown',
+        source: provenanceSource,
         loaded_at: new Date().toISOString(),
         verified: status === 'CATALOG_READY',
         confidence: status === 'CATALOG_READY' ? 1.0 : 0,

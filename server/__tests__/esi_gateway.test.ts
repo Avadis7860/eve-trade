@@ -79,6 +79,7 @@ async function runTests(): Promise<void> {
         path: '/characters/123/orders/',
         headers: {
           Authorization: 'Bearer untrusted',
+          AUTHORIZATION: 'Bearer mixed-case-untrusted',
           'X-Test': 'ok',
         },
       },
@@ -93,7 +94,34 @@ async function runTests(): Promise<void> {
       observedOptions.headers.Authorization === 'Bearer credential-real',
       'Principal credential must own Authorization'
     );
+    assert(
+      observedOptions.headers.AUTHORIZATION === undefined,
+      'Mixed-case Authorization header must be removed'
+    );
     assert(observedOptions.headers['X-Test'] === 'ok', 'Non-auth headers should survive');
+  });
+
+  await test('allows explicit opt-out from GET request coalescing', async () => {
+    let calls = 0;
+
+    const gateway = createEsiGateway(async () => {
+      calls++;
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      return successfulResult({ ok: true });
+    });
+
+    const context = {
+      type: 'character' as const,
+      id: 123,
+      bearerCredential: 'credential-a',
+    };
+
+    await Promise.all([
+      gateway.request({ path: '/characters/123/skills/', dedupe: false }, context),
+      gateway.request({ path: '/characters/123/skills/', dedupe: false }, context),
+    ]);
+
+    assert(calls === 2, 'Explicit dedupe:false must issue two requests, got ' + calls);
   });
 
   await test('deduplicates concurrent GET requests for the same principal and endpoint', async () => {

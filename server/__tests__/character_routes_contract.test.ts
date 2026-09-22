@@ -17,9 +17,12 @@ import { corporationEsiGateway } from '../gateways/corporationEsiGateway';
 
 const CHARACTER_A = 1001;
 const CHARACTER_B = 1002;
+const CHARACTER_C = 1003;
 const TOKEN_A = 'token-character-a';
 const TOKEN_B = 'token-character-b';
+const TOKEN_C = 'token-character-c';
 const CORPORATION_ID = 99001;
+const CORPORATION_Y_ID = 99002;
 
 function metadata(overrides: Partial<NonNullable<EsiGatewayResponse<unknown>['metadata']>> = {}) {
   return {
@@ -165,7 +168,42 @@ async function runTests(): Promise<void> {
 
     if (esiPath === `/characters/${CHARACTER_B}/orders/`) {
       if (authorization !== `Bearer ${TOKEN_B}`) return new Response('Credential isolation failure', { status: 403 });
-      return new Response(JSON.stringify([{ order_id: 601 }]), {
+      return new Response(JSON.stringify([{ order_id: '601' }]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (esiPath === `/characters/${CHARACTER_B}/`) {
+      if (authorization !== undefined) return new Response('Public route received credentials', { status: 500 });
+      return new Response(JSON.stringify({
+        character_id: CHARACTER_B,
+        corporation_id: CORPORATION_ID,
+        name: 'Character Beta',
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (esiPath === `/characters/${CHARACTER_C}/`) {
+      if (authorization !== undefined) return new Response('Public route received credentials', { status: 500 });
+      return new Response(JSON.stringify({
+        character_id: CHARACTER_C,
+        corporation_id: CORPORATION_Y_ID,
+        name: 'Character Gamma',
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (esiPath === `/corporations/${CORPORATION_Y_ID}/`) {
+      return new Response(JSON.stringify({
+        name: 'Secondary Trade Corporation',
+        ticker: 'STC',
+        member_count: 8,
+      }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -179,6 +217,60 @@ async function runTests(): Promise<void> {
       }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (esiPath === `/corporations/${CORPORATION_ID}/orders/`) {
+      if (![ `Bearer ${TOKEN_A}`, `Bearer ${TOKEN_B}` ].includes(authorization || '')) {
+        return new Response('Corp order authorization failure', { status: 403 });
+      }
+      const orderId = authorization === `Bearer ${TOKEN_A}` ? '71001' : '71002';
+      return new Response(JSON.stringify([{
+        order_id: orderId,
+        type_id: 34,
+        volume_remain: authorization === `Bearer ${TOKEN_A}` ? 50 : 75,
+        is_corporation: true,
+      }]), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Pages': '2',
+          ETag: '"corp-orders-etag"',
+          'X-Compatibility-Date': '2026-09-22',
+        },
+      });
+    }
+
+    if (esiPath === `/corporations/${CORPORATION_ID}/orders/history/`) {
+      if (authorization !== `Bearer ${TOKEN_A}`) return new Response('Corp history authorization failure', { status: 403 });
+      if (parsed.searchParams.get('page') !== '3') return new Response('Wrong corporation history page', { status: 400 });
+      return new Response(JSON.stringify([{
+        order_id: '72001',
+        type_id: 34,
+        state: 'fulfilled',
+        is_corporation: true,
+      }]), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Pages': '8',
+        },
+      });
+    }
+
+    if (esiPath === `/corporations/${CORPORATION_Y_ID}/orders/`) {
+      if (authorization !== `Bearer ${TOKEN_C}`) return new Response('Secondary corp credential isolation failure', { status: 403 });
+      return new Response(JSON.stringify([{
+        order_id: '73001',
+        type_id: 35,
+        volume_remain: 25,
+        is_corporation: true,
+      }]), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Pages': '1',
+        },
       });
     }
 
@@ -439,6 +531,101 @@ async function runTests(): Promise<void> {
         assert.strictEqual(body.error, 'INVALID_ESI_RESPONSE');
       } finally {
         corporationEsiGateway.fetchProfile = original;
+      }
+    });
+
+    await test('corporation orders resolve the corporation from the character and preserve the caller credential', async () => {
+      observedRequests.length = 0;
+
+      const responseA = await fetch(baseUrl + `/api/character/${CHARACTER_A}/corporation/orders`, {
+        headers: { Authorization: `Bearer ${TOKEN_A}` },
+      });
+      const responseB = await fetch(baseUrl + `/api/character/${CHARACTER_B}/corporation/orders`, {
+        headers: { Authorization: `Bearer ${TOKEN_B}` },
+      });
+      const responseC = await fetch(baseUrl + `/api/character/${CHARACTER_C}/corporation/orders`, {
+        headers: { Authorization: `Bearer ${TOKEN_C}` },
+      });
+
+      assert.strictEqual(responseA.status, 200);
+      assert.strictEqual(responseB.status, 200);
+      assert.strictEqual(responseC.status, 200);
+
+      const bodyA = await readJson(responseA);
+      const bodyB = await readJson(responseB);
+      const bodyC = await readJson(responseC);
+
+      assert.strictEqual(bodyA[0].order_id, '71001');
+      assert.strictEqual(bodyB[0].order_id, '71002');
+      assert.strictEqual(bodyC[0].order_id, '73001');
+      assert.strictEqual(bodyA[0].is_corporation, true);
+      assert.strictEqual(bodyB[0].is_corporation, true);
+      assert.strictEqual(bodyC[0].is_corporation, true);
+
+      const corpCalls = observedRequests.filter((r) => r.path.includes('/corporations/') && r.path.endsWith('/orders/'));
+      assert(corpCalls.some((r) => r.path === `/corporations/${CORPORATION_ID}/orders/` && r.authorization === `Bearer ${TOKEN_A}`));
+      assert(corpCalls.some((r) => r.path === `/corporations/${CORPORATION_ID}/orders/` && r.authorization === `Bearer ${TOKEN_B}`));
+      assert(corpCalls.some((r) => r.path === `/corporations/${CORPORATION_Y_ID}/orders/` && r.authorization === `Bearer ${TOKEN_C}`));
+      assert(!corpCalls.some((r) => r.path === `/corporations/${CORPORATION_ID}/orders/` && r.authorization === `Bearer ${TOKEN_C}`));
+    });
+
+    await test('corporation order history preserves requested page and ESI metadata', async () => {
+      observedRequests.length = 0;
+
+      const response = await fetch(baseUrl + `/api/character/${CHARACTER_A}/corporation/orders/history?page=3`, {
+        headers: { Authorization: `Bearer ${TOKEN_A}` },
+      });
+
+      assert.strictEqual(response.status, 200);
+      assert.strictEqual(response.headers.get('x-pages'), '8');
+      const body = await readJson(response);
+      assert.strictEqual(body[0].order_id, '72001');
+      assert.strictEqual(body[0].state, 'fulfilled');
+
+      const historyCall = observedRequests.find((r) => r.path === `/corporations/${CORPORATION_ID}/orders/history/`);
+      assert(historyCall !== undefined, 'Corporation order history ESI call must be observed');
+      assert.strictEqual(historyCall?.search, '?datasource=tranquility&page=3');
+      assert.strictEqual(historyCall?.authorization, `Bearer ${TOKEN_A}`);
+    });
+
+    await test('corporation order history rejects invalid pages before any ESI call', async () => {
+      for (const page of ['0', '-1', '1.5', '1001']) {
+        observedRequests.length = 0;
+        const response = await fetch(
+          baseUrl + `/api/character/${CHARACTER_A}/corporation/orders/history?page=${page}`,
+          { headers: { Authorization: `Bearer ${TOKEN_A}` } },
+        );
+        assert.strictEqual(response.status, 400, `Expected 400 for page ${page}`);
+        assert.strictEqual(observedRequests.length, 0, 'Invalid page must not reach ESI');
+      }
+    });
+
+    await test('corporation order access failures preserve ESI status and fail closed', async () => {
+      const original = corporationEsiGateway.fetchOrders;
+      try {
+        corporationEsiGateway.fetchOrders = async () => ({
+          ok: false,
+          status: 403,
+          data: null,
+          error: {
+            kind: 'AUTHORIZATION',
+            status: 403,
+            message: 'simulated-corporation-orders-denied',
+            retryable: false,
+          },
+          metadata: metadata(),
+        });
+
+        const response = await fetch(baseUrl + `/api/character/${CHARACTER_A}/corporation/orders`, {
+          headers: { Authorization: `Bearer ${TOKEN_A}` },
+        });
+
+        assert.strictEqual(response.status, 403);
+        const body = await readJson(response);
+        assert.strictEqual(body.error, 'CORP_ORDERS_ACCESS_DENIED');
+        assert.strictEqual(body.esi_error_kind, 'AUTHORIZATION');
+      } finally {
+        corporationEsiGateway.fetchOrders = original;
       }
     });
 

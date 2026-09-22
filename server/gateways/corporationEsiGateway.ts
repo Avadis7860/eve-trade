@@ -21,6 +21,11 @@ export interface CorporationWalletDivision {
 export interface CorporationWalletDivisions {
   readonly wallet?: CorporationWalletDivision[];
 }
+export interface CorporationOrder {
+  readonly [key: string]: unknown;
+}
+
+export type CorporationOrderHistory = CorporationOrder;
 
 const ANONYMOUS_PRINCIPAL: EsiPrincipalContext = { type: 'anonymous' };
 
@@ -93,6 +98,54 @@ export class CorporationEsiGateway {
       },
       ANONYMOUS_PRINCIPAL,
     );
+  }
+
+  async fetchOrders(
+    corporationId: number,
+    characterId: number,
+    bearerCredential: string,
+  ): Promise<EsiGatewayResponse<CorporationOrder[]>> {
+    if (!isPositiveInteger(corporationId)) {
+      return invalidRequest<CorporationOrder[]>('corporationId must be a positive integer');
+    }
+    if (!isPositiveInteger(characterId)) {
+      return invalidRequest<CorporationOrder[]>('characterId must be a positive integer');
+    }
+    if (!isNonEmptyCredential(bearerCredential)) {
+      return invalidRequest<CorporationOrder[]>('bearerCredential must be a non-empty string');
+    }
+
+    return this.gateway.request<CorporationOrder[]>({
+      method: 'GET',
+      path: '/corporations/' + corporationId + '/orders/',
+      query: { datasource: 'tranquility' },
+    }, characterContext(characterId, bearerCredential));
+  }
+
+  async fetchOrderHistory(
+    corporationId: number,
+    characterId: number,
+    bearerCredential: string,
+    page = 1,
+  ): Promise<EsiGatewayResponse<CorporationOrderHistory[]>> {
+    if (!isPositiveInteger(corporationId)) {
+      return invalidRequest<CorporationOrderHistory[]>('corporationId must be a positive integer');
+    }
+    if (!isPositiveInteger(characterId)) {
+      return invalidRequest<CorporationOrderHistory[]>('characterId must be a positive integer');
+    }
+    if (!isNonEmptyCredential(bearerCredential)) {
+      return invalidRequest<CorporationOrderHistory[]>('bearerCredential must be a non-empty string');
+    }
+    if (!Number.isInteger(page) || page < 1 || page > 1000) {
+      return invalidRequest<CorporationOrderHistory[]>('page must be an integer between 1 and 1000');
+    }
+
+    return this.gateway.request<CorporationOrderHistory[]>({
+      method: 'GET',
+      path: '/corporations/' + corporationId + '/orders/history/',
+      query: { datasource: 'tranquility', page },
+    }, characterContext(characterId, bearerCredential));
   }
 
   async fetchWallets(

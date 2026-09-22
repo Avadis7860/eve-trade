@@ -929,7 +929,7 @@ export class InterRegionalFinancialEngine {
       buyFill,
       sellFill,
       actualQuantity,
-      item.volume,
+      calculationItem.volume,
       route,
       strategy,
       config,
@@ -1034,8 +1034,8 @@ export class InterRegionalFinancialEngine {
       hardRejection.rejection_reasons
     );
 
-    const group = CatalogRepository.getInstance().getGroup(item.group_id);
-    const category = CatalogRepository.getInstance().getCategory(item.category_id);
+    const group = catalogRepository.getGroup(calculationItem.group_id);
+    const category = catalogRepository.getCategory(calculationItem.category_id);
 
     const isAnomalous = hardRejection.is_anomalous || scoringEvaluation.isAnomalous;
     const spreadPctVal = bestSourceSellPrice > 0 ? (bestDestSellTargetPrice - bestSourceSellPrice) / bestSourceSellPrice : 0;
@@ -1093,7 +1093,7 @@ export class InterRegionalFinancialEngine {
     // Pillar 2: Catalog Evaluation
     // typeResolution was verified before financial calculation.
     let catalogPillarStatus: 'PASS' | 'DEGRADED' | 'FAIL' = 'PASS';
-    let catalogDetail = `Type ${item.name} (#${item.type_id}) certifié au catalogue officiel.`;
+    let catalogDetail = `Type ${calculationItem.name} (#${calculationItem.type_id}) certifié au catalogue officiel.`;
     if (typeResolution.status !== 'RESOLVED_CATALOG' || !typeResolution.is_verified || !catalogRepository.isReady()) {
       catalogPillarStatus = 'FAIL';
       catalogDetail = `Type ${calculationItem.name} (#${calculationItem.type_id}) non certifié par le catalogue canonique.`;
@@ -1192,7 +1192,7 @@ export class InterRegionalFinancialEngine {
       },
       catalog: {
         status: catalogPillarStatus,
-        type_id: item.type_id,
+        type_id: calculationItem.type_id,
         status_code: typeResolution.status,
         detail: catalogDetail,
       },

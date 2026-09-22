@@ -180,11 +180,28 @@ export type TypeCatalogStatus =
   | 'CATALOG_UNAVAILABLE'
   | 'CATALOG_LOADING'
   | 'CATALOG_DEGRADED'
+  | 'CATALOG_PARTIAL'
   | 'CATALOG_READY'
   | 'CATALOG_CORRUPTED'
   | 'CATALOG_EMPTY'
   | 'CATALOG_LOADED'
   | 'CATALOG_FALLBACK_CORE';
+
+export type CatalogProvenanceSource = 'canonical_asset' | 'server' | 'indexeddb' | 'fallback_core' | 'dynamic' | 'esi' | 'unknown';
+
+export type CatalogCompleteness = 'complete' | 'partial' | 'unknown';
+
+export interface CatalogProvenance {
+  source: CatalogProvenanceSource;
+  loaded_at: string;
+  verified: boolean;
+  confidence: number;
+  completeness: CatalogCompleteness;
+  version?: string;
+  checksum?: string;
+  expected_count?: number;
+  error?: string;
+}
 
 export interface TypeCatalogMetadata {
   version: string;
@@ -192,12 +209,13 @@ export interface TypeCatalogMetadata {
   item_count: number;
   status: TypeCatalogStatus;
   loaded_at: string;
-  source: 'filesystem' | 'fallback_core' | 'esi_synced' | 'indexeddb' | 'server' | 'uninitialized';
+  source: 'filesystem' | 'canonical_asset' | 'fallback_core' | 'esi_synced' | 'indexeddb' | 'server' | 'uninitialized';
   error?: string;
   file_path?: string;
   minimum_expected_count?: number;
   expected_count?: number;
   is_degraded?: boolean;
+  provenance?: CatalogProvenance;
 }
 
 export interface TypeCatalogResponse {

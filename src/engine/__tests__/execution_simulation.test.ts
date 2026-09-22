@@ -326,7 +326,10 @@ function runExecutionSimulationTests() {
   assert(opp?.explanation?.why_this_price.source_effective_price === 5.0, 'Source price must match 5.0');
   assert((opp?.explanation?.why_this_profit.net_profit ?? 0) > 0, 'Net profit must be positive');
   assert(opp?.explanation?.why_this_delay.strategy === 'immediate', 'Delay strategy must be immediate');
-  assert((opp?.explanation?.why_this_confidence.overall_confidence ?? 0) > 0, 'Confidence must be > 0');
+  assert(
+    (opp?.explanation?.why_this_confidence.overall_confidence ?? 0) === 0,
+    'Missing market quality must not receive fabricated confidence'
+  );
 
   console.log('✅ Explicability Rationale Generation verified.');
   console.log('🎉 ALL EXECUTION SIMULATION & ORDER BOOK TESTS PASSED WITH 100% SUCCESS!');

@@ -57,3 +57,12 @@ This file records high-value invariants in compact, indexed form. It complements
 - Scope: `src/services/indexedDbStore.ts`
 - Rule: schema/version changes require explicit migration reasoning and corresponding documentation/tests.
 - Current implementation: DB version 5 with 11 object stores.
+
+### CATALOG-TRUTH-001 — Canonical catalog identity
+CATALOG_READY requires exact canonical cardinality, exact structural SHA-256 and successful structural validation. Runtime payloads cannot define their own trust boundary.
+
+### UNIVERSE-TRUTH-001 — Unknown universe data fails closed
+Unknown systems, locations and routes never receive synthetic numerical values. A route is financially usable only when it is KNOWN and its provenance is verified.
+
+### PROVENANCE-001 — Resolution provenance is explicit
+Catalog, universe and route resolutions expose source, verification state, confidence and dataset identity. Dynamic, inferred and fallback resolutions are never silently promoted to canonical financial inputs.

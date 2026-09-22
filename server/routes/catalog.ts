@@ -71,17 +71,20 @@ catalogRouter.get('/all', (req: Request, res: Response) => {
   res.setHeader('X-Catalog-Checksum', meta.checksum);
   res.setHeader('X-Catalog-Count', String(meta.item_count));
 
-  if (meta.status === 'CATALOG_CORRUPTED' && types.length === 0) {
-    logEvent('ERROR', 'CATALOG', 'Serving empty corrupted catalog response', meta);
+  // The /all endpoint is a canonical data boundary. A non-READY catalog must
+  // never be exposed as a successful canonical payload, even in legacy flat mode.
+  if (meta.status === 'CATALOG_CORRUPTED') {
+    logEvent('ERROR', 'CATALOG', 'Rejecting corrupted catalog response', meta);
     return res.status(500).json({ error: 'CATALOG_CORRUPTED', metadata: meta, types: [] });
   }
-  if (meta.status === 'CATALOG_UNAVAILABLE' && types.length === 0) {
-    logEvent('ERROR', 'CATALOG', 'Serving unavailable catalog response', meta);
-    return res.status(503).json({ error: 'CATALOG_UNAVAILABLE', metadata: meta, types: [] });
+
+  if (meta.status !== 'CATALOG_READY') {
+    logEvent('WARN', 'CATALOG', 'Rejecting non-ready catalog response', meta);
+    return res.status(503).json({ error: 'CATALOG_NOT_READY', metadata: meta, types: [] });
   }
 
   // Canonical contract: { metadata, types }
-  // Allow format=flat only when explicitly requested for legacy scripting
+  // Legacy flat mode remains available only for an already canonical READY dataset.
   if (req.query.format === 'flat') {
     return res.json(types);
   }

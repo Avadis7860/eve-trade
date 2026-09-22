@@ -212,8 +212,8 @@ async function runTests(): Promise<void> {
       } as any],
     );
 
-    assert(result.effective_capital === 1_500_000_000, 'Manual fleet capital must remain available');
-    assert(result.capital_status === 'manual', 'Missing wallet observations must not be certified as ESI');
+    assert(result.effective_capital === 0, 'Unavailable fleet wallets must retain the existing zero-capital behavior');
+    assert(result.capital_status === 'unavailable', 'Missing wallet observations must not be certified as ESI');
   });
 
   await test('fleet treasury is observed ESI when at least one finite character wallet is available', () => {

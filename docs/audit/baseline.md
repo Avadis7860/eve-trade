@@ -1,3 +1,5 @@
+> **Note de traçabilité — document historique.** Ce rapport décrit un état daté au moment de son lot. Pour l'état actuel du dépôt, consulter [`docs/audit/current-state.md`](./current-state.md) et les index [`docs/agent/`](../agent/).
+>
 # EVE Trade — Baseline Audit & Traçabilité (LOT-001)
 
 Document de référence établi dans le cadre de la mission **LOT-001 — Baseline & CI Foundation** du master-plan de stabilisation du projet EVE Trade.

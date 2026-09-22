@@ -3,20 +3,114 @@ name: Phase 2.7C SDE Truth Gate
 on:
   pull_request:
     branches: ["main"]
-    paths:
-      - ".github/workflows/phase-2.7c-sde.yml"
-      - "src/data/universeGraph.json"
-      - "src/data/universeGraphManifest.ts"
-      - "scripts/build-universe-graph.mjs"
-      - "scripts/universe-graph-builder.mjs"
-      - "scripts/write-universe-graph-manifest.mjs"
-      - "scripts/__tests__/universe_graph_builder.test.mjs"
 
 permissions:
   contents: read
 
 jobs:
+  detect-sde-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      sde_changed: ${{ steps.detect.outputs.sde_changed }}
+    steps:
+      - name: Checkout pull request commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Detect SDE-sensitive changes
+        id: detect
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$BASE_SHA" --depth=1
+          changed_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+          printf '%s\n' "$changed_files"
+
+          if printf '%s\n' "$changed_files" | grep -Eq '^(.github/workflows/phase-2.7c-sde.yml|src/data/universeGraph.json|src/data/universeGraphManifest.ts|scripts/build-universe-graph.mjs|scripts/universe-graph-builder.mjs|scripts/write-universe-graph-manifest.mjs|scripts/__tests__/universe_graph_builder.test.mjs)
+    timeout-minutes: 20
+    env:
+      SDE_BUILD: '3503375'
+      SDE_URL: 'https://developers.eveonline.com/static-data/tranquility/eve-online-static-data-3503375-jsonl.zip'
+    steps:
+      - name: Checkout pull request commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Download pinned CCP SDE
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/eve-sde"
+          curl --fail --location --retry 5 --retry-all-errors --silent --show-error \
+            "$SDE_URL" \
+            --output "$RUNNER_TEMP/eve-sde/sde.zip"
+          unzip -q "$RUNNER_TEMP/eve-sde/sde.zip" -d "$RUNNER_TEMP/eve-sde/unpacked"
+          SYSTEMS_FILE="$(find "$RUNNER_TEMP/eve-sde/unpacked" -type f -name 'mapSolarSystems.jsonl' -print -quit)"
+          STARGATES_FILE="$(find "$RUNNER_TEMP/eve-sde/unpacked" -type f -name 'mapStargates.jsonl' -print -quit)"
+          test -n "$SYSTEMS_FILE"
+          test -n "$STARGATES_FILE"
+          printf 'Systems file: %s\nStargates file: %s\n' "$SYSTEMS_FILE" "$STARGATES_FILE"
+          mkdir -p "$RUNNER_TEMP/eve-sde/input"
+          cp "$SYSTEMS_FILE" "$RUNNER_TEMP/eve-sde/input/mapSolarSystems.jsonl"
+          cp "$STARGATES_FILE" "$RUNNER_TEMP/eve-sde/input/mapStargates.jsonl"
+
+      - name: Generate real canonical graph
+        run: |
+          node scripts/build-universe-graph.mjs \
+            "$RUNNER_TEMP/eve-sde/input" \
+            src/data/universeGraph.json \
+            "$SDE_BUILD" | tee "$RUNNER_TEMP/eve-sde/summary.json"
+          node scripts/write-universe-graph-manifest.mjs \
+            src/data/universeGraph.json \
+            src/data/universeGraphManifest.ts
+
+      - name: Validate generated graph is committed cleanly
+        run: |
+          git diff --check
+          git diff --stat
+          test -s src/data/universeGraph.json
+          test -s src/data/universeGraphManifest.ts
+
+      - name: Verify generated canonical artifact matches commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- src/data/universeGraph.json src/data/universeGraphManifest.ts; then
+            echo 'Canonical SDE graph artifact and manifest match the committed branch.'
+            exit 0
+          fi
+
+          echo '::error::Committed canonical SDE artifact does not match the pinned CCP SDE regeneration.'
+          echo 'Generated metadata differences:'
+          git diff --stat -- src/data/universeGraph.json src/data/universeGraphManifest.ts
+          echo 'Manifest diff:'
+          git diff -- src/data/universeGraphManifest.ts
+          echo 'The SDE Truth Gate is read-only. Regenerate and commit the artifact explicitly in a reviewed change.'
+          exit 1; then
+            echo "sde_changed=true" >> "$GITHUB_OUTPUT"
+            echo 'SDE-sensitive changes detected; the Truth Gate will run.'
+          else
+            echo "sde_changed=false" >> "$GITHUB_OUTPUT"
+            echo 'No SDE-sensitive changes detected; the Truth Gate will be skipped.'
+          fi
+
   sde-truth:
+    needs: detect-sde-changes
+    if: needs.detect-sde-changes.outputs.sde_changed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:

@@ -2,6 +2,7 @@ import { OpportunityEvidenceEngine } from '../evidence';
 import { MarketOutcomeTracker } from '../../services/marketOutcomeTracker';
 import { IndexedDbStore } from '../../services/indexedDbStore';
 import { MarketDataStore } from '../../services/marketDataStore';
+import { setBackendApiFetchForTesting } from '../../services/backendApiClient';
 import { InterRegionalFinancialEngine } from '../interRegional';
 import {
   EveTypeDetail,
@@ -484,6 +485,42 @@ async function testBatchScheduler() {
 
   await IndexedDbStore.saveOpportunityObservations([obs1, obs2]);
 
+  // Seed deterministic fresh market snapshots so the scheduler does not depend on live ESI/network state.
+  const freshQuality = (): MarketDataQuality => ({
+    source: 'esi',
+    freshness: 'fresh',
+    completeness: 'complete',
+    validation_status: 'valid',
+    data_state: 'VALID',
+    health_status: 'LIVE',
+    fetched_at: new Date().toISOString(),
+    age_seconds: 0,
+    pages_fetched: 1,
+    expected_pages: 1,
+    orders_fetched: 1,
+    orders_valid: 1,
+    duplicate_orders_removed: 0,
+    rejected_orders_count: 0,
+    error_count: 0,
+    confidence: 1,
+    sync_duration_ms: 0,
+    last_error: undefined,
+  });
+  MarketDataStore.setOrders(34, 10000002, initialSourceOrders, true, freshQuality());
+  MarketDataStore.setOrders(34, 10000043, [{
+    order_id: 2002,
+    type_id: 34,
+    region_id: 10000043,
+    system_id: 30002187,
+    location_id: 60008494,
+    price: 8.0,
+    volume_remain: 30000,
+    volume_total: 30000,
+    is_buy_order: true,
+    issued: '2026-09-20T00:00:00Z',
+    duration: 90,
+  }], true, freshQuality());
+
   // Execute batch processing at T0 + 2 hours (120 mins)
   const currentTime = t0 + 120 * 60 * 1000;
   const report = await MarketOutcomeTracker.processPendingOutcomes(currentTime);
@@ -601,8 +638,39 @@ async function testFreshnessPolicy() {
     },
   });
 
-  // When collectAndRecordForObservation runs, since cache is pre-T0 / stale, it will try live ESI fetch
-  const resStale = await MarketOutcomeTracker.collectAndRecordForObservation(obs, '1h');
+  // When collectAndRecordForObservation runs, the pre-T0 cache must be rejected.
+  // The live acquisition path is tested through the frontend -> backend transport boundary,
+  // not through a real network request.
+  setBackendApiFetchForTesting(async (input) => {
+    const url = String(input);
+    const body = url.includes('/api/markets/10000002/orders')
+      ? initialSourceOrders
+      : url.includes('/api/markets/10000043/orders')
+        ? [{
+            order_id: 2002,
+            type_id: 34,
+            region_id: 10000043,
+            system_id: 30002187,
+            location_id: 60008494,
+            price: 8.0,
+            volume_remain: 30000,
+            volume_total: 30000,
+            is_buy_order: true,
+            issued: '2026-09-20T00:00:00Z',
+            duration: 90,
+          }]
+        : [];
+    return new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json', 'X-Pages': '1' },
+    });
+  });
+  let resStale;
+  try {
+    resStale = await MarketOutcomeTracker.collectAndRecordForObservation(obs, '1h');
+  } finally {
+    setBackendApiFetchForTesting(null);
+  }
   assert(resStale.recorded === true, 'Live fetch fallback should succeed and record fresh outcome');
   assert(resStale.outcome !== undefined, 'Outcome snapshot must be recorded');
 

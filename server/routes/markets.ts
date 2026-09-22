@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { fetchEsi } from '../utils/esiClient';
+import { fetchEsi, EsiFetchResult } from '../utils/esiClient';
 
 export const marketsRouter = Router();
 
@@ -15,6 +15,27 @@ interface ServerCacheItem {
 const serverEsiCache = new Map<string, ServerCacheItem>();
 const MAX_CACHE_ENTRIES = 5000;
 
+function applyCachedHeaders(res: Response, headers: Record<string, string>) {
+  for (const [key, value] of Object.entries(headers)) res.setHeader(key, value);
+}
+
+export function mergeEsi304CacheEntry(
+  cached: ServerCacheItem,
+  result: Pick<EsiFetchResult, 'etag' | 'expires' | 'xPages' | 'errorLimitRemain' | 'errorLimitReset'>,
+  now: number
+): ServerCacheItem {
+  const expiresAt = result.expires ? new Date(result.expires).getTime() : now + 180000;
+  const headers = { ...cached.headers };
+  if (result.xPages) headers['X-Pages'] = result.xPages;
+  if (result.errorLimitRemain !== undefined) headers['X-ESI-Error-Limit-Remain'] = String(result.errorLimitRemain);
+  if (result.errorLimitReset !== undefined) headers['X-ESI-Error-Limit-Reset'] = String(result.errorLimitReset);
+  return {
+    ...cached,
+    headers,
+    expiresAt: Math.max(now + 60000, expiresAt),
+    etag: result.etag || cached.etag,
+  };
+}
 function setServerCache(key: string, item: ServerCacheItem) {
   if (serverEsiCache.size >= MAX_CACHE_ENTRIES) {
     const oldestKey = serverEsiCache.keys().next().value;
@@ -93,10 +114,10 @@ marketsRouter.get('/:regionId/orders', async (req: Request, res: Response) => {
 
     // If ESI returned 304 Not Modified, refresh TTL and return cached data
     if (result.status === 304 && cached) {
-      const expiresAt = result.expires ? new Date(result.expires).getTime() : now + 180000;
-      cached.expiresAt = Math.max(now + 60000, expiresAt);
+      const refreshed = mergeEsi304CacheEntry(cached, result, now);
+      applyCachedHeaders(res, refreshed.headers);
       res.setHeader('X-Cache-Status', 'REVALIDATED');
-      return res.json(cached.data);
+      return res.json(refreshed.data);
     }
 
     // Forward ESI pagination and rate limit headers
@@ -167,7 +188,15 @@ marketsRouter.get('/:regionId/history', async (req: Request, res: Response) => {
   }
 
   try {
-    const result = await fetchEsi<any[]>(url);
+    const result = await fetchEsi<any[]>(url, { etag: cached?.etag });
+
+    if (result.status === 304 && cached) {
+      const refreshed = mergeEsi304CacheEntry(cached, result, now);
+      refreshed.expiresAt = Math.max(now + 300000, refreshed.expiresAt);
+      applyCachedHeaders(res, refreshed.headers);
+      res.setHeader('X-Cache-Status', 'REVALIDATED');
+      return res.json(refreshed.data);
+    }
 
     if (!result.ok || !result.data) {
       return res.status(result.status).json({ error: `ESI error ${result.status}` });
@@ -179,6 +208,7 @@ marketsRouter.get('/:regionId/history', async (req: Request, res: Response) => {
       data: result.data,
       headers: {},
       expiresAt: Math.max(now + 300000, expiresAt),
+      etag: result.etag,
     });
 
     res.setHeader('X-Cache-Status', 'MISS');

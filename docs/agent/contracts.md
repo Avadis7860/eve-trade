@@ -48,6 +48,10 @@ The Express application mounts these route groups in `server.ts`:
 - `/api/character/*`
 - `/api/universe/*`
 
+### Frontend transport boundary
+
+`src/services/backendApiClient.ts` is the single frontend HTTP transport used by `EsiService` for backend-backed ESI data. It exposes response status, JSON payload and response headers and provides deterministic transport injection for tests. It deliberately contains no ESI retry, rate-limit, ETag or upstream policy.
+
 ### Market API
 
 `GET /api/markets/:regionId/orders`

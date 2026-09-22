@@ -5,6 +5,7 @@
  */
 
 import { fetchEsi, setGlobalEsiMock, EsiFetchResult } from '../utils/esiClient';
+import { mergeEsi304CacheEntry } from '../routes/markets';
 import { createServerApp, RunningServer } from '../../server';
 import http from 'http';
 
@@ -288,6 +289,26 @@ async function runTests() {
       assert(cachedRes.headers.get('x-cache-status') === 'HIT', 'Expected HIT on second call');
     });
 
+    await test('market cache revalidation preserves pagination metadata from cached state', async () => {
+      const refreshed = mergeEsi304CacheEntry(
+        {
+          data: [{ order_id: 1, type_id: 35, price: 10 }],
+          headers: { 'X-Pages': '3', 'X-ESI-Error-Limit-Remain': '99' },
+          expiresAt: 0,
+          etag: '"orders-etag"',
+        },
+        {
+          etag: '"orders-etag"',
+          expires: new Date(Date.now() + 120000).toUTCString(),
+        },
+        Date.now(),
+      );
+      assert(refreshed.headers['X-Pages'] === '3', 'Cached X-Pages must survive a 304 without pagination headers');
+      assert(refreshed.headers['X-ESI-Error-Limit-Remain'] === '99', 'Cached rate-limit metadata must survive 304');
+      assert(refreshed.etag === '"orders-etag"', 'ETag must survive revalidation');
+      assert(refreshed.data[0]?.order_id === 1, 'Cached market data must survive revalidation');
+      assert(refreshed.expiresAt > Date.now(), 'Revalidated cache entry must receive a future expiration');
+    });
     await test('server /api/markets/:regionId/history proxies via global mock ESI', async () => {
       setGlobalEsiMock(async (url) => {
         const urlStr = String(url);

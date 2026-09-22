@@ -100,6 +100,7 @@ export class RouteEngine {
       for (const neighbor of this.graph.neighbors(current)) {
         if (previous.has(neighbor)) continue;
         previous.set(neighbor, current);
+        queue.push(neighbor);
         if (neighbor === toSystemId) {
           const systems: number[] = [];
           let cursor: number | null = toSystemId;

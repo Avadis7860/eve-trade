@@ -101,7 +101,35 @@ The Express application mounts these route groups in `server.ts`:
 
 ### Character API
 
-All `/api/character/:characterId/*` routes validate:
+The character boundary is split into three explicit classes:
+
+**Authenticated character-owned resources**
+- `orders`
+- `orders/history?page=1..1000`
+- `wallet`
+- `skills`
+- `transactions?from_id=<positive integer>`
+- `journal`
+
+These routes require a canonical positive integer `characterId` and a non-empty `Authorization: Bearer <credential>` header. Bearer scheme matching is case-insensitive and repeated whitespace between scheme and credential is accepted. The route passes only the extracted credential to `CharacterEsiGateway`; caller-supplied Authorization headers are not forwarded directly to `EsiGateway`.
+
+**Public identity / corporation profile**
+- `corporation`
+
+This route resolves the character's public identity anonymously through `CharacterEsiGateway`, then resolves the public corporation profile. An HTTP Authorization header from the caller must never cross the public character identity boundary.
+
+**Authenticated corporation wallet**
+- `corporation/wallets`
+
+This route remains on its current legacy corporation transport for now. It is covered by non-regression tests and still requires character authentication.
+
+For authenticated character-owned routes, the HTTP response contract is fail-loud:
+- source payloads are returned without normalization (including negative, zero and decimal wallet balances);
+- `ETag`, `Expires`, `Last-Modified`, `Cache-Control`, `X-Compatibility-Date`, `X-Pages`, rate-limit metadata and `Retry-After` are forwarded when present;
+- upstream ESI failures retain their HTTP status and error classification;
+- a successful transport response without a payload is rejected as `INVALID_ESI_RESPONSE`;
+- `304 Not Modified` remains a cache response and is never converted into a JSON null/zero payload.
+
 
 - `characterId` is a positive integer.
 - `Authorization` header is present and non-empty.

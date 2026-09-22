@@ -53,3 +53,34 @@ export function loadPersistedFinancialConfig(
     return normalizeFinancialConfig(defaults) as FinancialConfig;
   }
 }
+
+
+/**
+ * Changes the selected corporation wallet division without inventing or
+ * cross-contaminating the selected capital source.
+ *
+ * ESI provenance: the selected division balance is authoritative when the
+ * division exists in the last observed wallet snapshot.
+ * Manual/unavailable provenance: preserve the explicit balance; historical
+ * ESI division rows are not a valid source for a manual budget.
+ */
+export function selectCorporationWalletDivision(
+  config: Partial<FinancialConfig>,
+  division: number,
+): Partial<FinancialConfig> {
+  const selectedDivision = Math.max(1, Math.min(7, Math.floor(Number(division) || 1)));
+  const next: Partial<FinancialConfig> = {
+    corporation_wallet_division: selectedDivision,
+  };
+
+  if (config.corporation_wallet_source === 'esi') {
+    const observedDivision = config.corporation_divisions?.find(
+      (entry) => entry.division === selectedDivision,
+    );
+    if (observedDivision && Number.isFinite(observedDivision.balance)) {
+      next.corporation_wallet_balance = observedDivision.balance;
+    }
+  }
+
+  return next;
+}

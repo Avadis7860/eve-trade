@@ -3,7 +3,7 @@
 Status: IN PROGRESS
 Scope: E2E-001 — Reproducible Local OAuth / Browser Gate
 Branch: `e2e/e2e-001-browser-oauth-gate`
-PR: pending
+PR: #46
 Base: `main` at `a31979c6c76ba93cc19a7437894f3935e69a01c7`
 Objective: establish deterministic browser proof of the existing SSO → callback → session → authenticated ESI path, plus a separate real-CCP smoke procedure.
 

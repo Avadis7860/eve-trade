@@ -77,7 +77,8 @@ async function runTests(): Promise<void> {
 
   setGlobalEsiMock(async (url, init) => {
     const parsed = new URL(String(url));
-    const esiPath = esiPath.replace(/^\/latest(?=\/)/, '');
+    assert.ok(parsed.pathname.startsWith('/latest/'), `Expected ESI latest path, got ${parsed.pathname}`);
+    const esiPath = parsed.pathname.replace(/^\/latest(?=\/)/, '');
     const authorization = (init?.headers as Record<string, string> | undefined)?.Authorization;
     observedRequests.push({ url: esiPath + parsed.search, authorization });
 

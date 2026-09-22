@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { MarketHub, FinancialConfig, TradeStrategy, TreasurySourceMode } from '../types';
 import { FeeCalculator } from '../engine/fee';
+import { selectCorporationWalletDivision } from '../engine/financialConfig';
 import { EsiService } from '../services/esi';
+import { syncCorporationTreasury } from '../services/corporationTreasurySync';
 import { TreasuryEngine } from '../engine/treasury';
 import { useAuth } from '../context/AuthProvider';
 import {
@@ -68,18 +70,28 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
   } | null>(null);
 
   // Keep corporation fields aligned with authoritative external config updates
-  // (automatic ESI sync or another view) without overwriting in-progress edits
-  // to unrelated configuration fields.
+  // without allowing an external ESI refresh to destroy an unsaved manual
+  // budget selected locally in this form.
   useEffect(() => {
-    setForm((prev) => ({
-      ...prev,
-      corporation_id: config.corporation_id,
-      corporation_name: config.corporation_name ?? prev.corporation_name,
-      corporation_wallet_division: config.corporation_wallet_division ?? prev.corporation_wallet_division,
-      corporation_wallet_balance: config.corporation_wallet_balance,
-      corporation_wallet_source: config.corporation_wallet_source ?? 'unavailable',
-      corporation_divisions: config.corporation_divisions,
-    }));
+    setForm((prev) => {
+      const preservingLocalManualEdits =
+        prev.corporation_wallet_source === 'manual' &&
+        config.corporation_wallet_source === 'esi';
+
+      if (preservingLocalManualEdits) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        corporation_id: config.corporation_id,
+        corporation_name: config.corporation_name ?? prev.corporation_name,
+        corporation_wallet_division: config.corporation_wallet_division ?? prev.corporation_wallet_division,
+        corporation_wallet_balance: config.corporation_wallet_balance,
+        corporation_wallet_source: config.corporation_wallet_source ?? 'unavailable',
+        corporation_divisions: config.corporation_divisions,
+      };
+    });
   }, [
     config.corporation_id,
     config.corporation_name,
@@ -117,7 +129,8 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
     setTimeout(() => setSaved(false), 2500);
   };
 
-  // Live ESI sync for corporation wallets
+  // Manual UI trigger delegates to the same corporation treasury sync boundary
+  // used by the automatic character lifecycle.
   const handleSyncCorpWallets = async () => {
     if (!characterSession) {
       setCorpSyncStatus({
@@ -126,68 +139,53 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
       });
       return;
     }
+
     setIsSyncingCorp(true);
     setCorpSyncStatus(null);
+
     try {
-      // 1. Fetch Corp profile
-      const corpInfo = await EsiService.fetchCorporationInfo(
-        characterSession.character_id,
-        characterSession.access_token
-      );
-      let corpName = form.corporation_name;
-      if (corpInfo.ok && corpInfo.data) {
-        corpName = corpInfo.data.corporation_name;
-      }
+      const result = await syncCorporationTreasury({
+        characterId: characterSession.character_id,
+        accessToken: characterSession.access_token,
+        division: form.corporation_wallet_division || 1,
+      });
 
-      // 2. Fetch Corp wallets
-      const walletsRes = await EsiService.fetchCorporationWallets(
-        characterSession.character_id,
-        characterSession.access_token
-      );
-
-      if (walletsRes.ok && walletsRes.data && walletsRes.data.wallets) {
-        const divisionWallets = walletsRes.data.wallets;
-        const currentDiv = form.corporation_wallet_division || 1;
-        const matchingDiv = divisionWallets.find((w) => w.division === currentDiv) || divisionWallets[0];
-        const newBalance = matchingDiv ? matchingDiv.balance : form.corporation_wallet_balance;
-
+      if (result.ok) {
         setForm((prev) => ({
           ...prev,
-          corporation_name: corpName,
-          corporation_id: corpInfo.data?.corporation_id,
-          corporation_wallet_balance: newBalance,
+          corporation_name: result.corporation.corporation_name,
+          corporation_id: result.corporation.corporation_id,
+          corporation_wallet_balance: result.selectedWallet.balance,
           corporation_wallet_source: 'esi',
-          corporation_divisions: divisionWallets,
+          corporation_divisions: result.wallets,
         }));
-
         setCorpSyncStatus({
           success: true,
-          message: `Synchronisé depuis ESI : ${corpName} (Division ${currentDiv} : ${(newBalance || 0).toLocaleString()} ISK)`,
+          message: `Synchronisé depuis ESI : ${result.corporation.corporation_name} (Division ${result.selectedWallet.division} : ${result.selectedWallet.balance.toLocaleString()} ISK)`,
         });
-      } else {
-        // Fallback info when character doesn't have director roles in ESI
-        if (corpInfo.ok && corpInfo.data) {
-          setForm((prev) => ({
-            ...prev,
-            corporation_name: corpInfo.data!.corporation_name,
-            corporation_id: corpInfo.data!.corporation_id,
-            corporation_wallet_source: 'unavailable',
-          }));
-          setCorpSyncStatus({
-            success: true,
-            message: `Corporation détectée : ${corpInfo.data.corporation_name}. (Note ESI : Rôles Directeur requis pour lecture automatique du solde)`,
-          });
-        } else {
-          setCorpSyncStatus({
-            success: false,
-            message: walletsRes.error || 'Impossible de lire les portefeuilles de corporation.',
-          });
-          setForm((prev) => ({
-            ...prev,
-            corporation_wallet_source: 'unavailable',
-          }));
-        }
+        return;
       }
+
+      setForm((prev) => ({
+        ...prev,
+        ...(result.corporation
+          ? {
+              corporation_id: result.corporation.corporation_id,
+              corporation_name: result.corporation.corporation_name,
+            }
+          : {}),
+        corporation_wallet_source: 'unavailable',
+      }));
+
+      const detail = result.error || 'Synchronisation corporation indisponible.';
+      const suffix = result.status ? ` (HTTP ${result.status})` : '';
+      setCorpSyncStatus({
+        success: false,
+        message:
+          result.stage === 'wallets'
+            ? `Corporation détectée${result.corporation ? ` : ${result.corporation.corporation_name}` : ''}, mais les portefeuilles ESI sont indisponibles : ${detail}${suffix}`
+            : `Synchronisation corporation impossible : ${detail}${suffix}`,
+      });
     } catch (err) {
       setForm((prev) => ({
         ...prev,
@@ -201,7 +199,6 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
       setIsSyncingCorp(false);
     }
   };
-
   // Skill based auto recalculation
   const updateSkills = (accounting: number, brokerRelations: number, faction: number = 0, corp: number = 0) => {
     const newSalesTax = FeeCalculator.calculateSalesTaxRate(accounting);
@@ -510,11 +507,9 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
                       key={divNum}
                       type="button"
                       onClick={() => {
-                        const newBal = divInfo ? divInfo.balance : form.corporation_wallet_balance;
                         setForm((prev) => ({
                           ...prev,
-                              corporation_wallet_division: divNum,
-                          corporation_wallet_balance: newBal,
+                          ...selectCorporationWalletDivision(prev, divNum),
                         }));
                       }}
                       className={`p-2 rounded text-center border transition-all ${

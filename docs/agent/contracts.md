@@ -270,6 +270,20 @@ The universe boundary keeps canonical static locations separate from dynamic ESI
 Relist demand estimation requires positive observed destination history. Missing history is unavailable data, not zero demand and not a synthetic default.
 
 
+## Phase 2.7B — Canonical route contract
+
+The route infrastructure now has an explicit graph/certification boundary:
+
+- `UniverseGraph` represents canonical New Eden known-space topology and per-system security.
+- `RouteEngine` performs deterministic shortest-path traversal over a **complete** canonical graph only.
+- Partial graphs return `UNKNOWN` with `jumps: null`; they cannot become financial distance.
+- `certifyRoute` verifies path endpoints, every traversed edge, every traversed security value, jump count, safety classification and graph/dataset identity.
+- `SAFE` means every traversed system has security status `>= 0.5`.
+- `UNKNOWN` security is never converted to a numerical fallback.
+- The legacy `KNOWN_ROUTES` table remains outside the new route contract and must not be promoted into graph topology.
+
+The production integration remains intentionally pending until a real SDE build has been imported and validated.
+
 ## Phase 2.7A — Inter-regional financial purity
 
 The inter-regional opportunity path is split into an infrastructure resolution boundary and a pure calculation boundary:

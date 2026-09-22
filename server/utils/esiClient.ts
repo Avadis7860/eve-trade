@@ -6,7 +6,8 @@
  */
 
 import { logEvent } from './logger';
-import { ESI_COMPATIBILITY_DATE, EsiResponseMetadata } from './esiTypes';
+import { ESI_COMPATIBILITY_DATE } from './esiTypes';
+import type { EsiResponseMetadata } from './esiTypes';
 
 export type EsiFetchFn = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 

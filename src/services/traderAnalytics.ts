@@ -581,7 +581,13 @@ export class TraderAnalyticsService {
       total_broker_fees_paid: totalBrokerFeesPaid,
       total_sales_tax_paid: totalSalesTaxPaid,
       top_profitable_items: topProfitableItems,
-      recent_trade_cycles: completedCycles.reverse().slice(0, 50),
+      recent_trade_cycles: [...completedCycles]
+        .sort((a, b) => {
+          const timeA = new Date(a.sell_date || a.buy_date).getTime();
+          const timeB = new Date(b.sell_date || b.buy_date).getTime();
+          return timeB - timeA || b.cycle_id.localeCompare(a.cycle_id);
+        })
+        .slice(0, 50),
       activity_by_location: activityByLocation,
       category_success_rate: categorySuccessRate,
       trader_title: traderTitle,

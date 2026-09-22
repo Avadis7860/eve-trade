@@ -22,6 +22,7 @@ import { TraderAnalyticsService } from '../services/traderAnalytics';
 import { OrderAdvisorService } from '../services/orderAdvisor';
 import { GlobalMarketSyncService } from '../services/globalMarketSync';
 import { MarketDataStore } from '../services/marketDataStore';
+import { IndexedDbStore } from '../services/indexedDbStore';
 import { CatalogRepository } from '../domain/catalog/CatalogRepository';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
 import { OrderAdvisorModal } from './OrderAdvisorModal';
@@ -182,16 +183,42 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
           if (!token) {
             throw new Error(`Jeton introuvable ou expiré pour ${char.character_name}`);
           }
-          const [txs, orderHistory, journal] = await Promise.all([
+          const [freshTxs, orderHistory, journal, storedPersisted] = await Promise.all([
             EsiService.fetchCharacterTransactions(char.character_id, token),
             EsiService.fetchCharacterOrderHistory(char.character_id, token, 1),
             EsiService.fetchCharacterJournal(char.character_id, token),
+            IndexedDbStore.getCharacterTransactions(char.character_id).catch(() => []),
           ]);
+
+          // Combine stored and fresh transactions by transaction_id to preserve historical FIFO depth
+          const txMap = new Map<number, import('../types').EveCharacterTransaction>();
+          for (const p of storedPersisted) {
+            txMap.set(p.transaction_id, {
+              transaction_id: p.transaction_id,
+              date: p.timestamp,
+              type_id: p.type_id,
+              location_id: p.location_id,
+              unit_price: p.unit_price,
+              quantity: p.quantity,
+              is_buy: p.is_buy,
+              is_personal: p.is_personal ?? true,
+              client_id: p.client_id ?? 0,
+              journal_ref_id: p.journal_ref_id,
+              location_name: p.location_name,
+            });
+          }
+          for (const f of freshTxs) {
+            txMap.set(f.transaction_id, f);
+          }
+
+          const combinedTxs = Array.from(txMap.values()).sort(
+            (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+          );
 
           const computed = TraderAnalyticsService.processTransactions(
             char.character_id,
             char.character_name,
-            txs,
+            combinedTxs,
             orderHistory,
             journal,
             char.accounting_skill || 4,

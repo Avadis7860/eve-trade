@@ -539,8 +539,8 @@ export class EsiService {
         if (response.status === 401) {
           return { ok: false, status: 401 };
         }
-      } catch (proxyErr) {
-        console.warn(`[EsiService] Server proxy failed for character orders (${characterId}):`, proxyErr);
+      } catch {
+        // Fall back to direct ESI
       }
 
       // 2. Direct ESI fallback
@@ -553,8 +553,7 @@ export class EsiService {
           return { ok: true, status: directRes.status, data };
         }
         return { ok: false, status: directRes.status };
-      } catch (directErr) {
-        console.warn(`[EsiService] Direct ESI failed for character orders (${characterId}):`, directErr);
+      } catch {
         return { ok: false, status: 500 };
       }
     });
@@ -576,8 +575,8 @@ export class EsiService {
           return { ok: true, status: response.status, data: data.balance };
         }
         if (response.status === 401) return { ok: false, status: 401 };
-      } catch (proxyErr) {
-        console.warn(`[EsiService] Server proxy failed for character wallet (${characterId}):`, proxyErr);
+      } catch {
+        // Fall back to direct ESI
       }
 
       try {
@@ -589,8 +588,7 @@ export class EsiService {
           return { ok: true, status: directRes.status, data: balance };
         }
         return { ok: false, status: directRes.status };
-      } catch (directErr) {
-        console.warn(`[EsiService] Direct ESI failed for character wallet (${characterId}):`, directErr);
+      } catch {
         return { ok: false, status: 500 };
       }
     });
@@ -616,8 +614,8 @@ export class EsiService {
           return { ok: true, status: response.status, data };
         }
         if (response.status === 401) return { ok: false, status: 401 };
-      } catch (proxyErr) {
-        console.warn(`[EsiService] Server proxy failed for character transactions (${characterId}):`, proxyErr);
+      } catch {
+        // Fall back to direct ESI
       }
 
       try {
@@ -629,8 +627,7 @@ export class EsiService {
           return { ok: true, status: directRes.status, data };
         }
         return { ok: false, status: directRes.status };
-      } catch (directErr) {
-        console.warn(`[EsiService] Direct ESI failed for character transactions (${characterId}):`, directErr);
+      } catch {
         return { ok: false, status: 500 };
       }
     });
@@ -656,8 +653,8 @@ export class EsiService {
           return { ok: true, status: response.status, data };
         }
         if (response.status === 401) return { ok: false, status: 401 };
-      } catch (proxyErr) {
-        console.warn(`[EsiService] Server proxy failed for character order history (${characterId}):`, proxyErr);
+      } catch {
+        // Fall back to direct ESI
       }
 
       try {
@@ -670,8 +667,7 @@ export class EsiService {
           return { ok: true, status: directRes.status, data };
         }
         return { ok: false, status: directRes.status };
-      } catch (directErr) {
-        console.warn(`[EsiService] Direct ESI failed for character order history (${characterId}):`, directErr);
+      } catch {
         return { ok: false, status: 500 };
       }
     });
@@ -693,8 +689,8 @@ export class EsiService {
           return { ok: true, status: response.status, data };
         }
         if (response.status === 401) return { ok: false, status: 401 };
-      } catch (proxyErr) {
-        console.warn(`[EsiService] Server proxy failed for character journal (${characterId}):`, proxyErr);
+      } catch {
+        // Fall back to direct ESI
       }
 
       try {
@@ -706,8 +702,7 @@ export class EsiService {
           return { ok: true, status: directRes.status, data };
         }
         return { ok: false, status: directRes.status };
-      } catch (directErr) {
-        console.warn(`[EsiService] Direct ESI failed for character journal (${characterId}):`, directErr);
+      } catch {
         return { ok: false, status: 500 };
       }
     });

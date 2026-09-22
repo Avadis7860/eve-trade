@@ -351,11 +351,11 @@ function runAllExecutionOutcomeTests() {
   // Case 6.3: Determinism (input A -> output A every time)
   {
     const buyTxs = [
-      createTx(101, 500, 10.5, true, '2026-09-20T10:00:00Z', 1001),
-      createTx(102, 500, 11.0, true, '2026-09-20T12:00:00Z', 1002),
+      createTx(101, 500, 10.5, true, '2026-09-20T10:00:00Z', '1001'),
+      createTx(102, 500, 11.0, true, '2026-09-20T12:00:00Z', '1002'),
     ];
     const sellTxs = [
-      createTx(201, 400, 14.0, false, '2026-09-20T14:00:00Z', 2001),
+      createTx(201, 400, 14.0, false, '2026-09-20T14:00:00Z', '2001'),
     ];
     const options = {
       match_level: 'DIRECT_MATCH' as const,

@@ -18,7 +18,11 @@ import {
  * - ZÉRO effet de bord, aucun appel réseau, aucun accès localStorage ou hook React.
  * - Ne modifie pas et ne clone pas artificiellement les ordres (données métier EveCharacterOrder préservées).
  * - Ne crée jamais de pseudo-propriétaire 'fleet'.
- * - Propriété de l'ordre toujours portée par order.character_id et order.character_name.
+ * - ownership is authoritative when present. Character scopes only accept
+ *   character-owned orders; corporation-owned orders are excluded until a
+ *   corporation-specific scope is introduced.
+ * - Legacy corporation orders marked is_corporation=true are never inferred
+ *   to belong to the observing character.
  */
 
 /**
@@ -40,29 +44,50 @@ export function selectOrdersByScope(
 
   const { activeCharacterId, fleetCharacterIds } = context;
 
+  const isCharacterOwned = (order: EveCharacterOrder): boolean => {
+    if (order.ownership) {
+      return order.ownership.owner_type === 'character';
+    }
+
+    // Legacy safety rule: an order explicitly marked corporate is not
+    // attributable to the observing character until canonical ownership is
+    // resolved.
+    return order.is_corporation !== true && order.character_id !== undefined;
+  };
+
+  const characterOwnerId = (order: EveCharacterOrder): number | undefined => {
+    if (!isCharacterOwned(order)) return undefined;
+    return order.ownership?.owner_type === 'character'
+      ? order.ownership.owner_id
+      : order.character_id;
+  };
+
   switch (scope.type) {
     case 'active_character':
       return orders.filter(
-        (order) => order.character_id !== undefined && String(order.character_id) === activeCharacterId
+        (order) =>
+          characterOwnerId(order) !== undefined &&
+          String(characterOwnerId(order)) === activeCharacterId
       );
 
     case 'character':
       return orders.filter(
-        (order) => order.character_id !== undefined && String(order.character_id) === scope.characterId
+        (order) =>
+          characterOwnerId(order) !== undefined &&
+          String(characterOwnerId(order)) === scope.characterId
       );
 
     case 'fleet':
       return orders.filter(
         (order) =>
-          order.character_id !== undefined &&
+          characterOwnerId(order) !== undefined &&
           Array.isArray(fleetCharacterIds) &&
-          fleetCharacterIds.includes(String(order.character_id))
+          fleetCharacterIds.includes(String(characterOwnerId(order)))
       );
 
     default:
       return [];
   }
-}
 
 /**
  * Pure helper to construct a normalized OrderCollection.

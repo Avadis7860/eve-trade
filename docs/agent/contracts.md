@@ -116,12 +116,12 @@ These routes require a canonical positive integer `characterId` and a non-empty 
 **Public identity / corporation profile**
 - `corporation`
 
-This route resolves the character's public identity anonymously through `CharacterEsiGateway`, then resolves the public corporation profile. An HTTP Authorization header from the caller must never cross the public character identity boundary.
+This route resolves the character's public identity anonymously through `CharacterEsiGateway`, then resolves the public corporation profile through `CorporationEsiGateway`. An HTTP Authorization header from the caller must never cross either public ESI boundary.
 
 **Authenticated corporation wallet**
 - `corporation/wallets`
 
-This route remains on its current legacy corporation transport for now. It is covered by non-regression tests and still requires character authentication.
+This route resolves the corporation through `CharacterEsiGateway` and then accesses corporation wallets/divisions through `CorporationEsiGateway` using the authenticated character principal. There is no synthetic corporation credential or legacy direct `fetchEsi` path.
 
 For authenticated character-owned routes, the HTTP response contract is fail-loud:
 - source payloads are returned without normalization (including negative, zero and decimal wallet balances);

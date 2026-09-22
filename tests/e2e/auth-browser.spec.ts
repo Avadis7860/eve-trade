@@ -3,12 +3,12 @@ import { test, expect, type Page } from '@playwright/test';
 const ALPHA = {
   id: 1001,
   name: 'E2E Character Alpha',
-  token: 'eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJDTUFSQUNURVI6RVZFOjEwMDEiLCJuYW1lIjoiRTJFIENoYXJhY3RlciBBbHBoYSJ9.e2e-signature',
+  token: 'eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJDSEFSQUNURVI6RVZFOjEwMDEiLCJuYW1lIjoiRTJFIENoYXJhY3RlciBBbHBoYSJ9.e2e-signature',
 };
 const BETA = {
   id: 1002,
   name: 'E2E Character Beta',
-  token: 'eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJDTUFSQUNURVI6RVZFOjEwMDIiLCJuYW1lIjoiRTJFIENoYXJhY3RlciBCZXRhIn0.e2e-signature',
+  token: 'eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJDSEFSQUNURVI6RVZFOjEwMDIiLCJuYW1lIjoiRTJFIENoYXJhY3RlciBCZXRhIn0.e2e-signature',
 };
 
 async function openOrders(page: Page): Promise<void> {
@@ -151,6 +151,17 @@ test.describe('E2E-001 — browser OAuth composition', () => {
 
     const beforeSwitch = await page.evaluate(() => JSON.parse(localStorage.getItem('eve_trade_character_store_v3')!));
     expect(beforeSwitch.active_character_id).toBe(BETA.id);
+
+    const crossCharacterStatus = await page.evaluate(
+      async ({ id, token }) => {
+        const response = await fetch(`/api/character/${id}/orders`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        return response.status;
+      },
+      { id: ALPHA.id, token: BETA.token },
+    );
+    expect(crossCharacterStatus).toBe(403);
 
     await page.getByTitle('Gérer vos personnages et comptes EVE liés').click();
     await expect(page.getByText(/2 pilotes/)).toBeVisible();

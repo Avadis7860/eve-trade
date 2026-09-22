@@ -1,10 +1,14 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
+
+const MOCK_PORT = Number(process.env.E2E_MOCK_PORT || 43123);
+const MOCK_BASE_URL = `http://127.0.0.1:${MOCK_PORT}`;
 
 const ALPHA = {
   id: 1001,
   name: 'E2E Character Alpha',
   token: 'eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJDSEFSQUNURVI6RVZFOjEwMDEiLCJuYW1lIjoiRTJFIENoYXJhY3RlciBBbHBoYSJ9.e2e-signature',
 };
+
 const BETA = {
   id: 1002,
   name: 'E2E Character Beta',
@@ -13,38 +17,108 @@ const BETA = {
 
 async function openOrders(page: Page): Promise<void> {
   await page.getByRole('button', { name: /Ordres/ }).click();
-  await expect(page.getByText('Connexion EVE Online SSO v2')).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Ouvrir la Fenêtre Officielle EVE SSO' }),
+  ).toBeVisible();
 }
 
 async function selectAppCallback(page: Page): Promise<void> {
   await page.getByText('App Host / Preview').click();
 }
 
-async function launchSso(page: Page) {
+async function configureNextAuth(
+  request: APIRequestContext,
+  control: {
+    character?: 'alpha' | 'beta';
+    errorCode?: string;
+    errorDescription?: string;
+    delayMs?: number;
+  },
+): Promise<void> {
+  const response = await request.post(`${MOCK_BASE_URL}/__control__/next-auth`, {
+    data: {
+      character: control.character || 'alpha',
+      errorCode: control.errorCode,
+      errorDescription: control.errorDescription,
+      delayMs: control.delayMs || 0,
+    },
+  });
+
+  expect(response.ok()).toBeTruthy();
+}
+
+async function resetFixture(request: APIRequestContext): Promise<void> {
+  const response = await request.post(`${MOCK_BASE_URL}/__control__/reset`);
+  expect(response.ok()).toBeTruthy();
+}
+
+async function emptyCharacterStore(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const raw = localStorage.getItem('eve_trade_character_store_v3');
+    if (!raw) return true;
+    const store = JSON.parse(raw);
+    return Array.isArray(store.characters) && store.characters.length === 0;
+  });
+}
+
+async function launchSso(page: Page): Promise<{ popup: Page; authUrl: string }> {
   await selectAppCallback(page);
+
+  const authResponsePromise = page.waitForResponse(response =>
+    response.url().includes('/api/auth/url') &&
+    response.request().method() === 'GET'
+  );
   const popupPromise = page.waitForEvent('popup');
-  await page.getByRole('button', { name: 'Ouvrir la Fenêtre Officielle EVE SSO' }).click();
-  return popupPromise;
+
+  await page
+    .getByRole('button', { name: 'Ouvrir la Fenêtre Officielle EVE SSO' })
+    .click();
+
+  const [authResponse, popup] = await Promise.all([
+    authResponsePromise,
+    popupPromise,
+  ]);
+
+  expect(authResponse.ok()).toBeTruthy();
+  const authData = await authResponse.json();
+
+  return { popup, authUrl: authData.url };
 }
 
 test.describe('E2E-001 — browser OAuth composition', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, request }) => {
+    await resetFixture(request);
     await page.goto('/');
     await openOrders(page);
+  });
+
+  test.afterEach(async ({ request }) => {
+    await resetFixture(request);
   });
 
   test('nominal SSO popup → callback → postMessage → authenticated ESI → persisted session', async ({ page }) => {
     const backendRequests: string[] = [];
     page.on('request', request => {
-      if (request.url().includes('/api/character/')) backendRequests.push(request.url());
+      if (request.url().includes('/api/character/')) {
+        backendRequests.push(request.url());
+      }
     });
 
-    const popupPromise = launchSso(page);
-    const popup = await popupPromise;
-    await popup.waitForURL(/\/auth\/callback/, { waitUntil: 'domcontentloaded', timeout: 15_000 });
+    const { popup, authUrl } = await launchSso(page);
+
+    expect(new URL(authUrl).port).toBe(String(MOCK_PORT));
+    expect(new URL(authUrl).pathname).toBe('/v2/oauth/authorize/');
+
+    await popup.waitForURL(/\/auth\/callback\?code=.*&state=/, {
+      waitUntil: 'domcontentloaded',
+      timeout: 15_000,
+    });
+
     await expect(page.getByText(ALPHA.name)).toBeVisible({ timeout: 15_000 });
     expect(await page.evaluate(() => localStorage.getItem('eve_trade_character_store_v3'))).toContain(ALPHA.name);
-    expect(backendRequests.some(url => url.includes(`/api/character/${ALPHA.id}/orders`))).toBeTruthy();
+    expect(
+      backendRequests.some(url => url.includes(`/api/character/${ALPHA.id}/orders`)),
+    ).toBeTruthy();
 
     await page.reload();
     await expect(page.getByText(ALPHA.name)).toBeVisible({ timeout: 15_000 });
@@ -53,45 +127,71 @@ test.describe('E2E-001 — browser OAuth composition', () => {
 
   test('rejects forged same-origin postMessage from the main window', async ({ page }) => {
     await page.evaluate(({ id, name, token }) => {
-      window.postMessage({
-        type: 'OAUTH_AUTH_SUCCESS',
-        token,
-        character_id: id,
-        character_name: name,
-        refresh_token: 'forged-refresh',
-        expires_in: 1200,
-      }, window.location.origin);
+      window.postMessage(
+        {
+          type: 'OAUTH_AUTH_SUCCESS',
+          token,
+          character_id: id,
+          character_name: name,
+          refresh_token: 'forged-refresh',
+          expires_in: 1200,
+        },
+        window.location.origin,
+      );
     }, BETA);
 
     await expect(page.getByText(BETA.name)).toHaveCount(0);
-    expect(await page.evaluate(() => localStorage.getItem('eve_trade_character_store_v3'))).toBeNull();
+    expect(await emptyCharacterStore(page)).toBeTruthy();
   });
 
   test('rejects callback state that was not issued by the application', async ({ page }) => {
-    const response = await page.goto('/auth/callback?code=e2e-code-alpha&state=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
+    const response = await page.goto(
+      '/auth/callback?code=e2e-code-alpha&state=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    );
+
     expect(response?.status()).toBe(400);
-    await expect(page.getByText(/Jeton Invalide|State Manquant|Sécurité CSRF/)).toBeVisible();
+    await expect(page.getByText(/Jeton Invalide|Jeton State Manquant|Sécurité CSRF/)).toBeVisible();
+    expect(await emptyCharacterStore(page)).toBeTruthy();
+  });
+
+  test('rejects a callback after the OAuth state TTL expires', async ({ page, request }) => {
+    await configureNextAuth(request, { delayMs: 1500 });
+
+    const { popup } = await launchSso(page);
+    await popup.waitForURL(/\/auth\/callback\?code=.*&state=/, {
+      waitUntil: 'domcontentloaded',
+      timeout: 15_000,
+    });
+
+    await expect(page.getByText(/Sécurité CSRF : Jeton Invalide ou Expiré/)).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(popup.getByText(/Jeton Invalide ou Expiré/)).toBeVisible();
+    expect(await emptyCharacterStore(page)).toBeTruthy();
   });
 
   test('rejects a replayed OAuth callback state', async ({ page }) => {
-    await page.goto('/');
-    await openOrders(page);
-    const popupPromise = launchSso(page);
-    const popup = await popupPromise;
-    await popup.waitForURL(/\/auth\/callback/, { waitUntil: 'domcontentloaded', timeout: 15_000 });
+    const { popup } = await launchSso(page);
+    await popup.waitForURL(/\/auth\/callback\?code=.*&state=/, {
+      waitUntil: 'domcontentloaded',
+      timeout: 15_000,
+    });
+
     const callbackUrl = popup.url();
     await expect(page.getByText(ALPHA.name)).toBeVisible({ timeout: 15_000 });
     await popup.close();
 
     const replay = await page.goto(callbackUrl);
     expect(replay?.status()).toBe(400);
-    await expect(page.getByText(/Jeton Invalide|Jeton expiré/)).toBeVisible();
+    await expect(page.getByText(/Jeton Invalide ou Expiré/)).toBeVisible();
   });
 
   test('refreshes an expired character session through the real frontend API path', async ({ page }) => {
-    const popupPromise = launchSso(page);
-    const popup = await popupPromise;
-    await popup.waitForURL(/\/auth\/callback/, { waitUntil: 'domcontentloaded', timeout: 15_000 });
+    const { popup } = await launchSso(page);
+    await popup.waitForURL(/\/auth\/callback\?code=.*&state=/, {
+      waitUntil: 'domcontentloaded',
+      timeout: 15_000,
+    });
     await expect(page.getByText(ALPHA.name)).toBeVisible({ timeout: 15_000 });
 
     await page.evaluate(() => {
@@ -108,49 +208,55 @@ test.describe('E2E-001 — browser OAuth composition', () => {
 
     await page.reload();
     await expect(page.getByText(ALPHA.name)).toBeVisible({ timeout: 15_000 });
+
     const store = await page.evaluate(() => JSON.parse(localStorage.getItem('eve_trade_character_store_v3')!));
+    expect(store.characters[0].character_id).toBe(ALPHA.id);
     expect(store.characters[0].access_token).toBe(ALPHA.token);
     expect(store.characters[0].is_token_expired).toBeFalsy();
   });
 
   test('logout clears the character session and returns to the SSO card', async ({ page }) => {
-    const popupPromise = launchSso(page);
-    const popup = await popupPromise;
-    await popup.waitForLoadState('domcontentloaded');
+    const { popup } = await launchSso(page);
+    await popup.waitForURL(/\/auth\/callback\?code=.*&state=/, {
+      waitUntil: 'domcontentloaded',
+      timeout: 15_000,
+    });
     await expect(page.getByText(ALPHA.name)).toBeVisible({ timeout: 15_000 });
 
     await page.getByRole('button', { name: 'Déconnexion' }).click();
-    await expect(page.getByText('Connexion EVE Online SSO v2')).toBeVisible();
-    expect(await page.evaluate(() => localStorage.getItem('eve_trade_character_store_v3'))).not.toContain(ALPHA.name);
+    await expect(
+      page.getByRole('button', { name: 'Ouvrir la Fenêtre Officielle EVE SSO' }),
+    ).toBeVisible();
+    expect(await emptyCharacterStore(page)).toBeTruthy();
   });
 
-  test('connects a second character and preserves strict character isolation', async ({ page }) => {
-    const firstPopupPromise = launchSso(page);
-    const firstPopup = await firstPopupPromise;
-    await firstPopup.waitForLoadState('domcontentloaded');
+  test('connects a second character and preserves strict character isolation', async ({ page, request }) => {
+    const first = await launchSso(page);
+    await first.popup.waitForURL(/\/auth\/callback\?code=.*&state=/, {
+      waitUntil: 'domcontentloaded',
+      timeout: 15_000,
+    });
     await expect(page.getByText(ALPHA.name)).toBeVisible({ timeout: 15_000 });
+    await first.popup.close();
 
     await page.getByTitle('Gérer vos personnages et comptes EVE liés').click();
     await page.getByRole('button', { name: /Ajouter un Pilote/ }).click();
     await expect(page.getByText('Ajouter / Connecter un Autre Pilote')).toBeVisible();
 
-    await page.route('**/api/auth/url*', async route => {
-      const response = await route.fetch();
-      const data = await response.json();
-      data.url = `${data.url}&character=beta`;
-      await route.fulfill({ response, json: data });
+    await configureNextAuth(request, { character: 'beta' });
+
+    const second = await launchSso(page);
+    await second.popup.waitForURL(/\/auth\/callback\?code=.*&state=/, {
+      waitUntil: 'domcontentloaded',
+      timeout: 15_000,
     });
-
-    const secondPopupPromise = page.waitForEvent('popup');
-    await page.getByRole('button', { name: 'Ouvrir la Fenêtre Officielle EVE SSO' }).click();
-    const secondPopup = await secondPopupPromise;
-    await secondPopup.waitForURL(/\/auth\/callback/, { waitUntil: 'domcontentloaded', timeout: 15_000 });
     await expect(page.getByText(BETA.name)).toBeVisible({ timeout: 15_000 });
-    expect(await page.evaluate(() => localStorage.getItem('eve_trade_character_store_v3'))).toContain(ALPHA.name);
-    expect(await page.evaluate(() => localStorage.getItem('eve_trade_character_store_v3'))).toContain(BETA.name);
+    await second.popup.close();
 
-    const beforeSwitch = await page.evaluate(() => JSON.parse(localStorage.getItem('eve_trade_character_store_v3')!));
-    expect(beforeSwitch.active_character_id).toBe(BETA.id);
+    const store = await page.evaluate(() => JSON.parse(localStorage.getItem('eve_trade_character_store_v3')!));
+    expect(store.characters).toHaveLength(2);
+    expect(store.characters.map((character: any) => character.character_id).sort()).toEqual([ALPHA.id, BETA.id]);
+    expect(store.active_character_id).toBe(BETA.id);
 
     const crossCharacterStatus = await page.evaluate(
       async ({ id, token }) => {
@@ -167,39 +273,44 @@ test.describe('E2E-001 — browser OAuth composition', () => {
     await expect(page.getByText(/2 pilotes/)).toBeVisible();
 
     await page.getByRole('button', { name: 'Activer' }).click();
+
     const afterSwitch = await page.evaluate(() => JSON.parse(localStorage.getItem('eve_trade_character_store_v3')!));
     expect(afterSwitch.active_character_id).toBe(ALPHA.id);
-    expect(afterSwitch.characters.find((character: any) => character.character_id === ALPHA.id)?.access_token).toBe(ALPHA.token);
-    expect(afterSwitch.characters.find((character: any) => character.character_id === BETA.id)?.access_token).toBe(BETA.token);
+    expect(
+      afterSwitch.characters.find((character: any) => character.character_id === ALPHA.id)?.access_token,
+    ).toBe(ALPHA.token);
+    expect(
+      afterSwitch.characters.find((character: any) => character.character_id === BETA.id)?.access_token,
+    ).toBe(BETA.token);
   });
 
-
-  test('handles a controlled OAuth denial without authenticating the browser session', async ({ page }) => {
-    await page.route('**/api/auth/url*', async route => {
-      const response = await route.fetch();
-      const data = await response.json();
-      data.url = `${data.url}&e2e_error=access_denied&e2e_error_description=E2E%20consent%20denied`;
-      await route.fulfill({ response, json: data });
+  test('handles a controlled OAuth denial without authenticating the browser session', async ({ page, request }) => {
+    await configureNextAuth(request, {
+      errorCode: 'access_denied',
+      errorDescription: 'E2E consent denied',
     });
 
-    const popupPromise = page.waitForEvent('popup');
-    await page.getByText('App Host / Preview').click();
-    await page.getByRole('button', { name: 'Ouvrir la Fenêtre Officielle EVE SSO' }).click();
-    const popup = await popupPromise;
-    await popup.waitForURL(/\/auth\/callback\?error=access_denied/, { waitUntil: 'domcontentloaded', timeout: 15_000 });
+    const { popup } = await launchSso(page);
+    await popup.waitForURL(/\/auth\/callback\?error=access_denied/, {
+      waitUntil: 'domcontentloaded',
+      timeout: 15_000,
+    });
 
-    await expect(page.getByText('Connexion EVE Online SSO v2')).toBeVisible();
-    expect(await page.evaluate(() => localStorage.getItem('eve_trade_character_store_v3'))).toBeNull();
-    await popup.close();
+    await expect(popup.getByText('Autorisation Refusée')).toBeVisible();
+    expect(await emptyCharacterStore(page)).toBeTruthy();
+    await expect(page.getByText(ALPHA.name)).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Ouvrir la Fenêtre Officielle EVE SSO' }),
+    ).toBeVisible();
   });
 
-  test('does not authenticate when the SSO popup is closed before callback completion', async ({ page }) => {
-    const popupPromise = launchSso(page);
-    const popup = await popupPromise;
-    await expect(popup).toBeTruthy();
+  test('does not authenticate when the SSO popup is closed before callback completion', async ({ page, request }) => {
+    await configureNextAuth(request, { delayMs: 5000 });
+
+    const { popup } = await launchSso(page);
     await popup.close();
 
-    await expect(page.getByText('Connexion EVE Online SSO v2')).toBeVisible();
-    expect(await page.evaluate(() => localStorage.getItem('eve_trade_character_store_v3'))).toBeNull();
+    expect(await emptyCharacterStore(page)).toBeTruthy();
+    await expect(page.getByText(ALPHA.name)).toHaveCount(0);
   });
 });

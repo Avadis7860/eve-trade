@@ -251,8 +251,9 @@ export function calculateExecutionOutcome(
     }
   }
   for (const tx of sellTransactions) {
-    if (typeof tx.order_id === 'number' && Number.isFinite(tx.order_id)) {
-      orderIdSet.add(tx.order_id);
+    const normalizedId = normalizeOrderId(tx.order_id);
+    if (normalizedId) {
+      orderIdSet.add(normalizedId);
     }
   }
   const linkedOrderIds = Object.freeze(Array.from(orderIdSet).sort(compareOrderIds));

@@ -188,6 +188,22 @@ async function runTests(): Promise<void> {
   });
 
   await test('304 and null successful payloads stay transport-level results', async () => {
+    const emptySuccess: EsiGatewayResponse<CorporationProfile> = {
+      ok: true,
+      status: 200,
+      data: null,
+      metadata: metadata(),
+    };
+    const nullGateway = new CorporationEsiGateway({
+      request: async <T>(_request: EsiRequest, _context: EsiPrincipalContext) =>
+        emptySuccess as EsiGatewayResponse<T>,
+    });
+
+    const emptyResult = await nullGateway.fetchProfile(99001);
+    assert(emptyResult.ok, 'Transport success must remain successful at gateway level');
+    assert(emptyResult.status === 200, 'Successful status must be preserved');
+    assert(emptyResult.data === null, 'Null upstream payload must remain null at the gateway boundary');
+
     const notModified: EsiGatewayResponse<CorporationProfile> = {
       ok: true,
       status: 304,

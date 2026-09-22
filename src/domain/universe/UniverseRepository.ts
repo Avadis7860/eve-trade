@@ -595,7 +595,8 @@ export class UniverseRepository {
     destinationSystemId: number,
     policy: RoutePolicy = 'SHORTEST',
   ): RouteIndex {
-    const graphIdentity = this.graphRepository.getGraph().provenance.graph_checksum;
+    const graph = this.graphRepository.getGraph();
+    const graphIdentity = `${graph.provenance.graph_version}:${graph.provenance.graph_checksum}`;
     const key = `${graphIdentity}:${policy}:${destinationSystemId}`;
     const existing = this.routeIndexCache.get(key);
     if (existing) return existing;

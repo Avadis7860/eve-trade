@@ -16,7 +16,8 @@
     "test:esi": "tsx server/__tests__/esi_hardening.test.ts",
     "test:server": "npm run test:api && npm run test:smoke && npm run test:security && npm run test:esi",
     "start": "node dist/server.cjs",
-    "preview": "vite preview --host 0.0.0.0 --port 3000"
+    "preview": "vite preview --host 0.0.0.0 --port 3000",
+    "test:truth": "tsx src/engine/__tests__/catalog_universe_truth.test.ts"
   },
   "dependencies": {
     "express": "^5.2.1",

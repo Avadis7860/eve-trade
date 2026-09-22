@@ -56,8 +56,8 @@ const resolvedDynamic = catalog.resolveType(88888);
 if (resolvedDynamic.status !== 'RESOLVED_DYNAMIC') {
   throw new Error(`Expected dynamic item status to be RESOLVED_DYNAMIC, got ${resolvedDynamic.status}`);
 }
-if (!resolvedDynamic.is_verified || resolvedDynamic.confidence < 0.9 || !resolvedDynamic.type) {
-  throw new Error('RESOLVED_DYNAMIC contract failed for dynamic item');
+if (resolvedDynamic.is_verified || resolvedDynamic.confidence !== 0 || !resolvedDynamic.type) {
+  throw new Error('RESOLVED_DYNAMIC contract failed for dynamic item: dynamic resolution must remain unverified');
 }
 console.log('✅ CatalogRepository.resolveType passed all contract tests.');
 

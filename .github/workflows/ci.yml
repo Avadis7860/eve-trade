@@ -36,6 +36,9 @@ jobs:
       - name: Backend typecheck
         run: npm run typecheck:server
 
+      - name: Catalog & Universe truth tests
+        run: npm run test:truth
+
       - name: Unit tests
         run: npm test
 

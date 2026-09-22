@@ -1193,18 +1193,22 @@ export type PerformanceScope =
 export interface CharacterFinancialResult {
   characterId: string;
   characterName: string;
-  metrics: TraderPerformanceMetrics;
+  metrics?: TraderPerformanceMetrics;
   dataHealth: 'fresh' | 'stale' | 'unavailable';
   errorMessage?: string;
 }
+
+export type FleetFinancialStatus = 'complete' | 'partial' | 'empty';
 
 export interface FleetFinancialResult {
   readonly scope: PerformanceScope;
   readonly fleetMetrics: TraderPerformanceMetrics;
   readonly characterResults: readonly CharacterFinancialResult[];
+  readonly status: FleetFinancialStatus;
   readonly hasUnavailableCharacters: boolean;
   readonly unavailableCharacterNames: readonly string[];
   readonly participatingCharacterCount: number;
+  readonly totalCharacterCount: number;
 }
 
 export interface TraderPerformanceMetrics {

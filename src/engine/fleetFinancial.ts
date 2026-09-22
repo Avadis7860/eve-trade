@@ -32,6 +32,7 @@ import {
   CharacterFinancialResult,
   FinancialCompleteness,
   FleetFinancialResult,
+  FleetFinancialStatus,
   PerformanceScope,
   TradeCycleRecord,
   TraderPerformanceMetrics,
@@ -61,13 +62,13 @@ export class FleetFinancialEngine {
     scope: PerformanceScope = { type: 'fleet' }
   ): FleetFinancialResult {
     const unavailableCharacterNames: string[] = [];
-    const validResults: CharacterFinancialResult[] = [];
+    const validResults: Array<CharacterFinancialResult & { metrics: TraderPerformanceMetrics }> = [];
 
     for (const res of characterResults) {
-      if (res.dataHealth === 'unavailable') {
+      if (res.dataHealth === 'unavailable' || !res.metrics) {
         unavailableCharacterNames.push(res.characterName);
-      } else if (res.metrics) {
-        validResults.push(res);
+      } else {
+        validResults.push(res as CharacterFinancialResult & { metrics: TraderPerformanceMetrics });
       }
     }
 
@@ -99,9 +100,11 @@ export class FleetFinancialEngine {
         trader_title: 'Flotte Non Synchronisée',
         trader_badge_color: 'text-gray-400 bg-gray-500/10 border-gray-500/20',
         calibration_weight: 0,
-        financial_completeness: 'ESTIMATED',
+        financial_completeness: hasUnavailableCharacters ? 'PARTIAL' : 'ESTIMATED',
         is_net_estimated: true,
-        realized_profit_label: 'Bénéfice Net Réalisé (Estimé)',
+        realized_profit_label: hasUnavailableCharacters
+          ? 'Bénéfice Flotte Réalisé (Partiel - Pilotes Indisponibles)'
+          : 'Bénéfice Net Réalisé (Estimé)',
         total_realized_gross: 0,
         total_estimated_fees: 0,
         has_unmatched_trades: false,
@@ -112,9 +115,11 @@ export class FleetFinancialEngine {
         scope,
         fleetMetrics: Object.freeze(emptyFleetMetrics),
         characterResults: Object.freeze([...characterResults]),
+        status: (characterResults.length > 0 && hasUnavailableCharacters ? 'partial' : 'empty') as FleetFinancialStatus,
         hasUnavailableCharacters,
         unavailableCharacterNames: Object.freeze(unavailableCharacterNames),
         participatingCharacterCount: 0,
+        totalCharacterCount: characterResults.length,
       });
     }
 
@@ -314,7 +319,7 @@ export class FleetFinancialEngine {
 
     // Financial Completeness Derivation
     let financialCompleteness: FinancialCompleteness = 'ESTIMATED';
-    if (validResults.some((r) => r.metrics.financial_completeness === 'PARTIAL')) {
+    if (hasUnavailableCharacters || validResults.some((r) => r.metrics.financial_completeness === 'PARTIAL')) {
       financialCompleteness = 'PARTIAL';
     } else if (validResults.some((r) => r.metrics.financial_completeness === 'UNAVAILABLE')) {
       financialCompleteness = 'UNAVAILABLE';
@@ -323,7 +328,9 @@ export class FleetFinancialEngine {
     }
 
     const profitLabel =
-      financialCompleteness === 'UNAVAILABLE'
+      hasUnavailableCharacters
+        ? 'Bénéfice Flotte Réalisé (Partiel - Pilotes Indisponibles)'
+        : financialCompleteness === 'UNAVAILABLE'
         ? 'Profit Flotte Réalisé (Hors Frais)'
         : financialCompleteness === 'OBSERVED'
         ? 'Bénéfice Net Flotte (Certifié)'
@@ -350,7 +357,9 @@ export class FleetFinancialEngine {
 
     const fleetMetrics: TraderPerformanceMetrics = {
       character_id: 0,
-      character_name: `Flotte Consolidée (${participatingCharacterCount} pilotes)`,
+      character_name: hasUnavailableCharacters
+        ? `Flotte Partielle (${participatingCharacterCount}/${characterResults.length} pilotes)`
+        : `Flotte Consolidée (${participatingCharacterCount} pilotes)`,
       last_calculated: new Date().toISOString(),
       total_realized_profit: totalRealizedProfit,
       total_buy_volume: totalBuyVolume,
@@ -380,13 +389,17 @@ export class FleetFinancialEngine {
       unmatched_trades_count: unmatchedTradesCount,
     };
 
+    const status: FleetFinancialStatus = hasUnavailableCharacters ? 'partial' : 'complete';
+
     return Object.freeze({
       scope,
       fleetMetrics: Object.freeze(fleetMetrics),
       characterResults: Object.freeze([...characterResults]),
+      status,
       hasUnavailableCharacters,
       unavailableCharacterNames: Object.freeze(unavailableCharacterNames),
       participatingCharacterCount,
+      totalCharacterCount: characterResults.length,
     });
   }
 

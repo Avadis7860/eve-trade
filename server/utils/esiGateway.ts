@@ -11,10 +11,10 @@ import type {
   EsiErrorKind,
 } from './esiTypes';
 
-export type EsiTransport = <T = unknown>(
+export type EsiTransport = (
   endpoint: string,
   options?: EsiFetchOptions
-) => Promise<EsiFetchResult<T>>;
+) => Promise<EsiFetchResult<unknown>>;
 
 export type EsiPrincipalContext =
   | { readonly type: 'anonymous' }
@@ -132,8 +132,11 @@ export class EsiGateway {
     const endpoint = appendQuery(request.path, request.query);
     const headers: Record<string, string> = { ...(request.headers || {}) };
 
-    delete headers.authorization;
-    delete headers.Authorization;
+    for (const key of Object.keys(headers)) {
+      if (key.toLowerCase() === 'authorization') {
+        delete headers[key];
+      }
+    }
 
     if (context.type === 'character') {
       headers.Authorization = 'Bearer ' + context.bearerCredential;
@@ -167,7 +170,7 @@ export class EsiGateway {
       .join('&');
 
     const dedupeKey =
-      method === 'GET'
+      method === 'GET' && request.dedupe !== false
         ? principalFingerprint(context) +
           '|' +
           method +
@@ -200,13 +203,13 @@ export class EsiGateway {
     endpoint: string,
     options: EsiFetchOptions
   ): Promise<EsiGatewayResponse<T>> {
-    const result = await this.transport<T>(endpoint, options);
+    const result = await this.transport(endpoint, options);
 
     if (result.ok) {
       return {
         ok: true,
         status: result.status,
-        data: result.data,
+        data: result.data as T | null,
         metadata: result.metadata,
       };
     }

@@ -7,7 +7,7 @@ A task is not complete until its affected validation surface is identified. This
 | Change area | First validation surface | Additional checks |
 |---|---|---|
 | `src/engine/**` | Matching suite under `src/engine/__tests__/` | `npm test`, typecheck and build |
-| ESI backend client/routes | `server/__tests__/esi_hardening.test.ts` and API/smoke suites | `npm run test:esi`, `npm run test:api`, `npm run test:smoke`, build |
+| ESI backend client/routes | `server/__tests__/esi_hardening.test.ts` and API/smoke suites | `server/__tests__/corporation_esi_gateway.test.ts`, `server/__tests__/character_routes_contract.test.ts`, `npm run test:esi`, `npm run test:api`, build |
 | Backend security/auth | `server/__tests__/security_hardening.test.ts` | API/smoke + `npm run test:security` |
 | API route contracts | `server/__tests__/api_integration.test.ts` | Smoke/security/ESI suites as applicable |
 | Character transactions | `character_transaction_ingestion.test.ts` / `character_transaction_persistence.test.ts` | Execution correlation and integration suites |

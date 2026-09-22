@@ -154,6 +154,7 @@ async function runTests() {
     const res = await fetchEsi<{ ok: boolean }>('/markets/10000002/orders/', {
       customFetch: mockFetch,
       retries: 0,
+      headers: { 'X-Compatibility-Date': '1999-01-01' },
     });
 
     assert(res.ok === true, 'Expected successful response');

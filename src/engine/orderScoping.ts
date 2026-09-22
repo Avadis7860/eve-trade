@@ -85,6 +85,13 @@ export function selectOrdersByScope(
           fleetCharacterIds.includes(String(characterOwnerId(order)))
       );
 
+    case 'corporation':
+      return orders.filter(
+        (order) =>
+          order.ownership?.owner_type === 'corporation' &&
+          String(order.ownership.owner_id) === scope.corporationId
+      );
+
     default:
       return [];
   }

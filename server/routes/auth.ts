@@ -68,7 +68,7 @@ authRouter.get('/url', (req: Request, res: Response) => {
     state: state,
   });
 
-  const url = `https://login.eveonline.com/v2/oauth/authorize/?${params.toString()}`;
+  const url = `${EVE_SSO_AUTHORIZE_URL}${EVE_SSO_AUTHORIZE_URL.includes('?') ? '&' : '?'}${params.toString()}`;
   logEvent('INFO', 'SSO', 'Generated SSO authorization URL', { redirectUri, statePrefix: state.substring(0, 8) });
   res.json({ url, redirect_uri: redirectUri, state });
 });

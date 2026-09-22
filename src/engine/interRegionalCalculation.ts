@@ -57,7 +57,9 @@ export class InterRegionalCalculationEngine {
       i.sourceLocation.is_structure!==true && i.destinationLocation.is_structure!==true &&
       i.sourceLocation.system_id===i.buyHub.system_id && i.destinationLocation.system_id===i.sellHub.system_id &&
       i.sourceLocation.region_id===i.buyHub.region_id && i.destinationLocation.region_id===i.sellHub.region_id &&
-      i.route.status==='KNOWN' && i.route.is_verified===true && Number.isFinite(i.route.jumps) && i.route.jumps>=0;
+      i.route.status==='KNOWN' && i.route.is_verified===true && i.route.source==='canonical_graph' &&
+      i.route.provenance?.source==='sde_canonical' && i.route.provenance?.completeness==='complete' &&
+      i.route.is_highsec_only===true && Number.isFinite(i.route.jumps) && i.route.jumps>=0;
   }
 
   static filterAccessibleOrdersForHub(

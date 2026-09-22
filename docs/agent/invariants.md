@@ -115,3 +115,13 @@ Validation: `interregional_purity.test.ts`, typecheck, full engine regression an
 - Scope: `CorporationEsiGateway`.
 - Rule: the gateway maps corporation ESI contracts only; it must not contain trading, treasury or future industry business calculations.
 - Rule: future corporation features (orders, assets, industry, logistics) must reuse this boundary rather than introduce direct `fetchEsi` calls from routes or domain consumers.
+
+
+## TRADING-OWNERSHIP-001 — Observing principal is not economic owner
+
+- Scope: `EveCharacterOrder` / `EveCharacterOrderHistory` and order scoping.
+- Rule: the authenticated character (`principal_character_id`) is the observing/authorizing principal, not automatically the economic owner.
+- Rule: `ownership.owner_type` is authoritative when present and is either `character` or `corporation`.
+- Rule: a corporation-owned order must never acquire the observing character's `character_id`/`character_name` projection.
+- Rule: legacy orders marked `is_corporation=true` are not inferred to be personally owned.
+- Validation: `order_scoping_contracts.test.ts`, future corporation-order contract suites.

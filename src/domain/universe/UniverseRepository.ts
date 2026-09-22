@@ -8,6 +8,8 @@ import {
 } from '../../types';
 import { MAJOR_MARKET_HUBS, KNOWN_STATION_NAMES, getJumpRoute } from '../../data/universe';
 import universeDataRaw from '../../data/universeData.json';
+import { CANONICAL_UNIVERSE_MANIFEST } from '../../data/universeManifest';
+import { UniverseValidator, UniverseValidationResult } from './UniverseValidator';
 
 export type { LocationResolutionResult as LocationResolution };
 
@@ -41,8 +43,11 @@ export class UniverseRepository {
   private regionMap = new Map<number, string>();
   private systemMap = new Map<number, { name: string; region_id: number; security: number }>();
   private stationMap = new Map<number, { name: string; system_id: number; type_id?: number }>();
+  private readonly integrity: UniverseValidationResult;
 
   private constructor() {
+    this.integrity = UniverseValidator.validate(universeDataRaw);
+
     // 1. Seed All 114 Regions
     if (universeData && universeData.regions) {
       for (const [ridStr, rName] of Object.entries(universeData.regions)) {
@@ -76,8 +81,18 @@ export class UniverseRepository {
           is_structure: false,
           is_hub: false,
           source: 'static_npc',
-          is_verified: true,
-          confidence: 1.0,
+          is_verified: this.integrity.isReady,
+          confidence: this.integrity.isReady ? 1.0 : 0,
+          provenance: {
+            source: 'static_dataset',
+            dataset_version: CANONICAL_UNIVERSE_MANIFEST.version,
+            dataset_checksum: CANONICAL_UNIVERSE_MANIFEST.checksum,
+            loaded_at: new Date().toISOString(),
+            verified: this.integrity.isReady,
+            confidence: this.integrity.isReady ? 1.0 : 0,
+            completeness: this.integrity.isReady ? 'complete' : 'partial',
+            scope: 'npc_station',
+          },
         });
       }
     }
@@ -113,14 +128,25 @@ export class UniverseRepository {
         existing.name = name;
       } else {
         this.locationCache.set(stId, {
-          status: 'RESOLVED_STATION',
+          status: 'LOCATION_UNKNOWN',
           location_id: stId,
-          name: name,
+          name,
           is_structure: false,
           is_hub: false,
-          source: 'static_npc',
-          is_verified: true,
-          confidence: 1.0,
+          source: 'fallback',
+          is_verified: false,
+          confidence: 0,
+          error: `Station ${stId} has a known display name but no canonical universe record`,
+          provenance: {
+            source: 'fallback',
+            dataset_version: CANONICAL_UNIVERSE_MANIFEST.version,
+            dataset_checksum: CANONICAL_UNIVERSE_MANIFEST.checksum,
+            loaded_at: new Date().toISOString(),
+            verified: false,
+            confidence: 0,
+            completeness: 'unknown',
+            scope: 'station_name_overlay',
+          },
         });
       }
     }
@@ -211,7 +237,7 @@ export class UniverseRepository {
 
     const isStructure = locationId >= 1000000000000;
     const fallback: LocationResolutionResult = {
-      status: 'LOCATION_FALLBACK',
+      status: 'LOCATION_UNKNOWN',
       location_id: locationId,
       name: isStructure ? `Structure #${locationId}` : `Station #${locationId}`,
       is_structure: isStructure,
@@ -220,6 +246,15 @@ export class UniverseRepository {
       is_verified: false,
       confidence: 0.0,
       error: `Location ID ${locationId} not found in static universe dataset or structure cache`,
+      provenance: {
+        source: 'unknown',
+        dataset_version: CANONICAL_UNIVERSE_MANIFEST.version,
+        dataset_checksum: CANONICAL_UNIVERSE_MANIFEST.checksum,
+        loaded_at: new Date().toISOString(),
+        verified: false,
+        confidence: 0,
+        completeness: 'unknown',
+      },
     };
     this.locationCache.set(locationId, fallback);
     return fallback;
@@ -228,15 +263,18 @@ export class UniverseRepository {
   /**
    * Registers a known structure or citadel into the cache.
    */
-  registerStructure(structure: {
-    location_id: number;
-    name: string;
-    system_id?: number;
-    system_name?: string;
-    region_id?: number;
-    region_name?: string;
-    security_status?: number;
-  }): LocationResolutionResult {
+  registerStructure(
+    structure: {
+      location_id: number;
+      name: string;
+      system_id?: number;
+      system_name?: string;
+      region_id?: number;
+      region_name?: string;
+      security_status?: number;
+    },
+    verified = false
+  ): LocationResolutionResult {
     const resolution: LocationResolutionResult = {
       status: 'RESOLVED_STRUCTURE',
       location_id: structure.location_id,
@@ -249,8 +287,18 @@ export class UniverseRepository {
       is_structure: true,
       is_hub: false,
       source: 'structure_cache',
-      is_verified: true,
-      confidence: 0.95,
+      is_verified: verified,
+      confidence: verified ? 1.0 : 0,
+      provenance: {
+        source: 'structure_cache',
+        dataset_version: CANONICAL_UNIVERSE_MANIFEST.version,
+        dataset_checksum: CANONICAL_UNIVERSE_MANIFEST.checksum,
+        loaded_at: new Date().toISOString(),
+        verified,
+        confidence: verified ? 1.0 : 0,
+        completeness: verified ? 'complete' : 'unknown',
+        scope: 'upwell_structure',
+      },
     };
     this.locationCache.set(structure.location_id, resolution);
     return resolution;
@@ -286,6 +334,16 @@ export class UniverseRepository {
         is_verified: true,
         confidence: 1.0,
         source: 'hub',
+        provenance: {
+          source: 'static_dataset',
+          dataset_version: CANONICAL_UNIVERSE_MANIFEST.version,
+          dataset_checksum: CANONICAL_UNIVERSE_MANIFEST.checksum,
+          loaded_at: new Date().toISOString(),
+          verified: this.integrity.isReady,
+          confidence: this.integrity.isReady ? 1.0 : 0,
+          completeness: this.integrity.isReady ? 'complete' : 'partial',
+          scope: 'major_market_hub',
+        },
       };
     }
     const sys = this.systemMap.get(systemId);
@@ -300,20 +358,41 @@ export class UniverseRepository {
         is_verified: true,
         confidence: 1.0,
         source: 'static_universe',
+        provenance: {
+          source: 'static_dataset',
+          dataset_version: CANONICAL_UNIVERSE_MANIFEST.version,
+          dataset_checksum: CANONICAL_UNIVERSE_MANIFEST.checksum,
+          loaded_at: new Date().toISOString(),
+          verified: this.integrity.isReady,
+          confidence: this.integrity.isReady ? 1.0 : 0,
+          completeness: this.integrity.isReady ? 'complete' : 'partial',
+          scope: 'solar_system',
+        },
       };
     }
     for (const loc of this.locationCache.values()) {
       if (loc.system_id === systemId) {
         return {
-          status: 'RESOLVED_SYSTEM',
+          status: 'SYSTEM_UNKNOWN',
           system_id: systemId,
           name: loc.system_name || `System #${systemId}`,
           region_id: loc.region_id,
           region_name: loc.region_name,
           security_status: loc.security_status,
           is_verified: false,
-          confidence: 0.7,
+          confidence: 0,
           source: 'inferred',
+          error: `System ID ${systemId} is only inferred from a non-canonical location cache entry`,
+          provenance: {
+            source: 'fallback',
+            dataset_version: CANONICAL_UNIVERSE_MANIFEST.version,
+            dataset_checksum: CANONICAL_UNIVERSE_MANIFEST.checksum,
+            loaded_at: new Date().toISOString(),
+            verified: false,
+            confidence: 0,
+            completeness: 'unknown',
+            scope: 'inferred_system',
+          },
         };
       }
     }
@@ -325,6 +404,16 @@ export class UniverseRepository {
       confidence: 0.0,
       source: 'fallback',
       error: `System ID ${systemId} not found in solar system dataset`,
+      provenance: {
+        source: 'unknown',
+        dataset_version: CANONICAL_UNIVERSE_MANIFEST.version,
+        dataset_checksum: CANONICAL_UNIVERSE_MANIFEST.checksum,
+        loaded_at: new Date().toISOString(),
+        verified: false,
+        confidence: 0,
+        completeness: 'unknown',
+        scope: 'solar_system',
+      },
     };
   }
 
@@ -362,6 +451,16 @@ export class UniverseRepository {
         is_verified: true,
         confidence: 1.0,
         source: 'static_universe',
+        provenance: {
+          source: 'static_dataset',
+          dataset_version: CANONICAL_UNIVERSE_MANIFEST.version,
+          dataset_checksum: CANONICAL_UNIVERSE_MANIFEST.checksum,
+          loaded_at: new Date().toISOString(),
+          verified: this.integrity.isReady,
+          confidence: this.integrity.isReady ? 1.0 : 0,
+          completeness: this.integrity.isReady ? 'complete' : 'partial',
+          scope: 'region',
+        },
       };
     }
     return {
@@ -372,6 +471,16 @@ export class UniverseRepository {
       confidence: 0.0,
       source: 'fallback',
       error: `Region ID ${regionId} not found in universe dataset`,
+      provenance: {
+        source: 'unknown',
+        dataset_version: CANONICAL_UNIVERSE_MANIFEST.version,
+        dataset_checksum: CANONICAL_UNIVERSE_MANIFEST.checksum,
+        loaded_at: new Date().toISOString(),
+        verified: false,
+        confidence: 0,
+        completeness: 'unknown',
+        scope: 'region',
+      },
     };
   }
 
@@ -398,6 +507,10 @@ export class UniverseRepository {
    */
   getRoute(fromSystemId: number, toSystemId: number): JumpRoute {
     return getJumpRoute(fromSystemId, toSystemId);
+  }
+
+  getIntegrity(): UniverseValidationResult {
+    return this.integrity;
   }
 
   /**
@@ -435,8 +548,18 @@ export class UniverseRepository {
             is_structure: isStructure,
             is_hub: false,
             source: isStructure ? 'structure_cache' : 'esi_resolved',
-            is_verified: true,
-            confidence: isStructure ? 0.95 : 0.90,
+            is_verified: Boolean(data.system_id && sys),
+            confidence: Boolean(data.system_id && sys) ? (isStructure ? 0.95 : 0.90) : 0,
+            provenance: {
+              source: 'esi',
+              dataset_version: CANONICAL_UNIVERSE_MANIFEST.version,
+              dataset_checksum: CANONICAL_UNIVERSE_MANIFEST.checksum,
+              loaded_at: new Date().toISOString(),
+              verified: Boolean(data.system_id && sys),
+              confidence: Boolean(data.system_id && sys) ? (isStructure ? 0.95 : 0.90) : 0,
+              completeness: sys ? 'complete' : 'partial',
+              scope: isStructure ? 'upwell_structure' : 'esi_station',
+            },
           };
           this.locationCache.set(locationId, resolution);
           return resolution;
@@ -456,6 +579,15 @@ export class UniverseRepository {
       is_verified: false,
       confidence: 0.0,
       error: `Could not resolve location ID ${locationId} via ESI or universe dataset`,
+      provenance: {
+        source: 'unknown',
+        dataset_version: CANONICAL_UNIVERSE_MANIFEST.version,
+        dataset_checksum: CANONICAL_UNIVERSE_MANIFEST.checksum,
+        loaded_at: new Date().toISOString(),
+        verified: false,
+        confidence: 0,
+        completeness: 'unknown',
+      },
     };
     this.locationCache.set(locationId, fallback);
     return fallback;

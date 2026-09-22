@@ -4,7 +4,7 @@ export const CANONICAL_UNIVERSE_MANIFEST = Object.freeze({
   regionsCount: 114,
   systemsCount: 8490,
   stationsCount: 5210,
-  checksum: '7634f6b3b3d40fc1a0504e7a82d6f6e68613cf3aa10e5518c241f8bc97a3e5c',
+  checksum: 'eb7f80e51626bc30f7ab822673bad58ae6e6c1e590e86c8bb3a4ac1546e44c82',
   sourcePath: 'src/data/universeData.json',
   artifactSha: 'afb8b467aff5e9efd7aeb67d522957a6ff377c86',
 } as const);

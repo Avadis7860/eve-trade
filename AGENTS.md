@@ -8,7 +8,8 @@ Ce document constitue la **source de vérité absolue** pour tout agent d'intell
 
 ### 1. Invariants Mathématiques des Moteurs de Trading (`/src/engine/*`)
 * **Moteurs mathématiques purs :** `fee.ts`, `ladder.ts`, `money.ts`, `profit.ts`, `quantity.ts`, `scoring.ts`, `features.ts`, `prediction.ts` et `portfolio.ts` restent déterministes et sans effets de bord.
-* **Frontière d'orchestration actuelle :** `interRegional.ts` assure encore la résolution Catalog/Universe autour du calcul d'opportunité. La cible Phase 2.7 est d'extraire cette résolution afin que le noyau financier consomme exclusivement des entrées certifiées.
+* **Frontière inter-régionale actuelle :** `src/services/interRegionalResolver.ts` certifie les entrées Catalog/Universe, `src/engine/interRegionalCalculation.ts` effectue le calcul financier pur, et `src/engine/interRegional.ts` assure l'orchestration et l'assemblage Opportunity/Evidence.
+* Les formules financières existantes ne doivent pas être réécrites dans les phases de topologie ou d'authentification.
 * **Respect strict des formules officielles CCP Games :**
   * *Sales Tax* : Décroissance de 11% par niveau de compétence *Accounting* ($8.0\% \to 3.6\%$).
   * *NPC Broker Fee* : Décroissance via *Broker Relations*, faction standing et corp standing ($3.0\% \to 1.0\%$).
@@ -99,14 +100,26 @@ npm run build
 5. **Préserver le mode multi-comptes :** Toute fonctionnalité relative aux personnages doit être compatible avec la liste `EveCharacterSession[]` gérée par `AuthService`.
 
 
-### 3. Vérité canonique Catalog / Universe
+### 3. Authentification EVE SSO
+* Les tokens EVE SSO sont sensibles et ne doivent jamais être exposés dans les logs, l'UI ou les erreurs.
+* Toute requête authentifiée doit respecter la frontière centrale de refresh.
+* **Gate E2E :** le flux OAuth/SSO doit fonctionner dans un navigateur local hors Google AI Studio avant de considérer l'E2E produit comme valide.
+* Aucune correction OAuth ne doit introduire de contournement spécifique à Google AI Studio.
+
+### 4. Topologie Universe — état actuel
+* La résolution canonique régions/systèmes/stations est en place.
+* **La topologie complète New Eden et le pathfinding ne sont pas encore implémentés.** `src/data/universe.ts` contient encore une table de routes limitée et ne doit pas être étendue arbitrairement.
+* Phase 2.7B devra construire le graphe depuis une source topologique canonique (SDE/stargates), conserver la liste des systèmes traversés et leur security status.
+* Une route `safe` exige `security_status >= 0.5` pour **chaque système traversé**, extrémités incluses.
+
+### 5. Vérité canonique Catalog / Universe
 * Un dataset canonique est identifié par sa version, sa cardinalité attendue, son checksum déterministe et son état de validation.
 * Les métadonnées fournies par un appelant ne constituent jamais une preuve de validité.
 * Les résolutions dynamiques ESI, structures et fallbacks restent hors du périmètre canonique financier.
 * Une route inconnue ne possède aucune distance exploitable : UNKNOWN et jumps < 0 doivent être rejetés avant toute comparaison de portée.
 * Une absence d'historique de demande ne doit jamais être transformée en volume journalier synthétique dans une estimation de relist.
 
-### 4. Validation et CI
+### 6. Validation et CI
 * Le dépôt doit conserver un package-lock.json cohérent avec package.json et la CI doit utiliser npm ci.
 * Les workflows de validation des branches de fonctionnalité passent par les pull requests vers main afin d'éviter les doubles exécutions push + pull_request.
 * Les suites de contrats Catalog/Universe sont exécutées avant la régression générale afin qu'une rupture de vérité des données soit diagnostiquée indépendamment des autres tests.

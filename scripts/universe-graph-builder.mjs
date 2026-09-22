@@ -47,7 +47,7 @@ export interface ParsedSdeSource {
   rows: Record<string, unknown>[];
 }
 
-function sha256(value: string | Uint8Array): string {
+export function sha256(value: string | Uint8Array): string {
   return createHash('sha256').update(value).digest('hex');
 }
 
@@ -82,6 +82,7 @@ export function parseJsonl(content: string, sourceLabel: string): Record<string,
   const rows: Record<string, unknown>[] = [];
   for (const [index, line] of content.split(/\r?\n/).entries()) {
     if (!line.trim()) continue;
+
     let parsed: unknown;
     try {
       parsed = JSON.parse(line);
@@ -90,11 +91,14 @@ export function parseJsonl(content: string, sourceLabel: string): Record<string,
         `Invalid JSONL at ${sourceLabel} line ${index + 1}: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
       throw new Error(`Invalid JSONL record at ${sourceLabel} line ${index + 1}: expected an object`);
     }
+
     rows.push(parsed as Record<string, unknown>);
   }
+
   return rows;
 }
 
@@ -102,12 +106,11 @@ export function parseSdeSource(content: string, sourceLabel: string): ParsedSdeS
   return { content, rows: parseJsonl(content, sourceLabel) };
 }
 
-function destinationRecord(gate: Record<string, unknown>): Record<string, unknown> {
-  const destination = gate.destination;
-  if (!destination || typeof destination !== 'object' || Array.isArray(destination)) {
-    throw new Error(`Stargate ${String(gate._key)} has no valid destination object`);
+function getObject(value: unknown, label: string): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`Invalid ${label}: expected an object`);
   }
-  return destination as Record<string, unknown>;
+  return value as Record<string, unknown>;
 }
 
 function readIntegerArray(value: unknown, label: string): number[] {
@@ -139,8 +142,13 @@ export function buildUniverseGraphFromSde(input: SdeBuildInput): UniverseGraphAr
       security_status: assertSecurityStatus(system.securityStatus, systemId),
     });
 
-    const declaredStargateIds = readIntegerArray(system.stargateIDs, `stargateIDs for system ${systemId}`);
-    declaredStargatesBySystem.set(systemId, new Set(declaredStargateIds));
+    if (system.stargateIDs !== undefined) {
+      const declaredIds = readIntegerArray(
+        system.stargateIDs,
+        `stargateIDs for system ${systemId}`,
+      );
+      declaredStargatesBySystem.set(systemId, new Set(declaredIds));
+    }
   }
 
   if (nodes.length === 0) {
@@ -154,121 +162,122 @@ export function buildUniverseGraphFromSde(input: SdeBuildInput): UniverseGraphAr
   const edges: CanonicalUniverseEdge[] = [];
   const edgeKeys = new Set<string>();
   const stargateIds = new Set<number>();
-  const stargateEndpointById = new Map<number, { from_system_id: number; to_system_id: number }>();
-  const referencedStargateIds = new Map<number, Set<number>>();
+  const stargateById = new Map<number, {
+    from_system_id: number;
+    to_system_id: number;
+    destination_stargate_id: number;
+  }>();
 
   for (const gate of stargates) {
     const gateId = parsePositiveInteger(gate._key, 'stargate ID');
     if (stargateIds.has(gateId)) {
       throw new Error(`Duplicate stargate ID: ${gateId}`);
     }
-    stargateIds.add(gateId);
 
-    const from = parsePositiveInteger(gate.solarSystemID, `stargate ${gateId} source system ID`);
-    const destination = destinationRecord(gate);
+    const from = parsePositiveInteger(
+      gate.solarSystemID,
+      `stargate ${gateId} source system ID`,
+    );
+    const destination = getObject(gate.destination, `stargate ${gateId} destination`);
     const to = parsePositiveInteger(
       destination.solarSystemID,
       `stargate ${gateId} destination solar system ID`,
-    );
-    const destinationGateId = parsePositiveInteger(
-      destination.stargateID,
-      `stargate ${gateId} destination stargate ID`,
     );
 
     const fromInScope = isNewEdenSystem(from);
     const toInScope = isNewEdenSystem(to);
 
     if (!fromInScope && !toInScope) continue;
+
     if (!fromInScope || !toInScope) {
-      throw new Error(`Stargate ${gateId} crosses the New Eden graph boundary: ${from} -> ${to}`);
+      throw new Error(
+        `Stargate ${gateId} crosses the New Eden graph boundary: ${from} -> ${to}`,
+      );
     }
+
     if (!nodeIds.has(from) || !nodeIds.has(to)) {
       throw new Error(
         `Stargate ${gateId} references a New Eden system absent from mapSolarSystems: ${from} -> ${to}`,
       );
     }
+
     if (from === to) {
       throw new Error(`Stargate ${gateId} is a self-loop in system ${from}`);
     }
 
+    const destinationGateId = parsePositiveInteger(
+      destination.stargateID,
+      `stargate ${gateId} destination stargate ID`,
+    );
+
     const key = `${from}:${to}`;
-    if (!edgeKeys.has(key)) {
-      edgeKeys.add(key);
-      edges.push({ from_system_id: from, to_system_id: to });
+    if (edgeKeys.has(key)) {
+      throw new Error(`Duplicate canonical stargate edge: ${from} -> ${to}`);
     }
 
-    stargateEndpointById.set(gateId, { from_system_id: from, to_system_id: to });
-    const refs = referencedStargateIds.get(from) ?? new Set<number>();
-    refs.add(destinationGateId);
-    referencedStargateIds.set(from, refs);
+    edgeKeys.add(key);
+    edges.push({ from_system_id: from, to_system_id: to });
+
+    stargateIds.add(gateId);
+    stargateById.set(gateId, {
+      from_system_id: from,
+      to_system_id: to,
+      destination_stargate_id: destinationGateId,
+    });
   }
 
   const missingReverseEdges = edges.filter(
     (edge) => !edgeKeys.has(`${edge.to_system_id}:${edge.from_system_id}`),
   );
   if (missingReverseEdges.length > 0) {
+    const first = missingReverseEdges[0];
     throw new Error(
-      `Canonical New Eden stargate topology is not symmetric: ${missingReverseEdges.length} directed edges have no reverse edge`,
+      `Canonical New Eden stargate topology is not symmetric: missing reverse edge ${first.from_system_id} -> ${first.to_system_id}`,
     );
   }
 
   for (const [systemId, declaredIds] of declaredStargatesBySystem) {
-    if (declaredIds.size === 0) continue;
-    const actualIds = new Set<number>();
-    for (const [gateId, endpoint] of stargateEndpointById) {
-      if (endpoint.from_system_id === systemId) actualIds.add(gateId);
-    }
+    const actualIds = [...stargateById.entries()]
+      .filter(([, endpoint]) => endpoint.from_system_id === systemId)
+      .map(([gateId]) => gateId)
+      .sort((a, b) => a - b);
 
-    if (actualIds.size !== declaredIds.size || [...declaredIds].some((id) => !actualIds.has(id))) {
+    const expectedIds = [...declaredIds].sort((a, b) => a - b);
+
+    if (
+      actualIds.length !== expectedIds.length ||
+      actualIds.some((id, index) => id !== expectedIds[index])
+    ) {
       throw new Error(
-        `SDE stargateIDs mismatch for system ${systemId}: declared=${[...declaredIds].sort((a, b) => a - b).join(',')} actual=${[...actualIds].sort((a, b) => a - b).join(',')}`,
+        `SDE stargateIDs mismatch for system ${systemId}: declared=${expectedIds.join(',')} actual=${actualIds.join(',')}`,
       );
     }
   }
 
-  const missingDestinationStargates: Array<{ gateId: number; destinationGateId: number }> = [];
-  for (const [sourceGateId, endpoint] of stargateEndpointById) {
-    const destinationGate = stargates.find((gate) => Number(gate._key) ===
-      (() => {
-        const source = stargates.find((candidate) => Number(candidate._key) === sourceGateId);
-        const destination = source ? destinationRecord(source) : undefined;
-        return Number(destination?.stargateID);
-      })());
+  for (const [gateId, endpoint] of stargateById) {
+    const destinationGate = stargateById.get(endpoint.destination_stargate_id);
     if (!destinationGate) {
-      missingDestinationStargates.push({
-        gateId: sourceGateId,
-        destinationGateId: (() => {
-          const source = stargates.find((candidate) => Number(candidate._key) === sourceGateId)!;
-          return Number(destinationRecord(source).stargateID);
-        })(),
-      });
-      continue;
+      throw new Error(
+        `Invalid reciprocal stargate reference: ${gateId} -> ${endpoint.destination_stargate_id} does not exist`,
+      );
     }
 
-    const destinationEndpoint = stargateEndpointById.get(Number(destinationGate._key));
-    if (!destinationEndpoint ||
-        destinationEndpoint.from_system_id !== endpoint.to_system_id ||
-        destinationEndpoint.to_system_id !== endpoint.from_system_id) {
-      missingDestinationStargates.push({
-        gateId: sourceGateId,
-        destinationGateId: Number(destinationGate._key),
-      });
+    if (
+      destinationGate.from_system_id !== endpoint.to_system_id ||
+      destinationGate.to_system_id !== endpoint.from_system_id ||
+      destinationGate.destination_stargate_id !== gateId
+    ) {
+      throw new Error(
+        `Invalid reciprocal stargate reference: ${gateId} -> ${endpoint.destination_stargate_id} does not resolve to the inverse topology`,
+      );
     }
-  }
-
-  if (missingDestinationStargates.length > 0) {
-    const first = missingDestinationStargates[0];
-    throw new Error(
-      `Invalid reciprocal stargate reference: ${first.gateId} -> ${first.destinationGateId} does not resolve to the inverse topology`,
-    );
   }
 
   edges.sort((a, b) =>
     a.from_system_id - b.from_system_id || a.to_system_id - b.to_system_id,
   );
 
-  const canonicalPayload = JSON.stringify({ nodes, edges });
-  const graphChecksum = sha256(canonicalPayload);
+  const graphChecksum = sha256(JSON.stringify({ nodes, edges }));
   const datasetChecksum = sha256(
     JSON.stringify({
       mapSolarSystems: sha256(new TextEncoder().encode(input.mapSolarSystemsContent)),
@@ -302,6 +311,7 @@ export async function buildUniverseGraphFromDirectory(
 ): Promise<UniverseGraphArtifact> {
   const systemsPath = join(sdeDir, 'mapSolarSystems.jsonl');
   const stargatesPath = join(sdeDir, 'mapStargates.jsonl');
+
   const [systems, stargates] = await Promise.all([
     readFile(systemsPath, 'utf8'),
     readFile(stargatesPath, 'utf8'),
@@ -322,5 +332,3 @@ export async function writeUniverseGraphArtifact(
   await writeFile(outputPath, serialized, 'utf8');
   return { artifactSha256: sha256(new TextEncoder().encode(serialized)) };
 }
-
-export { sha256 };

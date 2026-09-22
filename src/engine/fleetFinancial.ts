@@ -409,7 +409,10 @@ export class FleetFinancialEngine {
   static selectPerformanceByScope(
     characterResults: readonly CharacterFinancialResult[],
     scope: PerformanceScope,
-    activeCharacterId: string
+    activeCharacterId: string,
+    options?: {
+      consolidatedFleetMetrics?: TraderPerformanceMetrics;
+    }
   ): {
     selectedMetrics: TraderPerformanceMetrics | null;
     characterResult?: CharacterFinancialResult;
@@ -437,6 +440,16 @@ export class FleetFinancialEngine {
 
     if (scope.type === 'fleet') {
       const fleetResult = this.aggregateFleetPerformance(characterResults, scope);
+      if (options?.consolidatedFleetMetrics) {
+        const enhancedFleetResult: FleetFinancialResult = {
+          ...fleetResult,
+          fleetMetrics: Object.freeze(options.consolidatedFleetMetrics),
+        };
+        return {
+          selectedMetrics: options.consolidatedFleetMetrics,
+          fleetResult: Object.freeze(enhancedFleetResult),
+        };
+      }
       return {
         selectedMetrics: fleetResult.fleetMetrics,
         fleetResult,
@@ -446,3 +459,4 @@ export class FleetFinancialEngine {
     return { selectedMetrics: null };
   }
 }
+

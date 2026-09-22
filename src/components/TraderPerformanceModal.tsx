@@ -37,6 +37,7 @@ interface TraderPerformanceModalProps {
   activeCharacterId?: string;
   scope?: PerformanceScope;
   onChangeScope?: (scope: PerformanceScope) => void;
+  consolidatedFleetMetrics?: TraderPerformanceMetrics | null;
 }
 
 export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
@@ -48,6 +49,7 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
   activeCharacterId = '',
   scope: initialScope,
   onChangeScope,
+  consolidatedFleetMetrics,
 }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'items' | 'cycles' | 'categories'>('overview');
   const [cycleSearch, setCycleSearch] = useState('');
@@ -72,7 +74,8 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
     const selection = FleetFinancialEngine.selectPerformanceByScope(
       characterResults,
       effectiveScope,
-      activeCharacterId
+      activeCharacterId,
+      { consolidatedFleetMetrics: consolidatedFleetMetrics || undefined }
     );
     resolvedMetrics = selection.selectedMetrics || fallbackMetrics;
     currentFleetResult = selection.fleetResult;
@@ -543,16 +546,37 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                         </td>
                         {isFleetMode && (
                           <td className="py-2 px-2">
-                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-500/15 text-purple-300 border border-purple-500/30 truncate max-w-[100px] inline-block">
-                              {cycle.character_name || `ID ${cycle.character_id}`}
-                            </span>
+                            {cycle.is_cross_character ? (
+                              <span
+                                className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 truncate max-w-[120px] inline-block"
+                                title={`Acheté par: ${cycle.buy_character_name || '?'} → Vendu par: ${cycle.sell_character_name || '?'}`}
+                              >
+                                {cycle.buy_character_name || 'Pilote'} → {cycle.sell_character_name || 'Pilote'}
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-500/15 text-purple-300 border border-purple-500/30 truncate max-w-[100px] inline-block">
+                                {cycle.character_name || `ID ${cycle.character_id}`}
+                              </span>
+                            )}
                           </td>
                         )}
                         <td className="py-2 px-3 font-bold text-[#fafafa]">
-                          <div>{cycle.type_name}</div>
+                          <div className="flex items-center gap-1.5">
+                            <span>{cycle.type_name}</span>
+                            {cycle.is_cross_character && (
+                              <span className="px-1 py-0.2 rounded text-[8px] bg-indigo-500/20 text-indigo-400 font-mono">
+                                Inter-Pilote
+                              </span>
+                            )}
+                          </div>
                           {cycle.unmatched_sell_quantity && cycle.unmatched_sell_quantity > 0 ? (
-                            <div className="text-[9px] text-amber-400 font-mono">
-                              Stock non couvert: {cycle.unmatched_sell_quantity}
+                            <div className="text-[9px] text-amber-400 font-mono flex items-center gap-1">
+                              <span>Stock non couvert: {cycle.unmatched_sell_quantity}</span>
+                              {cycle.cross_character_hint && (
+                                <span className="text-zinc-400 text-[8px]">
+                                  ({cycle.cross_character_hint})
+                                </span>
+                              )}
                             </div>
                           ) : null}
                         </td>

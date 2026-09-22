@@ -1173,6 +1173,12 @@ export interface TradeCycleRecord {
   unmatched_sell_quantity?: number;
   character_id?: number;
   character_name?: string;
+  buy_character_id?: number;
+  buy_character_name?: string;
+  sell_character_id?: number;
+  sell_character_name?: string;
+  is_cross_character?: boolean;
+  cross_character_hint?: string;
 }
 
 /**

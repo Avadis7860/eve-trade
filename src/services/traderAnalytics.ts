@@ -880,4 +880,487 @@ export class TraderAnalyticsService {
       netProfit,
     };
   }
+
+  /**
+   * Consolidated Multi-Character (Fleet) FIFO Transaction Processing
+   * Pools transactions from all connected characters to correctly match cross-character trades
+   * (e.g., Pilot A buys Livestock, Pilot B sells Livestock).
+   */
+  static processFleetConsolidatedTransactions(
+    characters: {
+      character_id: number;
+      character_name: string;
+      accounting_level?: number;
+      broker_relations_level?: number;
+    }[],
+    allTransactions: EveCharacterTransaction[],
+    orderHistory: EveCharacterOrderHistory[] = [],
+    journalEntries: EveCharacterJournalEntry[] = [],
+    options?: RealizedFinancialCalculationOptions
+  ): TraderPerformanceMetrics {
+    const charMap = new Map<
+      number,
+      {
+        character_id: number;
+        character_name: string;
+        accounting_level: number;
+        broker_relations_level: number;
+      }
+    >();
+
+    for (const c of characters) {
+      charMap.set(c.character_id, {
+        character_id: c.character_id,
+        character_name: c.character_name,
+        accounting_level: c.accounting_level ?? 4,
+        broker_relations_level: c.broker_relations_level ?? 4,
+      });
+    }
+
+    // Sort transactions deterministically: timestamp ASC, transaction_id ASC
+    const sortedTx = [...allTransactions].sort(
+      (a, b) =>
+        new Date(a.date).getTime() - new Date(b.date).getTime() ||
+        a.transaction_id - b.transaction_id
+    );
+
+    let totalBuyVolumeIsk = 0;
+    let totalSellVolumeIsk = 0;
+    const locationVolumeMap: Record<number, { name: string; volumeIsk: number; count: number }> = {};
+    const txByType: Record<number, EveCharacterTransaction[]> = {};
+
+    for (const tx of sortedTx) {
+      const locId = tx.location_id;
+      const locName = tx.location_name || UniverseRepository.getInstance().getStationNameSync(locId);
+      if (!locationVolumeMap[locId]) {
+        locationVolumeMap[locId] = { name: locName, volumeIsk: 0, count: 0 };
+      }
+      const val =
+        (Number.isFinite(tx.unit_price) ? Math.max(0, tx.unit_price) : 0) *
+        (Number.isFinite(tx.quantity) ? Math.max(0, tx.quantity) : 0);
+      locationVolumeMap[locId].volumeIsk += val;
+      locationVolumeMap[locId].count += 1;
+
+      if (tx.is_buy) {
+        totalBuyVolumeIsk += val;
+      } else {
+        totalSellVolumeIsk += val;
+      }
+
+      if (!txByType[tx.type_id]) {
+        txByType[tx.type_id] = [];
+      }
+      txByType[tx.type_id].push(tx);
+    }
+
+    const completedCycles: TradeCycleRecord[] = [];
+    const itemProfitMap: Record<
+      number,
+      {
+        type_id: number;
+        type_name: string;
+        category_name: string;
+        total_profit: number;
+        trades_count: number;
+        rois: number[];
+        hold_days_list: number[];
+        total_volume_units: number;
+      }
+    > = {};
+
+    let totalRealizedGross = 0;
+    let totalRealizedProfit = 0;
+    let totalBrokerFeesPaid = 0;
+    let totalSalesTaxPaid = 0;
+    let totalEstimatedFees = 0;
+    let hasUnmatchedTrades = false;
+    let unmatchedTradesCount = 0;
+
+    for (const [typeIdStr, typeTxs] of Object.entries(txByType)) {
+      const typeId = Number(typeIdStr);
+      const typeDetail = CatalogRepository.getInstance().getTypeById(typeId);
+      const typeName = typeDetail?.name || `Type #${typeId}`;
+      const categoryName = typeDetail?.category_name || 'Général';
+
+      const buyTxs = typeTxs.filter((t) => t.is_buy);
+      const sellTxs = typeTxs.filter((t) => !t.is_buy);
+
+      // Build unified FIFO lots
+      const lots = buyTxs.map((b) => ({
+        buy_transaction_id: b.transaction_id,
+        character_id: b.character_id ?? 0,
+        character_name:
+          b.character_name ||
+          charMap.get(b.character_id ?? 0)?.character_name ||
+          `Pilote #${b.character_id ?? 0}`,
+        date: b.date,
+        location_id: b.location_id,
+        location_name:
+          b.location_name ||
+          UniverseRepository.getInstance().getStationNameSync(b.location_id) ||
+          'Station Inconnue',
+        unit_price: b.unit_price,
+        original_quantity: b.quantity,
+        remaining_quantity: b.quantity,
+      }));
+
+      for (const sellTx of sellTxs) {
+        let sellRemaining = sellTx.quantity;
+        const sellUnitPrice = sellTx.unit_price;
+        const sellTimeMs = new Date(sellTx.date).getTime();
+        const sellCharId = sellTx.character_id ?? 0;
+        const sellCharName =
+          sellTx.character_name ||
+          charMap.get(sellCharId)?.character_name ||
+          `Pilote #${sellCharId}`;
+        const sellLocation =
+          sellTx.location_name ||
+          UniverseRepository.getInstance().getStationNameSync(sellTx.location_id) ||
+          'Station Inconnue';
+
+        const matchedLots: Array<{
+          lot: (typeof lots)[0];
+          allocatedQuantity: number;
+        }> = [];
+
+        for (let i = 0; i < lots.length; i++) {
+          const lot = lots[i];
+          if (sellRemaining <= 0) break;
+          if (lot.remaining_quantity <= 0) continue;
+
+          const buyTimeMs = new Date(lot.date).getTime();
+          const isCausallyEligible =
+            buyTimeMs < sellTimeMs ||
+            (buyTimeMs === sellTimeMs &&
+              (lot.character_id !== sellCharId || lot.buy_transaction_id <= sellTx.transaction_id));
+
+          if (!isCausallyEligible) {
+            break;
+          }
+
+          const allocated = Math.min(lot.remaining_quantity, sellRemaining);
+          lot.remaining_quantity -= allocated;
+          sellRemaining -= allocated;
+          matchedLots.push({ lot, allocatedQuantity: allocated });
+        }
+
+        const matchedQty = sellTx.quantity - sellRemaining;
+        const unmatchedQty = sellRemaining;
+
+        if (matchedQty > 0) {
+          let totalBuyCost = 0;
+          let totalWeightedBuyTimeMs = 0;
+          const buyCharNames = new Set<string>();
+          const buyCharIds = new Set<number>();
+          let primaryBuyLocation = '';
+
+          for (const m of matchedLots) {
+            const lotCost = roundIsk(m.allocatedQuantity * m.lot.unit_price);
+            totalBuyCost += lotCost;
+            totalWeightedBuyTimeMs += new Date(m.lot.date).getTime() * m.allocatedQuantity;
+            buyCharNames.add(m.lot.character_name);
+            if (m.lot.character_id) buyCharIds.add(m.lot.character_id);
+            if (!primaryBuyLocation) primaryBuyLocation = m.lot.location_name;
+          }
+
+          const weightedBuyTimeMs = totalWeightedBuyTimeMs / matchedQty;
+          const holdDays = Math.max(0, (sellTimeMs - weightedBuyTimeMs) / (1000 * 60 * 60 * 24));
+          const totalSellRevenue = roundIsk(matchedQty * sellUnitPrice);
+          const grossProfit = roundIsk(totalSellRevenue - totalBuyCost);
+
+          const sellerInfo = charMap.get(sellCharId) || {
+            accounting_level: 4,
+            broker_relations_level: 4,
+          };
+          const accountingLevel = sellerInfo.accounting_level;
+          const brokerRelationsLevel = sellerInfo.broker_relations_level;
+
+          const salesTaxRate = 0.08 * (1 - 0.11 * accountingLevel);
+          const cycleSalesTax = roundIsk(totalSellRevenue * salesTaxRate);
+
+          const brokerFeeRate = 0.03 * (1 - 0.05 * brokerRelationsLevel);
+          const cycleBrokerFee = roundIsk(totalSellRevenue * brokerFeeRate);
+
+          const cycleFees = roundIsk(cycleSalesTax + cycleBrokerFee);
+          const netProfit = roundIsk(grossProfit - cycleFees);
+          const roi = totalBuyCost > 0 ? netProfit / totalBuyCost : 0;
+          const isProfitable = netProfit > 0;
+
+          totalRealizedGross = roundIsk(totalRealizedGross + grossProfit);
+          totalRealizedProfit = roundIsk(totalRealizedProfit + netProfit);
+          totalSalesTaxPaid = roundIsk(totalSalesTaxPaid + cycleSalesTax);
+          totalBrokerFeesPaid = roundIsk(totalBrokerFeesPaid + cycleBrokerFee);
+          totalEstimatedFees = roundIsk(totalEstimatedFees + cycleFees);
+
+          if (unmatchedQty > 0) {
+            hasUnmatchedTrades = true;
+            unmatchedTradesCount += 1;
+          }
+
+          const buyCharNameStr = Array.from(buyCharNames).join(', ');
+          const isCrossCharacter =
+            buyCharIds.size > 1 || (buyCharIds.size === 1 && !buyCharIds.has(sellCharId));
+
+          const cycleCompleteness: FinancialCompleteness = unmatchedQty > 0 ? 'PARTIAL' : 'OBSERVED';
+          const cycleProfitLabel =
+            cycleCompleteness === 'OBSERVED'
+              ? 'Bénéfice Net Flotte (Certifié)'
+              : 'Bénéfice Flotte (Partiel)';
+
+          const cycleRecord: TradeCycleRecord = {
+            cycle_id: `cycle_${sellTx.transaction_id}_${typeId}_fleet`,
+            type_id: typeId,
+            type_name: typeName,
+            category_name: categoryName,
+            buy_date: new Date(weightedBuyTimeMs).toISOString(),
+            sell_date: sellTx.date,
+            quantity: matchedQty,
+            avg_buy_price: matchedQty > 0 ? totalBuyCost / matchedQty : 0,
+            avg_sell_price: sellUnitPrice,
+            total_buy_cost: totalBuyCost,
+            total_sell_revenue: totalSellRevenue,
+            gross_profit: grossProfit,
+            estimated_fees_paid: cycleFees,
+            net_profit: netProfit,
+            roi: roi,
+            hold_days: Number(holdDays.toFixed(1)),
+            is_profitable: isProfitable,
+            buy_location: primaryBuyLocation,
+            sell_location: sellLocation,
+            financial_completeness: cycleCompleteness,
+            is_net_estimated: false,
+            realized_profit_label: cycleProfitLabel,
+            fees_breakdown: {
+              fee_mode: 'ESTIMATED',
+              fee_source: 'CONFIG_ESTIMATE',
+              execution_fee_mode: 'TAKER_MAKER',
+              estimated_buy_broker_fee: 0,
+              estimated_sell_broker_fee: cycleBrokerFee,
+              estimated_sales_tax: cycleSalesTax,
+              estimated_total_fees: cycleFees,
+              is_role_assumed: false,
+              notes: Object.freeze([
+                `Trade Flotte Consolidé: Vente exécutée par ${sellCharName} (Accounting Lvl ${accountingLevel})`,
+              ]),
+            },
+            unmatched_sell_quantity: unmatchedQty,
+            character_id: 0,
+            character_name: isCrossCharacter
+              ? `${buyCharNameStr} → ${sellCharName}`
+              : sellCharName,
+            buy_character_name: buyCharNameStr,
+            sell_character_name: sellCharName,
+            is_cross_character: isCrossCharacter,
+          };
+
+          completedCycles.push(cycleRecord);
+
+          if (!itemProfitMap[typeId]) {
+            itemProfitMap[typeId] = {
+              type_id: typeId,
+              type_name: typeName,
+              category_name: categoryName,
+              total_profit: 0,
+              trades_count: 0,
+              rois: [],
+              hold_days_list: [],
+              total_volume_units: 0,
+            };
+          }
+          itemProfitMap[typeId].total_profit = roundIsk(
+            itemProfitMap[typeId].total_profit + netProfit
+          );
+          itemProfitMap[typeId].trades_count += 1;
+          itemProfitMap[typeId].rois.push(roi);
+          itemProfitMap[typeId].hold_days_list.push(holdDays);
+          itemProfitMap[typeId].total_volume_units += matchedQty;
+        } else {
+          hasUnmatchedTrades = true;
+          unmatchedTradesCount += 1;
+
+          const cycleRecord: TradeCycleRecord = {
+            cycle_id: `cycle_${sellTx.transaction_id}_${typeId}_fleet`,
+            type_id: typeId,
+            type_name: typeName,
+            category_name: categoryName,
+            buy_date: sellTx.date,
+            sell_date: sellTx.date,
+            quantity: 0,
+            avg_buy_price: 0,
+            avg_sell_price: sellUnitPrice,
+            total_buy_cost: 0,
+            total_sell_revenue: 0,
+            gross_profit: 0,
+            estimated_fees_paid: 0,
+            net_profit: 0,
+            roi: 0,
+            hold_days: 0,
+            is_profitable: false,
+            buy_location: 'Inconnu (Sans Achat Flotte Antérieur)',
+            sell_location: sellLocation,
+            financial_completeness: 'PARTIAL',
+            is_net_estimated: true,
+            realized_profit_label: 'Bénéfice Flotte (Partiel)',
+            fees_breakdown: {
+              fee_mode: 'ESTIMATED',
+              fee_source: 'CONFIG_ESTIMATE',
+              execution_fee_mode: 'TAKER_MAKER',
+              estimated_buy_broker_fee: 0,
+              estimated_sell_broker_fee: 0,
+              estimated_sales_tax: 0,
+              estimated_total_fees: 0,
+              is_role_assumed: false,
+              notes: Object.freeze([
+                'Vente sans achat antérieur couvrant sur l’ensemble des personnages connectés.',
+              ]),
+            },
+            unmatched_sell_quantity: sellTx.quantity,
+            character_id: 0,
+            character_name: sellCharName,
+            sell_character_name: sellCharName,
+          };
+
+          completedCycles.push(cycleRecord);
+        }
+      }
+    }
+
+    const totalClosedTrades = completedCycles.filter((c) => c.quantity > 0).length;
+    const profitableTrades = completedCycles.filter((c) => c.quantity > 0 && c.is_profitable).length;
+    const unprofitableTrades = totalClosedTrades - profitableTrades;
+    const winRatePct = totalClosedTrades > 0 ? (profitableTrades / totalClosedTrades) * 100 : 0;
+    const avgRealizedRoi =
+      totalClosedTrades > 0
+        ? completedCycles.filter((c) => c.quantity > 0).reduce((acc, c) => acc + c.roi, 0) /
+          totalClosedTrades
+        : 0;
+    const avgHoldDays =
+      totalClosedTrades > 0
+        ? completedCycles.filter((c) => c.quantity > 0).reduce((acc, c) => acc + c.hold_days, 0) /
+          totalClosedTrades
+        : 0;
+
+    const topProfitableItems = Object.values(itemProfitMap)
+      .map((item) => ({
+        type_id: item.type_id,
+        type_name: item.type_name,
+        category_name: item.category_name,
+        total_profit: roundIsk(item.total_profit),
+        trades_count: item.trades_count,
+        avg_roi: item.rois.length > 0 ? item.rois.reduce((a, b) => a + b, 0) / item.rois.length : 0,
+        avg_hold_days:
+          item.hold_days_list.length > 0
+            ? item.hold_days_list.reduce((a, b) => a + b, 0) / item.hold_days_list.length
+            : 0,
+        total_volume_units: item.total_volume_units,
+        profit_label: 'Bénéfice Net Flotte (Certifié)',
+        is_net_estimated: false,
+      }))
+      .sort((a, b) => b.total_profit - a.total_profit)
+      .slice(0, 15);
+
+    const categorySuccessRate: Record<
+      string,
+      {
+        total_trades: number;
+        profit_isk: number;
+        win_rate: number;
+        avg_roi: number;
+        profit_label?: string;
+        is_net_estimated?: boolean;
+      }
+    > = {};
+
+    for (const c of completedCycles.filter((cy) => cy.quantity > 0)) {
+      const cat = c.category_name || 'Général';
+      if (!categorySuccessRate[cat]) {
+        categorySuccessRate[cat] = { total_trades: 0, profit_isk: 0, win_rate: 0, avg_roi: 0 };
+      }
+      categorySuccessRate[cat].total_trades += 1;
+      categorySuccessRate[cat].profit_isk += c.net_profit;
+    }
+
+    for (const cat of Object.keys(categorySuccessRate)) {
+      const catCycles = completedCycles.filter(
+        (c) => (c.category_name || 'Général') === cat && c.quantity > 0
+      );
+      const catWins = catCycles.filter((c) => c.is_profitable).length;
+      categorySuccessRate[cat].win_rate =
+        catCycles.length > 0 ? (catWins / catCycles.length) * 100 : 0;
+      categorySuccessRate[cat].avg_roi =
+        catCycles.length > 0 ? catCycles.reduce((a, b) => a + b.roi, 0) / catCycles.length : 0;
+      categorySuccessRate[cat].profit_label = 'Bénéfice Net Flotte';
+      categorySuccessRate[cat].is_net_estimated = false;
+    }
+
+    const activityByLocation = Object.entries(locationVolumeMap)
+      .map(([idStr, val]) => ({
+        location_id: Number(idStr),
+        location_name: val.name,
+        total_volume_isk: roundIsk(val.volumeIsk),
+        transaction_count: val.count,
+      }))
+      .sort((a, b) => b.total_volume_isk - a.total_volume_isk)
+      .slice(0, 8);
+
+    const overallCompleteness: FinancialCompleteness = hasUnmatchedTrades ? 'PARTIAL' : 'OBSERVED';
+    const metricsProfitLabel =
+      overallCompleteness === 'OBSERVED'
+        ? 'Bénéfice Net Flotte (Certifié)'
+        : 'Bénéfice Flotte Réalisé (Partiel)';
+
+    let traderTitle = `Flotte Marchande (${characters.length} pilotes)`;
+    let traderBadgeColor = 'text-purple-400 bg-purple-500/10 border-purple-500/20';
+
+    if (totalRealizedProfit >= 1_000_000_000) {
+      traderTitle = `Armada Commerciale Suprême (${characters.length} pilotes)`;
+      traderBadgeColor = 'text-amber-300 bg-amber-500/15 border-amber-500/30';
+    } else if (totalRealizedProfit >= 250_000_000) {
+      traderTitle = `Syndicat Commercial d'Élite (${characters.length} pilotes)`;
+      traderBadgeColor = 'text-purple-300 bg-purple-500/15 border-purple-500/30';
+    } else if (totalRealizedProfit >= 50_000_000) {
+      traderTitle = `Flotte Marchande Avancée (${characters.length} pilotes)`;
+      traderBadgeColor = 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+    }
+
+    return {
+      character_id: 0,
+      character_name: `Flotte Consolidée (${characters.length} pilotes)`,
+      last_calculated: new Date().toISOString(),
+      total_realized_profit: totalRealizedProfit,
+      total_buy_volume: roundIsk(totalBuyVolumeIsk),
+      total_sell_volume: roundIsk(totalSellVolumeIsk),
+      total_turnover: roundIsk(totalBuyVolumeIsk + totalSellVolumeIsk),
+      total_closed_trades: totalClosedTrades,
+      profitable_trades: profitableTrades,
+      unprofitable_trades: unprofitableTrades,
+      win_rate_pct: winRatePct,
+      average_realized_roi: avgRealizedRoi,
+      average_hold_days: avgHoldDays,
+      total_broker_fees_paid: totalBrokerFeesPaid,
+      total_sales_tax_paid: totalSalesTaxPaid,
+      top_profitable_items: topProfitableItems,
+      recent_trade_cycles: [...completedCycles]
+        .sort((a, b) => {
+          const timeA = new Date(a.sell_date || a.buy_date).getTime();
+          const timeB = new Date(b.sell_date || b.buy_date).getTime();
+          return timeB - timeA || b.cycle_id.localeCompare(a.cycle_id);
+        })
+        .slice(0, 100),
+      activity_by_location: activityByLocation,
+      category_success_rate: categorySuccessRate,
+      trader_title: traderTitle,
+      trader_badge_color: traderBadgeColor,
+      calibration_weight: 1.0,
+      financial_completeness: overallCompleteness,
+      is_net_estimated: false,
+      realized_profit_label: metricsProfitLabel,
+      execution_fee_mode: 'TAKER_MAKER',
+      total_realized_gross: totalRealizedGross,
+      total_estimated_fees: totalEstimatedFees,
+      has_unmatched_trades: hasUnmatchedTrades,
+      unmatched_trades_count: unmatchedTradesCount,
+    };
+  }
 }
+

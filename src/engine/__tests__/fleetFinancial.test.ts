@@ -15,6 +15,7 @@ import {
   PerformanceScope,
   TraderPerformanceMetrics,
 } from '../../types';
+import { TraderAnalyticsService } from '../../services/traderAnalytics';
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
@@ -244,6 +245,62 @@ function runFleetFinancialTests() {
   assert(Object.isFrozen(fleetRes), 'FleetFinancialResult must be frozen');
   assert(Object.isFrozen(fleetRes.fleetMetrics), 'fleetMetrics must be frozen');
   console.log('  [PASS] Test 6: Invariance and immutability verified.');
+
+  // Test 7: Consolidated Multi-Character FIFO (Cross-Character Trades, e.g. Livestock 547)
+  console.log('--- Test 7: Consolidated Multi-Character Fleet FIFO (Cross-Pilot Trade Matching) ---');
+  const pilotA_buyTxs: EveCharacterTransaction[] = [
+    {
+      transaction_id: 88801,
+      character_id: 1001,
+      character_name: 'Pilot Alpha',
+      date: '2026-03-29T10:00:00Z',
+      type_id: 280, // Livestock
+      location_id: 60003760,
+      unit_price: 10_000,
+      quantity: 547,
+      is_buy: true,
+      is_personal: true,
+      client_id: 9001,
+    },
+  ];
+
+  const pilotB_sellTxs: EveCharacterTransaction[] = [
+    {
+      transaction_id: 88802,
+      character_id: 1002,
+      character_name: 'Pilot Beta',
+      date: '2026-03-30T10:00:00Z',
+      type_id: 280, // Livestock
+      location_id: 60008494,
+      unit_price: 15_000,
+      quantity: 547,
+      is_buy: false,
+      is_personal: true,
+      client_id: 9002,
+    },
+  ];
+
+  const allFleetTxs = [...pilotA_buyTxs, ...pilotB_sellTxs];
+  const charFleetConfig = [
+    { character_id: 1001, character_name: 'Pilot Alpha', accounting_level: 5, broker_relations_level: 5 },
+    { character_id: 1002, character_name: 'Pilot Beta', accounting_level: 5, broker_relations_level: 5 },
+  ];
+
+  const fleetConsolidatedResult = TraderAnalyticsService.processFleetConsolidatedTransactions(
+    charFleetConfig,
+    allFleetTxs
+  );
+
+  assert(fleetConsolidatedResult.total_closed_trades === 1, 'Should resolve 1 completed fleet trade cycle');
+  const cycle = fleetConsolidatedResult.recent_trade_cycles[0];
+  assert(cycle.quantity === 547, 'Cycle quantity must be exactly 547 units');
+  assert(cycle.unmatched_sell_quantity === 0, 'Unmatched sell quantity must be 0 (no uncovered stock)');
+  assert(cycle.is_cross_character === true, 'is_cross_character must be true');
+  assert(cycle.buy_character_name === 'Pilot Alpha', 'Buy character must be Pilot Alpha');
+  assert(cycle.sell_character_name === 'Pilot Beta', 'Sell character must be Pilot Beta');
+  assert(cycle.financial_completeness === 'OBSERVED', 'Financial completeness must be OBSERVED');
+  assert(fleetConsolidatedResult.has_unmatched_trades === false, 'has_unmatched_trades must be false');
+  console.log('  [PASS] Test 7: Consolidated Multi-Character Fleet FIFO (Livestock 547) successfully matched 100%.');
 
   console.log('===============================================================');
   console.log('ALL PHASE 3 MULTI-CHARACTER & FLEET FINANCIAL TESTS PASSED (100%)');

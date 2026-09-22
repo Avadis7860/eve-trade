@@ -19,6 +19,7 @@ import { FleetFinancialEngine } from '../engine/fleetFinancial';
 import { EsiService } from '../services/esi';
 import { AuthService } from '../services/authService';
 import { TraderAnalyticsService } from '../services/traderAnalytics';
+import { CharacterTransactionSyncService } from '../services/characterTransactionSyncService';
 import { OrderAdvisorService } from '../services/orderAdvisor';
 import { GlobalMarketSyncService } from '../services/globalMarketSync';
 import { MarketDataStore } from '../services/marketDataStore';
@@ -101,6 +102,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
 
   // Trader Performance & Analytics State
   const [traderMetrics, setTraderMetrics] = useState<TraderPerformanceMetrics | null>(null);
+  const [fleetConsolidatedMetrics, setFleetConsolidatedMetrics] = useState<TraderPerformanceMetrics | null>(null);
   const [characterFinancialResults, setCharacterFinancialResults] = useState<CharacterFinancialResult[]>([]);
   const [performanceScope, setPerformanceScope] = useState<PerformanceScope>({ type: 'active_character' });
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
@@ -176,6 +178,13 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
     const fetchAnalytics = async () => {
       setIsLoadingAnalytics(true);
       const updatedResults: CharacterFinancialResult[] = [];
+      const allFleetTransactions: import('../types').EveCharacterTransaction[] = [];
+      const characterSyncDetails: {
+        character_id: number;
+        character_name: string;
+        accounting_level: number;
+        broker_relations_level: number;
+      }[] = [];
 
       for (const char of targetList) {
         try {
@@ -183,6 +192,17 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
           if (!token) {
             throw new Error(`Jeton introuvable ou expiré pour ${char.character_name}`);
           }
+
+          // Trigger deep pagination sync into IndexedDB in background (resilient against network hiccups)
+          try {
+            await CharacterTransactionSyncService.syncCharacterTransactions(char.character_id, {
+              maxPages: 10,
+              timeoutMs: 8000,
+            });
+          } catch (syncErr) {
+            console.warn(`[MyOrdersView] Deep sync warning for ${char.character_name}:`, syncErr);
+          }
+
           const [freshTxs, orderHistory, journal, storedPersisted] = await Promise.all([
             EsiService.fetchCharacterTransactions(char.character_id, token),
             EsiService.fetchCharacterOrderHistory(char.character_id, token, 1),
@@ -195,6 +215,8 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
           for (const p of storedPersisted) {
             txMap.set(p.transaction_id, {
               transaction_id: p.transaction_id,
+              character_id: p.character_id ?? char.character_id,
+              character_name: (p as any).character_name ?? char.character_name,
               date: p.timestamp,
               type_id: p.type_id,
               location_id: p.location_id,
@@ -208,12 +230,24 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
             });
           }
           for (const f of freshTxs) {
-            txMap.set(f.transaction_id, f);
+            txMap.set(f.transaction_id, {
+              ...f,
+              character_id: f.character_id ?? char.character_id,
+              character_name: f.character_name ?? char.character_name,
+            });
           }
 
           const combinedTxs = Array.from(txMap.values()).sort(
             (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
           );
+
+          allFleetTransactions.push(...combinedTxs);
+          characterSyncDetails.push({
+            character_id: char.character_id,
+            character_name: char.character_name,
+            accounting_level: char.accounting_skill || 4,
+            broker_relations_level: char.broker_relations_skill || 4,
+          });
 
           const computed = TraderAnalyticsService.processTransactions(
             char.character_id,
@@ -284,6 +318,19 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
         }
       }
 
+      // Calculate consolidated multi-character fleet metrics to resolve cross-character trades
+      if (allFleetTransactions.length > 0 && characterSyncDetails.length > 0) {
+        try {
+          const fleetConsolidated = TraderAnalyticsService.processFleetConsolidatedTransactions(
+            characterSyncDetails,
+            allFleetTransactions
+          );
+          setFleetConsolidatedMetrics(fleetConsolidated);
+        } catch (fleetErr) {
+          console.warn('[MyOrdersView] Consolidated fleet analytics computation error:', fleetErr);
+        }
+      }
+
       setCharacterFinancialResults(updatedResults);
       setIsLoadingAnalytics(false);
     };
@@ -297,10 +344,11 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
     const selected = FleetFinancialEngine.selectPerformanceByScope(
       characterFinancialResults,
       performanceScope,
-      String(session.character_id)
+      String(session.character_id),
+      { consolidatedFleetMetrics: fleetConsolidatedMetrics || undefined }
     );
     return selected.selectedMetrics || traderMetrics;
-  }, [characterFinancialResults, performanceScope, session, traderMetrics]);
+  }, [characterFinancialResults, performanceScope, session, traderMetrics, fleetConsolidatedMetrics]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -1078,6 +1126,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
         activeCharacterId={session ? String(session.character_id) : ''}
         scope={performanceScope}
         onChangeScope={setPerformanceScope}
+        consolidatedFleetMetrics={fleetConsolidatedMetrics}
       />
     </div>
   );

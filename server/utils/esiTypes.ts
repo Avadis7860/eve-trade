@@ -18,7 +18,20 @@ export interface EsiRequest {
   readonly timeoutMs?: number;
   readonly retries?: number;
   readonly etag?: string;
+  readonly dedupe?: boolean;
 }
+
+export type EsiPrincipalContext =
+  | { readonly type: 'anonymous' }
+  | {
+      readonly type: 'character';
+      readonly id: number;
+      /**
+       * Access credential is intentionally confined to the server-side gateway.
+       * It must never be logged, serialized into cache keys, or returned to callers.
+       */
+      readonly bearerCredential: string;
+    };
 
 export interface EsiRetryPolicy {
   readonly maxRetries: number;

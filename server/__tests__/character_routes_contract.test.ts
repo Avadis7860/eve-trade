@@ -384,6 +384,13 @@ async function runTests(): Promise<void> {
       assert.strictEqual(identityCalls[0].authorization, undefined);
     });
 
+    await test('public corporation profile does not require the caller bearer credential', async () => {
+      const response = await fetch(baseUrl + `/api/character/${CHARACTER_A}/corporation`);
+      assert.strictEqual(response.status, 200);
+      const body = await readJson(response);
+      assert.strictEqual(body.corporation_id, CORPORATION_ID);
+    });
+
     await test('corporation profile ESI errors are preserved and never degraded into fallback 200 data', async () => {
       const original = corporationEsiGateway.fetchProfile;
       try {

@@ -3,12 +3,22 @@ import { buildUniverseGraph } from '../../domain/universe/UniverseGraph';
 import { RouteEngine } from '../../domain/universe/RouteEngine';
 import { certifyRoute } from '../../domain/universe/RouteCertification';
 import { UniverseGraphRepository } from '../../domain/universe/UniverseGraphRepository';
+import { calculateUniverseGraphChecksum } from '../../domain/universe/UniverseGraphHash';
+
+const repositoryNodes = [
+  { system_id: 1, security_status: 0.9 },
+  { system_id: 2, security_status: 0.8 },
+];
+const repositoryEdges = [
+  { from_system_id: 1, to_system_id: 2 },
+  { from_system_id: 2, to_system_id: 1 },
+];
 
 const provenance = {
   source: 'sde_canonical' as const,
   dataset_version: 'test-fixture',
   dataset_checksum: 'fixture-checksum',
-  graph_checksum: 'graph-checksum',
+  graph_checksum: calculateUniverseGraphChecksum(repositoryNodes, repositoryEdges),
   graph_version: 'graph-v1',
   completeness: 'complete' as const,
 };
@@ -35,17 +45,23 @@ const engine = new RouteEngine(graph);
 const graphRepository = new UniverseGraphRepository({
   load: () => ({
     provenance,
-    nodes: [
-      { system_id: 1, security_status: 0.9 },
-      { system_id: 2, security_status: 0.8 },
-    ],
-    edges: [
-      { from_system_id: 1, to_system_id: 2 },
-      { from_system_id: 2, to_system_id: 1 },
-    ],
+    nodes: repositoryNodes,
+    edges: repositoryEdges,
   }),
 });
 assert.equal(graphRepository.getGraph().node_count, 2);
+
+assert.throws(
+  () =>
+    new UniverseGraphRepository({
+      load: () => ({
+        provenance: { ...provenance, graph_checksum: 'tampered-checksum' },
+        nodes: repositoryNodes,
+        edges: repositoryEdges,
+      }),
+    }),
+  /Universe graph checksum mismatch/,
+);
 
 assert.throws(
   () =>

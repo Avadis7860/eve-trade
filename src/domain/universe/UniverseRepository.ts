@@ -8,7 +8,7 @@ import {
 } from '../../types';
 import { MAJOR_MARKET_HUBS, KNOWN_STATION_NAMES } from '../../data/universe';
 import { UniverseGraphRepository } from './UniverseGraphRepository';
-import { RouteEngine, RoutePolicy } from './RouteEngine';
+import { RoutePolicy } from './RouteEngine';
 import { RouteIndex } from './RouteIndex';
 import { certifyRoute } from './RouteCertification';
 import { certifiedRouteToJumpRoute, unknownRouteToJumpRoute } from './CertifiedRouteAdapter';
@@ -51,13 +51,11 @@ export class UniverseRepository {
   private stationMap = new Map<number, { name: string; system_id: number; type_id?: number }>();
   private readonly integrity: UniverseValidationResult;
   private readonly graphRepository: UniverseGraphRepository;
-  private readonly routeEngine: RouteEngine;
   private readonly routeIndexCache = new Map<string, RouteIndex>();
 
   private constructor() {
     this.integrity = UniverseValidator.validate(universeDataRaw);
     this.graphRepository = new UniverseGraphRepository();
-    this.routeEngine = new RouteEngine(this.graphRepository.getGraph());
 
     // 1. Seed All 114 Regions
     if (universeData && universeData.regions) {
@@ -570,25 +568,8 @@ export class UniverseRepository {
     toSystemId: number,
     policy: RoutePolicy = 'SAFE',
   ): JumpRoute {
-    const result = this.routeEngine.findRouteWithPolicy(fromSystemId, toSystemId, policy);
-
-    if (result.status === 'FOUND') {
-      const certification = certifyRoute(
-        this.graphRepository.getGraph(),
-        result,
-        { requireSafe: policy === 'SAFE' },
-      );
-      if (certification.status === 'CERTIFIED' && certification.route) {
-        return certifiedRouteToJumpRoute(certification.route);
-      }
-    }
-
-    return unknownRouteToJumpRoute(
-      fromSystemId,
-      toSystemId,
-      this.graphRepository.getGraph().provenance,
-      result.error ?? `Route is not certifiable under policy ${policy}`,
-    );
+    const index = this.getRouteIndex(toSystemId, policy);
+    return this.getIndexedRoute(index, fromSystemId);
   }
 
   getRouteIndex(

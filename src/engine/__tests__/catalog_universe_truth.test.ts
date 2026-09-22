@@ -60,10 +60,15 @@ catalog.loadExplicitDataset(fakeItems, fakeMeta);
 assert(!catalog.isReady(), 'A caller cannot force READY with a self-declared two-item catalog');
 assert(catalog.getMetadata().status === 'CATALOG_PARTIAL', 'Self-declared truncated catalog must become PARTIAL');
 
-const dynamic = catalog.resolveType(987654321, { type_id: 987654321, name: 'Synthetic Type', volume: 1 });
+// Reset the repository so subsequent collision tests exercise the real canonical dataset.
+CatalogRepository.resetInstance();
+const canonicalCatalog = CatalogRepository.getInstance();
+assert(canonicalCatalog.isReady(), 'Canonical catalog must be restored before collision tests');
+
+const dynamic = canonicalCatalog.resolveType(987654321, { type_id: 987654321, name: 'Synthetic Type', volume: 1 });
 assert(!dynamic.is_verified && dynamic.confidence === 0, 'Dynamic fallback resolution must remain unverified');
 
-const canonicalCollision = catalog.registerCustomType({
+const canonicalCollision = canonicalCatalog.registerCustomType({
   type_id: 34,
   name: 'Fake Canonical Override',
   volume: 999,

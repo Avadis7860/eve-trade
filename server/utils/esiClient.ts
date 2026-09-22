@@ -80,10 +80,12 @@ export async function fetchEsi<T = unknown>(
     : `https://esi.evetech.net/latest${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
 
   const requestHeaders: Record<string, string> = {
+    ...(headers as Record<string, string>),
     'User-Agent': DEFAULT_USER_AGENT,
     Accept: 'application/json',
+    // The compatibility date is an application-wide ESI contract and cannot
+    // be accidentally replaced by a route caller's arbitrary header.
     'X-Compatibility-Date': compatibilityDate,
-    ...(headers as Record<string, string>),
   };
 
   if (etag) {

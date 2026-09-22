@@ -9,6 +9,18 @@ function runTests(): void {
     new URL('../routes/characters.ts', import.meta.url),
     'utf-8',
   );
+  const characterSyncSource = readFileSync(
+    new URL('../../src/hooks/useCharacterSync.ts', import.meta.url),
+    'utf-8',
+  );
+  const corporationTreasurySyncSource = readFileSync(
+    new URL('../../src/hooks/useCorporationTreasurySync.ts', import.meta.url),
+    'utf-8',
+  );
+  const appSource = readFileSync(
+    new URL('../../src/App.tsx', import.meta.url),
+    'utf-8',
+  );
 
   assert(
     !routeSource.includes("from '../utils/esiClient'"),
@@ -22,6 +34,21 @@ function runTests(): void {
     routeSource.includes("from '../gateways/corporationEsiGateway'"),
     'Character routes must use the corporation ESI gateway for corporation resources',
   );
+  assert(
+    !characterSyncSource.includes('fetchCorporationInfo') &&
+      !characterSyncSource.includes('fetchCorporationWallets'),
+    'Character synchronization must not own corporation treasury acquisition',
+  );
+  assert(
+    corporationTreasurySyncSource.includes('fetchCorporationInfo') &&
+      corporationTreasurySyncSource.includes('fetchCorporationWallets'),
+    'Corporation treasury acquisition must live in its dedicated lifecycle hook',
+  );
+  assert(
+    appSource.includes("useCorporationTreasurySync"),
+    'App must wire the dedicated corporation treasury lifecycle',
+  );
+
 
   console.log('  [PASS] character ESI access remains gateway-only');
   console.log('\nCorporation ESI architecture contract: 1 passed, 0 failed.');

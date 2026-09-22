@@ -1,15 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   EveTypeDetail,
   FinancialConfig,
   InterRegionalOpportunity,
   UniverseWideOpportunity,
   GlobalSyncProgress,
+  OrderScope,
+  OrderCollection,
+  OrderSelectionContext,
+  OrderCharacterContext,
+  EveCharacterOrder,
 } from './types';
 import { EsiService } from './services/esi';
 import { GlobalMarketSyncService } from './services/globalMarketSync';
 import { CatalogRepository } from './domain/catalog/CatalogRepository';
+import { CharacterRepository } from './domain/character/CharacterRepository';
 import { MarketOutcomeTracker } from './services/marketOutcomeTracker';
+import { selectOrdersByScope } from './engine/orderScoping';
 
 import { AuthProvider, useAuth } from './context/AuthProvider';
 import { CatalogProvider, useCatalog } from './context/CatalogProvider';
@@ -87,6 +94,80 @@ const AppShell: React.FC = () => {
     handleDirectTokenInput,
     handleLogoutCharacter,
   } = useCharacterSync(orderBooks, hubs, () => setCurrentView('orders'));
+
+  // Phase 2 — Order Scoping & Multi-Character Context
+  const [orderScope, setOrderScope] = useState<OrderScope>({ type: 'active_character' });
+
+  const allFleetOrders = useMemo(() => {
+    const snapshots = CharacterRepository.getInstance().getAllSnapshots();
+    const orderMap = new Map<number, EveCharacterOrder>();
+
+    // Add orders from snapshots for each linked character
+    for (const char of linkedCharacters) {
+      const snap = snapshots[char.character_id];
+      if (snap?.active_orders) {
+        for (const ord of snap.active_orders) {
+          orderMap.set(ord.order_id, {
+            ...ord,
+            character_id: char.character_id,
+            character_name: char.character_name,
+          });
+        }
+      }
+    }
+
+    // Also include currently loaded characterOrders (from active character)
+    if (characterSession) {
+      for (const ord of characterOrders) {
+        orderMap.set(ord.order_id, {
+          ...ord,
+          character_id: characterSession.character_id,
+          character_name: characterSession.character_name,
+        });
+      }
+    }
+
+    return Array.from(orderMap.values());
+  }, [linkedCharacters, characterSession, characterOrders]);
+
+  const orderSelectionContext: OrderSelectionContext = useMemo(
+    () => ({
+      activeCharacterId: characterSession ? String(characterSession.character_id) : '',
+      fleetCharacterIds: linkedCharacters.map((c) => String(c.character_id)),
+    }),
+    [characterSession, linkedCharacters]
+  );
+
+  const scopedOrders = useMemo(() => {
+    return selectOrdersByScope(allFleetOrders, orderScope, orderSelectionContext);
+  }, [allFleetOrders, orderScope, orderSelectionContext]);
+
+  const orderCharacterContexts: OrderCharacterContext[] = useMemo(() => {
+    if (linkedCharacters.length > 0) {
+      return linkedCharacters.map((c) => ({
+        characterId: String(c.character_id),
+        characterName: c.character_name,
+      }));
+    }
+    if (characterSession) {
+      return [
+        {
+          characterId: String(characterSession.character_id),
+          characterName: characterSession.character_name,
+        },
+      ];
+    }
+    return [];
+  }, [linkedCharacters, characterSession]);
+
+  const orderCollection: OrderCollection = useMemo(
+    () => ({
+      orders: scopedOrders,
+      characters: orderCharacterContexts,
+      scope: orderScope,
+    }),
+    [scopedOrders, orderCharacterContexts, orderScope]
+  );
 
   // Global Sync Progress
   const [globalSyncProgress, setGlobalSyncProgress] = useState<GlobalSyncProgress>(GlobalMarketSyncService.getProgress());
@@ -263,7 +344,8 @@ const AppShell: React.FC = () => {
           ) : currentView === 'orders' ? (
             <MyOrdersView
               session={characterSession}
-              orders={characterOrders}
+              orderCollection={orderCollection}
+              orders={scopedOrders}
               isLoadingOrders={isLoadingOrders}
               onRefreshOrders={() => {
                 if (characterSession) {
@@ -284,6 +366,7 @@ const AppShell: React.FC = () => {
               config={config}
               orderBooks={orderBooks}
               historyCache={historyCache}
+              onChangeScope={setOrderScope}
             />
           ) : currentView === 'portfolio' ? (
             <PortfolioView

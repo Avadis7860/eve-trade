@@ -1056,6 +1056,37 @@ export interface EveCharacterOrder {
   };
 }
 
+/**
+ * Phase 2 — Order Scoping & Multi-Character Context Contracts
+ */
+export type OrderScope =
+  | {
+      type: 'active_character';
+    }
+  | {
+      type: 'character';
+      characterId: string;
+    }
+  | {
+      type: 'fleet';
+    };
+
+export interface OrderCharacterContext {
+  characterId: string;
+  characterName: string;
+}
+
+export interface OrderSelectionContext {
+  activeCharacterId: string;
+  fleetCharacterIds: string[];
+}
+
+export interface OrderCollection {
+  orders: EveCharacterOrder[];
+  characters: OrderCharacterContext[];
+  scope: OrderScope;
+}
+
 export interface EveCharacterTransaction {
   transaction_id: number;
   character_id?: number;

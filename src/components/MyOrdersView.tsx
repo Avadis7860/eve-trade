@@ -9,6 +9,8 @@ import {
   HistoricalStats,
   TraderPerformanceMetrics,
   OrderAdvisorRecommendation,
+  OrderCollection,
+  OrderScope,
 } from '../types';
 import { fmtIsk, fmtNumber } from '../engine/money';
 import { EsiService } from '../services/esi';
@@ -46,11 +48,14 @@ import {
   Percent,
   SlidersHorizontal,
   Globe,
+  Users,
+  User,
 } from 'lucide-react';
 
 interface MyOrdersViewProps {
   session: EveCharacterSession | null;
-  orders: EveCharacterOrder[];
+  orderCollection?: OrderCollection;
+  orders?: EveCharacterOrder[];
   isLoadingOrders: boolean;
   onRefreshOrders: () => void;
   onConnectSSO: (customRedirectUri?: string) => void;
@@ -62,11 +67,13 @@ interface MyOrdersViewProps {
   config?: FinancialConfig;
   orderBooks?: Record<number, RawMarketOrder[]>;
   historyCache?: Record<number, HistoricalStats>;
+  onChangeScope?: (scope: OrderScope) => void;
 }
 
 export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
   session,
-  orders,
+  orderCollection,
+  orders: rawOrders = [],
   isLoadingOrders,
   onRefreshOrders,
   onConnectSSO,
@@ -78,7 +85,12 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
   config,
   orderBooks = {},
   historyCache = {},
+  onChangeScope,
 }) => {
+  const orders = useMemo(() => {
+    return orderCollection?.orders ?? rawOrders;
+  }, [orderCollection, rawOrders]);
+
   const [filterTab, setFilterTab] = useState<'all' | 'buy' | 'sell' | 'outbid' | 'action_needed'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
@@ -510,6 +522,66 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
           </div>
         </div>
 
+        {/* Phase 2 — Order Scope Selector */}
+        {orderCollection && (
+          <div className="bg-[#161821] border border-[#262730] rounded-xl p-3 shadow-md flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-xs font-semibold text-[#808495]">
+              <Users className="w-4 h-4 text-purple-400" />
+              <span>Portée des Ordres (Scope) :</span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => onChangeScope?.({ type: 'active_character' })}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                  orderCollection.scope.type === 'active_character'
+                    ? 'bg-[#ff4b4b]/20 border-[#ff4b4b] text-[#ff4b4b] font-bold shadow-sm'
+                    : 'bg-[#0e1117] border-[#262730] text-[#808495] hover:text-[#fafafa] hover:border-[#31333f]'
+                }`}
+              >
+                <User className="w-3.5 h-3.5" />
+                <span>Personnage Actif ({session.character_name})</span>
+              </button>
+
+              {orderCollection.characters.length > 1 && (
+                <button
+                  onClick={() => onChangeScope?.({ type: 'fleet' })}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                    orderCollection.scope.type === 'fleet'
+                      ? 'bg-purple-500/20 border-purple-500 text-purple-300 font-bold shadow-sm'
+                      : 'bg-[#0e1117] border-[#262730] text-[#808495] hover:text-purple-300 hover:border-purple-500/30'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>Fleet Complète ({orderCollection.characters.length} pilotes)</span>
+                </button>
+              )}
+
+              {orderCollection.characters.map((char) => {
+                const isSelected =
+                  orderCollection.scope.type === 'character' &&
+                  orderCollection.scope.characterId === char.characterId;
+                return (
+                  <button
+                    key={char.characterId}
+                    onClick={() =>
+                      onChangeScope?.({ type: 'character', characterId: char.characterId })
+                    }
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                      isSelected
+                        ? 'bg-blue-500/20 border-blue-500 text-blue-300 font-bold shadow-sm'
+                        : 'bg-[#0e1117] border-[#262730] text-[#808495] hover:text-blue-300 hover:border-blue-500/30'
+                    }`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                    <span>{char.characterName}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Real Trader Historical Performance Card - Hidden to avoid redundancy with the dedicated modal triggered by the header button */}
         {traderMetrics && (
           <div className="hidden bg-gradient-to-r from-[#161821] via-[#1a1d2e] to-[#161821] border border-amber-500/30 rounded-xl p-5 shadow-xl space-y-4">
@@ -750,8 +822,15 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                               <div className="font-bold text-[#fafafa]">
                                 {order.type_name || CatalogRepository.getInstance().getTypeName(order.type_id)}
                               </div>
-                              <div className="text-[10px] text-[#808495] font-mono">
-                                ID: {order.type_id}
+                              <div className="flex items-center gap-1.5 text-[10px] text-[#808495] font-mono">
+                                <span>ID: {order.type_id}</span>
+                                {order.character_name &&
+                                  (orderCollection?.scope.type === 'fleet' ||
+                                    (orderCollection?.characters?.length ?? 0) > 1) && (
+                                    <span className="text-purple-300 bg-purple-500/10 px-1.5 py-0.2 rounded border border-purple-500/20 font-sans font-medium">
+                                      {order.character_name}
+                                    </span>
+                                  )}
                               </div>
                             </div>
                           </div>

@@ -77,6 +77,19 @@ function run(): void {
     'Conflicting economic owners must fail closed instead of choosing a winner',
   );
 
+  const legacyCorporate = {
+    ...observedByA,
+    ownership: undefined,
+    character_id: undefined,
+    character_name: undefined,
+    is_corporation: true,
+  };
+
+  assert(
+    mergeOrderObservations(personal, legacyCorporate as typeof personal) === null,
+    'Legacy corporate observation must not merge into a personal owner',
+  );
+
 
 
   const history = normalizeCorporationOrderHistory(

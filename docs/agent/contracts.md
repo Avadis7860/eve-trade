@@ -383,3 +383,20 @@ Legacy configuration migration is explicit: if a persisted corporation configura
 - Both authenticated methods use the character principal provided by the route caller.
 - Character routes resolve the corporation from public character identity; callers never choose an arbitrary corporation ID.
 - Gateway payloads remain transport/domain-neutral. Ownership normalization occurs downstream and is not fabricated by this gateway.
+
+
+## Phase 4.7 — ESI collection data-state contract
+
+`EsiService` collection methods return `EsiCollectionResult<T>` instead of collapsing every failure into an empty array.
+
+| State | Meaning | Business consumption |
+|---|---|---|
+| `AVAILABLE` | Valid successful non-empty collection | Usable |
+| `EMPTY` | Valid successful empty collection | Usable as genuinely empty |
+| `PARTIAL` | Explicitly incomplete upstream result | Not certified complete |
+| `UNAVAILABLE` | No fresh business payload / missing credential | Not usable |
+| `ERROR` | Failed transport or HTTP request | Not usable |
+
+`requireUsableCollection()` is the explicit release gate for business consumers. It returns only `AVAILABLE` or `EMPTY`; `PARTIAL`, `UNAVAILABLE` and `ERROR` raise a controlled error so callers can retain cached state or expose degraded health without inventing a zero dataset.
+
+`304 Not Modified` and `204 No Content` are not treated as `EMPTY`, because neither contains a fresh business collection. HTTP failures remain visible through `status` and `error`.

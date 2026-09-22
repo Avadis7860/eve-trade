@@ -196,6 +196,10 @@ export type OrderScope =
     }
   | {
       type: 'fleet';
+    }
+  | {
+      type: 'corporation';
+      corporationId: string;
     };
 
 export interface OrderCharacterContext {
@@ -203,14 +207,21 @@ export interface OrderCharacterContext {
   characterName: string;
 }
 
+export interface OrderCorporationContext {
+  corporationId: string;
+  corporationName?: string;
+}
+
 export interface OrderSelectionContext {
   activeCharacterId: string;
   fleetCharacterIds: string[];
+  corporationIds: string[];
 }
 
 export interface OrderCollection {
   orders: EveCharacterOrder[];
   characters: OrderCharacterContext[];
+  corporations?: OrderCorporationContext[];
   scope: OrderScope;
 }
 
@@ -254,6 +265,8 @@ export interface EveCharacterOrderHistory {
   escrow?: number;
   state: 'cancelled' | 'expired' | 'fulfilled' | 'open';
   completed_at?: string;
+  /** @deprecated Use ownership.owner_type === 'corporation'. */
+  is_corporation?: boolean;
 }
 
 export interface EveCharacterJournalEntry {

@@ -5,7 +5,29 @@ import {
   TypeResolutionResult,
   MarketGroup,
   MarketCategory,
+  CatalogProvenanceSource,
+  CatalogCompleteness,
 } from '../../types';
+
+function catalogProvenance(
+  source: CatalogProvenanceSource,
+  verified: boolean,
+  completeness: CatalogCompleteness,
+  checksum: string,
+  error?: string
+) {
+  return {
+    source,
+    loaded_at: new Date().toISOString(),
+    verified,
+    confidence: verified ? 1.0 : 0,
+    completeness,
+    version: CANONICAL_CATALOG_MANIFEST.version,
+    checksum,
+    expected_count: CANONICAL_CATALOG_MANIFEST.expectedCount,
+    ...(error ? { error } : {}),
+  };
+}
 import { EVE_TYPES_CATALOG, EVE_GROUPS, EVE_CATEGORIES } from '../../data/universe';
 import { IndexedDbStore } from '../../services/indexedDbStore';
 import { CatalogValidator } from './CatalogValidator';
@@ -56,6 +78,13 @@ export class CatalogRepository {
       source: integrity.isReady ? 'canonical_asset' : 'fallback_core',
       is_degraded: !integrity.isReady,
       error: integrity.isReady ? undefined : integrity.reason,
+      provenance: catalogProvenance(
+        integrity.isReady ? 'canonical_asset' : 'fallback_core',
+        integrity.isReady,
+        integrity.isReady ? 'complete' : 'partial',
+        baselineChecksum,
+        integrity.reason
+      ),
     };
   }
 
@@ -146,6 +175,12 @@ export class CatalogRepository {
               version: CANONICAL_CATALOG_MANIFEST.version,
               expected_count: CANONICAL_CATALOG_MANIFEST.expectedCount,
               checksum: CANONICAL_CATALOG_MANIFEST.checksum,
+              provenance: catalogProvenance(
+                'indexeddb',
+                true,
+                'complete',
+                CANONICAL_CATALOG_MANIFEST.checksum
+              ),
             };
             this.notify();
           }
@@ -215,6 +250,7 @@ export class CatalogRepository {
           is_degraded: false,
           loaded_at: new Date().toISOString(),
           source: 'server',
+          provenance: catalogProvenance('server', true, 'complete', CANONICAL_CATALOG_MANIFEST.checksum),
         };
 
         await IndexedDbStore.replaceCatalog(validTypes, this.metadata);
@@ -236,6 +272,7 @@ export class CatalogRepository {
             source: 'fallback_core',
             is_degraded: true,
             error: `Failed to load catalog from server: ${String(err)}`,
+            provenance: catalogProvenance('fallback_core', false, 'partial', CatalogValidator.computeCanonicalChecksum(EVE_TYPES_CATALOG), `Failed to load catalog from server: ${String(err)}`),
           };
           this.notify();
         }
@@ -283,6 +320,7 @@ export class CatalogRepository {
         catalog_checksum: meta.checksum,
         is_verified: false,
         confidence: 0.0,
+        provenance: catalogProvenance('dynamic', false, 'unknown', meta.checksum),
       };
     }
 
@@ -303,6 +341,12 @@ export class CatalogRepository {
         catalog_checksum: meta.checksum,
         is_verified: !isFallback,
         confidence: isFallback ? 0 : 1.0,
+        provenance: catalogProvenance(
+          isFallback ? 'fallback_core' : 'canonical_asset',
+          !isFallback,
+          isFallback ? 'partial' : 'complete',
+          meta.checksum
+        ),
       };
     }
 
@@ -332,7 +376,8 @@ export class CatalogRepository {
         catalog_version: meta.version,
         catalog_checksum: meta.checksum,
         is_verified: false,
-        confidence: 0.7,
+        confidence: 0.0,
+        provenance: catalogProvenance('dynamic', false, 'unknown', meta.checksum),
       };
     }
 
@@ -351,6 +396,7 @@ export class CatalogRepository {
       is_verified: false,
       confidence: 0.0,
       error: `Type ID ${typeId} is not present in local catalog or custom registrations`,
+      provenance: catalogProvenance('unknown', false, 'unknown', meta.checksum, `Type ID ${typeId} is not present in local catalog or custom registrations`),
     };
   }
 
@@ -403,6 +449,7 @@ export class CatalogRepository {
             catalog_checksum: meta.checksum,
             is_verified: false,
             confidence: 0.0,
+            provenance: catalogProvenance('esi', false, 'unknown', meta.checksum),
           };
         }
       }

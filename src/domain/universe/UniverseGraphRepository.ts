@@ -57,6 +57,9 @@ function assertCanonicalArtifactIdentity(input: UniverseGraphArtifactInput): voi
 
 function assertCanonicalProvenance(input: UniverseGraphInput): void {
   const provenance = input.provenance;
+  if (provenance.source !== 'sde_canonical') {
+    throw new Error('Universe graph source is not canonical SDE data');
+  }
   if (!provenance.dataset_version?.trim()) throw new Error('Universe graph dataset version is missing');
   if (!provenance.dataset_checksum?.trim()) throw new Error('Universe graph dataset checksum is missing');
   if (!provenance.graph_version?.trim()) throw new Error('Universe graph version is missing');

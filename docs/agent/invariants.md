@@ -87,3 +87,26 @@ Validation: `interregional_purity.test.ts`, typecheck, full engine regression an
 - Rule: callback OAuth, session, refresh et appels authentifiés doivent fonctionner dans un navigateur local hors Google AI Studio.
 - Rule: aucun contournement spécifique à Google AI Studio ne constitue une correction valide.
 - Status: blocking prerequisite for product browser E2E.
+
+## CORPORATION-ESI-001 — Character-authorized corporation access
+
+- Scope: `server/gateways/corporationEsiGateway.ts`, corporation routes.
+- Rule: corporation authenticated endpoints use the authenticated character principal; no synthetic corporation principal exists.
+- Rule: public corporation profile access remains anonymous.
+- Rule: credentials from Character A and Character B remain isolated even when both belong to the same corporation.
+- Validation: `server/__tests__/corporation_esi_gateway.test.ts`, `server/__tests__/character_routes_contract.test.ts`.
+
+## TREASURY-SOURCE-ISOLATION-001 — Corporation funding is not character funding
+
+- Scope: `TreasuryEngine`, `FinancialConfig.corporation_wallet_source`, active character synchronization.
+- Rule: when `treasury_source_mode = corporation`, character wallets and `available_capital` cannot be implicit fallbacks for corporation trading capital.
+- Rule: `esi`, `manual` and `unavailable` corporation funding states remain distinct.
+- Rule: observed negative corporation or character wallets remain factual; spendable capital is independently normalized to a non-negative value.
+- Rule: unavailable corporation data fails closed instead of silently retaining a stale positive character-derived capital.
+- Validation: `src/engine/__tests__/treasury.test.ts` and the ESI corporation route/gateway contract suites.
+
+## CORPORATION-DATA-SEPARATION-001 — Transport boundary remains domain-neutral
+
+- Scope: `CorporationEsiGateway`.
+- Rule: the gateway maps corporation ESI contracts only; it must not contain trading, treasury or future industry business calculations.
+- Rule: future corporation features (orders, assets, industry, logistics) must reuse this boundary rather than introduce direct `fetchEsi` calls from routes or domain consumers.

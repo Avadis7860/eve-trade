@@ -81,8 +81,10 @@ function readIntegerArray(value, label) {
 
 export function buildUniverseGraphFromSde(input) {
   const datasetVersion = assertNonEmptyString(input.dataset_version, 'SDE dataset version');
-  const systems = parseSdeSource(input.mapSolarSystemsContent, 'mapSolarSystems.jsonl');
-  const stargates = parseSdeSource(input.mapStargatesContent, 'mapStargates.jsonl');
+  const systemsSource = parseSdeSource(input.mapSolarSystemsContent, 'mapSolarSystems.jsonl');
+  const stargatesSource = parseSdeSource(input.mapStargatesContent, 'mapStargates.jsonl');
+  const systems = systemsSource.rows;
+  const stargates = stargatesSource.rows;
 
   const nodes = [];
   const nodeIds = new Set();

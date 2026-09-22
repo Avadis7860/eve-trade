@@ -183,3 +183,10 @@ The corporation trading flow is:
 The authenticated character remains the ESI principal throughout the flow. The corporation is represented only as the economic owner in the normalized order contract.
 
 When the same order is visible through both character and corporation feeds, the corporation feed is authoritative and the canonical OrderId prevents double representation.
+
+
+## Phase 4.7 — Private request and observation provenance
+
+Authenticated ESI request coalescing is partitioned by the observing character and a cryptographic credential fingerprint. Two characters in the same corporation therefore never share an in-flight private request.
+
+At the application aggregation boundary, one corporation OrderId may legitimately have multiple observers. The normalized ownership record retains additive observer provenance instead of replacing the last observer silently.

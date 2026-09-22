@@ -1,5 +1,7 @@
+import type { EveCharacterOrder } from '../../types';
 import {
   mergeCharacterAndCorporationOrders,
+  mergeOrderObservations,
   normalizeCorporationOrder,
   normalizeCorporationOrderHistory,
 } from '../corporationOrder';
@@ -45,6 +47,40 @@ function run(): void {
   const normalizedB = normalizeCorporationOrder(raw, 1002, 99001, 'Trade Operations Corporation');
   assert(normalizedB?.ownership?.principal_character_id === 1002, 'Second observer must retain its principal');
   assert(normalizedB?.ownership?.owner_id === normalizedA?.ownership?.owner_id, 'Economic owner must remain shared');
+  const observedByA = normalizedA as NonNullable<typeof normalizedA>;
+  const observedByB = normalizedB as NonNullable<typeof normalizedB>;
+  const multiObserved = mergeOrderObservations(observedByA, observedByB);
+
+  assert(multiObserved !== null, 'Two compatible observations must merge');
+  assert(
+    multiObserved?.ownership?.observed_by_character_ids?.join(',') === '1001,1002',
+    'Merged order must retain every observing character',
+  );
+  assert(
+    multiObserved?.ownership?.principal_character_id === 1001,
+    'Merged observation must choose the lowest character ID deterministically as primary principal',
+  );
+  assert(
+    multiObserved?.ownership?.owner_type === 'corporation' &&
+      multiObserved?.ownership?.owner_id === 99001,
+    'Merged multi-observer order must retain economic corporation ownership',
+  );
+
+  const observedByC = normalizeCorporationOrder(
+    raw,
+    1003,
+    99002,
+    'Secondary Trade Corporation',
+  );
+  assert(observedByC !== null, 'Independent corporation observation must normalize');
+  const observedByCOrder = observedByC as NonNullable<typeof observedByC>;
+  assert(
+    mergeOrderObservations(observedByA, observedByCOrder) === null,
+    'Conflicting economic owners must fail closed instead of choosing a winner',
+  );
+
+
+
 
   const history = normalizeCorporationOrderHistory(
     {
@@ -92,6 +128,20 @@ function run(): void {
     character_id: 1001,
     character_name: 'Trader Alpha',
   };
+
+  const legacyCorporate = {
+    ...observedByA,
+    ownership: undefined,
+    character_id: undefined,
+    character_name: undefined,
+    is_corporation: true,
+  };
+
+  assert(
+    mergeOrderObservations(personal as EveCharacterOrder, legacyCorporate as EveCharacterOrder) === null,
+    'Legacy corporate observation must not merge into a personal owner',
+  );
+
 
   const corp42 = {
     ...(normalizedA as NonNullable<typeof normalizedA>),

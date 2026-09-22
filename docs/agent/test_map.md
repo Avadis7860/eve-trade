@@ -119,3 +119,11 @@ Required scenarios include A -> corporation X, B -> corporation X with distinct 
 - `src/services/__tests__/esi.test.ts`: frontend corporation acquisition and credential propagation.
 - `src/engine/__tests__/order_scoping_contracts.test.ts`: corporation scope selection independent from observing character.
 - Full CI: typecheck, corporation boundary, ESI, API, security, unit and production build gates.
+
+
+## Phase 4.7 — Observation provenance and private cache validation
+
+- `src/engine/__tests__/corporation_order.test.ts`: multi-character same-order observation union and conflicting-owner fail-closed behavior.
+- `server/__tests__/esi_gateway.test.ts`: same-principal dedupe, cross-character isolation and credential-rotation isolation.
+- Public market caches remain owner-neutral and are not reused for private character/corporation data.
+- The current IndexedDB HTTP cache has no active private-data consumer; any future adoption must introduce a dedicated principal/owner key contract and regression gate.

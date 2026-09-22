@@ -133,8 +133,10 @@ export interface EveCharacterSession {
 export type OrderOwnerType = 'character' | 'corporation';
 
 export interface OrderOwnership {
-  /** Character whose OAuth credential observed/acquired this order. */
+  /** Character whose credential supplied the primary observation in this view/snapshot. In aggregates this is deterministic, not the sole observer. */
   principal_character_id: number;
+  /** All linked characters whose credentials independently observed this same order. */
+  observed_by_character_ids?: readonly number[];
   /** Economic/legal owner represented by the order payload. */
   owner_type: OrderOwnerType;
   /** EVE entity ID matching owner_type: character_id or corporation_id. */

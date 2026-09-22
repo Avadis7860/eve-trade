@@ -180,6 +180,14 @@ assert(
   'Unknown route must never receive synthetic values',
 );
 
+const unknownSourceRoute = universe.getRoute(999999999, 30002187, 'SHORTEST');
+assert(
+  unknownSourceRoute.status === 'UNKNOWN' &&
+    unknownSourceRoute.is_verified === false &&
+    unknownSourceRoute.jumps === -1,
+  'Unknown source system must remain UNKNOWN without attempting to build an invalid route index',
+);
+
 const safeRouteIndexA = universe.getRouteIndex(30002187, 'SAFE');
 const safeRouteIndexB = universe.getRouteIndex(30002187, 'SAFE');
 assert(safeRouteIndexA === safeRouteIndexB, 'Route index must be reused for identical graph/policy/destination identity');

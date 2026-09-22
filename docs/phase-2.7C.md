@@ -472,6 +472,8 @@ Use:
 - an explicit refresh procedure to generate a new artifact;
 - a validation gate that prevents accidental mismatch between the recorded build and generated checksums.
 
+The Truth Gate for the pinned build is strictly read-only: it regenerates the graph and manifest and fails when either generated artifact differs from the committed branch. A refresh must therefore be an explicit reviewed change, not an automatic CI mutation.
+
 A separate scheduled/manual refresh workflow may later automate SDE updates, but it must produce a reviewable diff and must never silently mutate the financial route source.
 
 ---

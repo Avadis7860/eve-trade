@@ -21,7 +21,7 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
           fetch-depth: 1
-          persist-credentials: true
+          persist-credentials: false
 
       - name: Setup Node.js 22
         uses: actions/setup-node@v4
@@ -63,16 +63,19 @@ jobs:
           test -s src/data/universeGraph.json
           test -s src/data/universeGraphManifest.ts
 
-      - name: Commit generated canonical artifact
+      - name: Verify generated canonical artifact matches commit
         shell: bash
         run: |
           set -euo pipefail
-          if test -z "$(git status --porcelain -- src/data/universeGraph.json src/data/universeGraphManifest.ts)"; then
-            echo 'Canonical SDE graph artifact is already up to date.'
+          if git diff --quiet -- src/data/universeGraph.json src/data/universeGraphManifest.ts; then
+            echo 'Canonical SDE graph artifact and manifest match the committed branch.'
             exit 0
           fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add src/data/universeGraph.json src/data/universeGraphManifest.ts
-          git commit -m 'data: add pinned CCP SDE universe graph'
-          git push origin "HEAD:${{ github.head_ref }}"
+
+          echo '::error::Committed canonical SDE artifact does not match the pinned CCP SDE regeneration.'
+          echo 'Generated metadata differences:'
+          git diff --stat -- src/data/universeGraph.json src/data/universeGraphManifest.ts
+          echo 'Manifest diff:'
+          git diff -- src/data/universeGraphManifest.ts
+          echo 'The SDE Truth Gate is read-only. Regenerate and commit the artifact explicitly in a reviewed change.'
+          exit 1

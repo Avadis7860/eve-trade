@@ -156,6 +156,12 @@ assert.deepEqual(shortestSafe.systems, [101, 105, 106, 107, 104]);
 assert.equal(shortestSafe.safety, 'SAFE');
 assert.equal(certifyRoute(constrainedGraph, shortestSafe, { requireSafe: true }).status, 'CERTIFIED');
 
+const invalidDestinationIndex = new RouteIndex(constrainedGraph, 999, 'SAFE');
+assert.throws(
+  () => invalidDestinationIndex.getDistance(101),
+  /Cannot build route index: destination system 999 is not present in the canonical graph/,
+);
+
 const safeIndex = new RouteIndex(constrainedGraph, 104, 'SAFE');
 assert.equal(safeIndex.getDistance(101), 4);
 assert.equal(safeIndex.getRouteFrom(101).jumps, 4);

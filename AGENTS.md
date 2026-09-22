@@ -118,8 +118,10 @@ npm run build
 * Les résolutions dynamiques ESI, structures et fallbacks restent hors du périmètre canonique financier.
 * Une route inconnue ne possède aucune distance exploitable : UNKNOWN et jumps < 0 doivent être rejetés avant toute comparaison de portée.
 * Une absence d'historique de demande ne doit jamais être transformée en volume journalier synthétique dans une estimation de relist.
+* Frontière UNKNOWN du routage : UniverseRepository.getRoute() doit retourner une route UNKNOWN (sans distance exploitable) lorsqu'une source ou destination est absente du graphe canonique. Il ne doit pas demander à RouteIndex de construire un index pour une destination invalide ; RouteIndex conserve au contraire sa précondition stricte et lève une erreur lorsqu'il est utilisé directement avec une destination absente.
 
 ### 6. Validation et CI
 * Le dépôt doit conserver un package-lock.json cohérent avec package.json et la CI doit utiliser npm ci.
 * Les workflows de validation des branches de fonctionnalité passent par les pull requests vers main afin d'éviter les doubles exécutions push + pull_request.
 * Les suites de contrats Catalog/Universe sont exécutées avant la régression générale afin qu'une rupture de vérité des données soit diagnostiquée indépendamment des autres tests.
+* SDE Truth Gate immuable : le workflow de vérité SDE télécharge le build CCP piné, régénère les artefacts et échoue si le contenu généré diffère du contenu commité. Il ne doit jamais effectuer de commit, push ou mutation automatique de la branche.

@@ -568,6 +568,19 @@ export class UniverseRepository {
     toSystemId: number,
     policy: RoutePolicy = 'SAFE',
   ): JumpRoute {
+    const graph = this.graphRepository.getGraph();
+
+    // Preserve the public UNKNOWN contract without asking RouteIndex to build
+    // an index for a destination that is not part of the canonical graph.
+    if (!graph.has_system(fromSystemId) || !graph.has_system(toSystemId)) {
+      return unknownRouteToJumpRoute(
+        fromSystemId,
+        toSystemId,
+        graph.provenance,
+        'Source or destination system is not present in the canonical graph',
+      );
+    }
+
     const index = this.getRouteIndex(toSystemId, policy);
     return this.getIndexedRoute(index, fromSystemId);
   }

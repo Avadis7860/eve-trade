@@ -3,7 +3,7 @@ import { CatalogValidator } from '../../domain/catalog/CatalogValidator';
 import { UniverseRepository } from '../../domain/universe/UniverseRepository';
 import { UniverseValidator } from '../../domain/universe/UniverseValidator';
 import { InterRegionalFinancialEngine } from '../interRegional';
-import { EVE_TYPES_CATALOG } from '../../data/universe';
+import { EVE_TYPES_CATALOG, MAJOR_MARKET_HUBS } from '../../data/universe';
 import { CANONICAL_CATALOG_MANIFEST } from '../../data/catalogManifest';
 import { CANONICAL_UNIVERSE_MANIFEST } from '../../data/universeManifest';
 import universeDataRaw from '../../data/universeData.json';
@@ -80,6 +80,38 @@ assert(
     canonicalCollision.is_verified === true &&
     canonicalCollision.name === 'Tritanium',
   'Dynamic registration must never shadow a canonical catalog type'
+);
+
+assert(
+  canonicalCatalog.getMetadata().item_count === CANONICAL_CATALOG_MANIFEST.expectedCount,
+  'Dynamic registrations must never change canonical catalog item_count'
+);
+
+const jitaHub = MAJOR_MARKET_HUBS.find((h) => h.id === 'jita')!;
+const unknownRangeOrder: RawMarketOrder = {
+  order_id: 990001,
+  type_id: 34,
+  region_id: jitaHub.region_id,
+  system_id: 39999999,
+  location_id: 69999999,
+  price: 5,
+  volume_remain: 10,
+  volume_total: 10,
+  is_buy_order: true,
+  order_range: '40',
+  min_volume: 1,
+  issued: new Date().toISOString(),
+  duration: 90,
+};
+const unknownRangeAccessible = InterRegionalFinancialEngine.filterAccessibleOrdersForHub(
+  [unknownRangeOrder],
+  jitaHub,
+  false,
+  true
+);
+assert(
+  unknownRangeAccessible.length === 0,
+  'An order whose numeric range depends on an UNKNOWN route must never be considered accessible'
 );
 
 const universeIntegrity = UniverseValidator.validate(universeDataRaw);

@@ -24,6 +24,35 @@ export interface CorporationWalletDivisions {
 
 const ANONYMOUS_PRINCIPAL: EsiPrincipalContext = { type: 'anonymous' };
 
+const EMPTY_METADATA: EsiGatewayResponse<unknown>['metadata'] = {
+  cache: {},
+  rateLimit: {},
+  pagination: {},
+};
+
+function invalidRequest<T>(message: string): EsiGatewayResponse<T> {
+  return {
+    ok: false,
+    status: 400,
+    data: null,
+    error: {
+      kind: 'INVALID_REQUEST',
+      status: 400,
+      message,
+      retryable: false,
+    },
+    metadata: EMPTY_METADATA,
+  };
+}
+
+function isPositiveInteger(value: number): boolean {
+  return Number.isInteger(value) && value > 0;
+}
+
+function isNonEmptyCredential(value: string): boolean {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
 function characterContext(characterId: number, bearerCredential: string): EsiPrincipalContext {
   return {
     type: 'character',
@@ -50,6 +79,12 @@ export class CorporationEsiGateway {
   async fetchProfile(
     corporationId: number,
   ): Promise<EsiGatewayResponse<CorporationProfile>> {
+    if (!isPositiveInteger(corporationId)) {
+      return invalidRequest<CorporationProfile>(
+        'corporationId must be a positive integer',
+      );
+    }
+
     return this.gateway.request<CorporationProfile>(
       {
         method: 'GET',
@@ -65,6 +100,22 @@ export class CorporationEsiGateway {
     characterId: number,
     bearerCredential: string,
   ): Promise<EsiGatewayResponse<CorporationWallet[]>> {
+    if (!isPositiveInteger(corporationId)) {
+      return invalidRequest<CorporationWallet[]>(
+        'corporationId must be a positive integer',
+      );
+    }
+    if (!isPositiveInteger(characterId)) {
+      return invalidRequest<CorporationWallet[]>(
+        'characterId must be a positive integer',
+      );
+    }
+    if (!isNonEmptyCredential(bearerCredential)) {
+      return invalidRequest<CorporationWallet[]>(
+        'bearerCredential must be a non-empty string',
+      );
+    }
+
     return this.gateway.request<CorporationWallet[]>(
       {
         method: 'GET',
@@ -80,6 +131,22 @@ export class CorporationEsiGateway {
     characterId: number,
     bearerCredential: string,
   ): Promise<EsiGatewayResponse<CorporationWalletDivisions>> {
+    if (!isPositiveInteger(corporationId)) {
+      return invalidRequest<CorporationWalletDivisions>(
+        'corporationId must be a positive integer',
+      );
+    }
+    if (!isPositiveInteger(characterId)) {
+      return invalidRequest<CorporationWalletDivisions>(
+        'characterId must be a positive integer',
+      );
+    }
+    if (!isNonEmptyCredential(bearerCredential)) {
+      return invalidRequest<CorporationWalletDivisions>(
+        'bearerCredential must be a non-empty string',
+      );
+    }
+
     return this.gateway.request<CorporationWalletDivisions>(
       {
         method: 'GET',

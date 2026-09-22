@@ -166,3 +166,18 @@ Les configurations persistées constituent également une frontière testée : u
 - A character belonging to another corporation must resolve and query only that other corporation.
 - 401/403/404/420/429/502/503/504 statuses remain observable at the gateway/HTTP boundary.
 - 304 and successful null-payload semantics remain transport results; HTTP consumers fail closed when a business payload is required.
+
+
+## Phase 4.7 — Explicit collection data states
+
+The frontend character collection boundary distinguishes source states instead of returning `[]` for every failure:
+
+- `AVAILABLE`: successful, non-empty payload.
+- `EMPTY`: successful, valid zero-row payload.
+- `PARTIAL`: explicitly incomplete payload.
+- `UNAVAILABLE`: no fresh payload semantics (for example 304/204) or missing credential.
+- `ERROR`: HTTP or transport failure.
+
+`requireUsableCollection()` is the consumer gate and only accepts `AVAILABLE`/`EMPTY`. This prevents a 403, 404, expired session, malformed JSON response or partial source from being interpreted as a trader with zero activity.
+
+Focused coverage lives in `src/services/__tests__/esi.test.ts` and must remain part of the regular `npm test` and `npm run test:esi` regression surfaces.

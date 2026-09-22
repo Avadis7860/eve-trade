@@ -38,7 +38,8 @@ export function useCharacterSync(
       try {
         const balance = await EsiService.fetchCharacterWallet(charId, token);
         const skills = await EsiService.fetchCharacterSkills(charId, token);
-        const rawOrders = await EsiService.fetchCharacterOrders(charId, token);
+        const ordersResult = await EsiService.fetchCharacterOrders(charId, token);
+        const rawOrders = EsiService.requireUsableCollection(ordersResult, 'character orders');
 
         const orderTypeIds = Array.from(new Set(rawOrders.map((o) => o.type_id)));
         if (orderTypeIds.length > 0) {

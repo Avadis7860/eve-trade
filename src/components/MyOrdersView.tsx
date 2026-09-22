@@ -203,12 +203,25 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
             console.warn(`[MyOrdersView] Deep sync warning for ${char.character_name}:`, syncErr);
           }
 
-          const [freshTxs, orderHistory, journal, storedPersisted] = await Promise.all([
+          const [freshTxResult, orderHistoryResult, journalResult, storedPersisted] = await Promise.all([
             EsiService.fetchCharacterTransactions(char.character_id, token),
             EsiService.fetchCharacterOrderHistory(char.character_id, token, 1),
             EsiService.fetchCharacterJournal(char.character_id, token),
             IndexedDbStore.getCharacterTransactions(char.character_id).catch(() => []),
           ]);
+
+          const freshTxs = EsiService.requireUsableCollection(
+            freshTxResult,
+            'character transactions',
+          );
+          const orderHistory = EsiService.requireUsableCollection(
+            orderHistoryResult,
+            'character order history',
+          );
+          const journal = EsiService.requireUsableCollection(
+            journalResult,
+            'character journal',
+          );
 
           // Combine stored and fresh transactions by transaction_id to preserve historical FIFO depth
           const txMap = new Map<number, import('../types').EveCharacterTransaction>();

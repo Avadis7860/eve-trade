@@ -146,3 +146,16 @@ Validation: `interregional_purity.test.ts`, typecheck, full engine regression an
 - Rule: a character in corporation Y cannot be routed to corporation X orders by stale or caller-supplied ownership context.
 - Rule: corporation order payloads remain marked as corporation data and are not converted into character-owned order projections at this transport boundary.
 - Validation: `server/__tests__/corporation_esi_gateway.test.ts` and `server/__tests__/character_routes_contract.test.ts`.
+
+
+## ESI-DATA-STATE-001 — Collection state is explicit
+
+- Scope: character orders, order history, wallet transactions and wallet journal returned by `EsiService`.
+- Rule: `AVAILABLE` means a valid collection payload with at least one row.
+- Rule: `EMPTY` means a valid successful collection payload with zero rows.
+- Rule: `PARTIAL` means the upstream explicitly reports a partial collection result; it is not equivalent to complete data.
+- Rule: `UNAVAILABLE` represents missing fresh payload semantics such as 304/204 or missing credentials.
+- Rule: `ERROR` represents a failed transport or HTTP request.
+- Rule: `ERROR` and `UNAVAILABLE` must never be silently converted to `[]` by collection consumers.
+- Rule: `requireUsableCollection` may only release `AVAILABLE` and `EMPTY` data to business consumers.
+- Validation: `src/services/__tests__/esi.test.ts`, `useCharacterSync` and `MyOrdersView` consumer paths, full ESI/API/build CI.

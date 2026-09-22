@@ -165,3 +165,10 @@ The corporation trading order boundary now supports:
 The HTTP routes are exposed under `/api/character/:id/corporation/orders` and `/api/character/:id/corporation/orders/history`. The corporation ID is resolved from the character's public identity; callers do not supply an arbitrary corporation ID.
 
 Both routes preserve ESI payloads and transport metadata and use the authenticated character as the ESI principal. The corporation itself is never represented as an authentication principal.
+
+
+## Phase 4.7 — Character collection state semantics
+
+Character collection methods in `EsiService` no longer expose failure as a plain empty array. The frontend service returns an explicit data-state contract so consumers can distinguish a genuinely empty character dataset from unavailable/error data.
+
+Business consumers must pass collection results through `EsiService.requireUsableCollection()`. Only `AVAILABLE` and `EMPTY` are released to calculations; `PARTIAL`, `UNAVAILABLE` and `ERROR` propagate into degraded-data handling.

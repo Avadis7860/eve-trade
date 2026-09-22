@@ -2,6 +2,7 @@ import {
   RawMarketOrder,
   DailyMarketHistory,
   HistoricalStats,
+  EveCharacterOrder,
   EveCharacterTransaction,
   EveCharacterOrderHistory,
   EveCharacterJournalEntry,
@@ -12,6 +13,64 @@ import { UniverseRepository } from '../domain/universe/UniverseRepository';
 import { AuthService } from './authService';
 import { fetchBackendApi } from './backendApiClient';
 import { normalizeOrderId } from '../engine/orderIdentity';
+
+export type EsiCollectionState =
+  | 'AVAILABLE'
+  | 'EMPTY'
+  | 'UNAVAILABLE'
+  | 'ERROR'
+  | 'PARTIAL';
+
+export interface EsiCollectionResult<T> {
+  readonly state: EsiCollectionState;
+  readonly data: T[];
+  readonly status: number;
+  readonly error?: string;
+}
+
+function classifyCollectionResult<T>(
+  result: { ok: boolean; status: number; data?: T[]; error?: string },
+): EsiCollectionResult<T> {
+  if (result.ok && Array.isArray(result.data)) {
+    return {
+      state: result.status === 206
+        ? 'PARTIAL'
+        : result.data.length === 0
+          ? 'EMPTY'
+          : 'AVAILABLE',
+      data: result.data,
+      status: result.status,
+    };
+  }
+
+  if (result.status === 304 || result.status === 204) {
+    return {
+      state: 'UNAVAILABLE',
+      data: [],
+      status: result.status,
+      error: result.error || 'ESI returned no fresh collection payload',
+    };
+  }
+
+  return {
+    state: 'ERROR',
+    data: [],
+    status: result.status,
+    error: result.error || 'ESI collection request failed',
+  };
+}
+
+function unavailableCollection<T>(
+  status: number,
+  error: string,
+): EsiCollectionResult<T> {
+  return {
+    state: 'UNAVAILABLE',
+    data: [],
+    status,
+    error,
+  };
+}
 
 export interface EsiFetchOrdersResult {
   orders: RawMarketOrder[];
@@ -252,15 +311,45 @@ export class EsiService {
     return result.ok && result.data !== undefined ? result.data : null;
   }
 
-  /** Fetches active character orders using the character's OAuth token */
-  static async fetchCharacterOrders(characterId: number, accessToken: string) {
-    const result = await this.executeWithAuthRefresh<any[]>(characterId, accessToken, async token => {
-      const response = await fetchBackendApi<any[]>(`/api/character/${characterId}/orders`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      return { ok: response.ok, status: response.status, data: response.data ?? undefined };
-    });
-    return result || [];
+  /** Fetches active character orders with explicit data-state semantics. */
+  static async fetchCharacterOrders(
+    characterId: number,
+    accessToken: string,
+  ): Promise<EsiCollectionResult<EveCharacterOrder>> {
+    if (!accessToken || !accessToken.trim()) {
+      return unavailableCollection(401, 'MISSING_ACCESS_TOKEN');
+    }
+
+    const result = await this.executeWithAuthRefreshResult<EveCharacterOrder[]>(
+      characterId,
+      accessToken,
+      async token => {
+        const response = await fetchBackendApi<EveCharacterOrder[]>(`/api/character/${characterId}/orders`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        return {
+          ok: response.ok,
+          status: response.status,
+          data: response.data ?? undefined,
+          error: !response.ok ? `HTTP_${response.status}` : undefined,
+        };
+      },
+    );
+
+    return classifyCollectionResult(result);
+  }
+
+  static requireUsableCollection<T>(
+    result: EsiCollectionResult<T>,
+    label: string,
+  ): T[] {
+    if (result.state === 'AVAILABLE' || result.state === 'EMPTY') {
+      return result.data;
+    }
+
+    throw new Error(
+      `ESI ${label} unavailable [${result.state}] HTTP_${result.status}: ${result.error || 'no details'}`,
+    );
   }
 
   /** Fetches character wallet balance */
@@ -273,38 +362,94 @@ export class EsiService {
     });
   }
 
-  /** Fetches character wallet transactions (real buy/sell market history) */
-  static async fetchCharacterTransactions(characterId: number, accessToken: string, fromId?: number): Promise<EveCharacterTransaction[]> {
+  /** Fetches character wallet transactions with explicit data-state semantics. */
+  static async fetchCharacterTransactions(
+    characterId: number,
+    accessToken: string,
+    fromId?: number,
+  ): Promise<EsiCollectionResult<EveCharacterTransaction>> {
+    if (!accessToken || !accessToken.trim()) {
+      return unavailableCollection(401, 'MISSING_ACCESS_TOKEN');
+    }
+
     const query = fromId !== undefined ? `?from_id=${encodeURIComponent(String(fromId))}` : '';
-    const result = await this.executeWithAuthRefresh<EveCharacterTransaction[]>(characterId, accessToken, async token => {
-      const response = await fetchBackendApi<EveCharacterTransaction[]>(`/api/character/${characterId}/transactions${query}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      return { ok: response.ok, status: response.status, data: response.data ?? undefined };
-    });
-    return result || [];
+    const result = await this.executeWithAuthRefreshResult<EveCharacterTransaction[]>(
+      characterId,
+      accessToken,
+      async token => {
+        const response = await fetchBackendApi<EveCharacterTransaction[]>(`/api/character/${characterId}/transactions${query}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        return {
+          ok: response.ok,
+          status: response.status,
+          data: response.data ?? undefined,
+          error: !response.ok ? `HTTP_${response.status}` : undefined,
+        };
+      },
+    );
+
+    return classifyCollectionResult(result);
   }
 
-  /** Fetches past closed/fulfilled/cancelled character orders (order history) */
-  static async fetchCharacterOrderHistory(characterId: number, accessToken: string, page: number = 1): Promise<EveCharacterOrderHistory[]> {
-    const result = await this.executeWithAuthRefresh<EveCharacterOrderHistory[]>(characterId, accessToken, async token => {
-      const response = await fetchBackendApi<EveCharacterOrderHistory[]>(`/api/character/${characterId}/orders/history?page=${page}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      return { ok: response.ok, status: response.status, data: response.data ?? undefined };
-    });
-    return result || [];
+  /** Fetches past character orders with explicit data-state semantics. */
+  static async fetchCharacterOrderHistory(
+    characterId: number,
+    accessToken: string,
+    page: number = 1,
+  ): Promise<EsiCollectionResult<EveCharacterOrderHistory>> {
+    if (!accessToken || !accessToken.trim()) {
+      return unavailableCollection(401, 'MISSING_ACCESS_TOKEN');
+    }
+    if (!Number.isInteger(page) || page < 1 || page > 1000) {
+      return unavailableCollection(400, 'INVALID_PAGE');
+    }
+
+    const result = await this.executeWithAuthRefreshResult<EveCharacterOrderHistory[]>(
+      characterId,
+      accessToken,
+      async token => {
+        const response = await fetchBackendApi<EveCharacterOrderHistory[]>(`/api/character/${characterId}/orders/history?page=${page}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        return {
+          ok: response.ok,
+          status: response.status,
+          data: response.data ?? undefined,
+          error: !response.ok ? `HTTP_${response.status}` : undefined,
+        };
+      },
+    );
+
+    return classifyCollectionResult(result);
   }
 
-  /** Fetches character wallet journal (taxes, fees, transfers, broker fees) */
-  static async fetchCharacterJournal(characterId: number, accessToken: string) {
-    const result = await this.executeWithAuthRefresh<any[]>(characterId, accessToken, async token => {
-      const response = await fetchBackendApi<any[]>(`/api/character/${characterId}/journal`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      return { ok: response.ok, status: response.status, data: response.data ?? undefined };
-    });
-    return result || [];
+  /** Fetches character wallet journal with explicit data-state semantics. */
+  static async fetchCharacterJournal(
+    characterId: number,
+    accessToken: string,
+  ): Promise<EsiCollectionResult<any>> {
+    if (!accessToken || !accessToken.trim()) {
+      return unavailableCollection(401, 'MISSING_ACCESS_TOKEN');
+    }
+
+    const result = await this.executeWithAuthRefreshResult<any[]>(
+      characterId,
+      accessToken,
+      async token => {
+        const response = await fetchBackendApi<any[]>(`/api/character/${characterId}/journal`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        return {
+          ok: response.ok,
+          status: response.status,
+          data: response.data ?? undefined,
+          error: !response.ok ? `HTTP_${response.status}` : undefined,
+        };
+      },
+    );
+
+    return classifyCollectionResult(result);
   }
   /**
    * Resolves any New Eden station or structure ID to a clean name via UniverseRepository

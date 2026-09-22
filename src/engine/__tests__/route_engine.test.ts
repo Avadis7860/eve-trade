@@ -51,8 +51,9 @@ assert.throws(
   () =>
     new UniverseGraphRepository({
       load: () => ({
-        ...graphRepository.getGraph(),
         provenance: { ...provenance, source: 'unknown' as never },
+        nodes: [{ system_id: 1, security_status: 0.9 }],
+        edges: [],
       }),
     }),
   /canonical SDE/,

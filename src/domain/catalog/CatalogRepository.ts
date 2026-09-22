@@ -9,6 +9,7 @@ import {
 import { EVE_TYPES_CATALOG, EVE_GROUPS, EVE_CATEGORIES } from '../../data/universe';
 import { IndexedDbStore } from '../../services/indexedDbStore';
 import { CatalogValidator } from './CatalogValidator';
+import { CANONICAL_CATALOG_MANIFEST } from '../../data/catalogManifest';
 
 export type CatalogListener = (meta: TypeCatalogMetadata, count: number) => void;
 
@@ -38,18 +39,23 @@ export class CatalogRepository {
     }
 
     const baselineChecksum = CatalogValidator.computeCanonicalChecksum(EVE_TYPES_CATALOG);
+    const integrity = CatalogValidator.validateCatalogCompleteness(EVE_TYPES_CATALOG, {
+      expectedCount: CANONICAL_CATALOG_MANIFEST.expectedCount,
+      expectedChecksum: CANONICAL_CATALOG_MANIFEST.checksum,
+      currentChecksum: baselineChecksum,
+      source: 'canonical_asset',
+    });
 
-    // INVARIANT: Baseline fallback core is NEVER CATALOG_READY
     this.metadata = {
-      version: '2026.09.20.1',
+      version: CANONICAL_CATALOG_MANIFEST.version,
       checksum: baselineChecksum,
       item_count: this.typeMap.size,
-      expected_count: this.typeMap.size,
-      status: 'CATALOG_FALLBACK_CORE',
+      expected_count: CANONICAL_CATALOG_MANIFEST.expectedCount,
+      status: integrity.status,
       loaded_at: new Date().toISOString(),
-      source: 'fallback_core',
-      is_degraded: true,
-      error: 'Operating in baseline fallback core mode',
+      source: integrity.isReady ? 'canonical_asset' : 'fallback_core',
+      is_degraded: !integrity.isReady,
+      error: integrity.isReady ? undefined : integrity.reason,
     };
   }
 
@@ -75,8 +81,11 @@ export class CatalogRepository {
     return (
       this.metadata.status === 'CATALOG_READY' &&
       !this.metadata.is_degraded &&
-      this.metadata.source !== 'fallback_core' &&
-      this.typeMap.size > 0
+      (this.metadata.source === 'canonical_asset' || this.metadata.source === 'server' || this.metadata.source === 'indexeddb') &&
+      this.metadata.version === CANONICAL_CATALOG_MANIFEST.version &&
+      this.metadata.checksum === CANONICAL_CATALOG_MANIFEST.checksum &&
+      this.metadata.expected_count === CANONICAL_CATALOG_MANIFEST.expectedCount &&
+      this.typeMap.size === CANONICAL_CATALOG_MANIFEST.expectedCount
     );
   }
 
@@ -133,6 +142,9 @@ export class CatalogRepository {
               item_count: this.typeMap.size,
               loaded_at: new Date().toISOString(),
               source: 'indexeddb',
+              version: CANONICAL_CATALOG_MANIFEST.version,
+              expected_count: CANONICAL_CATALOG_MANIFEST.expectedCount,
+              checksum: CANONICAL_CATALOG_MANIFEST.checksum,
             };
             this.notify();
           }
@@ -170,33 +182,40 @@ export class CatalogRepository {
         }
 
         const computedChecksum = CatalogValidator.computeCanonicalChecksum(validTypes);
-
-        // Update In-Memory Map
-        this.typeMap.clear();
-        for (const t of validTypes) {
-          this.typeMap.set(t.type_id, t);
-        }
-
         const completeness = CatalogValidator.validateCatalogCompleteness(validTypes, {
-          expectedCount: serverMeta.expected_count || validTypes.length,
-          expectedChecksum: serverMeta.checksum || computedChecksum,
+          expectedCount: serverMeta.expected_count,
+          expectedChecksum: serverMeta.checksum,
           currentChecksum: computedChecksum,
           source: 'server',
         });
 
+        if (
+          serverMeta.status !== 'CATALOG_READY' ||
+          !completeness.isReady ||
+          serverMeta.expected_count !== CANONICAL_CATALOG_MANIFEST.expectedCount ||
+          serverMeta.checksum !== CANONICAL_CATALOG_MANIFEST.checksum ||
+          validTypes.length !== CANONICAL_CATALOG_MANIFEST.expectedCount ||
+          computedChecksum !== CANONICAL_CATALOG_MANIFEST.checksum ||
+          errors.length > 0
+        ) {
+          console.warn('[CatalogRepository] Server catalog rejected: canonical manifest mismatch or incomplete dataset.');
+          return;
+        }
+
+        this.typeMap.clear();
+        for (const t of validTypes) this.typeMap.set(t.type_id, t);
+
         this.metadata = {
-          version: serverMeta.version || '2026.09.20.1',
-          checksum: computedChecksum,
+          version: CANONICAL_CATALOG_MANIFEST.version,
+          checksum: CANONICAL_CATALOG_MANIFEST.checksum,
           item_count: this.typeMap.size,
-          expected_count: serverMeta.expected_count || validTypes.length,
-          status: completeness.status,
-          is_degraded: completeness.isDegraded,
+          expected_count: CANONICAL_CATALOG_MANIFEST.expectedCount,
+          status: 'CATALOG_READY',
+          is_degraded: false,
           loaded_at: new Date().toISOString(),
           source: 'server',
-          error: completeness.isDegraded ? `Catalog degraded: ${completeness.reason || 'partial data'}` : undefined,
         };
 
-        // Cache persistently in IndexedDB
         await IndexedDbStore.replaceCatalog(validTypes, this.metadata);
         this.notify();
       } catch (err) {
@@ -210,7 +229,7 @@ export class CatalogRepository {
             version: '2026.09.20.1',
             checksum: CatalogValidator.computeCanonicalChecksum(EVE_TYPES_CATALOG),
             item_count: this.typeMap.size,
-            expected_count: this.typeMap.size,
+            expected_count: CANONICAL_CATALOG_MANIFEST.expectedCount,
             status: 'CATALOG_FALLBACK_CORE',
             loaded_at: new Date().toISOString(),
             source: 'fallback_core',
@@ -261,7 +280,8 @@ export class CatalogRepository {
         source: 'custom_type',
         catalog_version: meta.version,
         catalog_checksum: meta.checksum,
-        is_verified: true,
+        is_verified: false,
+        confidence: 0.0,
         confidence: 1.0,
       };
     }
@@ -269,7 +289,7 @@ export class CatalogRepository {
     // 2. Canonical catalog type
     const catalogItem = this.typeMap.get(typeId);
     if (catalogItem) {
-      const isFallback = this.metadata.status === 'CATALOG_FALLBACK_CORE' || this.metadata.source === 'fallback_core';
+      const isFallback = !this.isReady();
       return {
         status: 'RESOLVED_CATALOG',
         type: catalogItem,
@@ -282,7 +302,7 @@ export class CatalogRepository {
         catalog_version: meta.version,
         catalog_checksum: meta.checksum,
         is_verified: !isFallback,
-        confidence: isFallback ? 0.85 : 1.0,
+        confidence: isFallback ? 0 : 1.0,
       };
     }
 
@@ -491,11 +511,27 @@ export class CatalogRepository {
    * Explicitly sets catalog types and metadata (used for testing or explicit sync injection).
    */
   loadExplicitDataset(types: EveTypeDetail[], metadata: TypeCatalogMetadata): void {
+    const computedChecksum = CatalogValidator.computeCanonicalChecksum(types);
+    const integrity = CatalogValidator.validateCatalogCompleteness(types, {
+      expectedCount: metadata.expected_count,
+      expectedChecksum: metadata.checksum,
+      currentChecksum: computedChecksum,
+      source: metadata.source,
+    });
+
     this.typeMap.clear();
-    for (const t of types) {
-      this.typeMap.set(t.type_id, t);
-    }
-    this.metadata = { ...metadata };
+    for (const t of types) this.typeMap.set(t.type_id, t);
+
+    this.metadata = {
+      ...metadata,
+      version: CANONICAL_CATALOG_MANIFEST.version,
+      checksum: computedChecksum,
+      item_count: this.typeMap.size,
+      expected_count: CANONICAL_CATALOG_MANIFEST.expectedCount,
+      status: integrity.status,
+      is_degraded: integrity.isDegraded,
+      error: integrity.isReady ? undefined : integrity.reason,
+    };
     this.notify();
   }
 
@@ -505,7 +541,7 @@ export class CatalogRepository {
   getMetadata(): TypeCatalogMetadata {
     return {
       ...this.metadata,
-      item_count: this.typeMap.size + this.customTypeMap.size,
+      item_count: this.typeMap.size,
     };
   }
 

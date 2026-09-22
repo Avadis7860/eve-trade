@@ -3,6 +3,7 @@ import { InterRegionalResolver } from '../../services/interRegionalResolver';
 import { CatalogRepository } from '../../domain/catalog/CatalogRepository';
 import { UniverseRepository } from '../../domain/universe/UniverseRepository';
 import { MAJOR_MARKET_HUBS } from '../../data/universe';
+import { InterRegionalCalculationEngine } from '../interRegionalCalculation';
 
 const catalog = CatalogRepository.getInstance();
 const universe = UniverseRepository.getInstance();
@@ -60,7 +61,13 @@ assert.equal(resolved.route.provenance?.source, 'sde_canonical');
 assert.equal(resolved.routeBySystemId[jita.system_id]?.source, 'canonical_graph');
 assert.equal(resolved.routeBySystemId[jita.system_id]?.jumps, 9);
 
-const filteredAtNine = resolved.sellRegionOrders.filter(() => true);
+const filteredAtNine = InterRegionalCalculationEngine.filterAccessibleOrdersForHub(
+  [destinationBuyOrder],
+  amarr,
+  false,
+  true,
+  resolved.routeBySystemId,
+);
 assert.equal(filteredAtNine.length, 1);
 
 const tooShortRange = { ...destinationBuyOrder, order_id: 880002, order_range: '8' };
@@ -81,5 +88,13 @@ const resolvedTooShort = InterRegionalResolver.resolve(
 assert(resolvedTooShort, 'resolver must still certify the main trade route');
 assert.equal(resolvedTooShort.routeBySystemId[jita.system_id]?.jumps, 9);
 assert.equal(resolvedTooShort.routeBySystemId[jita.system_id]?.status, 'KNOWN');
+const filteredAtEight = InterRegionalCalculationEngine.filterAccessibleOrdersForHub(
+  [tooShortRange],
+  amarr,
+  false,
+  true,
+  resolvedTooShort.routeBySystemId,
+);
+assert.equal(filteredAtEight.length, 0);
 
 console.log('interregional_route_resolution.test.ts: OK');

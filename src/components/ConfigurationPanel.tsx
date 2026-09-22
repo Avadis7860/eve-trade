@@ -67,6 +67,28 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
     message?: string;
   } | null>(null);
 
+  // Keep corporation fields aligned with authoritative external config updates
+  // (automatic ESI sync or another view) without overwriting in-progress edits
+  // to unrelated configuration fields.
+  useEffect(() => {
+    setForm((prev) => ({
+      ...prev,
+      corporation_id: config.corporation_id,
+      corporation_name: config.corporation_name ?? prev.corporation_name,
+      corporation_wallet_division: config.corporation_wallet_division ?? prev.corporation_wallet_division,
+      corporation_wallet_balance: config.corporation_wallet_balance,
+      corporation_wallet_source: config.corporation_wallet_source ?? 'unavailable',
+      corporation_divisions: config.corporation_divisions,
+    }));
+  }, [
+    config.corporation_id,
+    config.corporation_name,
+    config.corporation_wallet_division,
+    config.corporation_wallet_balance,
+    config.corporation_wallet_source,
+    config.corporation_divisions,
+  ]);
+
   // Compute live treasury resolution for preview
   const treasuryResolution = TreasuryEngine.resolveEffectiveCapital(
     form,

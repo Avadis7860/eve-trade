@@ -18,6 +18,7 @@ export function useCharacterSync(
   const { characterSession, updateSession, removeCharacter } = useAuth();
   const { config: tradingConfig, setConfig } = useTradingConfig();
   const treasurySourceMode = tradingConfig.treasury_source_mode ?? 'corporation';
+  const corporationWalletSource = tradingConfig.corporation_wallet_source ?? 'unavailable';
   const [characterOrders, setCharacterOrders] = useState<EveCharacterOrder[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState<boolean>(false);
 
@@ -146,7 +147,7 @@ export function useCharacterSync(
           // Corporation treasury is synchronized independently from the
           // character wallet. The authenticated character is only the ESI
           // principal used to access the corporation endpoints.
-          if (treasurySourceMode === 'corporation') {
+          if (treasurySourceMode === 'corporation' && corporationWalletSource !== 'manual') {
             try {
               const corpInfo = await EsiService.fetchCorporationInfo(charId, token);
               if (corpInfo.ok && corpInfo.data) {
@@ -197,7 +198,15 @@ export function useCharacterSync(
         }
       }
     },
-    [orderBooks, hubs, updateSession, setConfig, treasurySourceMode, tradingConfig.corporation_wallet_division]
+    [
+      orderBooks,
+      hubs,
+      updateSession,
+      setConfig,
+      treasurySourceMode,
+      corporationWalletSource,
+      tradingConfig.corporation_wallet_division,
+    ]
   );
 
   // Handle SSO redirect in main window

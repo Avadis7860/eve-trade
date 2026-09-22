@@ -1,5 +1,4 @@
-import { MarketHub, JumpRoute, MarketCategory, MarketGroup, EveTypeDetail } from '../types';
-import { CANONICAL_UNIVERSE_MANIFEST } from './universeManifest';
+import { MarketHub, MarketCategory, MarketGroup, EveTypeDetail } from '../types';
 
 export const MAJOR_MARKET_HUBS: MarketHub[] = [
   {

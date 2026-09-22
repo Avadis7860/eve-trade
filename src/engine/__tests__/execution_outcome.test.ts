@@ -29,7 +29,7 @@ function runAllExecutionOutcomeTests() {
     unit_price: number,
     is_buy: boolean,
     timestamp: string,
-    order_id?: number
+    order_id?: string
   ): ExecutionTransactionRef => ({
     transaction_id,
     order_id,

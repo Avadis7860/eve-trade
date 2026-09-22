@@ -406,7 +406,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
 
   // Compute Order Advisor Recommendations for each active order
   const orderRecommendations = useMemo(() => {
-    const map = new Map<number, OrderAdvisorRecommendation>();
+    const map = new Map<string, OrderAdvisorRecommendation>();
     for (const order of orders) {
       const rec = OrderAdvisorService.analyzeOrder(
         order,

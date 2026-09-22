@@ -18,7 +18,8 @@
     "start": "node dist/server.cjs",
     "preview": "vite preview --host 0.0.0.0 --port 3000",
     "test:truth": "tsx src/engine/__tests__/catalog_universe_truth.test.ts",
-    "test:sde": "node scripts/__tests__/universe_graph_builder.test.mjs"
+    "test:sde": "node scripts/__tests__/universe_graph_builder.test.mjs",
+    "test:ci-config": "node scripts/__tests__/workflow_contract.test.mjs"
   },
   "dependencies": {
     "express": "^5.2.1",

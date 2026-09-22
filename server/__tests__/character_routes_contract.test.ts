@@ -59,6 +59,7 @@ async function runTests(): Promise<void> {
   const serverInstance: RunningServer = await startServer(0, { includeVite: false });
   const baseUrl = `http://127.0.0.1:${serverInstance.port}`;
   const observedRequests: Array<{ path: string; search: string; authorization?: string }> = [];
+  let corpWalletFailureStatus: number | null = null;
 
   let testsPassed = 0;
   let testsFailed = 0;
@@ -182,12 +183,36 @@ async function runTests(): Promise<void> {
 
     if (esiPath === `/corporations/${CORPORATION_ID}/wallets/`) {
       if (authorization !== `Bearer ${TOKEN_A}`) return new Response('Corp authorization failure', { status: 403 });
+      if (corpWalletFailureStatus !== null) {
+        return new Response(`Corp wallet failure ${corpWalletFailureStatus}`, {
+          status: corpWalletFailureStatus,
+          headers: {
+            'Content-Type': 'text/plain',
+            'Retry-After': corpWalletFailureStatus === 429 ? '17' : '0',
+            'x-esi-error-limit-remain': '11',
+            'x-esi-error-limit-reset': '23',
+          },
+        });
+      }
       return new Response(JSON.stringify([
         { division: 1, balance: -2500000 },
         { division: 2, balance: 7500000.25 },
       ]), {
         status: 200,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ETag: '"corp-wallet-etag"',
+          Expires: 'Tue, 22 Sep 2026 21:00:00 GMT',
+          'Last-Modified': 'Tue, 22 Sep 2026 20:59:00 GMT',
+          'Cache-Control': 'private, max-age=60',
+          'X-Compatibility-Date': '2026-09-22',
+          'x-esi-error-limit-remain': '91',
+          'x-esi-error-limit-reset': '39',
+          'x-ratelimit-group': 'corporation',
+          'x-ratelimit-limit': '100',
+          'x-ratelimit-remaining': '90',
+          'x-ratelimit-used': '10',
+        },
       });
     }
 
@@ -358,7 +383,8 @@ async function runTests(): Promise<void> {
       assert.strictEqual(identityCalls[0].authorization, undefined);
     });
 
-    await test('corporation route keeps negative wallet balances intact without changing the legacy path', async () => {
+    await test('corporation wallet route uses the character identity resolver plus authenticated corporation gateway calls', async () => {
+      const before = observedRequests.length;
       const response = await fetch(baseUrl + `/api/character/${CHARACTER_A}/corporation/wallets`, {
         headers: { Authorization: `Bearer ${TOKEN_A}` },
       });
@@ -370,9 +396,40 @@ async function runTests(): Promise<void> {
       assert.strictEqual(body.wallets[0].name, 'Trade');
       assert.strictEqual(body.wallets[0].balance, -2500000);
       assert.strictEqual(body.wallets[1].balance, 7500000.25);
+
+      const calls = observedRequests.slice(before);
+      assert.strictEqual(calls.length, 3, 'Expected identity, corporation wallet and division ESI calls');
+      assert.strictEqual(calls[0].path, `/characters/${CHARACTER_A}/`);
+      assert.strictEqual(calls[0].authorization, undefined);
+      assert.strictEqual(calls[1].path, `/corporations/${CORPORATION_ID}/wallets/`);
+      assert.strictEqual(calls[1].search, '?datasource=tranquility');
+      assert.strictEqual(calls[1].authorization, `Bearer ${TOKEN_A}`);
+      assert.strictEqual(calls[2].path, `/corporations/${CORPORATION_ID}/divisions/`);
+      assert.strictEqual(calls[2].search, '?datasource=tranquility');
+      assert.strictEqual(calls[2].authorization, `Bearer ${TOKEN_A}`);
     });
 
-    await test('corporation profile returns the resolved corporation information', async () => {
+    await test('corporation wallet route forwards primary wallet ESI metadata', async () => {
+      const response = await fetch(baseUrl + `/api/character/${CHARACTER_A}/corporation/wallets`, {
+        headers: { Authorization: `Bearer ${TOKEN_A}` },
+      });
+
+      assert.strictEqual(response.status, 200);
+      assert.strictEqual(response.headers.get('etag'), '"corp-wallet-etag"');
+      assert.strictEqual(response.headers.get('expires'), 'Tue, 22 Sep 2026 21:00:00 GMT');
+      assert.strictEqual(response.headers.get('last-modified'), 'Tue, 22 Sep 2026 20:59:00 GMT');
+      assert.strictEqual(response.headers.get('cache-control'), 'private, max-age=60');
+      assert.strictEqual(response.headers.get('x-compatibility-date'), '2026-09-22');
+      assert.strictEqual(response.headers.get('x-esi-error-limit-remain'), '91');
+      assert.strictEqual(response.headers.get('x-esi-error-limit-reset'), '39');
+      assert.strictEqual(response.headers.get('x-ratelimit-group'), 'corporation');
+      assert.strictEqual(response.headers.get('x-ratelimit-limit'), '100');
+      assert.strictEqual(response.headers.get('x-ratelimit-remaining'), '90');
+      assert.strictEqual(response.headers.get('x-ratelimit-used'), '10');
+    });
+
+    await test('corporation profile uses anonymous principal for both public ESI endpoints', async () => {
+      const before = observedRequests.length;
       const response = await fetch(baseUrl + `/api/character/${CHARACTER_A}/corporation`, {
         headers: { Authorization: `Bearer ${TOKEN_A}` },
       });
@@ -381,6 +438,29 @@ async function runTests(): Promise<void> {
       assert.strictEqual(body.corporation_name, 'Trade Operations Corporation');
       assert.strictEqual(body.ticker, 'TOC');
       assert.strictEqual(body.member_count, 12);
+
+      const calls = observedRequests.slice(before);
+      assert.strictEqual(calls.length, 2, 'Expected character identity and corporation profile calls');
+      assert.strictEqual(calls[0].path, `/characters/${CHARACTER_A}/`);
+      assert.strictEqual(calls[0].authorization, undefined);
+      assert.strictEqual(calls[1].path, `/corporations/${CORPORATION_ID}/`);
+      assert.strictEqual(calls[1].search, '?datasource=tranquility');
+      assert.strictEqual(calls[1].authorization, undefined);
+    });
+
+    await test('corporation wallet failures preserve ESI status and fail closed', async () => {
+      corpWalletFailureStatus = 403;
+      try {
+        const response = await fetch(baseUrl + `/api/character/${CHARACTER_A}/corporation/wallets`, {
+          headers: { Authorization: `Bearer ${TOKEN_A}` },
+        });
+        assert.strictEqual(response.status, 403);
+        const body = await readJson(response);
+        assert.strictEqual(body.error, 'CORP_WALLET_ACCESS_DENIED');
+        assert.strictEqual(body.esi_error_kind, 'AUTHORIZATION');
+      } finally {
+        corpWalletFailureStatus = null;
+      }
     });
 
     await test('ESI route failures are never converted to 200 empty data and preserve retry metadata', async () => {

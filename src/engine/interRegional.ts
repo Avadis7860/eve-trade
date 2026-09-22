@@ -1092,7 +1092,7 @@ export class InterRegionalFinancialEngine {
 
     // Pillar 2: Catalog Evaluation
     // typeResolution was verified before financial calculation.
-    let catalogPillarStatus: 'PASS' | 'DEGRADED' | 'FAIL' = 'PASS';
+    let catalogPillarStatus: 'PASS' | 'FAIL' = 'PASS';
     let catalogDetail = `Type ${calculationItem.name} (#${calculationItem.type_id}) certifié au catalogue officiel.`;
     if (typeResolution.status !== 'RESOLVED_CATALOG' || !typeResolution.is_verified || !catalogRepository.isReady()) {
       catalogPillarStatus = 'FAIL';

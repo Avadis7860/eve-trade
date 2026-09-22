@@ -300,7 +300,16 @@ export class EsiService {
    * Fetches character trading skills (Accounting, Broker Relations)
    */
   static async fetchCharacterSkills(characterId: number, accessToken: string) {
-    return await this.executeWithAuthRefresh<{accounting:number;broker_relations:number}>(characterId,accessToken,async token=>{const response=await fetch(`/api/character/${characterId}/skills`,{headers:{Authorization:`Bearer ${token}`}});if(!response.ok)return {ok:false,status:response.status};const data=await response.json();const skills=data.skills||[];const accounting=skills.find((x:{skill_id:number})=>x.skill_id===3443)?.active_skill_level??0;const broker_relations=skills.find((x:{skill_id:number})=>x.skill_id===3444)?.active_skill_level??0;return {ok:true,status:response.status,data:{accounting,broker_relations}};});
+    return await this.executeWithAuthRefresh<{ accounting: number; broker_relations: number }>(characterId, accessToken, async token => {
+      const response = await fetchBackendApi<{ skills?: Array<{ skill_id: number; active_skill_level?: number }> }>(`/api/character/${characterId}/skills`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) return { ok: false, status: response.status };
+      const skills = response.data?.skills || [];
+      const accounting = skills.find(x => x.skill_id === 3443)?.active_skill_level ?? 0;
+      const broker_relations = skills.find(x => x.skill_id === 3444)?.active_skill_level ?? 0;
+      return { ok: true, status: response.status, data: { accounting, broker_relations } };
+    });
   }
 
   /**

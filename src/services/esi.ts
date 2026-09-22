@@ -17,7 +17,6 @@ export interface EsiFetchOrdersResult {
 }
 
 export class EsiService {
-  private static BASE_URL = 'https://esi.evetech.net/latest';
   private static locationNameCache = new Map<number, string>();
   private static deduplicatedOrderStore = new Map<number, RawMarketOrder>();
 
@@ -108,266 +107,61 @@ export class EsiService {
     return { isValid: true, order: validOrder };
   }
 
-  /**
-   * Performs an HTTP GET with exponential backoff, jitter, timeout, and status code handling.
-   */
-  private static async fetchWithRetry(
-    url: string,
-    options: {
-      maxRetries?: number;
-      timeoutMs?: number;
-      fallbackUrl?: string;
-    } = {}
-  ): Promise<{ response: Response; attempts: number }> {
-    const maxRetries = options.maxRetries ?? 3;
-    const timeoutMs = options.timeoutMs ?? 12000;
-    let attempts = 0;
-    let currentUrl = url;
-
-    while (attempts < maxRetries) {
-      attempts++;
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-      try {
-        const res = await fetch(currentUrl, {
-          headers: {
-            'Accept': 'application/json',
-            'User-Agent': 'eve-trade-interregional/0.2 (+https://github.com/avadis/eve-trade)',
-          },
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
-
-        // Success or 404 (valid negative response from ESI)
-        if (res.ok || res.status === 404) {
-          return { response: res, attempts };
-        }
-
-        // Handle Rate limit (429) or Service Unavailable (503) with Retry-After
-        if (res.status === 429 || res.status === 503 || res.status === 420) {
-          const retryAfterHeader = res.headers.get('Retry-After');
-          const delaySec = retryAfterHeader ? Math.min(Number(retryAfterHeader) || 1, 5) : 1;
-          const jitter = Math.random() * 200;
-          await new Promise((resolve) => setTimeout(resolve, delaySec * 1000 + jitter));
-          continue;
-        }
-
-        // Retryable Server Errors (500, 502, 504)
-        if (res.status >= 500 && res.status <= 599) {
-          if (attempts < maxRetries) {
-            const backoff = Math.pow(2, attempts) * 200 + Math.random() * 150;
-            await new Promise((resolve) => setTimeout(resolve, backoff));
-            // Try fallback proxy on second attempt if available
-            if (options.fallbackUrl && attempts === 2) {
-              currentUrl = options.fallbackUrl;
-            }
-            continue;
-          }
-        }
-
-        return { response: res, attempts };
-      } catch (err: unknown) {
-        clearTimeout(timeoutId);
-        if (attempts >= maxRetries) {
-          throw err;
-        }
-        const backoff = Math.pow(2, attempts) * 250 + Math.random() * 150;
-        await new Promise((resolve) => setTimeout(resolve, backoff));
-        if (options.fallbackUrl && attempts === 2) {
-          currentUrl = options.fallbackUrl;
-        }
-      }
-    }
-
-    throw new Error(`Failed after ${attempts} attempts to fetch ${url}`);
+  /** Frontend transport boundary: ESI-backed data is acquired through the server API. */
+  private static async fetchApi<T>(path: string, init?: RequestInit): Promise<{ response: Response; data: T }> {
+    const response = await fetch(path, init);
+    let data: T;
+    try { data = (await response.json()) as T; }
+    catch { throw new Error(`API returned non-JSON response (HTTP ${response.status})`); }
+    return { response, data };
   }
 
   /**
    * Fetches active market orders for a given region and type with full pagination,
    * comprehensive error recovery, deduplication, and quality metadata tracking.
    */
-  static async fetchLiveOrdersDetailed(
-    regionId: number,
-    typeId: number
-  ): Promise<EsiFetchOrdersResult> {
-    const startTime = Date.now();
-    let pagesFetched = 0;
-    let expectedPages = 1;
-    let totalRawOrders = 0;
-    let rejectedCount = 0;
-    let duplicateCount = 0;
-    let errorCount = 0;
+  static async fetchLiveOrdersDetailed(regionId: number, typeId: number): Promise<EsiFetchOrdersResult> {
+    const startTime = Date.now(); let pagesFetched = 0; let expectedPages = 1;
+    let totalRawOrders = 0; let rejectedCount = 0; let duplicateCount = 0; let errorCount = 0;
     let lastError: string | undefined;
-
-    const seenOrderIds = new Set<number>();
-    const validOrders: RawMarketOrder[] = [];
-
-    // 1. Fetch Page 1
-    const page1Url = `${this.BASE_URL}/markets/${regionId}/orders/?datasource=tranquility&order_type=all&type_id=${typeId}&page=1`;
-    const fallbackPage1Url = `/api/markets/${regionId}/orders?type_id=${typeId}&page=1`;
-
-    let page1Data: any[] = [];
-    try {
-      const { response: res1 } = await this.fetchWithRetry(page1Url, {
-        maxRetries: 3,
-        timeoutMs: 12000,
-        fallbackUrl: fallbackPage1Url,
-      });
-
-      if (!res1.ok) {
-        if (res1.status === 404) {
-          // 404 means no orders exist for this type in this region (normal market condition)
-          expectedPages = 1;
-          pagesFetched = 1;
-        } else {
-          errorCount++;
-          lastError = `ESI returned HTTP ${res1.status}`;
-          throw new Error(lastError);
-        }
-      } else {
-        pagesFetched = 1;
-        // Parse X-Pages header
-        const xPagesHeader = res1.headers.get('x-pages');
-        if (xPagesHeader) {
-          const parsedPages = parseInt(xPagesHeader, 10);
-          if (!isNaN(parsedPages) && parsedPages > 1) {
-            // Clamp to safe max (e.g. 50 pages)
-            expectedPages = Math.min(parsedPages, 50);
-          }
-        }
-
-        page1Data = await res1.json();
+    const seenOrderIds = new Set<number>(); const validOrders: RawMarketOrder[] = [];
+    const processPage = (pageData: any[]) => {
+      totalRawOrders += pageData.length;
+      for (const raw of pageData) {
+        const { isValid, order } = this.validateOrder(raw, regionId, typeId);
+        if (!isValid || !order) { rejectedCount++; continue; }
+        if (seenOrderIds.has(order.order_id)) { duplicateCount++; continue; }
+        seenOrderIds.add(order.order_id); this.deduplicatedOrderStore.set(order.order_id, order); validOrders.push(order);
       }
-    } catch (err: unknown) {
-      errorCount++;
-      lastError = String(err);
-      // Return structured quality metadata with 0 confidence
-      const quality: MarketDataQuality = {
-        source: 'unavailable',
-        freshness: 'expired',
-        completeness: 'empty',
-        validation_status: 'invalid',
-        data_state: 'ERROR',
-        health_status: 'ERROR',
-        fetched_at: new Date().toISOString(),
-        age_seconds: 0,
-        pages_fetched: 0,
-        expected_pages: 1,
-        orders_fetched: 0,
-        orders_valid: 0,
-        duplicate_orders_removed: 0,
-        rejected_orders_count: 0,
-        error_count: errorCount,
-        last_error: lastError,
-        confidence: 0,
-        sync_duration_ms: Date.now() - startTime,
-      };
-      return { orders: [], quality };
-    }
-
-    // Process Page 1 orders
-    if (Array.isArray(page1Data)) {
-      totalRawOrders += page1Data.length;
-      for (const raw of page1Data) {
-        const { isValid, order, reason } = this.validateOrder(raw, regionId, typeId);
-        if (!isValid || !order) {
-          rejectedCount++;
-          continue;
-        }
-        if (seenOrderIds.has(order.order_id)) {
-          duplicateCount++;
-          continue;
-        }
-        seenOrderIds.add(order.order_id);
-        this.deduplicatedOrderStore.set(order.order_id, order);
-        validOrders.push(order);
-      }
-    }
-
-    // 2. Fetch remaining pages if expectedPages > 1
-    if (expectedPages > 1) {
-      const remainingPages: number[] = [];
-      for (let p = 2; p <= expectedPages; p++) {
-        remainingPages.push(p);
-      }
-
-      // Concurrently fetch up to 3 pages at a time
-      const chunkSize = 3;
-      for (let i = 0; i < remainingPages.length; i += chunkSize) {
-        const chunk = remainingPages.slice(i, i + chunkSize);
-        await Promise.all(
-          chunk.map(async (page) => {
-            const pageUrl = `${this.BASE_URL}/markets/${regionId}/orders/?datasource=tranquility&order_type=all&type_id=${typeId}&page=${page}`;
-            const fallbackUrl = `/api/markets/${regionId}/orders?type_id=${typeId}&page=${page}`;
-            try {
-              const { response: pageRes } = await this.fetchWithRetry(pageUrl, {
-                maxRetries: 3,
-                timeoutMs: 12000,
-                fallbackUrl,
-              });
-              if (pageRes.ok) {
-                pagesFetched++;
-                const data = await pageRes.json();
-                if (Array.isArray(data)) {
-                  totalRawOrders += data.length;
-                  for (const raw of data) {
-                    const { isValid, order } = this.validateOrder(raw, regionId, typeId);
-                    if (!isValid || !order) {
-                      rejectedCount++;
-                      continue;
-                    }
-                    if (seenOrderIds.has(order.order_id)) {
-                      duplicateCount++;
-                      continue;
-                    }
-                    seenOrderIds.add(order.order_id);
-                    this.deduplicatedOrderStore.set(order.order_id, order);
-                    validOrders.push(order);
-                  }
-                }
-              } else {
-                errorCount++;
-                lastError = `Page ${page} failed with HTTP ${pageRes.status}`;
-              }
-            } catch (err: unknown) {
-              errorCount++;
-              lastError = `Page ${page} failed: ${String(err)}`;
-            }
-          })
-        );
-      }
-    }
-
-    const durationMs = Date.now() - startTime;
-    const completeness = pagesFetched >= expectedPages ? (validOrders.length === 0 ? 'empty' : 'complete') : pagesFetched > 0 ? 'partial' : 'empty';
-    const confidence = expectedPages > 0 ? Number((pagesFetched / expectedPages).toFixed(2)) : 1.0;
-    const dataState = completeness === 'partial' ? 'PARTIAL' : validOrders.length === 0 ? 'EMPTY' : 'VALID';
-    const healthStatus = completeness === 'partial' ? 'PARTIAL' : 'LIVE';
-
-    const quality: MarketDataQuality = {
-      source: 'esi',
-      freshness: 'fresh',
-      completeness,
-      data_state: dataState,
-      health_status: healthStatus,
-      validation_status: errorCount === 0 && rejectedCount === 0 ? 'valid' : 'suspicious',
-      fetched_at: new Date().toISOString(),
-      age_seconds: 0,
-      pages_fetched: pagesFetched,
-      expected_pages: expectedPages,
-      orders_fetched: totalRawOrders,
-      orders_valid: validOrders.length,
-      duplicate_orders_removed: duplicateCount,
-      rejected_orders_count: rejectedCount,
-      error_count: errorCount,
-      last_error: lastError,
-      confidence,
-      sync_duration_ms: durationMs,
     };
-
-    return { orders: validOrders, quality };
+    const fetchPage = async (page: number) => {
+      const { response, data } = await this.fetchApi<any[]>(`/api/markets/${regionId}/orders?type_id=${typeId}&page=${page}`);
+      if (!response.ok) throw new Error(`Market API returned HTTP ${response.status}`);
+      const xPages = response.headers.get('x-pages'); const parsed = xPages ? Number.parseInt(xPages, 10) : 1;
+      return { data: Array.isArray(data) ? data : [], totalPages: Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 50) : 1 };
+    };
+    try {
+      const first = await fetchPage(1); pagesFetched = 1; expectedPages = first.totalPages; processPage(first.data);
+      for (let page = 2; page <= expectedPages; page++) {
+        try { const next = await fetchPage(page); pagesFetched++; processPage(next.data); }
+        catch (err) { errorCount++; lastError = `Page ${page} failed: ${String(err)}`; }
+      }
+    } catch (err) {
+      errorCount++; lastError = String(err);
+      return { orders: [], quality: {
+        source:'unavailable', freshness:'expired', completeness:'empty', validation_status:'invalid', data_state:'ERROR', health_status:'ERROR',
+        fetched_at:new Date().toISOString(), age_seconds:0, pages_fetched:0, expected_pages:1, orders_fetched:0, orders_valid:0,
+        duplicate_orders_removed:0, rejected_orders_count:0, error_count:errorCount, last_error:lastError, confidence:0, sync_duration_ms:Date.now()-startTime
+      }};
+    }
+    const completeness = pagesFetched >= expectedPages ? (validOrders.length === 0 ? 'empty' : 'complete') : pagesFetched > 0 ? 'partial' : 'empty';
+    return { orders: validOrders, quality: {
+      source:'esi', freshness:'fresh', completeness, data_state:completeness==='partial'?'PARTIAL':validOrders.length===0?'EMPTY':'VALID',
+      health_status:completeness==='partial'?'PARTIAL':'LIVE', validation_status:errorCount===0&&rejectedCount===0?'valid':'suspicious',
+      fetched_at:new Date().toISOString(), age_seconds:0, pages_fetched:pagesFetched, expected_pages:expectedPages,
+      orders_fetched:totalRawOrders, orders_valid:validOrders.length, duplicate_orders_removed:duplicateCount, rejected_orders_count:rejectedCount,
+      error_count:errorCount, last_error:lastError, confidence:expectedPages>0?Number((pagesFetched/expectedPages).toFixed(2)):1, sync_duration_ms:Date.now()-startTime
+    }};
   }
 
   /**
@@ -384,80 +178,24 @@ export class EsiService {
    * Computes 7d and 30d median volume, avg price, volatility, and trend.
    */
   static async fetchMarketHistory(regionId: number, typeId: number): Promise<HistoricalStats | null> {
-    const url = `${this.BASE_URL}/markets/${regionId}/history/?datasource=tranquility&type_id=${typeId}`;
-    const fallbackUrl = `/api/markets/${regionId}/history?type_id=${typeId}`;
-
     try {
-      const { response } = await this.fetchWithRetry(url, {
-        maxRetries: 3,
-        timeoutMs: 12000,
-        fallbackUrl,
-      });
-
-      if (!response.ok) return null;
-
-      const rawHistory: DailyMarketHistory[] = await response.json();
-      if (!Array.isArray(rawHistory) || rawHistory.length === 0) return null;
-
-      // Sort recent first
-      const sorted = [...rawHistory].sort((a, b) => b.date.localeCompare(a.date));
-      const last7 = sorted.slice(0, 7);
-      const last30 = sorted.slice(0, 30);
-
-      const median = (arr: number[]) => {
-        if (arr.length === 0) return 0;
-        const s = [...arr].sort((a, b) => a - b);
-        const mid = Math.floor(s.length / 2);
-        return s.length % 2 !== 0 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
-      };
-
-      const vol7 = last7.map((h) => h.volume);
-      const vol30 = last30.map((h) => h.volume);
-      const prices30 = last30.map((h) => h.average);
-
-      const avg7 = vol7.reduce((a, b) => a + b, 0) / Math.max(1, vol7.length);
-      const avg30 = vol30.reduce((a, b) => a + b, 0) / Math.max(1, vol30.length);
-
-      const trend: 'increasing' | 'stable' | 'decreasing' =
-        avg7 > avg30 * 1.15 ? 'increasing' : avg7 < avg30 * 0.85 ? 'decreasing' : 'stable';
-
-      return {
-        type_id: typeId,
-        region_id: regionId,
-        daily_volume_7d_avg: Math.round(avg7),
-        daily_volume_7d_median: Math.round(median(vol7)),
-        daily_volume_30d_avg: Math.round(avg30),
-        daily_volume_30d_median: Math.round(median(vol30)),
-        daily_order_count_avg: Math.round(last7.reduce((a, b) => a + b.order_count, 0) / Math.max(1, last7.length)),
-        price_median_30d: median(prices30),
-        price_volatility: prices30.length > 1 ? (Math.max(...prices30) - Math.min(...prices30)) / Math.max(1, median(prices30)) : 0,
-        volume_trend: trend,
-        is_live_esi: true,
-      };
-    } catch {
-      return null;
-    }
+      const { response, data } = await this.fetchApi<DailyMarketHistory[]>(`/api/markets/${regionId}/history?type_id=${typeId}`);
+      if (!response.ok || !Array.isArray(data) || data.length === 0) return null;
+      const sorted=[...data].sort((a,b)=>b.date.localeCompare(a.date)), last7=sorted.slice(0,7), last30=sorted.slice(0,30);
+      const median=(arr:number[])=>{if(!arr.length)return 0;const v=[...arr].sort((a,b)=>a-b),m=Math.floor(v.length/2);return v.length%2?v[m]:(v[m-1]+v[m])/2;};
+      const vol7=last7.map(h=>h.volume), vol30=last30.map(h=>h.volume), prices30=last30.map(h=>h.average);
+      const avg7=vol7.reduce((a,b)=>a+b,0)/Math.max(1,vol7.length), avg30=vol30.reduce((a,b)=>a+b,0)/Math.max(1,vol30.length);
+      return {type_id:typeId,region_id:regionId,daily_volume_7d_avg:Math.round(avg7),daily_volume_7d_median:Math.round(median(vol7)),daily_volume_30d_avg:Math.round(avg30),daily_volume_30d_median:Math.round(median(vol30)),daily_order_count_avg:Math.round(last7.reduce((a,b)=>a+b.order_count,0)/Math.max(1,last7.length)),price_median_30d:median(prices30),price_volatility:prices30.length>1?(Math.max(...prices30)-Math.min(...prices30))/Math.max(1,median(prices30)):0,volume_trend:avg7>avg30*1.15?'increasing':avg7<avg30*0.85?'decreasing':'stable',is_live_esi:true};
+    } catch { return null; }
   }
 
   /**
    * Look up a type by ID from ESI
    */
   static async lookupTypeById(typeId: number) {
-    try {
-      const response = await fetch(`${this.BASE_URL}/universe/types/${typeId}/?datasource=tranquility&language=en`);
-      if (!response.ok) return null;
-      const data = await response.json();
-      return {
-        type_id: data.type_id,
-        group_id: data.group_id,
-        name: data.name,
-        volume: data.volume || data.packaged_volume || 0.01,
-        packaged_volume: data.packaged_volume,
-        description: data.description ? data.description.replace(/<[^>]*>?/gm, '').slice(0, 140) : '',
-      };
-    } catch {
-      return null;
-    }
+    if (!Number.isInteger(typeId) || typeId <= 0) return null;
+    try { const {response,data}=await this.fetchApi<any>(`/api/types/lookup/${typeId}`); if(!response.ok)return null; return {type_id:data.type_id,group_id:data.group_id,name:data.name,volume:data.volume||data.packaged_volume||0.01,packaged_volume:data.packaged_volume,description:data.description?String(data.description).replace(/<[^>]*>?/gm,'').slice(0,140):''}; }
+    catch { return null; }
   }
 
   /**
@@ -465,27 +203,8 @@ export class EsiService {
    */
   static async searchTypesByName(query: string) {
     if (!query || query.length < 2) return [];
-    try {
-      const response = await fetch(
-        `${this.BASE_URL}/universe/ids/?datasource=tranquility&language=en`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify([query]),
-        }
-      );
-      if (!response.ok) return [];
-      const data = await response.json();
-      const inventoryTypes = data.inventory_types || [];
-      const results = [];
-      for (const item of inventoryTypes.slice(0, 5)) {
-        const detail = await this.lookupTypeById(item.id);
-        if (detail) results.push(detail);
-      }
-      return results;
-    } catch {
-      return [];
-    }
+    try { const {response,data}=await this.fetchApi<any[]>(`/api/types/search?q=${encodeURIComponent(query)}&limit=5`); return response.ok&&Array.isArray(data)?data:[]; }
+    catch { return []; }
   }
 
   /**
@@ -526,188 +245,36 @@ export class EsiService {
    * Fetches active character orders using the character's OAuth token
    */
   static async fetchCharacterOrders(characterId: number, accessToken: string) {
-    const result = await this.executeWithAuthRefresh<any[]>(characterId, accessToken, async (token) => {
-      // 1. Try server proxy
-      try {
-        const response = await fetch(`/api/character/${characterId}/orders`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          return { ok: true, status: response.status, data };
-        }
-        if (response.status === 401) {
-          return { ok: false, status: 401 };
-        }
-      } catch {
-        // Fall back to direct ESI
-      }
-
-      // 2. Direct ESI fallback
-      try {
-        const directRes = await fetch(`${this.BASE_URL}/characters/${characterId}/orders/?datasource=tranquility`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        if (directRes.ok) {
-          const data = await directRes.json();
-          return { ok: true, status: directRes.status, data };
-        }
-        return { ok: false, status: directRes.status };
-      } catch {
-        return { ok: false, status: 500 };
-      }
-    });
-
-    return result || [];
+    const result=await this.executeWithAuthRefresh<any[]>(characterId,accessToken,async token=>{const response=await fetch(`/api/character/${characterId}/orders`,{headers:{Authorization:`Bearer ${token}`}});if(!response.ok)return {ok:false,status:response.status};return {ok:true,status:response.status,data:await response.json()};});return result||[];
   }
 
   /**
    * Fetches character wallet balance
    */
   static async fetchCharacterWallet(characterId: number, accessToken: string): Promise<number | null> {
-    return await this.executeWithAuthRefresh<number>(characterId, accessToken, async (token) => {
-      try {
-        const response = await fetch(`/api/character/${characterId}/wallet`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          return { ok: true, status: response.status, data: data.balance };
-        }
-        if (response.status === 401) return { ok: false, status: 401 };
-      } catch {
-        // Fall back to direct ESI
-      }
-
-      try {
-        const directRes = await fetch(`${this.BASE_URL}/characters/${characterId}/wallet/?datasource=tranquility`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        if (directRes.ok) {
-          const balance = await directRes.json();
-          return { ok: true, status: directRes.status, data: balance };
-        }
-        return { ok: false, status: directRes.status };
-      } catch {
-        return { ok: false, status: 500 };
-      }
-    });
+    return await this.executeWithAuthRefresh<number>(characterId,accessToken,async token=>{const response=await fetch(`/api/character/${characterId}/wallet`,{headers:{Authorization:`Bearer ${token}`}});if(!response.ok)return {ok:false,status:response.status};const data=await response.json();return {ok:true,status:response.status,data:data.balance};});
   }
 
   /**
    * Fetches character wallet transactions (real buy/sell market history)
    */
-  static async fetchCharacterTransactions(
-    characterId: number,
-    accessToken: string,
-    fromId?: number
-  ): Promise<EveCharacterTransaction[]> {
-    const fromIdParam = fromId !== undefined ? `?from_id=${encodeURIComponent(String(fromId))}` : '';
-    const fromIdDirect = fromId !== undefined ? `&from_id=${encodeURIComponent(String(fromId))}` : '';
-    const result = await this.executeWithAuthRefresh<EveCharacterTransaction[]>(characterId, accessToken, async (token) => {
-      try {
-        const response = await fetch(`/api/character/${characterId}/transactions${fromIdParam}`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          return { ok: true, status: response.status, data };
-        }
-        if (response.status === 401) return { ok: false, status: 401 };
-      } catch {
-        // Fall back to direct ESI
-      }
-
-      try {
-        const directRes = await fetch(`${this.BASE_URL}/characters/${characterId}/wallet/transactions/?datasource=tranquility${fromIdDirect}`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        if (directRes.ok) {
-          const data = await directRes.json();
-          return { ok: true, status: directRes.status, data };
-        }
-        return { ok: false, status: directRes.status };
-      } catch {
-        return { ok: false, status: 500 };
-      }
-    });
-
-    return result || [];
+  static async fetchCharacterTransactions(characterId: number, accessToken: string, fromId?: number): Promise<EveCharacterTransaction[]> {
+    const query=fromId!==undefined?`?from_id=${encodeURIComponent(String(fromId))}`:'';
+    const result=await this.executeWithAuthRefresh<EveCharacterTransaction[]>(characterId,accessToken,async token=>{const response=await fetch(`/api/character/${characterId}/transactions${query}`,{headers:{Authorization:`Bearer ${token}`}});if(!response.ok)return {ok:false,status:response.status};return {ok:true,status:response.status,data:await response.json()};});return result||[];
   }
 
   /**
    * Fetches past closed/fulfilled/cancelled character orders (order history)
    */
-  static async fetchCharacterOrderHistory(
-    characterId: number,
-    accessToken: string,
-    page: number = 1
-  ): Promise<EveCharacterOrderHistory[]> {
-    const result = await this.executeWithAuthRefresh<EveCharacterOrderHistory[]>(characterId, accessToken, async (token) => {
-      try {
-        const response = await fetch(`/api/character/${characterId}/orders/history?page=${page}`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          return { ok: true, status: response.status, data };
-        }
-        if (response.status === 401) return { ok: false, status: 401 };
-      } catch {
-        // Fall back to direct ESI
-      }
-
-      try {
-        const directRes = await fetch(
-          `${this.BASE_URL}/characters/${characterId}/orders/history/?datasource=tranquility&page=${page}`,
-          { headers: { 'Authorization': `Bearer ${token}` } }
-        );
-        if (directRes.ok) {
-          const data = await directRes.json();
-          return { ok: true, status: directRes.status, data };
-        }
-        return { ok: false, status: directRes.status };
-      } catch {
-        return { ok: false, status: 500 };
-      }
-    });
-
-    return result || [];
+  static async fetchCharacterOrderHistory(characterId: number, accessToken: string, page: number = 1): Promise<EveCharacterOrderHistory[]> {
+    const result=await this.executeWithAuthRefresh<EveCharacterOrderHistory[]>(characterId,accessToken,async token=>{const response=await fetch(`/api/character/${characterId}/orders/history?page=${page}`,{headers:{Authorization:`Bearer ${token}`}});if(!response.ok)return {ok:false,status:response.status};return {ok:true,status:response.status,data:await response.json()};});return result||[];
   }
 
   /**
    * Fetches character wallet journal (taxes, fees, transfers, broker fees)
    */
   static async fetchCharacterJournal(characterId: number, accessToken: string) {
-    const result = await this.executeWithAuthRefresh<any[]>(characterId, accessToken, async (token) => {
-      try {
-        const response = await fetch(`/api/character/${characterId}/journal`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          return { ok: true, status: response.status, data };
-        }
-        if (response.status === 401) return { ok: false, status: 401 };
-      } catch {
-        // Fall back to direct ESI
-      }
-
-      try {
-        const directRes = await fetch(`${this.BASE_URL}/characters/${characterId}/wallet/journal/?datasource=tranquility`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        if (directRes.ok) {
-          const data = await directRes.json();
-          return { ok: true, status: directRes.status, data };
-        }
-        return { ok: false, status: directRes.status };
-      } catch {
-        return { ok: false, status: 500 };
-      }
-    });
-
-    return result || [];
+    const result=await this.executeWithAuthRefresh<any[]>(characterId,accessToken,async token=>{const response=await fetch(`/api/character/${characterId}/journal`,{headers:{Authorization:`Bearer ${token}`}});if(!response.ok)return {ok:false,status:response.status};return {ok:true,status:response.status,data:await response.json()};});return result||[];
   }
 
   /**
@@ -722,44 +289,7 @@ export class EsiService {
    * Fetches character trading skills (Accounting, Broker Relations)
    */
   static async fetchCharacterSkills(characterId: number, accessToken: string) {
-    return await this.executeWithAuthRefresh<{ accounting: number; broker_relations: number }>(
-      characterId,
-      accessToken,
-      async (token) => {
-        try {
-          const response = await fetch(`/api/character/${characterId}/skills`, {
-            headers: { 'Authorization': `Bearer ${token}` },
-          });
-          if (response.ok) {
-            const data = await response.json();
-            const skills = data.skills || [];
-            const accounting = skills.find((s: { skill_id: number }) => s.skill_id === 3443)?.active_skill_level ?? 0;
-            const brokerRel = skills.find((s: { skill_id: number }) => s.skill_id === 3444)?.active_skill_level ?? 0;
-            return { ok: true, status: response.status, data: { accounting, broker_relations: brokerRel } };
-          }
-          if (response.status === 401) return { ok: false, status: 401 };
-        } catch (proxyErr) {
-          console.warn(`[EsiService] Server proxy failed for character skills (${characterId}):`, proxyErr);
-        }
-
-        try {
-          const directRes = await fetch(`${this.BASE_URL}/characters/${characterId}/skills/?datasource=tranquility`, {
-            headers: { 'Authorization': `Bearer ${token}` },
-          });
-          if (directRes.ok) {
-            const data = await directRes.json();
-            const skills = data.skills || [];
-            const accounting = skills.find((s: { skill_id: number }) => s.skill_id === 3443)?.active_skill_level ?? 0;
-            const brokerRel = skills.find((s: { skill_id: number }) => s.skill_id === 3444)?.active_skill_level ?? 0;
-            return { ok: true, status: directRes.status, data: { accounting, broker_relations: brokerRel } };
-          }
-          return { ok: false, status: directRes.status };
-        } catch (directErr) {
-          console.warn(`[EsiService] Direct ESI failed for character skills (${characterId}):`, directErr);
-          return { ok: false, status: 500 };
-        }
-      }
-    );
+    return await this.executeWithAuthRefresh<{accounting:number;broker_relations:number}>(characterId,accessToken,async token=>{const response=await fetch(`/api/character/${characterId}/skills`,{headers:{Authorization:`Bearer ${token}`}});if(!response.ok)return {ok:false,status:response.status};const data=await response.json();const skills=data.skills||[];const accounting=skills.find((x:{skill_id:number})=>x.skill_id===3443)?.active_skill_level??0;const broker_relations=skills.find((x:{skill_id:number})=>x.skill_id===3444)?.active_skill_level??0;return {ok:true,status:response.status,data:{accounting,broker_relations}};});
   }
 
   /**

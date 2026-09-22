@@ -334,6 +334,10 @@ The gateway is intentionally domain-neutral. Trading treasury resolution happens
 
 ### Corporation treasury source contract
 
+The frontend corporation treasury sync has one orchestration boundary: `src/services/corporationTreasurySync.ts`. Both automatic character lifecycle sync and the manual configuration action consume the same result contract. A successful ESI certification requires the resolved corporation identity, a wallet snapshot, a matching corporation identity, and the requested division to be present with a finite balance. Missing divisions or mismatched corporation IDs fail closed instead of silently falling back to another division.
+
+When the selected source is `manual`, changing the selected division never imports balances from `corporation_divisions`; those rows are treated as historical/observed ESI data only. An explicit manual budget remains independent until the user edits it or an ESI sync explicitly succeeds.
+
 `FinancialConfig.corporation_wallet_source` is part of the financial boundary:
 
 - `esi`: value originated from a successful corporation wallet ESI read;

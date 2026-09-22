@@ -78,11 +78,12 @@ Le backend local Express fait office de proxy sécurisé, de gestionnaire de ses
 ## 🛡️ Gestion des Limites de Requêtes (*Error Budget & Rate Limiting*)
 
 CCP ESI utilise un système d'**Error Budget** strict (100 erreurs autorisées par fenêtre glissante) :
-* **En-tête `X-Esi-Error-Limit-Remain`** : Surveillé pour ralentir proactivement les requêtes si le nombre d'erreurs restantes descend sous 20.
-* **En-tête `X-Esi-Error-Limit-Reset`** : Délai d'attente imposé en secondes en cas d'alerte.
-* **Code HTTP `429 Too Many Requests`** : Lecture de l'en-tête `Retry-After` et temporisation automatique avec backoff exponentiel.
-* **Code HTTP `420 Enhance Your Calm`** : Interception globale avec pause immédiate de toutes les requêtes vers le cluster ESI.
-* **User-Agent Identifiant** : Toutes les requêtes émises par le serveur ou le client incluent l'en-tête obligatoire :
+* **`X-Esi-Error-Limit-Remain` / `X-Esi-Error-Limit-Reset`** : ces en-têtes sont exposés par le client ESI centralisé.
+* **`Retry-After`** : en cas de `429`, le délai est exposé pour permettre à l'orchestrateur de temporiser la reprise.
+* **`420` et `5xx`** : les erreurs sont propagées par le client unifié ; ne pas supposer une politique de retry globale non documentée.
+* **`ETag` / `304`** : `fetchEsi` supporte `If-None-Match` et représente explicitement `304 Not Modified`.
+* **Pagination** : l'en-tête `x-pages` est exposé sous forme `xPages`.
+* **User-Agent** : les appels backend passent par `server/utils/esiClient.ts`; vérifier cette implémentation avant de documenter une valeur statique.
   ```http
   User-Agent: eve-trade-interregional/0.2 (EVE Trade Analytics Platform)
   ```

@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getGlobalEsiMock } from '../utils/esiClient';
+import { fetchEsi } from '../utils/esiClient';
 
 export const marketsRouter = Router();
 
@@ -87,58 +87,54 @@ marketsRouter.get('/:regionId/orders', async (req: Request, res: Response) => {
   }
 
   try {
-    const fetchHeaders: Record<string, string> = {
-      'Accept': 'application/json',
-      'User-Agent': 'eve-trade-interregional/0.2 (+https://github.com/avadis/eve-trade)',
-    };
-    if (cached?.etag) {
-      fetchHeaders['If-None-Match'] = cached.etag;
-    }
-
-    const activeFetch = getGlobalEsiMock() || fetch;
-    const response = await activeFetch(url, { headers: fetchHeaders });
+    const result = await fetchEsi<any[]>(url, {
+      etag: cached?.etag,
+    });
 
     // If ESI returned 304 Not Modified, refresh TTL and return cached data
-    if (response.status === 304 && cached) {
-      const expiresHeader = response.headers.get('expires');
-      const expiresAt = expiresHeader ? new Date(expiresHeader).getTime() : now + 180000;
+    if (result.status === 304 && cached) {
+      const expiresAt = result.expires ? new Date(result.expires).getTime() : now + 180000;
       cached.expiresAt = Math.max(now + 60000, expiresAt);
       res.setHeader('X-Cache-Status', 'REVALIDATED');
       return res.json(cached.data);
     }
 
     // Forward ESI pagination and rate limit headers
-    const xPages = response.headers.get('x-pages');
-    const xRemain = response.headers.get('x-esi-error-limit-remain');
-    const xReset = response.headers.get('x-esi-error-limit-reset');
-    const etag = response.headers.get('etag') || undefined;
-    const expiresHeader = response.headers.get('expires');
-    const expiresAt = expiresHeader ? new Date(expiresHeader).getTime() : now + 180000;
-
     const fwdHeaders: Record<string, string> = {};
-    if (xPages) { res.setHeader('X-Pages', xPages); fwdHeaders['X-Pages'] = xPages; }
-    if (xRemain) { res.setHeader('X-ESI-Error-Limit-Remain', xRemain); fwdHeaders['X-ESI-Error-Limit-Remain'] = xRemain; }
-    if (xReset) { res.setHeader('X-ESI-Error-Limit-Reset', xReset); fwdHeaders['X-ESI-Error-Limit-Reset'] = xReset; }
+    if (result.xPages) {
+      res.setHeader('X-Pages', result.xPages);
+      fwdHeaders['X-Pages'] = result.xPages;
+    }
+    if (result.errorLimitRemain !== undefined) {
+      const remainStr = String(result.errorLimitRemain);
+      res.setHeader('X-ESI-Error-Limit-Remain', remainStr);
+      fwdHeaders['X-ESI-Error-Limit-Remain'] = remainStr;
+    }
+    if (result.errorLimitReset !== undefined) {
+      const resetStr = String(result.errorLimitReset);
+      res.setHeader('X-ESI-Error-Limit-Reset', resetStr);
+      fwdHeaders['X-ESI-Error-Limit-Reset'] = resetStr;
+    }
 
-    if (!response.ok) {
-      return res.status(response.status).json({
-        error: `ESI error ${response.status}`,
-        status: response.status,
+    if (!result.ok || !result.data) {
+      return res.status(result.status).json({
+        error: `ESI error ${result.status}`,
+        status: result.status,
       });
     }
 
-    const data = await response.json();
+    const expiresAt = result.expires ? new Date(result.expires).getTime() : now + 180000;
 
     // Store in server cache with real CCP ESI expiration
     setServerCache(url, {
-      data,
+      data: result.data,
       headers: fwdHeaders,
       expiresAt: Math.max(now + 60000, expiresAt),
-      etag,
+      etag: result.etag,
     });
 
     res.setHeader('X-Cache-Status', 'MISS');
-    res.json(data);
+    res.json(result.data);
   } catch (err: unknown) {
     res.status(500).json({ error: 'Failed to proxy market orders', message: String(err) });
   }
@@ -171,30 +167,22 @@ marketsRouter.get('/:regionId/history', async (req: Request, res: Response) => {
   }
 
   try {
-    const activeFetch = getGlobalEsiMock() || fetch;
-    const response = await activeFetch(url, {
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'eve-trade-interregional/0.2 (+https://github.com/avadis/eve-trade)',
-      },
-    });
+    const result = await fetchEsi<any[]>(url);
 
-    if (!response.ok) {
-      return res.status(response.status).json({ error: `ESI error ${response.status}` });
+    if (!result.ok || !result.data) {
+      return res.status(result.status).json({ error: `ESI error ${result.status}` });
     }
 
-    const data = await response.json();
-    const expiresHeader = response.headers.get('expires');
-    const expiresAt = expiresHeader ? new Date(expiresHeader).getTime() : now + 1800000;
+    const expiresAt = result.expires ? new Date(result.expires).getTime() : now + 1800000;
 
     setServerCache(url, {
-      data,
+      data: result.data,
       headers: {},
       expiresAt: Math.max(now + 300000, expiresAt),
     });
 
     res.setHeader('X-Cache-Status', 'MISS');
-    res.json(data);
+    res.json(result.data);
   } catch (err: unknown) {
     res.status(500).json({ error: 'Failed to proxy market history', message: String(err) });
   }

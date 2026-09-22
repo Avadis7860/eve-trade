@@ -26,6 +26,7 @@ export interface EsiFetchResult<T = unknown> {
   errorLimitRemain?: number;
   errorLimitReset?: number;
   retryAfter?: number;
+  xPages?: string;
 }
 
 const DEFAULT_USER_AGENT = 'eve-trade-interregional/0.3 (https://github.com/eve-trade)';
@@ -95,6 +96,7 @@ export async function fetchEsi<T = unknown>(
       const retryAfterHeader = response.headers.get('retry-after');
       const responseEtag = response.headers.get('etag') || undefined;
       const responseExpires = response.headers.get('expires') || undefined;
+      const xPages = response.headers.get('x-pages') || undefined;
 
       const errorLimitRemain = remainHeader ? parseInt(remainHeader, 10) : undefined;
       const errorLimitReset = resetHeader ? parseInt(resetHeader, 10) : undefined;
@@ -111,6 +113,7 @@ export async function fetchEsi<T = unknown>(
           errorLimitRemain,
           errorLimitReset,
           retryAfter,
+          xPages,
         };
       }
 
@@ -132,6 +135,7 @@ export async function fetchEsi<T = unknown>(
           errorLimitRemain,
           errorLimitReset,
           retryAfter,
+          xPages,
         };
       }
 
@@ -152,6 +156,7 @@ export async function fetchEsi<T = unknown>(
             errorLimitRemain,
             errorLimitReset,
             retryAfter,
+            xPages,
           };
         }
 
@@ -182,6 +187,7 @@ export async function fetchEsi<T = unknown>(
           errorLimitRemain,
           errorLimitReset,
           retryAfter,
+          xPages,
         };
       }
 
@@ -195,6 +201,7 @@ export async function fetchEsi<T = unknown>(
         errorLimitRemain,
         errorLimitReset,
         retryAfter,
+        xPages,
       };
     } catch (err: unknown) {
       clearTimeout(timer);

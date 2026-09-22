@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { TypeCatalogService } from '../../src/services/typeCatalog';
 import { logEvent } from '../utils/logger';
 import { EveTypeDetail } from '../../src/types';
-import { getGlobalEsiMock } from '../utils/esiClient';
+import { fetchEsi } from '../utils/esiClient';
 
 export const catalogRouter = Router();
 
@@ -41,18 +41,13 @@ catalogRouter.get('/lookup/:id', async (req: Request, res: Response) => {
   }
 
   try {
-    const activeFetch = getGlobalEsiMock() || fetch;
-    const response = await activeFetch(
-      `https://esi.evetech.net/latest/universe/types/${numId}/?datasource=tranquility&language=en`,
-      {
-        headers: { 'User-Agent': 'eve-trade-interregional/0.2' },
-      }
+    const result = await fetchEsi<EveTypeDetail>(
+      `universe/types/${numId}/?datasource=tranquility&language=en`
     );
-    if (!response.ok) {
-      return res.status(response.status).json({ error: 'Type not found in ESI' });
+    if (!result.ok || !result.data) {
+      return res.status(result.status).json({ error: 'Type not found in ESI' });
     }
-    const data = await response.json();
-    res.json(data);
+    res.json(result.data);
   } catch (err: unknown) {
     logEvent('ERROR', 'ESI', `Type lookup failed for ${id}`, { error: String(err) });
     res.status(500).json({ error: 'Failed to lookup type in ESI', message: String(err) });
@@ -141,29 +136,28 @@ catalogRouter.get('/search', async (req: Request, res: Response) => {
   // Dynamic ESI universe resolution if local results are few and query length >= 3
   if (results.length < 5 && query.length >= 3) {
     try {
-      const activeFetch = getGlobalEsiMock() || fetch;
-      const esiRes = await activeFetch('https://esi.evetech.net/latest/universe/ids/?datasource=tranquility&language=en', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'User-Agent': 'eve-trade-interregional/0.2 (+https://github.com/avadis/eve-trade)',
-        },
-        body: JSON.stringify([query]),
-      });
+      const esiRes = await fetchEsi<{ inventory_types?: Array<{ id: number; name: string }> }>(
+        'universe/ids/?datasource=tranquility&language=en',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify([query]),
+        }
+      );
 
-      if (esiRes.ok) {
-        const idData = await esiRes.json();
+      if (esiRes.ok && esiRes.data) {
+        const idData = esiRes.data;
         if (idData.inventory_types && Array.isArray(idData.inventory_types)) {
           for (const item of idData.inventory_types) {
             if (!results.some((r) => r.type_id === item.id)) {
               try {
-                const typeRes = await activeFetch(
-                  `https://esi.evetech.net/latest/universe/types/${item.id}/?datasource=tranquility&language=en`,
-                  { headers: { 'User-Agent': 'eve-trade-interregional/0.2' } }
+                const typeRes = await fetchEsi<any>(
+                  `universe/types/${item.id}/?datasource=tranquility&language=en`
                 );
-                if (typeRes.ok) {
-                  const tData = await typeRes.json();
+                if (typeRes.ok && typeRes.data) {
+                  const tData = typeRes.data;
                   if (tData.published) {
                     const newType: EveTypeDetail = {
                       type_id: tData.type_id,

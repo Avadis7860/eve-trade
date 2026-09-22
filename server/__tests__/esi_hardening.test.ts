@@ -104,6 +104,32 @@ async function runTests() {
     assert(callCount === 1, `Expected exactly 1 call without retrying, got ${callCount}`);
   });
 
+  await test('fetchEsi correctly handles 304 Not Modified and preserves etag/expires/x-pages', async () => {
+    const mockFetch = async (url: any, init: any) => {
+      assert((init?.headers as any)['If-None-Match'] === '"abc123etag"', 'Expected If-None-Match header');
+      return new Response(null, {
+        status: 304,
+        headers: {
+          etag: '"abc123etag"',
+          expires: 'Wed, 21 Oct 2026 07:28:00 GMT',
+          'x-pages': '5',
+        },
+      });
+    };
+
+    const res = await fetchEsi('/markets/10000002/orders/', {
+      customFetch: mockFetch,
+      etag: '"abc123etag"',
+    });
+
+    assert(res.ok === true, 'Expected result.ok === true for 304');
+    assert(res.status === 304, 'Expected status 304');
+    assert(res.data === null, 'Expected data null on 304');
+    assert(res.etag === '"abc123etag"', 'Expected etag preserved');
+    assert(res.expires === 'Wed, 21 Oct 2026 07:28:00 GMT', 'Expected expires preserved');
+    assert(res.xPages === '5', 'Expected xPages preserved');
+  });
+
   // --- 2. Rate Limiting and Error Limit Budget ---
   console.log('\n--- 2. RATE LIMITING & ERROR BUDGET ENFORCEMENT ---');
 
@@ -260,6 +286,60 @@ async function runTests() {
       const cachedRes = await fetch(`http://127.0.0.1:${testPort}/api/markets/10000002/orders?type_id=34`);
       assert(cachedRes.status === 200, `Expected 200, got ${cachedRes.status}`);
       assert(cachedRes.headers.get('x-cache-status') === 'HIT', 'Expected HIT on second call');
+    });
+
+    await test('server /api/markets/:regionId/history proxies via global mock ESI', async () => {
+      setGlobalEsiMock(async (url) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/markets/10000002/history/')) {
+          return new Response(
+            JSON.stringify([
+              { date: '2026-09-20', order_count: 50, volume: 1000, highest: 6.0, lowest: 5.0, average: 5.5 },
+            ]),
+            {
+              status: 200,
+              headers: {
+                'Content-Type': 'application/json',
+                'expires': new Date(Date.now() + 60000).toUTCString(),
+              },
+            }
+          );
+        }
+        return new Response('Not found', { status: 404 });
+      });
+
+      const res = await fetch(`http://127.0.0.1:${testPort}/api/markets/10000002/history?type_id=34`);
+      assert(res.status === 200, `Expected 200, got ${res.status}`);
+      const body = await res.json();
+      assert(Array.isArray(body), 'Expected array of history entries');
+      assert(body[0]?.average === 5.5, 'Expected average 5.5');
+    });
+
+    await test('server /api/types/lookup/:id proxies via global mock ESI for non-canonical types', async () => {
+      setGlobalEsiMock(async (url) => {
+        const urlStr = String(url);
+        if (urlStr.includes('/universe/types/99999999/')) {
+          return new Response(
+            JSON.stringify({
+              type_id: 99999999,
+              name: 'Experimental Quantum Disruptor',
+              group_id: 123,
+              published: true,
+            }),
+            {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            }
+          );
+        }
+        return new Response('Not found', { status: 404 });
+      });
+
+      const res = await fetch(`http://127.0.0.1:${testPort}/api/types/lookup/99999999`);
+      assert(res.status === 200, `Expected 200, got ${res.status}`);
+      const body = await res.json();
+      assert(body.type_id === 99999999, 'Expected type_id 99999999');
+      assert(body.name === 'Experimental Quantum Disruptor', 'Expected name match');
     });
 
     await test('server /api/character/:id/wallet proxies with authorization via global mock', async () => {

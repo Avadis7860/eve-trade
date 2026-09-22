@@ -7,49 +7,7 @@ export const NEW_EDEN_SYSTEM_MAX = 30_999_999;
 export const UNIVERSE_GRAPH_GENERATOR_VERSION = '2.7C.1';
 export const NEW_EDEN_ROUTE_SCOPE = 'new_eden_known_space_v1';
 
-export interface CanonicalUniverseNode {
-  system_id: number;
-  security_status: number;
-}
-
-export interface CanonicalUniverseEdge {
-  from_system_id: number;
-  to_system_id: number;
-}
-
-export interface GraphBuildProvenance {
-  source: 'sde_canonical';
-  dataset_version: string;
-  dataset_checksum: string;
-  graph_checksum: string;
-  graph_version: string;
-  completeness: 'complete';
-  route_scope: string;
-  generator_version: string;
-  map_solar_systems_checksum: string;
-  map_stargates_checksum: string;
-}
-
-export interface UniverseGraphArtifact {
-  schema_version: 1;
-  graph_version: string;
-  provenance: GraphBuildProvenance;
-  nodes: CanonicalUniverseNode[];
-  edges: CanonicalUniverseEdge[];
-}
-
-export interface SdeBuildInput {
-  dataset_version: string;
-  mapSolarSystemsContent: string;
-  mapStargatesContent: string;
-}
-
-export interface ParsedSdeSource {
-  content: string;
-  rows: Record<string, unknown>[];
-}
-
-export function sha256(value: string | Uint8Array): string {
+export function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
 }
 
@@ -80,7 +38,7 @@ export function isNewEdenSystem(systemId: number): boolean {
   return systemId >= NEW_EDEN_SYSTEM_MIN && systemId <= NEW_EDEN_SYSTEM_MAX;
 }
 
-export function parseJsonl(content: string, sourceLabel: string): Record<string, unknown>[] {
+export function parseJsonl(content, sourceLabel) {
   const rows: Record<string, unknown>[] = [];
   for (const [index, line] of content.split(/\r?\n/).entries()) {
     if (!line.trim()) continue;
@@ -104,7 +62,7 @@ export function parseJsonl(content: string, sourceLabel: string): Record<string,
   return rows;
 }
 
-export function parseSdeSource(content: string, sourceLabel: string): ParsedSdeSource {
+export function parseSdeSource(content, sourceLabel) {
   return { content, rows: parseJsonl(content, sourceLabel) };
 }
 
@@ -121,7 +79,7 @@ function readIntegerArray(value: unknown, label: string): number[] {
   return value.map((entry) => parsePositiveInteger(entry, label));
 }
 
-export function buildUniverseGraphFromSde(input: SdeBuildInput): UniverseGraphArtifact {
+export function buildUniverseGraphFromSde(input) {
   const datasetVersion = assertNonEmptyString(input.dataset_version, 'SDE dataset version');
   const systems = parseSdeSource(input.mapSolarSystemsContent, 'mapSolarSystems.jsonl');
   const stargates = parseSdeSource(input.mapStargatesContent, 'mapStargates.jsonl');
@@ -311,10 +269,7 @@ export function buildUniverseGraphFromSde(input: SdeBuildInput): UniverseGraphAr
   };
 }
 
-export async function buildUniverseGraphFromDirectory(
-  sdeDir: string,
-  datasetVersion: string,
-): Promise<UniverseGraphArtifact> {
+export async function buildUniverseGraphFromDirectory(sdeDir, datasetVersion) {
   const systemsPath = join(sdeDir, 'mapSolarSystems.jsonl');
   const stargatesPath = join(sdeDir, 'mapStargates.jsonl');
 
@@ -330,10 +285,7 @@ export async function buildUniverseGraphFromDirectory(
   });
 }
 
-export async function writeUniverseGraphArtifact(
-  artifact: UniverseGraphArtifact,
-  outputPath: string,
-): Promise<{ artifactSha256: string }> {
+export async function writeUniverseGraphArtifact(artifact, outputPath) {
   const serialized = JSON.stringify(artifact, null, 2) + '\n';
   await writeFile(outputPath, serialized, 'utf8');
   return { artifactSha256: sha256(new TextEncoder().encode(serialized)) };

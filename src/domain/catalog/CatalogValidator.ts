@@ -137,24 +137,6 @@ export class CatalogValidator {
       };
     }
 
-    if (options.expectedCount !== undefined && options.expectedCount !== expectedCount) {
-      return {
-        isReady: false,
-        isDegraded: true,
-        status: 'CATALOG_CORRUPTED',
-        reason: `Catalog metadata expected_count (${options.expectedCount}) does not match canonical expected count (${expectedCount})`,
-      };
-    }
-
-    if (options.expectedChecksum !== undefined && options.expectedChecksum !== expectedChecksum) {
-      return {
-        isReady: false,
-        isDegraded: true,
-        status: 'CATALOG_CORRUPTED',
-        reason: `Catalog metadata checksum (${options.expectedChecksum}) does not match canonical checksum (${expectedChecksum})`,
-      };
-    }
-
     if (items.length < expectedCount) {
       return {
         isReady: false,
@@ -170,6 +152,24 @@ export class CatalogValidator {
         isDegraded: true,
         status: 'CATALOG_CORRUPTED',
         reason: `Catalog items count (${items.length}) exceeds canonical expected count (${expectedCount})`,
+      };
+    }
+
+    if (options.expectedCount !== undefined && options.expectedCount !== expectedCount) {
+      return {
+        isReady: false,
+        isDegraded: true,
+        status: 'CATALOG_CORRUPTED',
+        reason: `Catalog metadata expected_count (${options.expectedCount}) does not match canonical expected count (${expectedCount})`,
+      };
+    }
+
+    if (options.expectedChecksum !== undefined && options.expectedChecksum !== expectedChecksum) {
+      return {
+        isReady: false,
+        isDegraded: true,
+        status: 'CATALOG_CORRUPTED',
+        reason: `Catalog metadata checksum (${options.expectedChecksum}) does not match canonical checksum (${expectedChecksum})`,
       };
     }
 

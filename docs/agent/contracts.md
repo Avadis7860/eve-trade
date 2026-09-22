@@ -412,3 +412,14 @@ Legacy configuration migration is explicit: if a persisted corporation configura
 - `issuer_character_id` and `wallet_division` remain absent when the source payload does not expose those facts.
 - `mergeCharacterAndCorporationOrders()` deduplicates by canonical `OrderId` and gives the corporation feed precedence over a character-feed corporate observation.
 - The frontend synchronization path may persist these ownership-aware orders in the character snapshot, but personal character scoping must exclude corporate-owned records.
+
+
+## Phase 4.7 — Multi-character observation and cache boundary
+
+An aggregated trading order is an economic observation, not an authentication session.
+
+- Source snapshots remain character-partitioned.
+- When the same corporation-owned OrderId is observed by multiple linked characters, the aggregate retains an additive `observed_by_character_ids` provenance list.
+- Contradictory ownership claims for the same canonical OrderId are rejected from aggregation rather than silently overwritten.
+- `EsiGateway` authenticated in-flight coalescing is principal-partitioned and includes a hashed credential fingerprint, preventing cross-character and credential-rotation sharing.
+- The IndexedDB `http_cache` object store remains URL-keyed legacy infrastructure and is not an approved private business-data cache. A future private persistent cache requires an explicit principal/owner partition before adoption.

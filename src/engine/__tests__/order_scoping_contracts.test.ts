@@ -19,7 +19,7 @@ function runOrderScopingTests() {
   console.log('===============================================================');
 
   const orderA: EveCharacterOrder = {
-    order_id: 101,
+    order_id: '101',
     character_id: 1001,
     character_name: 'Trader Alpha',
     type_id: 34,
@@ -44,7 +44,7 @@ function runOrderScopingTests() {
   };
 
   const orderB: EveCharacterOrder = {
-    order_id: 202,
+    order_id: '202',
     character_id: 1002,
     character_name: 'Trader Beta',
     type_id: 35,
@@ -68,7 +68,7 @@ function runOrderScopingTests() {
   };
 
   const orderC_NonFleet: EveCharacterOrder = {
-    order_id: 303,
+    order_id: '303',
     character_id: 9999,
     character_name: 'External Alt',
     type_id: 36,
@@ -92,7 +92,7 @@ function runOrderScopingTests() {
   };
 
   const corporateOrder: EveCharacterOrder = {
-    order_id: 404,
+    order_id: '404',
     character_id: 1001,
     character_name: 'Trader Alpha',
     type_id: 34,
@@ -122,7 +122,7 @@ function runOrderScopingTests() {
 
   const legacyCorporateOrder: EveCharacterOrder = {
     ...corporateOrder,
-    order_id: 405,
+    order_id: '405',
     ownership: undefined,
   };
 
@@ -169,8 +169,8 @@ function runOrderScopingTests() {
   assert(fleetOrders[1].character_id === 1002, 'Character ID 1002 preserved');
   // Verify non-fleet order is excluded
   assert(!fleetOrders.some((o) => o.character_id === 9999), 'External alt (9999) must not be in fleet orders');
-  assert(!fleetOrders.some((o) => o.order_id === 404), 'Corporation-owned order must not enter character fleet scope');
-  assert(!fleetOrders.some((o) => o.order_id === 405), 'Legacy corporation order must not be inferred to the observing character');
+  assert(!fleetOrders.some((o) => o.order_id === '404'), 'Corporation-owned order must not enter character fleet scope');
+  assert(!fleetOrders.some((o) => o.order_id === '405'), 'Legacy corporation order must not be inferred to the observing character');
   console.log('  [PASS] Test 4: Scope fleet returned orders for all fleet characters and excluded non-fleet.');
 
   // 5. Test identity & immutability (No artificial character_id: 'fleet')

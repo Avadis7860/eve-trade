@@ -160,8 +160,13 @@ const registeredStructure = universe.registerStructure({
 assert(registeredStructure.is_verified, 'Dynamic structure resolution may be verified for display/orchestration');
 const dynamicSyncLookup = universe.resolveLocationSync(dynamicStructureId);
 assert(
-  dynamicSyncLookup.status === 'LOCATION_UNKNOWN' && dynamicSyncLookup.is_verified === false,
-  'Dynamic/ESI structure cache must never become canonical synchronous financial resolution'
+  dynamicSyncLookup.status === 'RESOLVED_STRUCTURE' && dynamicSyncLookup.is_verified === true,
+  'General synchronous location resolution must expose explicitly registered dynamic structures'
+);
+const dynamicCanonicalLookup = universe.resolveCanonicalLocationSync(dynamicStructureId);
+assert(
+  dynamicCanonicalLookup.status === 'LOCATION_UNKNOWN' && dynamicCanonicalLookup.is_verified === false,
+  'Canonical synchronous resolution must ignore dynamic/ESI structure cache entries'
 );
 
 console.log('🎉 CATALOG & UNIVERSE TRUTH TESTS PASSED.');

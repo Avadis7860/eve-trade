@@ -249,9 +249,10 @@ export class UniverseRepository {
   }
 
   /**
-   * Resolves synchronous location if known, otherwise returns a deterministic fallback with full provenance.
+   * Resolves a location exclusively from the canonical static universe dataset.
+   * Dynamic ESI/structure cache entries are intentionally invisible at this boundary.
    */
-  resolveLocationSync(locationId: number): LocationResolutionResult {
+  resolveCanonicalLocationSync(locationId: number): LocationResolutionResult {
     const cached = this.locationCache.get(locationId);
     if (cached) return cached;
 
@@ -297,8 +298,8 @@ export class UniverseRepository {
       is_hub: false,
       source: 'fallback',
       is_verified: false,
-      confidence: 0.0,
-      error: `Location ID ${locationId} not found in static universe dataset or structure cache`,
+      confidence: 0,
+      error: `Location ID ${locationId} not found in the canonical static universe dataset`,
       provenance: {
         source: 'unknown',
         dataset_version: CANONICAL_UNIVERSE_MANIFEST.version,
@@ -307,10 +308,26 @@ export class UniverseRepository {
         verified: false,
         confidence: 0,
         completeness: 'unknown',
+        scope: 'canonical_location',
       },
     };
     this.locationCache.set(locationId, fallback);
     return fallback;
+  }
+
+  /**
+   * Resolves a location for general UI/orchestration use.
+   * Canonical static data always has precedence; explicitly registered ESI/structure
+   * records may be returned here but are never treated as canonical by financial code.
+   */
+  resolveLocationSync(locationId: number): LocationResolutionResult {
+    const canonical = this.locationCache.get(locationId);
+    if (canonical) return canonical;
+
+    const dynamic = this.dynamicLocationCache.get(locationId);
+    if (dynamic) return dynamic;
+
+    return this.resolveCanonicalLocationSync(locationId);
   }
 
   /**

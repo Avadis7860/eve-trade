@@ -181,3 +181,14 @@ Validation: `interregional_purity.test.ts`, typecheck, full engine regression an
 - Rule: compatible observations of the same economic owner are merged by canonical `OrderId` and observer provenance is unioned.
 - Rule: conflicting economic owners for the same `OrderId` fail closed rather than choosing a winner silently.
 - Validation: `src/engine/__tests__/corporation_order.test.ts` and application aggregation path.
+
+
+## PRIVATE-CACHE-BOUNDARY-001 — Private requests remain principal-partitioned
+
+- Scope: `EsiGateway` authenticated request coalescing.
+- Rule: authenticated in-flight requests are partitioned by character principal and credential fingerprint in addition to endpoint/request identity.
+- Rule: Character A and Character B never share a private in-flight request, even when querying the same corporation.
+- Rule: credential rotation for the same character does not coalesce with the previous credential.
+- Rule: bearer credentials are never stored in plain text in a dedupe/cache key; only a cryptographic fingerprint is used.
+- Rule: the IndexedDB `http_cache` store is currently transport infrastructure only and has no active private-data consumer; private business data must not be moved into it without a dedicated principal/owner partition contract.
+- Validation: `server/__tests__/esi_gateway.test.ts`, corporation gateway tests, static consumer audit.

@@ -30,25 +30,34 @@ Ce document constitue la **source de vérité absolue** pour tout agent d'intell
 
 ## 🛠️ Commandes & Cycle de Validation
 
-Avant de clore toute tâche ou de proposer des modifications, l'agent IA **DOIT impérativement** exécuter et valider les trois étapes suivantes :
+Avant de clore toute tâche ou de proposer des modifications, l'agent IA **DOIT** valider les checks pertinents du dépôt. Le minimum est :
 
-### 1. Tests Unitaires Mathématiques
+### 1. Typage frontend
+```bash
+npm run typecheck
+```
+
+### 2. Typage backend
+```bash
+npm run typecheck:server
+```
+
+### 3. Tests métier
 ```bash
 npm test
 ```
-*Vérifie la conformité de tous les calculs de taxes, de slippage de carnet, d'arbitrage inter-hubs et de sécurité des sessions.*
 
-### 2. Vérification du Typage TypeScript
+### 4. Tests serveur
 ```bash
-npm run lint
+npm run test:server
 ```
-*Exécute `tsc --noEmit`. Aucune erreur TypeScript ne doit subsister.*
 
-### 3. Compilation de Production
+### 5. Build de production
 ```bash
 npm run build
 ```
-*Compile le frontend React avec Vite et bundle le backend Express dans `dist/server.cjs`.*
+
+Le pipeline CI exécute également ces contrôles. Toute modification réseau, sécurité ou API doit ajouter/mettre à jour les tests ciblés (`test:esi`, `test:security`, `test:api`, `test:smoke`) selon le périmètre.
 
 ---
 
@@ -58,7 +67,8 @@ npm run build
 /
 ├── server.ts                 # Backend Express (Endpoints API, Proxy ESI, Échange SSO)
 ├── src/
-│   ├── types.ts              # Types TypeScript unifiés (Point central de typage)
+│   ├── types/                # Contrats TypeScript organisés par domaine
+│   ├── types.ts              # Façade de compatibilité des types
 │   ├── engine/               # Moteurs de calcul déterministes (PURS, SANS EFFETS DE BORD)
 │   │   ├── fee.ts            # Calculateur de taxes, courtage et fret
 │   │   ├── ladder.ts         # Agrégation de carnet, profondeur et slippage
@@ -75,7 +85,7 @@ npm run build
 │   ├── services/             # Couche d'intégration & services d'orchestration
 │   │   ├── authService.ts    # Gestion multi-personnages EVE SSO et tokens
 │   │   ├── esi.ts            # Client HTTP CCP ESI avec retry et gestion d'erreurs
-│   │   ├── indexedDbStore.ts # Stockage persistant IndexedDB v2 (8 object stores)
+│   │   ├── indexedDbStore.ts # Stockage persistant IndexedDB v5 (11 object stores)
 │   │   ├── marketDataStore.ts# Cache central d'ordres et statistiques
 │   │   ├── scanner.ts        # Scanner d'opportunités inter-hubs
 │   │   ├── orderAdvisor.ts   # Moteur de recommandations d'ajustement d'ordres

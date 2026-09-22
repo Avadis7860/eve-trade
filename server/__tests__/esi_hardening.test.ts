@@ -5,7 +5,7 @@
  */
 
 import { fetchEsi, setGlobalEsiMock, EsiFetchResult } from '../utils/esiClient';
-import { mergeEsi304CacheEntry } from '../routes/markets';
+import { mergeMarketEsi304CacheEntry } from '../gateways/marketEsiGateway';
 import { createServerApp, RunningServer } from '../../server';
 import http from 'http';
 
@@ -354,21 +354,35 @@ async function runTests() {
     });
 
     await test('market cache revalidation preserves pagination metadata from cached state', async () => {
-      const refreshed = mergeEsi304CacheEntry(
+      const refreshed = mergeMarketEsi304CacheEntry(
         {
           data: [{ order_id: 1, type_id: 35, price: 10 }],
-          headers: { 'X-Pages': '3', 'X-ESI-Error-Limit-Remain': '99' },
+          metadata: {
+            cache: { etag: '"orders-etag"' },
+            rateLimit: { errorLimitRemain: 99 },
+            pagination: { xPages: 3 },
+          },
           expiresAt: 0,
           etag: '"orders-etag"',
         },
         {
-          etag: '"orders-etag"',
-          expires: new Date(Date.now() + 120000).toUTCString(),
+          ok: true,
+          status: 304,
+          data: null,
+          metadata: {
+            cache: {
+              etag: '"orders-etag"',
+              expires: new Date(Date.now() + 120000).toUTCString(),
+            },
+            rateLimit: {},
+            pagination: {},
+          },
         },
         Date.now(),
+        60000,
       );
-      assert(refreshed.headers['X-Pages'] === '3', 'Cached X-Pages must survive a 304 without pagination headers');
-      assert(refreshed.headers['X-ESI-Error-Limit-Remain'] === '99', 'Cached rate-limit metadata must survive 304');
+      assert(refreshed.metadata.pagination.xPages === 3, 'Cached X-Pages must survive a 304 without pagination headers');
+      assert(refreshed.metadata.rateLimit.errorLimitRemain === 99, 'Cached rate-limit metadata must survive 304');
       assert(refreshed.etag === '"orders-etag"', 'ETag must survive revalidation');
       assert(refreshed.data[0]?.order_id === 1, 'Cached market data must survive revalidation');
       assert(refreshed.expiresAt > Date.now(), 'Revalidated cache entry must receive a future expiration');

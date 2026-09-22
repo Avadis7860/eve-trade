@@ -66,8 +66,9 @@ function mapError(result: EsiFetchResult): EsiError {
   else if (status === 404) kind = 'NOT_FOUND';
   else if (status === 420 || status === 429) kind = 'RATE_LIMITED';
   else if (status === 504 && result.error?.toLowerCase().includes('timed out')) kind = 'TIMEOUT';
-  else if (status >= 500) kind = 'TRANSIENT';
+  else if (result.error?.toLowerCase().includes('invalid json')) kind = 'INVALID_RESPONSE';
   else if (result.error === 'Network request failed') kind = 'NETWORK';
+  else if (status >= 500) kind = 'TRANSIENT';
 
   return {
     kind,
@@ -90,7 +91,11 @@ export class EsiGateway {
     request: EsiRequest,
     context: EsiPrincipalContext = { type: 'anonymous' }
   ): Promise<EsiGatewayResponse<T>> {
-    if (!request.path || !request.path.startsWith('/')) {
+    if (
+      !request.path ||
+      !request.path.startsWith('/') ||
+      /[\\r\\n]/.test(request.path)
+    ) {
       return {
         ok: false,
         status: 400,
@@ -124,6 +129,23 @@ export class EsiGateway {
     const method = request.method || 'GET';
     const endpoint = appendQuery(request.path, request.query);
     const headers: Record<string, string> = { ...(request.headers || {}) };
+
+    for (const [key, value] of Object.entries(headers)) {
+      if (/[\\r\\n]/.test(key) || /[\\r\\n]/.test(value)) {
+        return {
+          ok: false,
+          status: 400,
+          data: null,
+          error: {
+            kind: 'UNKNOWN',
+            status: 400,
+            message: 'ESI gateway rejected a header containing control characters',
+            retryable: false,
+          },
+          metadata: emptyMetadata(),
+        };
+      }
+    }
 
     for (const key of Object.keys(headers)) {
       if (key.toLowerCase() === 'authorization') {

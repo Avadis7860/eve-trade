@@ -6,7 +6,12 @@ import {
   RegionResolutionResult,
   JumpRoute,
 } from '../../types';
-import { MAJOR_MARKET_HUBS, KNOWN_STATION_NAMES, getJumpRoute } from '../../data/universe';
+import { MAJOR_MARKET_HUBS, KNOWN_STATION_NAMES } from '../../data/universe';
+import { UniverseGraphRepository } from './UniverseGraphRepository';
+import { RouteEngine, RoutePolicy } from './RouteEngine';
+import { RouteIndex } from './RouteIndex';
+import { certifyRoute } from './RouteCertification';
+import { certifiedRouteToJumpRoute, unknownRouteToJumpRoute } from './CertifiedRouteAdapter';
 import universeDataRaw from '../../data/universeData.json';
 import { CANONICAL_UNIVERSE_MANIFEST } from '../../data/universeManifest';
 import { UniverseValidator, UniverseValidationResult } from './UniverseValidator';
@@ -45,9 +50,14 @@ export class UniverseRepository {
   private systemMap = new Map<number, { name: string; region_id: number; security: number }>();
   private stationMap = new Map<number, { name: string; system_id: number; type_id?: number }>();
   private readonly integrity: UniverseValidationResult;
+  private readonly graphRepository: UniverseGraphRepository;
+  private readonly routeEngine: RouteEngine;
+  private readonly routeIndexCache = new Map<string, RouteIndex>();
 
   private constructor() {
     this.integrity = UniverseValidator.validate(universeDataRaw);
+    this.graphRepository = new UniverseGraphRepository();
+    this.routeEngine = new RouteEngine(this.graphRepository.getGraph());
 
     // 1. Seed All 114 Regions
     if (universeData && universeData.regions) {
@@ -550,10 +560,70 @@ export class UniverseRepository {
   }
 
   /**
-   * Canonical jump route calculation between any two solar systems in New Eden.
+   * Resolves a route exclusively from the canonical SDE-backed universe graph.
+   *
+   * SAFE is the conservative default for trade transport. Consumers performing
+   * EVE order_range accessibility checks must request SHORTEST explicitly.
    */
-  getRoute(fromSystemId: number, toSystemId: number): JumpRoute {
-    return getJumpRoute(fromSystemId, toSystemId);
+  getRoute(
+    fromSystemId: number,
+    toSystemId: number,
+    policy: RoutePolicy = 'SAFE',
+  ): JumpRoute {
+    const result = this.routeEngine.findRouteWithPolicy(fromSystemId, toSystemId, policy);
+
+    if (result.status === 'FOUND') {
+      const certification = certifyRoute(
+        this.graphRepository.getGraph(),
+        result,
+        { requireSafe: policy === 'SAFE' },
+      );
+      if (certification.status === 'CERTIFIED' && certification.route) {
+        return certifiedRouteToJumpRoute(certification.route);
+      }
+    }
+
+    return unknownRouteToJumpRoute(
+      fromSystemId,
+      toSystemId,
+      this.graphRepository.getGraph().provenance,
+      result.error ?? `Route is not certifiable under policy ${policy}`,
+    );
+  }
+
+  getRouteIndex(
+    destinationSystemId: number,
+    policy: RoutePolicy = 'SHORTEST',
+  ): RouteIndex {
+    const graphIdentity = this.graphRepository.getGraph().provenance.graph_checksum;
+    const key = `${graphIdentity}:${policy}:${destinationSystemId}`;
+    const existing = this.routeIndexCache.get(key);
+    if (existing) return existing;
+
+    const index = this.graphRepository.createRouteIndex(destinationSystemId, policy);
+    this.routeIndexCache.set(key, index);
+    return index;
+  }
+
+  getIndexedRoute(index: RouteIndex, fromSystemId: number): JumpRoute {
+    const result = index.getRouteFrom(fromSystemId);
+    if (result.status === 'FOUND') {
+      const certification = certifyRoute(
+        this.graphRepository.getGraph(),
+        result,
+        { requireSafe: index.route_policy === 'SAFE' },
+      );
+      if (certification.status === 'CERTIFIED' && certification.route) {
+        return certifiedRouteToJumpRoute(certification.route);
+      }
+    }
+
+    return unknownRouteToJumpRoute(
+      fromSystemId,
+      index.destination_system_id,
+      this.graphRepository.getGraph().provenance,
+      result.error ?? `Indexed route is not certifiable under policy ${index.route_policy}`,
+    );
   }
 
   getIntegrity(): UniverseValidationResult {

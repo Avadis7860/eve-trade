@@ -1,4 +1,5 @@
 import { CorporationEsiGateway } from '../gateways/corporationEsiGateway';
+import type { CorporationProfile } from '../gateways/corporationEsiGateway';
 import type { EsiGatewayResponse, EsiPrincipalContext, EsiRequest } from '../utils/esiTypes';
 
 function assert(condition: boolean, message: string): void {

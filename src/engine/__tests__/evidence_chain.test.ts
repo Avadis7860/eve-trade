@@ -92,7 +92,7 @@ const freshQuality: MarketDataQuality = {
 
 const jitaSellOrders: RawMarketOrder[] = [
   {
-    order_id: 1001,
+    order_id: '1001',
     type_id: 34,
     region_id: 10000002,
     system_id: 30000142,
@@ -109,7 +109,7 @@ const jitaSellOrders: RawMarketOrder[] = [
 
 const amarrBuyOrders: RawMarketOrder[] = [
   {
-    order_id: 2001,
+    order_id: '2001',
     type_id: 34,
     region_id: 10000043,
     system_id: 30002187,

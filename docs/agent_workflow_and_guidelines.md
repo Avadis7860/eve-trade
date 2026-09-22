@@ -15,7 +15,7 @@ Lors de la réception d'une instruction utilisateur :
    * Typage commun $\implies$ `/src/types.ts`
    * Proxy Express backend $\implies$ `/server/` et `/server.ts`
 3. **Ne jamais modifier les signatures de fonctions mathématiques** sans mettre à jour les tests associés dans `/src/engine/__tests__/`.
-3. **Respecter l'absence totale d'effets de bord dans `/src/engine/`** : Ne jamais introduire d'appels `fetch`, `localStorage`, `IndexedDbStore`, `Date.now()` direct ou `useState` dans un fichier de moteur mathématique.
+4. **Respecter l'absence totale d'effets de bord dans `/src/engine/`** : Ne jamais introduire d'appels `fetch`, `localStorage`, `IndexedDbStore`, `Date.now()` direct ou `useState` dans un fichier de moteur mathématique.
 
 ---
 

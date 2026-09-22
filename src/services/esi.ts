@@ -10,6 +10,7 @@ import {
 } from '../types';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
 import { AuthService } from './authService';
+import { fetchBackendApi } from './backendApiClient';
 
 export interface EsiFetchOrdersResult {
   orders: RawMarketOrder[];
@@ -107,15 +108,6 @@ export class EsiService {
     return { isValid: true, order: validOrder };
   }
 
-  /** Frontend transport boundary: ESI-backed data is acquired through the server API. */
-  private static async fetchApi<T>(path: string, init?: RequestInit): Promise<{ response: Response; data: T }> {
-    const response = await fetch(path, init);
-    let data: T;
-    try { data = (await response.json()) as T; }
-    catch { throw new Error(`API returned non-JSON response (HTTP ${response.status})`); }
-    return { response, data };
-  }
-
   /**
    * Fetches active market orders for a given region and type with full pagination,
    * comprehensive error recovery, deduplication, and quality metadata tracking.
@@ -135,7 +127,7 @@ export class EsiService {
       }
     };
     const fetchPage = async (page: number) => {
-      const { response, data } = await this.fetchApi<any[]>(`/api/markets/${regionId}/orders?type_id=${typeId}&page=${page}`);
+      const { response, data } = await fetchBackendApi<any[]>(`/api/markets/${regionId}/orders?type_id=${typeId}&page=${page}`);
       if (!response.ok) throw new Error(`Market API returned HTTP ${response.status}`);
       const xPages = response.headers.get('x-pages'); const parsed = xPages ? Number.parseInt(xPages, 10) : 1;
       return { data: Array.isArray(data) ? data : [], totalPages: Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 50) : 1 };
@@ -179,7 +171,7 @@ export class EsiService {
    */
   static async fetchMarketHistory(regionId: number, typeId: number): Promise<HistoricalStats | null> {
     try {
-      const { response, data } = await this.fetchApi<DailyMarketHistory[]>(`/api/markets/${regionId}/history?type_id=${typeId}`);
+      const { response, data } = await fetchBackendApi<DailyMarketHistory[]>(`/api/markets/${regionId}/history?type_id=${typeId}`);
       if (!response.ok || !Array.isArray(data) || data.length === 0) return null;
       const sorted=[...data].sort((a,b)=>b.date.localeCompare(a.date)), last7=sorted.slice(0,7), last30=sorted.slice(0,30);
       const median=(arr:number[])=>{if(!arr.length)return 0;const v=[...arr].sort((a,b)=>a-b),m=Math.floor(v.length/2);return v.length%2?v[m]:(v[m-1]+v[m])/2;};
@@ -194,7 +186,7 @@ export class EsiService {
    */
   static async lookupTypeById(typeId: number) {
     if (!Number.isInteger(typeId) || typeId <= 0) return null;
-    try { const {response,data}=await this.fetchApi<any>(`/api/types/lookup/${typeId}`); if(!response.ok)return null; return {type_id:data.type_id,group_id:data.group_id,name:data.name,volume:data.volume||data.packaged_volume||0.01,packaged_volume:data.packaged_volume,description:data.description?String(data.description).replace(/<[^>]*>?/gm,'').slice(0,140):''}; }
+    try { const {response,data}=await fetchBackendApi<any>(`/api/types/lookup/${typeId}`); if(!response.ok)return null; return {type_id:data.type_id,group_id:data.group_id,name:data.name,volume:data.volume||data.packaged_volume||0.01,packaged_volume:data.packaged_volume,description:data.description?String(data.description).replace(/<[^>]*>?/gm,'').slice(0,140):''}; }
     catch { return null; }
   }
 
@@ -203,7 +195,7 @@ export class EsiService {
    */
   static async searchTypesByName(query: string) {
     if (!query || query.length < 2) return [];
-    try { const {response,data}=await this.fetchApi<any[]>(`/api/types/search?q=${encodeURIComponent(query)}&limit=5`); return response.ok&&Array.isArray(data)?data:[]; }
+    try { const {response,data}=await fetchBackendApi<any[]>(`/api/types/search?q=${encodeURIComponent(query)}&limit=5`); return response.ok&&Array.isArray(data)?data:[]; }
     catch { return []; }
   }
 

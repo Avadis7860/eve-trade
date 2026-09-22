@@ -160,9 +160,23 @@ export class EsiGateway {
       etag: request.etag,
     };
 
+    const dedupeHeaders = Object.entries(headers)
+      .filter(([key]) => key.toLowerCase() !== 'authorization')
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => key.toLowerCase() + '=' + value)
+      .join('&');
+
     const dedupeKey =
       method === 'GET'
-        ? principalFingerprint(context) + '|' + method + '|' + endpoint
+        ? principalFingerprint(context) +
+          '|' +
+          method +
+          '|' +
+          endpoint +
+          '|' +
+          (request.etag || '') +
+          '|' +
+          dedupeHeaders
         : undefined;
 
     if (dedupeKey) {

@@ -7,8 +7,6 @@ import { CatalogRepository } from '../domain/catalog/CatalogRepository';
 import { CharacterRepository } from '../domain/character/CharacterRepository';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
 import { useAuth } from '../context/AuthProvider';
-import { useTradingConfig } from '../context/TradingConfigProvider';
-import { TreasuryEngine } from '../engine/treasury';
 
 export function useCharacterSync(
   orderBooks: Record<number, any[]>,
@@ -16,10 +14,7 @@ export function useCharacterSync(
   onLoginSuccess?: () => void
 ) {
   const { characterSession, updateSession, removeCharacter } = useAuth();
-  const { config: tradingConfig, setConfig } = useTradingConfig();
-  const treasurySourceMode = tradingConfig.treasury_source_mode ?? 'corporation';
-  const corporationWalletSource = tradingConfig.corporation_wallet_source ?? 'unavailable';
-  const [characterOrders, setCharacterOrders] = useState<EveCharacterOrder[]>([]);
+    const [characterOrders, setCharacterOrders] = useState<EveCharacterOrder[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState<boolean>(false);
 
   const loadCharacterData = useCallback(
@@ -137,56 +132,15 @@ export function useCharacterSync(
             available_capital:
               prev.treasury_source_mode === 'corporation'
                 ? prev.available_capital
-                : TreasuryEngine.normalizeWalletTradingCapital(balance) ?? prev.available_capital,
+                : (typeof balance === 'number'
+                    ? Math.max(0, Math.round(balance * 100) / 100)
+                    : prev.available_capital),
             accounting_level: accountingLvl,
             broker_relations_level: brokerRelLvl,
             broker_fee: calculatedBrokerFee,
             sales_tax: calculatedSalesTax,
           }));
 
-          // Corporation treasury is synchronized independently from the
-          // character wallet. The authenticated character is only the ESI
-          // principal used to access the corporation endpoints.
-          if (treasurySourceMode === 'corporation' && corporationWalletSource !== 'manual') {
-            try {
-              const corpInfo = await EsiService.fetchCorporationInfo(charId, token);
-              if (corpInfo.ok && corpInfo.data) {
-                const corpWallets = await EsiService.fetchCorporationWallets(charId, token);
-                if (corpWallets.ok && corpWallets.data?.wallets) {
-                  const division = tradingConfig.corporation_wallet_division || 1;
-                  const selected = corpWallets.data.wallets.find((wallet) => wallet.division === division)
-                    || corpWallets.data.wallets[0];
-
-                  setConfig((prev) => ({
-                    ...prev,
-                    corporation_id: corpInfo.data!.corporation_id,
-                    corporation_name: corpInfo.data!.corporation_name,
-                    corporation_wallet_balance: selected?.balance,
-                    corporation_divisions: corpWallets.data!.wallets,
-                    corporation_wallet_source: 'esi',
-                  }));
-                } else {
-                  setConfig((prev) => ({
-                    ...prev,
-                    corporation_id: corpInfo.data!.corporation_id,
-                    corporation_name: corpInfo.data!.corporation_name,
-                    corporation_wallet_source: 'unavailable',
-                  }));
-                }
-              } else {
-                setConfig((prev) => ({
-                  ...prev,
-                  corporation_wallet_source: 'unavailable',
-                }));
-              }
-            } catch (corpError) {
-              console.warn('[useCharacterSync] corporation treasury sync failed:', corpError);
-              setConfig((prev) => ({
-                ...prev,
-                corporation_wallet_source: 'unavailable',
-              }));
-            }
-          }
         } else {
           AuthService.saveCharacter(sessionObj, false);
         }
@@ -203,9 +157,6 @@ export function useCharacterSync(
       hubs,
       updateSession,
       setConfig,
-      treasurySourceMode,
-      corporationWalletSource,
-      tradingConfig.corporation_wallet_division,
     ]
   );
 

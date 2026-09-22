@@ -320,7 +320,72 @@ charactersRouter.get('/:characterId/corporation/wallets', async (req: Request, r
 
   const corporationId = charRes.data.corporation_id;
 
-  const walletRes = await corporationEsiGateway.fetchWallets(
+  // 9. Proxy active corporation orders using the authenticated character principal.
+charactersRouter.get('/:characterId/corporation/orders', async (req: Request, res: Response) => {
+  const params = validateCharacterParams(req, res);
+  if (!params) return;
+
+  const charRes = await characterEsiGateway.fetchPublicIdentity(params.characterId);
+  if (!charRes.ok || !charRes.data?.corporation_id) {
+    return res.status(404).json({
+      error: 'CHARACTER_OR_CORP_NOT_FOUND',
+      details: charRes.error?.message,
+    });
+  }
+
+  const result = await corporationEsiGateway.fetchOrders(
+    charRes.data.corporation_id,
+    params.characterId,
+    params.bearerCredential,
+  );
+
+  if (!result.ok) {
+    return sendCharacterError(res, result, 'CORP_ORDERS_ACCESS_DENIED');
+  }
+
+  return sendCharacterSuccess(res, result);
+});
+
+// 10. Proxy corporation order history.
+charactersRouter.get('/:characterId/corporation/orders/history', async (req: Request, res: Response) => {
+  const params = validateCharacterParams(req, res);
+  if (!params) return;
+
+  let page = 1;
+  if (req.query.page !== undefined) {
+    const numPage = Number(req.query.page);
+    if (!Number.isInteger(numPage) || numPage < 1 || numPage > 1000) {
+      return res.status(400).json({
+        error: 'INVALID_PAGE',
+        message: 'page must be an integer between 1 and 1000',
+      });
+    }
+    page = numPage;
+  }
+
+  const charRes = await characterEsiGateway.fetchPublicIdentity(params.characterId);
+  if (!charRes.ok || !charRes.data?.corporation_id) {
+    return res.status(404).json({
+      error: 'CHARACTER_OR_CORP_NOT_FOUND',
+      details: charRes.error?.message,
+    });
+  }
+
+  const result = await corporationEsiGateway.fetchOrderHistory(
+    charRes.data.corporation_id,
+    params.characterId,
+    params.bearerCredential,
+    page,
+  );
+
+  if (!result.ok) {
+    return sendCharacterError(res, result, 'CORP_ORDER_HISTORY_ACCESS_DENIED');
+  }
+
+  return sendCharacterSuccess(res, result);
+});
+
+const walletRes = await corporationEsiGateway.fetchWallets(
     corporationId,
     params.characterId,
     params.bearerCredential,

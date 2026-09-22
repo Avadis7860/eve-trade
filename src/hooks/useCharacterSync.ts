@@ -80,10 +80,30 @@ export function useCharacterSync(
             }
           }
 
+          const ownership = o.ownership ?? (
+            o.is_corporation === true
+              ? undefined
+              : {
+                  principal_character_id: charId,
+                  owner_type: 'character' as const,
+                  owner_id: charId,
+                  owner_name: charName,
+                }
+          );
+
           enrichedOrders.push({
             ...o,
-            character_id: charId,
-            character_name: charName,
+            ...(ownership
+              ? { ownership }
+              : {
+                  // A corporation order must never be relabeled as personally owned
+                  // by the character whose credential observed it.
+                  character_id: undefined,
+                  character_name: undefined,
+                }),
+            ...(ownership?.owner_type === 'character'
+              ? { character_id: charId, character_name: charName }
+              : {}),
             type_name: typeName,
             location_name: locName,
             market_competition: {

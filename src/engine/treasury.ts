@@ -61,9 +61,9 @@ export class TreasuryEngine {
       let capitalStatus: TreasuryCapitalStatus = 'unavailable';
 
       if (source === 'esi') {
-        if (divisionInfo && typeof divisionInfo.balance === 'number') {
+        if (divisionInfo && Number.isFinite(divisionInfo.balance)) {
           balance = divisionInfo.balance;
-        } else if (typeof cfg.corporation_wallet_balance === 'number') {
+        } else if (Number.isFinite(cfg.corporation_wallet_balance)) {
           balance = cfg.corporation_wallet_balance;
         }
         if (balance !== undefined) capitalStatus = 'observed_esi';
@@ -92,12 +92,16 @@ export class TreasuryEngine {
       let total = 0;
       let capitalStatus: TreasuryCapitalStatus = 'unavailable';
       if (characters && characters.length > 0) {
+        let observedWalletCount = 0;
         for (const c of characters) {
-          if (typeof c.wallet_balance === 'number') {
+          if (typeof c.wallet_balance === 'number' && Number.isFinite(c.wallet_balance)) {
             total += Math.max(0, c.wallet_balance);
+            observedWalletCount++;
           }
         }
-        capitalStatus = 'observed_esi';
+        if (observedWalletCount > 0) {
+          capitalStatus = 'observed_esi';
+        }
       } else if (typeof cfg.fleet_consolidated_capital === 'number') {
         total = cfg.fleet_consolidated_capital;
         capitalStatus = 'manual';
@@ -125,7 +129,7 @@ export class TreasuryEngine {
 
       let balance: number | undefined;
       let capitalStatus: TreasuryCapitalStatus = 'unavailable';
-      if (activeChar && typeof activeChar.wallet_balance === 'number') {
+      if (activeChar && Number.isFinite(activeChar.wallet_balance)) {
         balance = activeChar.wallet_balance;
         capitalStatus = 'observed_esi';
       } else if (typeof cfg.available_capital === 'number') {

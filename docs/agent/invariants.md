@@ -106,6 +106,9 @@ Validation: `interregional_purity.test.ts`, typecheck, full engine regression an
 - Validation: `src/engine/__tests__/treasury.test.ts` and the ESI corporation route/gateway contract suites.
 - Legacy persisted corporation configs with missing/invalid provenance normalize to `unavailable`; no legacy numeric balance is automatically certified as ESI or manual capital.
 - Validation: `src/engine/__tests__/financial_config.test.ts`.
+- Rule: corporation treasury synchronization is orchestrated by `src/services/corporationTreasurySync.ts`; UI and lifecycle consumers must not duplicate profile/wallet sequencing.
+- Rule: successful ESI certification requires the requested division to exist with a finite balance and the corporation identity returned by the wallet endpoint to match the resolved profile when present.
+- Rule: manual corporation budgets are never populated from `corporation_divisions` merely because the user changes the selected division.
 
 ## CORPORATION-DATA-SEPARATION-001 — Transport boundary remains domain-neutral
 

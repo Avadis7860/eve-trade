@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { buildUniverseGraph } from '../../domain/universe/UniverseGraph';
 import { RouteEngine } from '../../domain/universe/RouteEngine';
 import { certifyRoute } from '../../domain/universe/RouteCertification';
+import { UniverseGraphRepository } from '../../domain/universe/UniverseGraphRepository';
 
 const provenance = {
   source: 'sde_canonical' as const,
@@ -31,6 +32,32 @@ const graph = buildUniverseGraph({
 });
 
 const engine = new RouteEngine(graph);
+const graphRepository = new UniverseGraphRepository({
+  load: () => ({
+    provenance,
+    nodes: [
+      { system_id: 1, security_status: 0.9 },
+      { system_id: 2, security_status: 0.8 },
+    ],
+    edges: [
+      { from_system_id: 1, to_system_id: 2 },
+      { from_system_id: 2, to_system_id: 1 },
+    ],
+  }),
+});
+assert.equal(graphRepository.getGraph().node_count, 2);
+
+assert.throws(
+  () =>
+    new UniverseGraphRepository({
+      load: () => ({
+        ...graphRepository.getGraph(),
+        provenance: { ...provenance, source: 'unknown' as never },
+      }),
+    }),
+  /canonical SDE/,
+);
+
 
 const self = engine.findRoute(1, 1);
 assert.equal(self.status, 'FOUND');

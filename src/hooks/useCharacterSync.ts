@@ -8,6 +8,7 @@ import { CharacterRepository } from '../domain/character/CharacterRepository';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
 import { useAuth } from '../context/AuthProvider';
 import { useTradingConfig } from '../context/TradingConfigProvider';
+import { TreasuryEngine } from '../engine/treasury';
 
 export function useCharacterSync(
   orderBooks: Record<number, any[]>,
@@ -129,7 +130,8 @@ export function useCharacterSync(
           updateSession(sessionObj);
           setConfig((prev) => ({
             ...prev,
-            available_capital: balance && balance > 0 ? balance : prev.available_capital,
+            available_capital:
+              TreasuryEngine.normalizeWalletTradingCapital(balance) ?? prev.available_capital,
             accounting_level: accountingLvl,
             broker_relations_level: brokerRelLvl,
             broker_fee: calculatedBrokerFee,

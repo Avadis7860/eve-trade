@@ -151,3 +151,17 @@ Le mode `treasury_source_mode = corporation` sélectionne exclusivement une sour
 Une source ESI indisponible est représentée distinctement et ne provoque pas la réutilisation silencieuse d'un ancien `available_capital`.
 
 Une ancienne configuration persistée sans `corporation_wallet_source`, ou avec une valeur inconnue, est normalisée vers `unavailable`. Le solde numérique hérité reste consultable, mais n'est pas certifié comme capital ESI ou budget manuel tant qu'il n'a pas été explicitement requalifié.
+
+
+## Phase 4.7 — Corporation trading orders
+
+The corporation trading order boundary now supports:
+
+| Endpoint ESI | Scope SSO | Principal transport |
+|---|---|---|
+| `/corporations/{corporation_id}/orders/` | `esi-markets.read_corporation_orders.v1` | authenticated character |
+| `/corporations/{corporation_id}/orders/history/` | `esi-markets.read_corporation_orders.v1` | authenticated character |
+
+The HTTP routes are exposed under `/api/character/:id/corporation/orders` and `/api/character/:id/corporation/orders/history`. The corporation ID is resolved from the character's public identity; callers do not supply an arbitrary corporation ID.
+
+Both routes preserve ESI payloads and transport metadata and use the authenticated character as the ESI principal. The corporation itself is never represented as an authentication principal.

@@ -47,6 +47,99 @@ export function escapeHtml(str: string): string {
     .replace(/'/g, '&#39;');
 }
 
+/**
+ * Safely serializes data to JSON for embedding within inline <script> tags.
+ * Neutralizes '</script>' and script-breaking characters by encoding '<', '>', '&'
+ * as Unicode escapes (\u003c, \u003e, \u0026) and escaping line/paragraph separators.
+ */
+export function safeJsonStringify(val: any): string {
+  if (val === undefined) return 'null';
+  return JSON.stringify(val)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+}
+
+/**
+ * Validates whether an incoming HTTP Origin header is authorized for CORS.
+ * Enforces strict origin checking against:
+ * 1. Current request host origin (same-host origin, both http and https)
+ * 2. Explicitly configured EVE_CALLBACK_URL origin
+ * 3. Whitelisted environment origins (ALLOWED_ORIGINS or CORS_ORIGIN)
+ * 4. Standard local development origins (localhost:3000, 127.0.0.1:3000, localhost:5173, localhost:8000)
+ */
+export function isAllowedOrigin(origin: string | undefined, req?: express.Request): boolean {
+  if (!origin || typeof origin !== 'string') return false;
+
+  const trimmed = origin.trim().replace(/\/+$/, '');
+  if (!trimmed) return false;
+
+  try {
+    const parsed = new URL(trimmed);
+    const normalized = `${parsed.protocol}//${parsed.host}`;
+
+    // 1. Current request host origin (same-host origin)
+    if (req) {
+      const host = req.get('host');
+      if (host) {
+        const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+        if (
+          normalized === `${protocol}://${host}` ||
+          normalized === `http://${host}` ||
+          normalized === `https://${host}`
+        ) {
+          return true;
+        }
+      }
+    }
+
+    // 2. Configured EVE_CALLBACK_URL origin
+    if (EVE_CALLBACK_URL) {
+      try {
+        const cbOrigin = new URL(EVE_CALLBACK_URL).origin;
+        if (normalized === cbOrigin) {
+          return true;
+        }
+      } catch {}
+    }
+
+    // 3. Configured environment origins (ALLOWED_ORIGINS or CORS_ORIGIN, comma-separated)
+    const envOrigins = process.env.ALLOWED_ORIGINS || process.env.CORS_ORIGIN;
+    if (envOrigins) {
+      const list = envOrigins.split(',').map((s) => s.trim().replace(/\/+$/, ''));
+      for (const item of list) {
+        if (!item) continue;
+        try {
+          if (normalized === new URL(item).origin) {
+            return true;
+          }
+        } catch {}
+      }
+    }
+
+    // 4. Default allowed local development origins
+    const defaultAllowed = new Set<string>([
+      'http://localhost:3000',
+      'http://127.0.0.1:3000',
+      'http://0.0.0.0:3000',
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+      'http://localhost:8000',
+      'http://127.0.0.1:8000',
+    ]);
+
+    if (defaultAllowed.has(normalized)) {
+      return true;
+    }
+  } catch {
+    return false;
+  }
+
+  return false;
+}
+
 export function generateOAuthState(redirectUri?: string): string {
   const now = Date.now();
 
@@ -181,7 +274,7 @@ export function renderAuthErrorHtml(title: string, message: string, errorCode: s
   const safeMessage = escapeHtml(message);
   const safeCode = escapeHtml(errorCode);
 
-  const payloadJson = JSON.stringify({
+  const payloadJson = safeJsonStringify({
     type: 'OAUTH_AUTH_ERROR',
     provider: 'eve_sso',
     error: errorCode,

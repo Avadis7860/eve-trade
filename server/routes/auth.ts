@@ -11,6 +11,7 @@ import {
   parseJwt,
   renderAuthErrorHtml,
   escapeHtml,
+  safeJsonStringify,
   activeOAuthStates,
 } from '../utils/authUtils';
 
@@ -76,29 +77,6 @@ authRouter.post('/token', async (req: Request, res: Response) => {
   }
 
   let { code, redirect_uri, state } = req.body;
-  if (!code || typeof code !== 'string' || !code.trim()) {
-    return res.status(400).json({ error: 'MISSING_CODE', message: 'Missing or empty code parameter' });
-  }
-
-  if (code.length > 4096) {
-    return res.status(400).json({ error: 'CODE_TOO_LONG', message: 'Code parameter exceeds maximum allowed length' });
-  }
-
-  if (state !== undefined && (typeof state !== 'string' || state.length > 128)) {
-    return res.status(400).json({ error: 'INVALID_STATE', message: 'State parameter must be a string <= 128 characters' });
-  }
-
-  if (redirect_uri !== undefined && (typeof redirect_uri !== 'string' || redirect_uri.length > 2048)) {
-    return res.status(400).json({ error: 'INVALID_REDIRECT_URI', message: 'redirect_uri parameter must be a string <= 2048 characters' });
-  }
-
-  if (!EVE_CLIENT_ID || !EVE_CLIENT_SECRET) {
-    logEvent('ERROR', 'SSO', 'Attempted token exchange without EVE_CLIENT_ID or EVE_CLIENT_SECRET configured');
-    return res.status(500).json({
-      error: 'SSO_NOT_CONFIGURED',
-      message: 'EVE_CLIENT_ID and EVE_CLIENT_SECRET environment variables are required.',
-    });
-  }
 
   // Auto-extract code, state, and redirect_uri if user pasted a full URL
   if (typeof code === 'string' && (code.includes('code=') || code.startsWith('http'))) {
@@ -118,7 +96,33 @@ authRouter.post('/token', async (req: Request, res: Response) => {
     } catch {
       const match = code.match(/code=([^&]+)/);
       if (match) code = decodeURIComponent(match[1]);
+      const stateMatch = code.match(/state=([^&]+)/);
+      if (stateMatch && !state) state = decodeURIComponent(stateMatch[1]);
     }
+  }
+
+  if (!code || typeof code !== 'string' || !code.trim()) {
+    return res.status(400).json({ error: 'MISSING_CODE', message: 'Missing or empty code parameter' });
+  }
+
+  if (code.length > 4096) {
+    return res.status(400).json({ error: 'CODE_TOO_LONG', message: 'Code parameter exceeds maximum allowed length' });
+  }
+
+  // Mandatory OAuth State Validation
+  if (!state || typeof state !== 'string' || !state.trim()) {
+    return res.status(400).json({
+      error: 'MISSING_STATE',
+      message: 'Missing or empty state parameter. OAuth state is mandatory for CSRF protection.',
+    });
+  }
+
+  if (state.length > 128) {
+    return res.status(400).json({ error: 'INVALID_STATE', message: 'State parameter must be a string <= 128 characters' });
+  }
+
+  if (redirect_uri !== undefined && (typeof redirect_uri !== 'string' || redirect_uri.length > 2048)) {
+    return res.status(400).json({ error: 'INVALID_REDIRECT_URI', message: 'redirect_uri parameter must be a string <= 2048 characters' });
   }
 
   // Strict redirect_uri whitelist validation
@@ -136,19 +140,26 @@ authRouter.post('/token', async (req: Request, res: Response) => {
     redirect_uri = validatedUri;
   }
 
-  // BLOCKING OAuth State Verification
-  if (state !== undefined) {
-    const stateCheck = validateAndConsumeOAuthState(state);
-    if (!stateCheck.isValid) {
-      logEvent('ERROR', 'SSO', 'OAuth state verification failed during /api/auth/token exchange - BLOCKED', {
-        statePrefix: String(state).substring(0, 8),
-        error: stateCheck.error,
-      });
-      return res.status(400).json({
-        error: 'INVALID_OR_EXPIRED_STATE',
-        message: `OAuth state validation failed (${stateCheck.error || 'INVALID'}). Token exchange was blocked for security.`,
-      });
-    }
+  // Mandatory BLOCKING OAuth State Verification & Consumption (single-use anti-replay)
+  const stateCheck = validateAndConsumeOAuthState(state.trim());
+  if (!stateCheck.isValid) {
+    logEvent('ERROR', 'SSO', 'OAuth state verification failed during /api/auth/token exchange - BLOCKED', {
+      statePrefix: String(state).substring(0, 8),
+      error: stateCheck.error,
+    });
+    const errorCode = stateCheck.error === 'EXPIRED_STATE' ? 'EXPIRED_STATE' : 'INVALID_OR_EXPIRED_STATE';
+    return res.status(400).json({
+      error: errorCode,
+      message: `OAuth state validation failed (${stateCheck.error || 'INVALID'}). Token exchange was blocked for security.`,
+    });
+  }
+
+  if (!EVE_CLIENT_ID || !EVE_CLIENT_SECRET) {
+    logEvent('ERROR', 'SSO', 'Attempted token exchange without EVE_CLIENT_ID or EVE_CLIENT_SECRET configured');
+    return res.status(500).json({
+      error: 'SSO_NOT_CONFIGURED',
+      message: 'EVE_CLIENT_ID and EVE_CLIENT_SECRET environment variables are required.',
+    });
   }
 
   try {
@@ -463,11 +474,11 @@ export const callbackHandler = async (req: Request, res: Response) => {
           }</p>
         </div>
         <script>
-          const sessionData = ${JSON.stringify(exchangedSession)};
-          const code = ${JSON.stringify(code || null)};
-          const state = ${JSON.stringify(state || null)};
-          const error = ${JSON.stringify(error || null)};
-          const errorDesc = ${JSON.stringify(errorDesc || null)};
+          const sessionData = ${safeJsonStringify(exchangedSession)};
+          const code = ${safeJsonStringify(code || null)};
+          const state = ${safeJsonStringify(state || null)};
+          const error = ${safeJsonStringify(error || null)};
+          const errorDesc = ${safeJsonStringify(errorDesc || null)};
 
           const payload = {
             type: 'OAUTH_AUTH_SUCCESS',
@@ -492,7 +503,7 @@ export const callbackHandler = async (req: Request, res: Response) => {
             setTimeout(() => window.close(), 1000);
           } else {
             setTimeout(() => {
-              window.location.href = '/?logged_in=' + (sessionData?.character_id || '1');
+              window.location.href = '/?logged_in=' + encodeURIComponent(sessionData?.character_id || '1');
             }, 1000);
           }
         </script>

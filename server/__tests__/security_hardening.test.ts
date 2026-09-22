@@ -6,7 +6,7 @@
  */
 
 import { createServerApp } from '../../server';
-import { generateOAuthState, activeOAuthStates } from '../utils/authUtils';
+import { generateOAuthState, activeOAuthStates, STATE_TTL_MS } from '../utils/authUtils';
 import http from 'http';
 
 function assert(condition: boolean, message: string) {
@@ -65,19 +65,67 @@ async function runTests() {
       assert(res.headers.get('x-powered-by') === null, 'Expected x-powered-by header to be absent');
     });
 
-    await test('CORS OPTIONS preflight returns HTTP 204 with allowed methods and headers', async () => {
+    await test('CORS GET with allowed origin sets Access-Control-Allow-Origin and Credentials', async () => {
+      const res = await fetch(`${baseUrl}/api/health`, {
+        headers: { Origin: 'http://localhost:3000' },
+      });
+      assert(res.status === 200, `Expected 200, got ${res.status}`);
+      assert(res.headers.get('access-control-allow-origin') === 'http://localhost:3000', 'Expected allowed origin in CORS header');
+      assert(res.headers.get('access-control-allow-credentials') === 'true', 'Expected credentials allowed for authorized origin');
+      assert(res.headers.get('vary')?.includes('Origin') === true, 'Expected Vary: Origin header');
+    });
+
+    await test('CORS GET with unauthorized origin omits Access-Control-Allow-Origin and Credentials', async () => {
+      const res = await fetch(`${baseUrl}/api/health`, {
+        headers: { Origin: 'https://unauthorized-attacker.com' },
+      });
+      assert(res.headers.get('access-control-allow-origin') === null, 'Must NOT set Access-Control-Allow-Origin for unauthorized origin');
+      assert(res.headers.get('access-control-allow-credentials') === null, 'Must NOT set credentials for unauthorized origin');
+    });
+
+    await test('CORS OPTIONS preflight with allowed origin returns HTTP 204 with CORS headers', async () => {
       const res = await fetch(`${baseUrl}/api/markets/10000002/orders`, {
         method: 'OPTIONS',
         headers: {
-          'Origin': 'https://example.com',
+          Origin: 'http://localhost:3000',
           'Access-Control-Request-Method': 'GET',
           'Access-Control-Request-Headers': 'Authorization',
         },
       });
       assert(res.status === 204, `Expected 204 for OPTIONS, got ${res.status}`);
-      assert(res.headers.get('access-control-allow-origin') === 'https://example.com', 'Expected reflected origin');
-      assert(res.headers.get('access-control-allow-credentials') === 'true', 'Expected credentials allowed');
+      assert(res.headers.get('access-control-allow-origin') === 'http://localhost:3000', 'Expected allowed origin header');
+      assert(res.headers.get('access-control-allow-credentials') === 'true', 'Expected credentials header');
       assert(res.headers.get('access-control-allow-methods')?.includes('GET') === true, 'Expected GET in allowed methods');
+    });
+
+    await test('CORS OPTIONS preflight with unauthorized origin returns HTTP 403 Forbidden', async () => {
+      const res = await fetch(`${baseUrl}/api/markets/10000002/orders`, {
+        method: 'OPTIONS',
+        headers: {
+          Origin: 'https://unauthorized-attacker.com',
+          'Access-Control-Request-Method': 'GET',
+        },
+      });
+      assert(res.status === 403, `Expected 403 for unauthorized OPTIONS preflight, got ${res.status}`);
+      assert(res.headers.get('access-control-allow-origin') === null, 'Must NOT set Access-Control-Allow-Origin on 403');
+      assert(res.headers.get('access-control-allow-credentials') === null, 'Must NOT set credentials on 403');
+      const body = await res.json();
+      assert(body.error === 'CORS_ORIGIN_NOT_ALLOWED', `Expected CORS_ORIGIN_NOT_ALLOWED error code, got ${body.error}`);
+    });
+
+    await test('CORS credentials header is strictly restricted to authorized origins', async () => {
+      const allowedRes = await fetch(`${baseUrl}/api/health`, { headers: { Origin: 'http://127.0.0.1:3000' } });
+      assert(allowedRes.headers.get('access-control-allow-credentials') === 'true', 'Allowed origin must have credentials');
+
+      const rejectedRes = await fetch(`${baseUrl}/api/health`, { headers: { Origin: 'https://evil.org' } });
+      assert(rejectedRes.headers.get('access-control-allow-credentials') === null, 'Unauthorized origin must not have credentials');
+    });
+
+    await test('Requests without Origin header succeed without CORS headers (same-origin / server-to-server)', async () => {
+      const res = await fetch(`${baseUrl}/api/health`);
+      assert(res.status === 200, `Expected 200, got ${res.status}`);
+      assert(res.headers.get('access-control-allow-origin') === null, 'No Origin header should yield no Access-Control-Allow-Origin');
+      assert(res.headers.get('access-control-allow-credentials') === null, 'No Origin header should yield no Access-Control-Allow-Credentials');
     });
 
     // --- 2. Input Validation & Parameter Boundaries ---
@@ -147,7 +195,34 @@ async function runTests() {
     // --- 3. OAuth & SSO Attack Defenses ---
     console.log('\n--- 3. OAUTH & SSO ATTACK DEFENSES ---');
 
-    await test('POST /api/auth/token rejects non-hex / arbitrary state tokens with HTTP 400', async () => {
+    await test('POST /api/auth/token rejects missing state parameter with HTTP 400 MISSING_STATE', async () => {
+      const res = await fetch(`${baseUrl}/api/auth/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: 'valid-looking-code-12345',
+        }),
+      });
+      assert(res.status === 400, `Expected 400, got ${res.status}`);
+      const json = await res.json();
+      assert(json.error === 'MISSING_STATE', `Expected MISSING_STATE, got ${json.error}`);
+    });
+
+    await test('POST /api/auth/token rejects empty or blank state parameter with HTTP 400 MISSING_STATE', async () => {
+      const res = await fetch(`${baseUrl}/api/auth/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: 'valid-looking-code-12345',
+          state: '   ',
+        }),
+      });
+      assert(res.status === 400, `Expected 400, got ${res.status}`);
+      const json = await res.json();
+      assert(json.error === 'MISSING_STATE', `Expected MISSING_STATE, got ${json.error}`);
+    });
+
+    await test('POST /api/auth/token rejects non-hex / arbitrary state tokens with HTTP 400 INVALID_OR_EXPIRED_STATE', async () => {
       const res = await fetch(`${baseUrl}/api/auth/token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -159,6 +234,27 @@ async function runTests() {
       assert(res.status === 400, `Expected 400, got ${res.status}`);
       const json = await res.json();
       assert(json.error === 'INVALID_OR_EXPIRED_STATE', `Expected INVALID_OR_EXPIRED_STATE, got ${json.error}`);
+    });
+
+    await test('POST /api/auth/token rejects expired state tokens with HTTP 400 EXPIRED_STATE', async () => {
+      const expiredState = '11223344556677889900aabbccddeeff11223344556677889900aabbccddeeff';
+      // Register artificially expired state in store
+      activeOAuthStates.set(expiredState, {
+        createdAt: Date.now() - (STATE_TTL_MS + 10000),
+        redirectUri: 'http://127.0.0.1:3000/auth/callback',
+      });
+
+      const res = await fetch(`${baseUrl}/api/auth/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: 'valid-looking-code-12345',
+          state: expiredState,
+        }),
+      });
+      assert(res.status === 400, `Expected 400, got ${res.status}`);
+      const json = await res.json();
+      assert(json.error === 'EXPIRED_STATE', `Expected EXPIRED_STATE, got ${json.error}`);
     });
 
     await test('POST /api/auth/token enforces single-use state consumption (replay prevention)', async () => {
@@ -193,6 +289,21 @@ async function runTests() {
       assert(replayJson.error === 'INVALID_OR_EXPIRED_STATE', `Expected INVALID_OR_EXPIRED_STATE, got ${replayJson.error}`);
     });
 
+    await test('POST /api/auth/token auto-extracts code and state when full callback URL is provided', async () => {
+      const validState = generateOAuthState('http://127.0.0.1:3000/auth/callback');
+      const fullUrl = `http://localhost:3000/auth/callback?code=extracted-code-xyz&state=${validState}`;
+
+      const res = await fetch(`${baseUrl}/api/auth/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: fullUrl,
+        }),
+      });
+      // The state must have been extracted and consumed from active store
+      assert(!activeOAuthStates.has(validState), 'Extracted state must be consumed from activeOAuthStates');
+    });
+
     await test('POST /api/auth/refresh rejects missing or oversized refresh tokens', async () => {
       const emptyRes = await fetch(`${baseUrl}/api/auth/refresh`, {
         method: 'POST',
@@ -212,19 +323,31 @@ async function runTests() {
       assert(hugeJson.error === 'REFRESH_TOKEN_TOO_LONG', `Expected REFRESH_TOKEN_TOO_LONG, got ${hugeJson.error}`);
     });
 
-    await test('GET /auth/callback sanitizes HTML/script injections in error messages', async () => {
+    // --- 4. Callback Page Script Context Hardening & XSS Defenses ---
+    console.log('\n--- 4. SCRIPT CONTEXT HARDENING & XSS DEFENSES ---');
+
+    await test('GET /auth/callback neutralizes </script> breakout injection in script context', async () => {
+      const injection = '</script><script>alert("XSS")</script>';
       const xssRes = await fetch(
-        `${baseUrl}/auth/callback?error=invalid_grant&error_description=${encodeURIComponent('<script>alert("XSS")</script>')}`
+        `${baseUrl}/auth/callback?error=invalid_grant&error_description=${encodeURIComponent(injection)}`
       );
       assert(xssRes.status === 400, `Expected 400 HTML page, got ${xssRes.status}`);
       const html = await xssRes.text();
-      assert(!html.includes('<script>alert("XSS")</script>'), 'HTML must NOT contain unescaped script tag');
-      assert(
-        html.includes('&lt;script&gt;alert(&quot;XSS&quot;)&lt;/script&gt;') ||
-        html.includes('&lt;script&gt;alert(&#39;XSS&#39;)&lt;/script&gt;') ||
-        html.includes('&lt;script&gt;alert('),
-        'HTML must contain safely escaped entities'
+      assert(!html.includes('</script><script>alert("XSS")</script>'), 'HTML must NOT contain unescaped script tag breakout');
+      assert(html.includes('\\u003c/script\\u003e'), 'Script context must encode < as \\u003c');
+      assert(html.includes('&lt;/script&gt;'), 'HTML DOM body must encode < as &lt;');
+    });
+
+    await test('GET /auth/callback safely escapes quotes, ampersands, and special chars in script payload', async () => {
+      const trickyPayload = 'Injection "with" \'quotes\' & <tags> and \\backslash';
+      const trickyRes = await fetch(
+        `${baseUrl}/auth/callback?error=test_error&error_description=${encodeURIComponent(trickyPayload)}`
       );
+      assert(trickyRes.status === 400, `Expected 400, got ${trickyRes.status}`);
+      const html = await trickyRes.text();
+      assert(html.includes('\\u0026'), 'Ampersands in script payload must be Unicode escaped');
+      assert(html.includes('\\u003c'), 'Tags in script payload must be Unicode escaped');
+      assert(!html.includes('<tags>'), 'Raw unescaped tags must not exist');
     });
   } finally {
     await new Promise<void>((res) => server.close(() => res()));

@@ -263,8 +263,8 @@ export function useCharacterSync(
     }
   };
 
-  const handleExchangeCode = async (code: string, redirectUri?: string) => {
-    const session = await AuthService.exchangeCodeForSession(code, redirectUri);
+  const handleExchangeCode = async (code: string, redirectUri?: string, state?: string) => {
+    const session = await AuthService.exchangeCodeForSession(code, redirectUri, state);
     await loadCharacterData(session.access_token, session.character_id, session.character_name, session);
   };
 

@@ -11,6 +11,7 @@ interface ServerCacheItem {
   etag?: string;
 }
 
+// Memory-bounded FIFO (First-In, First-Out based on insertion order) cache capped at MAX_CACHE_ENTRIES with TTL-based expiration
 const serverEsiCache = new Map<string, ServerCacheItem>();
 const MAX_CACHE_ENTRIES = 5000;
 

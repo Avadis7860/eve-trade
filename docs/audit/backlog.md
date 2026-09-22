@@ -88,6 +88,49 @@ Ce backlog répertorie les défauts, anomalies et dettes techniques documentés 
 
 ### ISSUE-007 : Absence de mock officiel ESI pour tests hors-ligne du proxy marché
 * **ID** : `ISSUE-007`
-* **Statut** : ⏳ **BACKLOG** (Prévu pour LOT-003 / ESI Hardening)
-* **Description** : Les tests d'intégration du proxy marché (`/api/markets/*`) testent actuellement la validation des paramètres mais pas l'interaction complète avec les upstream ESI afin de préserver l'indépendance réseau en CI.
-* **Priorité** : P2 (Moyenne)
+* **Statut** : ✅ **RÉSOLU** dans **LOT-003**
+* **Correction appliquée** :
+  * Implémentation du système d'injection de mocks globaux `setGlobalEsiMock` dans `server/utils/esiClient.ts`.
+  * Intégration dans `server/routes/markets.ts`, `server/routes/catalog.ts`, etc.
+  * Validation via la suite `server/__tests__/esi_hardening.test.ts` (9 tests hors-ligne déterministes).
+
+---
+
+### ISSUE-008 : Vulnérabilité potentielle XSS et rejeu de jeton OAuth dans `/auth/callback` et `/api/auth/token`
+* **ID** : `ISSUE-008`
+* **Statut** : ✅ **RÉSOLU** dans **LOT-003 & LOT-003.1**
+* **Correction appliquée** :
+  * Paramètre `state` rendu strictement obligatoire dans `/api/auth/token` (`MISSING_STATE`).
+  * Consommation atomique à usage unique prévenant le rejeu (`INVALID_OR_EXPIRED_STATE`).
+  * Sérialiseur anti-XSS `safeJsonStringify` neutralisant les sorties de balises `</script>` (`\u003c`, `\u003e`, `\u0026`) dans la page de callback.
+  * Échappement HTML strict `escapeHtml` sur tous les paramètres d'erreur affichés.
+
+---
+
+### ISSUE-009 : Absence de validation stricte sur les paramètres d'URL et limites de requêtes
+* **ID** : `ISSUE-009`
+* **Statut** : ✅ **RÉSOLU** dans **LOT-003**
+* **Correction appliquée** :
+  * Validation numérique, bornage et filtrage de `type_id`, `regionId`, `locationId`, `limit`, `page`, `order_type`.
+  * Couvert par la suite `server/__tests__/security_hardening.test.ts`.
+
+---
+
+### ISSUE-010 : Absence de détection du budget d'erreur ESI et de respect de `Retry-After` sur 429
+* **ID** : `ISSUE-010`
+* **Statut** : ✅ **RÉSOLU** dans **LOT-003**
+* **Correction appliquée** :
+  * Détection de `x-esi-error-limit-remain <= 0` provoquant l'abandon immédiat des retries pour protéger l'IP.
+  * Prise en compte du header `Retry-After` sur 429 avec backoff adapté.
+  * Couvert par `server/__tests__/esi_hardening.test.ts`.
+
+---
+
+### ISSUE-011 : Divulgation d'informations serveur et absence de politique CORS restrictive
+* **ID** : `ISSUE-011`
+* **Statut** : ✅ **RÉSOLU** dans **LOT-003 & LOT-003.1**
+* **Correction appliquée** :
+  * Suppression de l'en-tête `X-Powered-By`.
+  * Ajout des en-têtes `X-Content-Type-Options: nosniff`, `X-XSS-Protection: 0`, `Referrer-Policy: strict-origin-when-cross-origin`.
+  * Politique CORS basée sur une whitelist stricte via `isAllowedOrigin`, `Vary: Origin`, et 403 Forbidden sur requêtes preflight non autorisées.
+  * Limitation de la charge utile JSON à 1 MB et masquage des erreurs internes.

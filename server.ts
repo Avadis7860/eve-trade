@@ -12,6 +12,7 @@ import {
   renderAuthErrorHtml,
   activeOAuthStates,
   STATE_TTL_MS,
+  isAllowedOrigin,
 } from './server/utils/authUtils';
 import { authRouter, callbackHandler } from './server/routes/auth';
 import { catalogRouter } from './server/routes/catalog';
@@ -47,21 +48,35 @@ export async function createServerApp(options: ServerAppOptions = {}): Promise<e
     res.setHeader('X-XSS-Protection', '0');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 
-    // CORS headers
+    // Restrictive Whitelist-Based CORS Policy
     const origin = req.headers.origin;
     if (origin) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      if (isAllowedOrigin(origin, req)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        res.setHeader('Vary', 'Origin');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, HEAD');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, If-None-Match');
+        res.setHeader('Access-Control-Max-Age', '86400');
+
+        if (req.method === 'OPTIONS') {
+          return res.sendStatus(204);
+        }
+      } else {
+        // Unknown or unauthorized origin: refuse CORS headers
+        if (req.method === 'OPTIONS') {
+          return res.status(403).json({
+            error: 'CORS_ORIGIN_NOT_ALLOWED',
+            message: 'Origin not allowed by CORS policy',
+          });
+        }
+        // For non-OPTIONS requests from unauthorized origins, proceed without CORS headers
+      }
     } else {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-    }
-
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, HEAD');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, If-None-Match');
-    res.setHeader('Access-Control-Max-Age', '86400');
-
-    if (req.method === 'OPTIONS') {
-      return res.sendStatus(204);
+      // Absence of Origin header (same-origin, curl, server-to-server)
+      if (req.method === 'OPTIONS') {
+        return res.sendStatus(204);
+      }
     }
 
     next();

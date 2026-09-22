@@ -1,7 +1,7 @@
 import { EsiService } from '../esi';
 import { syncCorporationTreasury } from '../corporationTreasurySync';
 
-function assert(condition: boolean, message: string): void {
+function assert(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error('[CorporationTreasurySyncTest] ' + message);
 }
 

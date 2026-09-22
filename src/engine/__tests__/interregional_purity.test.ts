@@ -20,7 +20,7 @@ const destinationLocation=universe.resolveCanonicalLocationSync(dest.station_id)
 const route=universe.getRoute(source.system_id,dest.system_id);
 
 const order=(id:number,region:number,system:number,location:number,price:number,isBuy:boolean):RawMarketOrder=>({
-  order_id:id,type_id:34,region_id:region,system_id:system,location_id:location,price,volume_remain:1000,volume_total:1000,
+  order_id: String(id),type_id:34,region_id:region,system_id:system,location_id:location,price,volume_remain:1000,volume_total:1000,
   is_buy_order:isBuy,order_range:'station',issued:'2026-01-01T00:00:00Z',duration:90,min_volume:1
 });
 const buyOrders=[order(1,source.region_id,source.system_id,source.station_id,10,false)];

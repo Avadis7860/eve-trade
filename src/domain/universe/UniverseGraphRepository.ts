@@ -1,4 +1,5 @@
 import { UniverseGraph, UniverseGraphInput, buildUniverseGraph } from './UniverseGraph';
+import { calculateUniverseGraphChecksum } from './UniverseGraphHash';
 
 export interface CanonicalUniverseGraphSource {
   load(): UniverseGraphInput;
@@ -30,6 +31,12 @@ export class UniverseGraphRepository {
   constructor(source: CanonicalUniverseGraphSource) {
     const input = source.load();
     assertCanonicalProvenance(input);
+    const calculatedGraphChecksum = calculateUniverseGraphChecksum(input.nodes, input.edges);
+    if (calculatedGraphChecksum !== input.provenance.graph_checksum) {
+      throw new Error(
+        `Universe graph checksum mismatch: expected ${input.provenance.graph_checksum}, calculated ${calculatedGraphChecksum}`,
+      );
+    }
     this.graph = buildUniverseGraph(input);
   }
 

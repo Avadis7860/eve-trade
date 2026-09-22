@@ -146,13 +146,12 @@ async function runTests(): Promise<void> {
     ]);
 
     assert(calls.length === 2, 'Different credentials must reach the gateway independently');
-    const authenticatedCalls = calls.filter(
-      (call): call is typeof call & { context: Extract<EsiPrincipalContext, { type: 'character' }> } =>
-        call.context.type === 'character',
-    );
-    assert(authenticatedCalls.length === 2, 'Both requests must be authenticated');
+    const firstContext = calls[0]?.context;
+    const secondContext = calls[1]?.context;
+    assert(firstContext?.type === 'character', 'First request must use a character principal');
+    assert(secondContext?.type === 'character', 'Second request must use a character principal');
     assert(
-      authenticatedCalls[0].context.bearerCredential !== authenticatedCalls[1].context.bearerCredential,
+      firstContext.bearerCredential !== secondContext.bearerCredential,
       'Credentials must remain distinct',
     );
   });

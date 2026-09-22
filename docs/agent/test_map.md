@@ -16,7 +16,7 @@ A task is not complete until its affected validation surface is identified. This
 | Catalog/data | `catalog_integrity.test.ts` / `type_catalog.test.ts` | Data-contract/provenance and API status checks |
 | React components/context/hooks | TypeScript + production build | Relevant integration tests where present |
 | OAuth/SSO | `server/__tests__/security_hardening.test.ts` + API | navigateur local hors Google AI Studio avant E2E produit |
-| Route engine 2.7B | suites graph/route à créer | pathfinding + security traversal + truth/financial integration |
+| Route engine 2.7B | `src/engine/__tests__/route_engine.test.ts` | graph validation + shortest path + security traversal + certification + UNKNOWN + determinism; integration remains pending until canonical SDE artifact exists |
 | Documentation only | Diff review, path/reference consistency | No application tests unless a documented contract changes |
 
 ## Current CI validation

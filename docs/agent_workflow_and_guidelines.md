@@ -12,7 +12,7 @@ Lors de la réception d'une instruction utilisateur :
    * Modélisation financière & mathématiques pures $\implies$ `/src/engine/`
    * Intégration ESI, synchro, persistance & transactions $\implies$ `/src/services/`
    * Interface graphique React $\implies$ `/src/components/`
-   * Typage commun $\implies$ `/src/types.ts`
+   * Typage commun $\implies$ `/src/types/` (types organisés par domaine)
    * Proxy Express backend $\implies$ `/server/` et `/server.ts`
 3. **Ne jamais modifier les signatures de fonctions mathématiques** sans mettre à jour les tests associés dans `/src/engine/__tests__/`.
 4. **Respecter l'absence totale d'effets de bord dans `/src/engine/`** : Ne jamais introduire d'appels `fetch`, `localStorage`, `IndexedDbStore`, `Date.now()` direct ou `useState` dans un fichier de moteur mathématique.

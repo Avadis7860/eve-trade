@@ -1,5 +1,6 @@
 import { PriceLevel, Fill, RawMarketOrder, ExecutionFill, ExecutionLevelConsumption } from '../types';
 import { roundIsk, safeDiv } from './money';
+import type { OrderId } from '../types/order';
 
 export type PriceVolume = [number, number];
 
@@ -28,14 +29,14 @@ export class PriceLadderEngine {
   static aggregate(orders: (PriceVolume | RawMarketOrder)[], descending: boolean = false): PriceLevel[] {
     const volumes = new Map<number, number>();
     const counts = new Map<number, number>();
-    const orderIds = new Map<number, number[]>();
+    const orderIds = new Map<number, OrderId[]>();
     const locationIds = new Map<number, number[]>();
     const minVols = new Map<number, number>();
 
     for (const item of orders) {
       let price: number;
       let vol: number;
-      let orderId: number | undefined;
+      let orderId: OrderId | undefined;
       let locId: number | undefined;
       let minVol: number | undefined;
 

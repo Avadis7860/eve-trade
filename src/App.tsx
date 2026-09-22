@@ -9,6 +9,7 @@ import {
   OrderCollection,
   OrderSelectionContext,
   OrderCharacterContext,
+  OrderCorporationContext,
   EveCharacterOrder,
 } from './types';
 import { EsiService } from './services/esi';
@@ -200,15 +201,13 @@ const AppShell: React.FC = () => {
   }, [linkedCharacters, characterSession]);
 
   const orderCorporationContexts = useMemo(() => {
-    const byId = new Map<string, OrderCharacterContext & { corporationId: string; corporationName?: string }>();
+    const byId = new Map<string, OrderCorporationContext>();
 
     for (const char of linkedCharacters) {
       if (char.corporation_id && char.corporation_id > 0) {
         byId.set(String(char.corporation_id), {
           corporationId: String(char.corporation_id),
           corporationName: char.corporation_name,
-          characterId: String(char.character_id),
-          characterName: char.character_name,
         });
       }
     }

@@ -1,8 +1,8 @@
 # Truth Matrix
 
 Status: CURRENT
-Scope: synthetic state of the current baseline
-Source of truth: code, tests, CI and manifests at baseline SHA `6e2d4aea524e29ed35e0419ea5f5519dd50c613e`
+Scope: synthetic state of current `main`
+Source of truth: code, tests, CI and manifests at main `3babb086dbca7e1b7b2096d703b71e06cfd2ad45`
 
 | Domaine | État | Implémentation principale | Validation | Documentation | Suite |
 |---|---|---|---|---|---|

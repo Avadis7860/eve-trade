@@ -5,6 +5,7 @@ export class RouteIndex {
   private readonly distances = new Map<number, number>();
   private readonly nextHop = new Map<number, number>();
   private built = false;
+  private buildCount = 0;
 
   constructor(
     private readonly graph: UniverseGraph,
@@ -14,6 +15,7 @@ export class RouteIndex {
 
   get destination_system_id(): number { return this.destinationSystemId; }
   get route_policy(): RoutePolicy { return this.policy; }
+  get build_count(): number { return this.buildCount; }
 
   private assertBuildable(): void {
     if (!this.graph.has_system(this.destinationSystemId)) {
@@ -32,6 +34,7 @@ export class RouteIndex {
 
   private build(): void {
     if (this.built) return;
+    this.buildCount += 1;
     this.assertBuildable();
     if (!this.isAllowed(this.destinationSystemId)) { this.built = true; return; }
 

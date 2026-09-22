@@ -18,6 +18,10 @@ export interface UniverseGraphProvenance {
   readonly graph_checksum: string;
   readonly graph_version: string;
   readonly completeness: GraphCompleteness;
+  readonly route_scope?: string;
+  readonly generator_version?: string;
+  readonly map_solar_systems_checksum?: string;
+  readonly map_stargates_checksum?: string;
 }
 
 export interface UniverseGraphInput {

@@ -6,6 +6,7 @@ import { InterRegionalFinancialEngine } from '../interRegional';
 import { EVE_TYPES_CATALOG, MAJOR_MARKET_HUBS } from '../../data/universe';
 import { CANONICAL_CATALOG_MANIFEST } from '../../data/catalogManifest';
 import { CANONICAL_UNIVERSE_MANIFEST } from '../../data/universeManifest';
+import { CANONICAL_UNIVERSE_GRAPH_MANIFEST } from '../../data/universeGraphManifest';
 import universeDataRaw from '../../data/universeData.json';
 import { EveTypeDetail, MarketHub, RawMarketOrder, TypeCatalogMetadata } from '../../types';
 
@@ -14,6 +15,12 @@ function assert(condition: boolean, message: string) {
 }
 
 console.log('=== RUNNING CATALOG & UNIVERSE TRUTH TESTS ===');
+
+assert(CANONICAL_UNIVERSE_GRAPH_MANIFEST.sdeBuild === '3503375', 'Runtime graph must be pinned to the validated CCP SDE build');
+assert(CANONICAL_UNIVERSE_GRAPH_MANIFEST.systemsCount === 5485, 'Runtime graph system count mismatch');
+assert(CANONICAL_UNIVERSE_GRAPH_MANIFEST.directedEdgesCount === 13978, 'Runtime graph edge count mismatch');
+assert(CANONICAL_UNIVERSE_GRAPH_MANIFEST.graphChecksum === '5465da368fa3b6bf03d610554de453af1c54182199d325fe318d431d29225b3c', 'Runtime graph checksum mismatch');
+
 
 const canonicalCatalogChecksum = CatalogValidator.computeCanonicalChecksum(EVE_TYPES_CATALOG);
 assert(EVE_TYPES_CATALOG.length === CANONICAL_CATALOG_MANIFEST.expectedCount, 'Bundled catalog cardinality must match manifest');
@@ -138,11 +145,53 @@ UniverseRepository.resetInstance();
 const universe = UniverseRepository.getInstance();
 assert(universe.getIntegrity().isReady, 'UniverseRepository must expose READY integrity for bundled dataset');
 
-const knownRoute = universe.getRoute(30000142, 30002187);
-assert(knownRoute.status === 'KNOWN' && knownRoute.is_verified === true && knownRoute.jumps === 9, 'Known hub route must be verified');
+const knownRoute = universe.getRoute(30000142, 30002187, 'SAFE');
+assert(
+  knownRoute.status === 'KNOWN' &&
+    knownRoute.is_verified === true &&
+    knownRoute.source === 'canonical_graph' &&
+    knownRoute.is_highsec_only === true &&
+    knownRoute.jumps === 39,
+  'Jita -> Amarr must resolve as a certified canonical SDE high-sec route',
+);
+assert(
+  knownRoute.provenance?.source === 'sde_canonical' &&
+    knownRoute.provenance.dataset_version === '3503375',
+  'Runtime route provenance must identify the pinned CCP SDE graph',
+);
 
-const unknownRoute = universe.getRoute(30000142, 999999999);
-assert(unknownRoute.status === 'UNKNOWN' && unknownRoute.is_verified === false && unknownRoute.jumps === -1, 'Unknown route must never receive synthetic values');
+const shortestRoute = universe.getRoute(30000142, 30002187, 'SHORTEST');
+assert(
+  shortestRoute.status === 'KNOWN' &&
+    shortestRoute.is_verified === true &&
+    shortestRoute.source === 'canonical_graph' &&
+    Number.isFinite(shortestRoute.jumps) &&
+    shortestRoute.jumps === 11 &&
+    shortestRoute.is_highsec_only === false &&
+    shortestRoute.min_security < 0.5,
+  'Shortest route policy must resolve the true shortest path, even when it is not High-Sec only',
+);
+
+const unknownRoute = universe.getRoute(30000142, 999999999, 'SHORTEST');
+assert(
+  unknownRoute.status === 'UNKNOWN' &&
+    unknownRoute.is_verified === false &&
+    unknownRoute.jumps === -1,
+  'Unknown route must never receive synthetic values',
+);
+
+const unknownSourceRoute = universe.getRoute(999999999, 30002187, 'SHORTEST');
+assert(
+  unknownSourceRoute.status === 'UNKNOWN' &&
+    unknownSourceRoute.is_verified === false &&
+    unknownSourceRoute.jumps === -1,
+  'Unknown source system must remain UNKNOWN without attempting to build an invalid route index',
+);
+
+const safeRouteIndexA = universe.getRouteIndex(30002187, 'SAFE');
+const safeRouteIndexB = universe.getRouteIndex(30002187, 'SAFE');
+assert(safeRouteIndexA === safeRouteIndexB, 'Route index must be reused for identical graph/policy/destination identity');
+assert(safeRouteIndexA.build_count === 1, 'Route index must build its destination traversal only once');
 
 const unknownLocation = universe.resolveLocationSync(999999999);
 assert(unknownLocation.status === 'LOCATION_UNKNOWN' && unknownLocation.is_verified === false, 'Unknown location must remain UNKNOWN');

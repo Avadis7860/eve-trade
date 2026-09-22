@@ -50,6 +50,25 @@ assert(JSON.stringify(a)===JSON.stringify(c),'repository changes after certifica
 assert(InterRegionalCalculationEngine.calculate({...valid,typeResolution:{...valid.typeResolution,status:'TYPE_UNKNOWN',is_verified:false,type:undefined}})===null,'unknown catalog must be rejected');
 assert(InterRegionalCalculationEngine.calculate({...valid,sourceLocation:{...valid.sourceLocation,status:'LOCATION_UNKNOWN',is_verified:false}})===null,'unknown location must be rejected');
 assert(InterRegionalCalculationEngine.calculate({...valid,route:{...valid.route,status:'UNKNOWN',is_verified:false}})===null,'unknown route must be rejected');
+
+const legacyRoute = {
+  ...valid.route,
+  source: 'static_route_table' as const,
+};
+assert(
+  InterRegionalCalculationEngine.calculate({...valid,route:legacyRoute})===null,
+  'legacy static route provenance must never reach the financial core',
+);
+
+const nonHighsecRoute = {
+  ...valid.route,
+  is_highsec_only: false,
+};
+assert(
+  InterRegionalCalculationEngine.calculate({...valid,route:nonHighsecRoute})===null,
+  'non-Highsec route must never reach the Highsec trade financial core',
+);
+
 assert(InterRegionalCalculationEngine.calculate({...valid,destinationLocation:{...valid.destinationLocation,status:'RESOLVED_STRUCTURE',is_structure:true}})===null,'dynamic/structure location must be rejected');
 
 const coreSource=readFileSync(new URL('../interRegionalCalculation.ts',import.meta.url),'utf8');

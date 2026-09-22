@@ -57,7 +57,9 @@ export class InterRegionalCalculationEngine {
       i.sourceLocation.is_structure!==true && i.destinationLocation.is_structure!==true &&
       i.sourceLocation.system_id===i.buyHub.system_id && i.destinationLocation.system_id===i.sellHub.system_id &&
       i.sourceLocation.region_id===i.buyHub.region_id && i.destinationLocation.region_id===i.sellHub.region_id &&
-      i.route.status==='KNOWN' && i.route.is_verified===true && Number.isFinite(i.route.jumps) && i.route.jumps>=0;
+      i.route.status==='KNOWN' && i.route.is_verified===true && i.route.source==='canonical_graph' &&
+      i.route.provenance?.source==='sde_canonical' && i.route.provenance?.completeness==='complete' &&
+      i.route.is_highsec_only===true && Number.isFinite(i.route.jumps) && i.route.jumps>=0;
   }
 
   static filterAccessibleOrdersForHub(
@@ -90,12 +92,15 @@ export class InterRegionalCalculationEngine {
           return order.system_id === hub.system_id;
         }
 
-        const numericRange = parseInt(range, 10);
-        if (!isNaN(numericRange) && numericRange >= 0) {
+        const numericRange = /^\d+$/.test(range) ? Number(range) : NaN;
+        if (Number.isSafeInteger(numericRange) && numericRange >= 0) {
           const route = routeBySystemId[order.system_id];
-          return (
+          return Boolean(
+            route &&
             route.status === 'KNOWN' &&
             route.is_verified === true &&
+            route.source === 'canonical_graph' &&
+            route.provenance?.source === 'sde_canonical' &&
             Number.isFinite(route.jumps) &&
             route.jumps >= 0 &&
             route.jumps <= numericRange

@@ -7,7 +7,7 @@ import { InterRegionalFinancialEngine } from '../interRegional';
 import { RawMarketOrder, MarketHub, EveTypeDetail, FinancialConfig } from '../../types';
 import { CatalogRepository } from '../../domain/catalog/CatalogRepository';
 import { UniverseRepository } from '../../domain/universe/UniverseRepository';
-import { MAJOR_MARKET_HUBS, getJumpRoute } from '../../data/universe';
+import { MAJOR_MARKET_HUBS } from '../../data/universe';
 import { getEveTickSize, roundToEveTick } from '../money';
 
 function assert(condition: boolean, message: string) {

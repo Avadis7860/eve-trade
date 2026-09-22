@@ -42,7 +42,8 @@ export type UniverseProvenanceSource =
   | 'esi'
   | 'structure_cache'
   | 'fallback'
-  | 'unknown';
+  | 'unknown'
+  | 'sde_canonical';
 
 export type UniverseCompleteness = 'complete' | 'partial' | 'unknown';
 
@@ -150,7 +151,7 @@ export interface JumpRoute {
   chokepoints?: string[];
   gank_risk_level?: 'safe' | 'caution' | 'dangerous';
   status?: 'KNOWN' | 'UNKNOWN';
-  source?: 'static_route_table' | 'same_system' | 'unknown';
+  source?: 'static_route_table' | 'same_system' | 'canonical_graph' | 'unknown';
   is_verified?: boolean;
   confidence?: number;
   provenance?: UniverseProvenance;

@@ -1,5 +1,4 @@
-import { MarketHub, JumpRoute, MarketCategory, MarketGroup, EveTypeDetail } from '../types';
-import { CANONICAL_UNIVERSE_MANIFEST } from './universeManifest';
+import { MarketHub, MarketCategory, MarketGroup, EveTypeDetail } from '../types';
 
 export const MAJOR_MARKET_HUBS: MarketHub[] = [
   {
@@ -86,68 +85,6 @@ export const KNOWN_STATION_NAMES: Record<number, string> = {
   60001861: 'Villore VI - Federal Administration Bureau',
   60009514: 'Stacmon V - Federation Navy Logistic Support',
 };
-
-const KNOWN_ROUTES: Record<string, JumpRoute> = {
-  '30000142-30002187': { from_system_id: 30000142, to_system_id: 30002187, jumps: 9, min_security: 0.5, is_highsec_only: true, chokepoints: ['Uedama', 'Niabiken'], gank_risk_level: 'caution' },
-  '30002187-30000142': { from_system_id: 30002187, to_system_id: 30000142, jumps: 9, min_security: 0.5, is_highsec_only: true, chokepoints: ['Uedama', 'Niabiken'], gank_risk_level: 'caution' },
-  '30000142-30002659': { from_system_id: 30000142, to_system_id: 30002659, jumps: 15, min_security: 0.5, is_highsec_only: true, chokepoints: ['Uedama'], gank_risk_level: 'caution' },
-  '30002659-30000142': { from_system_id: 30002659, to_system_id: 30000142, jumps: 15, min_security: 0.5, is_highsec_only: true, chokepoints: ['Uedama'], gank_risk_level: 'caution' },
-  '30000142-30002510': { from_system_id: 30000142, to_system_id: 30002510, jumps: 25, min_security: 0.5, is_highsec_only: true, chokepoints: ['Uedama'], gank_risk_level: 'caution' },
-  '30002510-30000142': { from_system_id: 30002510, to_system_id: 30000142, jumps: 25, min_security: 0.5, is_highsec_only: true, chokepoints: ['Uedama'], gank_risk_level: 'caution' },
-  '30000142-30002053': { from_system_id: 30000142, to_system_id: 30002053, jumps: 17, min_security: 0.5, is_highsec_only: true, chokepoints: ['Uedama'], gank_risk_level: 'caution' },
-  '30002053-30000142': { from_system_id: 30002053, to_system_id: 30000142, jumps: 17, min_security: 0.5, is_highsec_only: true, chokepoints: ['Uedama'], gank_risk_level: 'caution' },
-  '30002187-30002659': { from_system_id: 30002187, to_system_id: 30002659, jumps: 18, min_security: 0.6, is_highsec_only: true, gank_risk_level: 'safe' },
-  '30002659-30002187': { from_system_id: 30002659, to_system_id: 30002187, jumps: 18, min_security: 0.6, is_highsec_only: true, gank_risk_level: 'safe' },
-  '30002187-30002510': { from_system_id: 30002187, to_system_id: 30002510, jumps: 16, min_security: 0.6, is_highsec_only: true, gank_risk_level: 'safe' },
-  '30002510-30002187': { from_system_id: 30002510, to_system_id: 30002187, jumps: 16, min_security: 0.6, is_highsec_only: true, gank_risk_level: 'safe' },
-  '30002187-30002053': { from_system_id: 30002187, to_system_id: 30002053, jumps: 18, min_security: 0.6, is_highsec_only: true, gank_risk_level: 'safe' },
-  '30002053-30002187': { from_system_id: 30002053, to_system_id: 30002187, jumps: 18, min_security: 0.6, is_highsec_only: true, gank_risk_level: 'safe' },
-  '30002659-30002510': { from_system_id: 30002659, to_system_id: 30002510, jumps: 27, min_security: 0.5, is_highsec_only: true, gank_risk_level: 'safe' },
-  '30002510-30002659': { from_system_id: 30002510, to_system_id: 30002659, jumps: 27, min_security: 0.5, is_highsec_only: true, gank_risk_level: 'safe' },
-  '30002659-30002053': { from_system_id: 30002659, to_system_id: 30002053, jumps: 20, min_security: 0.5, is_highsec_only: true, gank_risk_level: 'safe' },
-  '30002053-30002659': { from_system_id: 30002053, to_system_id: 30002659, jumps: 20, min_security: 0.5, is_highsec_only: true, gank_risk_level: 'safe' },
-  '30002510-30002053': { from_system_id: 30002510, to_system_id: 30002053, jumps: 9, min_security: 0.5, is_highsec_only: true, gank_risk_level: 'safe' },
-  '30002053-30002510': { from_system_id: 30002053, to_system_id: 30002510, jumps: 9, min_security: 0.5, is_highsec_only: true, gank_risk_level: 'safe' },
-};
-
-function routeProvenance(source: 'static_route_table' | 'same_system' | 'unknown', verified: boolean, confidence: number, scope: string) {
-  return {
-    source: source === 'unknown' ? 'unknown' : 'static_route_table',
-    dataset_version: CANONICAL_UNIVERSE_MANIFEST.version,
-    dataset_checksum: CANONICAL_UNIVERSE_MANIFEST.checksum,
-    loaded_at: new Date().toISOString(),
-    verified,
-    confidence,
-    completeness: verified ? 'complete' : 'unknown',
-    scope,
-  } as const;
-}
-
-export function getJumpRoute(fromSystemId: number, toSystemId: number): JumpRoute {
-  if (fromSystemId === toSystemId) {
-    return {
-      from_system_id: fromSystemId, to_system_id: toSystemId, jumps: 0, min_security: 1.0,
-      is_highsec_only: true, gank_risk_level: 'safe', status: 'KNOWN', source: 'same_system',
-      is_verified: true, confidence: 1.0, provenance: routeProvenance('same_system', true, 1.0, 'same_system'),
-    };
-  }
-
-  const key = `${fromSystemId}-${toSystemId}`;
-  const known = KNOWN_ROUTES[key];
-  if (known) {
-    return {
-      ...known, status: 'KNOWN', source: 'static_route_table', is_verified: true, confidence: 1.0,
-      provenance: routeProvenance('static_route_table', true, 1.0, 'major_market_hub_pairs'),
-    };
-  }
-
-  return {
-    from_system_id: fromSystemId, to_system_id: toSystemId, jumps: -1, min_security: -1,
-    is_highsec_only: false, gank_risk_level: 'dangerous', status: 'UNKNOWN', source: 'unknown',
-    is_verified: false, confidence: 0, provenance: routeProvenance('unknown', false, 0, 'unresolved_route'),
-    error: `No canonical route is known for system pair ${fromSystemId} -> ${toSystemId}`,
-  };
-}
 
 import rawCategories from './categories.json';
 import rawGroups from './groups.json';

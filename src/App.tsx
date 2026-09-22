@@ -165,6 +165,14 @@ const AppShell: React.FC = () => {
     () => ({
       activeCharacterId: characterSession ? String(characterSession.character_id) : '',
       fleetCharacterIds: linkedCharacters.map((c) => String(c.character_id)),
+      corporationIds: Array.from(
+        new Set(
+          linkedCharacters
+            .map((c) => c.corporation_id)
+            .filter((id): id is number => Number.isInteger(id) && id > 0)
+            .map((id) => String(id))
+        )
+      ),
     }),
     [characterSession, linkedCharacters]
   );
@@ -191,13 +199,34 @@ const AppShell: React.FC = () => {
     return [];
   }, [linkedCharacters, characterSession]);
 
+  const orderCorporationContexts = useMemo(() => {
+    const byId = new Map<string, OrderCharacterContext & { corporationId: string; corporationName?: string }>();
+
+    for (const char of linkedCharacters) {
+      if (char.corporation_id && char.corporation_id > 0) {
+        byId.set(String(char.corporation_id), {
+          corporationId: String(char.corporation_id),
+          corporationName: char.corporation_name,
+          characterId: String(char.character_id),
+          characterName: char.character_name,
+        });
+      }
+    }
+
+    return Array.from(byId.values()).map((entry) => ({
+      corporationId: entry.corporationId,
+      corporationName: entry.corporationName,
+    }));
+  }, [linkedCharacters]);
+
   const orderCollection: OrderCollection = useMemo(
     () => ({
       orders: scopedOrders,
       characters: orderCharacterContexts,
+      corporations: orderCorporationContexts,
       scope: orderScope,
     }),
-    [scopedOrders, orderCharacterContexts, orderScope]
+    [scopedOrders, orderCharacterContexts, orderCorporationContexts, orderScope]
   );
 
   // Global Sync Progress

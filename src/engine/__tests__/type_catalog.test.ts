@@ -2,6 +2,7 @@ import { TypeCatalogService } from '../../services/typeCatalog';
 import { EVE_TYPES_CATALOG } from '../../data/universe';
 import { AuthService } from '../../services/authService';
 import { EveCharacterSession } from '../../types';
+import { CANONICAL_CATALOG_MANIFEST } from '../../data/catalogManifest';
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
@@ -19,8 +20,8 @@ async function runTypeCatalogAndEnvironmentTests() {
     result.metadata.status === 'CATALOG_READY' || result.metadata.status === 'CATALOG_LOADED' || result.metadata.status === 'CATALOG_FALLBACK_CORE',
     `Expected CATALOG_READY, CATALOG_LOADED or CATALOG_FALLBACK_CORE, got ${result.metadata.status}`
   );
-  assert(result.metadata.item_count > 0, `Expected items count > 0, got ${result.metadata.item_count}`);
-  assert(result.metadata.checksum.length === 64, `Expected 64-char SHA256 checksum, got ${result.metadata.checksum.length}`);
+  assert(result.metadata.item_count === CANONICAL_CATALOG_MANIFEST.expectedCount, `Expected canonical item count ${CANONICAL_CATALOG_MANIFEST.expectedCount}, got ${result.metadata.item_count}`);
+  assert(result.metadata.checksum === CANONICAL_CATALOG_MANIFEST.checksum, 'Expected canonical catalog checksum');
   assert(result.types.length === result.metadata.item_count, 'Types array length must match metadata count');
   console.log(`✅ Loaded ${result.metadata.item_count} types with status ${result.metadata.status}.`);
 

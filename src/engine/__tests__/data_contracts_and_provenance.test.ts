@@ -17,7 +17,7 @@ console.log('=== RUNNING DATA CONTRACTS, PROVENANCE & CERTIFICATION TESTS ===');
 console.log('1. Testing CatalogRepository.resolveType...');
 const catalog = CatalogRepository.getInstance();
 
-// 1.1 Known static item in initial fallback state
+// 1.1 Known static item in the verified bundled catalog
 const resolvedTritInitial = catalog.resolveType(34);
 if (resolvedTritInitial.status !== 'RESOLVED_CATALOG') {
   throw new Error(`Expected Tritanium (34) status to be RESOLVED_CATALOG, got ${resolvedTritInitial.status}`);
@@ -25,8 +25,8 @@ if (resolvedTritInitial.status !== 'RESOLVED_CATALOG') {
 if (!resolvedTritInitial.type || resolvedTritInitial.name !== 'Tritanium' || resolvedTritInitial.volume !== 0.01) {
   throw new Error(`Invalid metadata returned for Tritanium: ${resolvedTritInitial.name}, ${resolvedTritInitial.volume}`);
 }
-if (resolvedTritInitial.source !== 'fallback_core' || resolvedTritInitial.confidence !== 0.85) {
-  throw new Error(`Expected fallback_core source and 0.85 confidence in initial state, got ${resolvedTritInitial.source} / ${resolvedTritInitial.confidence}`);
+if (resolvedTritInitial.source !== 'catalog_ready' || resolvedTritInitial.confidence !== 1.0 || !resolvedTritInitial.is_verified) {
+  throw new Error(`Expected canonical catalog source and full verification in initial state, got ${resolvedTritInitial.source} / ${resolvedTritInitial.confidence}`);
 }
 
 const resolvedTrit = catalog.resolveType(34);

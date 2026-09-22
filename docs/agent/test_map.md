@@ -78,3 +78,6 @@ Required regression surfaces:
 - negative/zero/decimal wallet fidelity;
 - real Express -> CharacterEsiGateway -> CorporationEsiGateway -> EsiGateway -> ESI mock traversal;
 - treasury source isolation for character-negative/corporation-positive and corporation-unavailable scenarios.
+- shared corporation treasury orchestration, HTTP-status propagation, division selection, identity mismatch and fail-closed behavior;
+- manual-budget isolation from stale ESI division rows;
+- finite-value semantics for corporation and fleet capital provenance.

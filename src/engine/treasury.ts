@@ -1,4 +1,4 @@
-import { FinancialConfig, TreasurySourceMode, TreasuryResolution, EveCharacterSession, CorporationWalletDivisionInfo } from '../types';
+import { FinancialConfig, TreasurySourceMode, TreasuryResolution, EveCharacterSession, CorporationWalletDivisionInfo, TreasuryCapitalStatus } from '../types';
 import { roundIsk } from './money';
 
 /**
@@ -55,15 +55,21 @@ export class TreasuryEngine {
       const divisionInfo = cfg.corporation_divisions?.find((d) => d.division === division);
       const divisionName = divisionInfo?.name || this.getDivisionDefaultName(division);
       const corpName = cfg.corporation_name || 'Corporation';
+      const source = cfg.corporation_wallet_source || 'unavailable';
 
-      // Balance resolution priority: divisionInfo.balance > cfg.corporation_wallet_balance > cfg.available_capital
-      let balance = 0;
-      if (divisionInfo && typeof divisionInfo.balance === 'number') {
-        balance = divisionInfo.balance;
-      } else if (typeof cfg.corporation_wallet_balance === 'number') {
+      let balance: number | undefined;
+      let capitalStatus: TreasuryCapitalStatus = 'unavailable';
+
+      if (source === 'esi') {
+        if (divisionInfo && typeof divisionInfo.balance === 'number') {
+          balance = divisionInfo.balance;
+        } else if (typeof cfg.corporation_wallet_balance === 'number') {
+          balance = cfg.corporation_wallet_balance;
+        }
+        if (balance !== undefined) capitalStatus = 'observed_esi';
+      } else if (source === 'manual' && typeof cfg.corporation_wallet_balance === 'number') {
         balance = cfg.corporation_wallet_balance;
-      } else {
-        balance = cfg.available_capital || 0;
+        capitalStatus = 'manual';
       }
 
       const effectiveCapital = this.normalizeWalletTradingCapital(balance) ?? 0;
@@ -71,26 +77,33 @@ export class TreasuryEngine {
       return {
         source_mode: 'corporation',
         effective_capital: effectiveCapital,
-        label: `${corpName} — ${divisionName}`,
+        label: source === 'unavailable'
+          ? `${corpName} — ${divisionName} (solde ESI indisponible)`
+          : `${corpName} — ${divisionName}`,
         division,
         division_name: divisionName,
         corporation_name: corpName,
         is_corporation: true,
+        capital_status: capitalStatus,
       };
     }
 
     if (mode === 'fleet_consolidated') {
       let total = 0;
+      let capitalStatus: TreasuryCapitalStatus = 'unavailable';
       if (characters && characters.length > 0) {
         for (const c of characters) {
           if (typeof c.wallet_balance === 'number') {
             total += Math.max(0, c.wallet_balance);
           }
         }
+        capitalStatus = 'observed_esi';
       } else if (typeof cfg.fleet_consolidated_capital === 'number') {
         total = cfg.fleet_consolidated_capital;
-      } else {
-        total = cfg.available_capital || 0;
+        capitalStatus = 'manual';
+      } else if (typeof cfg.available_capital === 'number') {
+        total = cfg.available_capital;
+        capitalStatus = 'manual';
       }
 
       const effectiveCapital = Math.max(0, roundIsk(total));
@@ -101,6 +114,7 @@ export class TreasuryEngine {
         effective_capital: effectiveCapital,
         label: `Trésorerie Flotte (${charCount} pilote${charCount > 1 ? 's' : ''})`,
         is_corporation: false,
+        capital_status: capitalStatus,
       };
     }
 
@@ -109,11 +123,14 @@ export class TreasuryEngine {
         activeCharacterId ? c.character_id === activeCharacterId : c.is_active
       ) || characters[0];
 
-      let balance = 0;
+      let balance: number | undefined;
+      let capitalStatus: TreasuryCapitalStatus = 'unavailable';
       if (activeChar && typeof activeChar.wallet_balance === 'number') {
         balance = activeChar.wallet_balance;
-      } else {
-        balance = cfg.available_capital || 0;
+        capitalStatus = 'observed_esi';
+      } else if (typeof cfg.available_capital === 'number') {
+        balance = cfg.available_capital;
+        capitalStatus = 'manual';
       }
 
       const effectiveCapital = this.normalizeWalletTradingCapital(balance) ?? 0;
@@ -124,16 +141,21 @@ export class TreasuryEngine {
         effective_capital: effectiveCapital,
         label: `Wallet Personnel (${name})`,
         is_corporation: false,
+        capital_status: capitalStatus,
       };
     }
 
     // Default: 'manual_budget'
-    const manualCapital = this.normalizeWalletTradingCapital(cfg.available_capital) ?? 0;
+    const manualCapital = this.normalizeWalletTradingCapital(
+      typeof cfg.available_capital === 'number' ? cfg.available_capital : undefined
+    ) ?? 0;
+
     return {
       source_mode: 'manual_budget',
       effective_capital: manualCapital,
       label: 'Budget Fixe Alloué',
       is_corporation: false,
+      capital_status: typeof cfg.available_capital === 'number' ? 'manual' : 'unavailable',
     };
   }
 

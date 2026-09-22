@@ -7,7 +7,8 @@ Ce document constitue la **source de vérité absolue** pour tout agent d'intell
 ## 🎯 Principes Directeurs & Invariants Majeurs
 
 ### 1. Invariants Mathématiques des Moteurs de Trading (`/src/engine/*`)
-* **Aucun effet de bord dans les moteurs :** Tous les fichiers dans `/src/engine/` (`fee.ts`, `ladder.ts`, `money.ts`, `profit.ts`, `quantity.ts`, `scoring.ts`, `features.ts`, `prediction.ts`, `interRegional.ts`, `portfolio.ts`) sont des modules mathématiques purs. Ils ne doivent jamais contenir d'appels réseau, d'accès direct au `localStorage`, ou de hooks React.
+* **Moteurs mathématiques purs :** `fee.ts`, `ladder.ts`, `money.ts`, `profit.ts`, `quantity.ts`, `scoring.ts`, `features.ts`, `prediction.ts` et `portfolio.ts` restent déterministes et sans effets de bord.
+* **Frontière d'orchestration actuelle :** `interRegional.ts` assure encore la résolution Catalog/Universe autour du calcul d'opportunité. La cible Phase 2.7 est d'extraire cette résolution afin que le noyau financier consomme exclusivement des entrées certifiées.
 * **Respect strict des formules officielles CCP Games :**
   * *Sales Tax* : Décroissance de 11% par niveau de compétence *Accounting* ($8.0\% \to 3.6\%$).
   * *NPC Broker Fee* : Décroissance via *Broker Relations*, faction standing et corp standing ($3.0\% \to 1.0\%$).

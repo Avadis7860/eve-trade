@@ -138,8 +138,8 @@
                    │                                 │
                    ▼                                 ▼
 ┌──────────────────────────────────────┐ ┌───────────────────────────────┐
-│        3. MOTEURS FINANCIERS         │ │     4. BACKEND EXPRESS API    │
-│    PUR ET SANS EFFETS DE BORD        │ │           (server.ts)         │
+│   3. MOTEURS FINANCIERS & ORCHESTRATION│ │   4. BACKEND EXPRESS API      │
+│   Core pur + frontière vérité dédiée │ │           (server.ts)         │
 │  - FeeEngine (Taxes & Courtage)      │ │  - /api/health (Santé & Stats)│
 │  - PriceLadderEngine (Profondeur)    │ │  - /api/types/status          │
 │  - TradableQuantityEngine (Goulots)  │ │  - /api/types/all ({meta,tx}) │

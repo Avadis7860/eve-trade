@@ -83,6 +83,25 @@ async function runTests(): Promise<void> {
     );
   });
 
+  test('ESI division selection fails closed when the requested division is absent', () => {
+    const result = selectCorporationWalletDivision(
+      {
+        treasury_source_mode: 'corporation',
+        corporation_wallet_source: 'esi',
+        corporation_wallet_division: 1,
+        corporation_wallet_balance: 5_000_000_000,
+        corporation_divisions: [
+          { division: 1, name: 'Observed 1', balance: 5_000_000_000 },
+        ],
+      },
+      2,
+    );
+
+    assert(result.corporation_wallet_division === 2, 'Selected division must change');
+    assert(result.corporation_wallet_balance === undefined, 'Previous division balance must not survive');
+    assert(result.corporation_wallet_source === 'unavailable', 'Missing ESI division must fail closed');
+  });
+
   test('explicit ESI provenance is preserved', () => {
     const result = normalizeFinancialConfig({
       treasury_source_mode: 'corporation',

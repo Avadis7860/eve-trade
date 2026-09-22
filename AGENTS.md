@@ -1,127 +1,64 @@
-# 🤖 Directives & Protocole de Travail pour Agents IA (AGENTS.md)
+# EVE Trade — Directives pour agents
 
-Ce document constitue la **source de vérité absolue** pour tout agent d'intelligence artificielle (Gemini, Claude, GPT, Antigravity, etc.) reprenant le développement, l'audit ou la maintenance de ce dépôt.
+## Garde-fous
 
----
+La documentation ne remplace jamais le code et les tests comme source de vérité. En cas de contradiction, vérifier l'implémentation actuelle, les tests et la CI.
 
-## 🎯 Principes Directeurs & Invariants Majeurs
+Fondations sensibles :
+- identité canonique des ordres ;
+- séparation observateur / propriétaire économique ;
+- frontière corporation ESI ;
+- états explicites des collections ESI ;
+- vérité canonique Catalog / Universe ;
+- Financial Truth et FIFO causal ;
+- isolation des données privées par principal.
 
-### 1. Invariants Mathématiques des Moteurs de Trading (`/src/engine/*`)
-* **Moteurs mathématiques purs :** `fee.ts`, `ladder.ts`, `money.ts`, `profit.ts`, `quantity.ts`, `scoring.ts`, `features.ts`, `prediction.ts` et `portfolio.ts` restent déterministes et sans effets de bord.
-* **Frontière inter-régionale actuelle :** `src/services/interRegionalResolver.ts` certifie les entrées Catalog/Universe, `src/engine/interRegionalCalculation.ts` effectue le calcul financier pur, et `src/engine/interRegional.ts` assure l'orchestration et l'assemblage Opportunity/Evidence.
-* Les formules financières existantes ne doivent pas être réécrites dans les phases de topologie ou d'authentification.
-* **Respect strict des formules officielles CCP Games :**
-  * *Sales Tax* : Décroissance de 11% par niveau de compétence *Accounting* ($8.0\% \to 3.6\%$).
-  * *NPC Broker Fee* : Décroissance via *Broker Relations*, faction standing et corp standing ($3.0\% \to 1.0\%$).
-  * *Taker vs Maker* : L'achat direct sur un ordre de vente existant (Taker) **n'engendre AUCUN broker fee** ($0\%$). Le broker fee d'achat ne s'applique que lors de la création d'un ordre d'achat limite (*Maker*).
-  * *Relist Fee* : Réduction de 5% par niveau de compétence *Advanced Broker Relations*.
-  * *Transport Cost* : Si `enable_transport_costs === false`, le coût doit valoir **strictement 0.00 ISK**.
-* **Déduplication stricte des carnets d'ordres :** Toujours dédupliquer sur `order_id` (identifiant unique CCP).
+## Navigation
 
-### 2. Architecture des Données, Observations, Preuves & Persistance
-* **Chaîne de Preuve & Certification 4 Piliers Immuable :** Chaque opportunité générée par `InterRegionalFinancialEngine` est accompagnée d'un instantané cryptographique `OpportunityEvidence` (`4-pillars-v1`).
-  * Empreinte déterministe SHA-256 (`evidence_hash`) calculée par `OpportunityEvidenceEngine` via sérialisation canonique.
-  * Auditabilité complète : vérification en temps réel des 4 piliers (`MarketData`, `Catalog`, `Universe`, `FinancialEngine`).
-* **Centralisation & Entrepôt Immuable :** Toutes les données de marché synchronisées sont stockées et notifiées via `src/services/marketDataStore.ts` et archivées de façon immuable dans `src/services/indexedDbStore.ts` (IndexedDB v5, 11 object stores).
-* **Sécurité des Tokens EVE SSO :**
-  * Les tokens d'accès JWT expirent au bout de 20 minutes (1200 secondes).
-  * Toujours vérifier `AuthService.isTokenExpiredOrExpiringSoon(session)` avant d'exécuter un appel nécessitant une authentification.
-  * Si ESI retourne un code `401 Unauthorized`, déclencher immédiatement le renouvellement via `AuthService.getFreshToken(characterId)` ou `/api/auth/refresh`.
+Commencer par :
+- [docs/index.md](docs/index.md)
+- [docs/state/current-state.md](docs/state/current-state.md)
+- [docs/state/truth-matrix.md](docs/state/truth-matrix.md)
+- [docs/roadmap/current-chunk.md](docs/roadmap/current-chunk.md)
 
----
+Puis charger seulement le domaine utile :
+- Ordres : [domains/trading/orders.md](docs/domains/trading/orders.md) + [contracts/orders.md](docs/contracts/orders.md) + [invariants/order-identity.md](docs/invariants/order-identity.md)
+- Corporation : [domains/trading/corporation-trading.md](docs/domains/trading/corporation-trading.md) + [contracts/corporations.md](docs/contracts/corporations.md) + [invariants/corporation-boundary.md](docs/invariants/corporation-boundary.md)
+- ESI : [architecture/esi-boundary.md](docs/architecture/esi-boundary.md) + [contracts/esi.md](docs/contracts/esi.md) + [invariants/esi-data-state.md](docs/invariants/esi-data-state.md)
+- Financial Truth : [domains/finance/financial-truth.md](docs/domains/finance/financial-truth.md) + [contracts/financial.md](docs/contracts/financial.md) + [invariants/financial-safety.md](docs/invariants/financial-safety.md)
 
-## 🛠️ Commandes & Cycle de Validation
+## Où chercher
 
-Avant de clore toute tâche ou de proposer des modifications, l'agent IA **DOIT impérativement** exécuter et valider les trois étapes suivantes :
+- Frontend : `src/components`, `src/hooks`, `src/services`
+- Domaines : `src/domain`
+- Moteurs purs : `src/engine`
+- Types : `src/types`
+- Backend : `server`, `server.ts`
+- Données canoniques : `src/data`
+- Persistance : `src/services/indexedDbStore.ts`
 
-### 1. Tests Unitaires Mathématiques
+## Validation
+
 ```bash
+npm run typecheck
+npm run typecheck:server
 npm test
-```
-*Vérifie la conformité de tous les calculs de taxes, de slippage de carnet, d'arbitrage inter-hubs et de sécurité des sessions.*
-
-### 2. Vérification du Typage TypeScript
-```bash
-npm run lint
-```
-*Exécute `tsc --noEmit`. Aucune erreur TypeScript ne doit subsister.*
-
-### 3. Compilation de Production
-```bash
 npm run build
 ```
-*Compile le frontend React avec Vite et bundle le backend Express dans `dist/server.cjs`.*
 
----
+Ajouter les suites ciblées pour la surface modifiée. La CI est la validation partagée.
 
-## 📁 Répertoire & Responsabilités des Modules
+## Règles
 
-```
-/
-├── server.ts                 # Backend Express (Endpoints API, Proxy ESI, Échange SSO)
-├── src/
-│   ├── types.ts              # Types TypeScript unifiés (Point central de typage)
-│   ├── engine/               # Moteurs de calcul déterministes et contrats de calcul
-│   │   ├── fee.ts            # Calculateur de taxes, courtage et fret
-│   │   ├── ladder.ts         # Agrégation de carnet, profondeur et slippage
-│   │   ├── quantity.ts       # Résolution multi-contraintes (capital, cargo, carnet)
-│   │   ├── profit.ts         # Compte de résultat, ROI, marge et profit net
-│   │   ├── scoring.ts        # Moteur de notation 10 critères et détection d'anomalies
-│   │   ├── features.ts       # Feature engineering temporel (momentum, accélération)
-│   │   ├── prediction.ts     # Modélisation prédictive & probabilité de survie/profit
-│   │   ├── interRegional.ts  # Pipeline d'arbitrage spatialisé directionnel
-│   │   ├── evidence.ts       # Moteur de preuve d'opportunité & hachage déterministe SHA-256
-│   │   ├── portfolio.ts      # Optimiseur de portefeuille et limites de concentration
-│   │   ├── money.ts          # Formatage monétaire ISK et conversions
-│   │   └── __tests__/        # Suites de tests automatisés
-│   ├── services/             # Couche d'intégration & services d'orchestration
-│   │   ├── authService.ts    # Gestion multi-personnages EVE SSO et tokens
-│   │   ├── esi.ts            # Client HTTP CCP ESI avec retry et gestion d'erreurs
-│   │   ├── indexedDbStore.ts # Stockage persistant IndexedDB v5 (11 object stores)
-│   │   ├── marketDataStore.ts# Cache central d'ordres et statistiques
-│   │   ├── scanner.ts        # Scanner d'opportunités inter-hubs
-│   │   ├── orderAdvisor.ts   # Moteur de recommandations d'ajustement d'ordres
-│   │   ├── traderAnalytics.ts# Traitement comptable FIFO des transactions
-│   │   ├── typeCatalog.ts    # Validation structurelle et cryptographique du catalogue
-│   │   └── globalMarketSync.ts # Orchestrateur de synchronisation d'univers
-│   ├── components/           # Composants UI modulaires React 18 + Tailwind
-│   └── data/                 # Référentiel statique New Eden (Hubs, Routes, Groupes)
-└── docs/                     # Documentation d'audit et manuels d'ingénierie
-```
+1. Identifier la source de vérité avant modification.
+2. Ne pas réécrire une formule financière pendant un chantier non financier.
+3. Ne pas ajouter une seconde frontière ESI.
+4. Ne pas convertir une absence de données en zéro métier.
+5. Ne pas déduire le propriétaire d'un ordre depuis le seul observateur.
+6. Préserver les identifiants canoniques.
+7. Tout changement de contrat doit être protégé par une validation correspondante.
+8. Aucun refactoring opportuniste hors périmètre.
 
----
+## Documentation
 
-## 🚫 Règles d'Or pour les Modifications de Code
-
-1. **Respecter l'organisation des types par domaine :** Toute modification de contrat doit être effectuée dans le module `src/types/` concerné et vérifiée par les consommateurs et tests associés.
-2. **Ne jamais supprimer les gardes-fous division par zéro :** Toujours utiliser `safeDiv` ou des vérifications `if (denominator > 0)` pour éviter les `NaN` ou `Infinity`.
-3. **Respecter l'accessibilité des stations :** Ne jamais simplifier le filtrage spatial des ordres dans `interRegional.ts`. Un ordre d'achat ne peut être pris que dans la station où les marchandises sont situées ou selon son champ de validité (`order_range`).
-4. **Pas d'icônes SVG custom :** Utiliser exclusivement `lucide-react`.
-5. **Préserver le mode multi-comptes :** Toute fonctionnalité relative aux personnages doit être compatible avec la liste `EveCharacterSession[]` gérée par `AuthService`.
-
-
-### 3. Authentification EVE SSO
-* Les tokens EVE SSO sont sensibles et ne doivent jamais être exposés dans les logs, l'UI ou les erreurs.
-* Toute requête authentifiée doit respecter la frontière centrale de refresh.
-* **Gate E2E :** le flux OAuth/SSO doit fonctionner dans un navigateur local hors Google AI Studio avant de considérer l'E2E produit comme valide.
-* Aucune correction OAuth ne doit introduire de contournement spécifique à Google AI Studio.
-
-### 4. Topologie Universe — état actuel
-* La résolution canonique régions/systèmes/stations est en place.
-* **Le socle de topologie 2.7B est implémenté** : `UniverseGraph`, BFS déterministe, certification de route, provenance et fail-closed des graphes partiels.
-* **L'intégration production 2.7C est active** : le runtime charge un artefact SDE CCP réel, vérifie son identité et son checksum, et les routes financières proviennent exclusivement de ce graphe.
-* Une route `safe` exige `security_status >= 0.5` pour **chaque système traversé**, extrémités incluses.
-
-### 5. Vérité canonique Catalog / Universe
-* Un dataset canonique est identifié par sa version, sa cardinalité attendue, son checksum déterministe et son état de validation.
-* Les métadonnées fournies par un appelant ne constituent jamais une preuve de validité.
-* Les résolutions dynamiques ESI, structures et fallbacks restent hors du périmètre canonique financier.
-* Une route inconnue ne possède aucune distance exploitable : UNKNOWN et jumps < 0 doivent être rejetés avant toute comparaison de portée.
-* Une absence d'historique de demande ne doit jamais être transformée en volume journalier synthétique dans une estimation de relist.
-* Frontière UNKNOWN du routage : UniverseRepository.getRoute() doit retourner une route UNKNOWN (sans distance exploitable) lorsqu'une source ou destination est absente du graphe canonique. Il ne doit pas demander à RouteIndex de construire un index pour une destination invalide ; RouteIndex conserve au contraire sa précondition stricte et lève une erreur lorsqu'il est utilisé directement avec une destination absente.
-
-### 6. Validation et CI
-* Le dépôt doit conserver un package-lock.json cohérent avec package.json et la CI doit utiliser npm ci.
-* Les workflows de validation des branches de fonctionnalité passent par les pull requests vers main afin d'éviter les doubles exécutions push + pull_request.
-* Les suites de contrats Catalog/Universe sont exécutées avant la régression générale afin qu'une rupture de vérité des données soit diagnostiquée indépendamment des autres tests.
-* SDE Truth Gate immuable : le workflow de vérité SDE télécharge le build CCP piné, régénère les artefacts et échoue si le contenu généré diffère du contenu commité. Il ne doit jamais effectuer de commit, push ou mutation automatique de la branche.
+Voir [docs/documentation-guide.md](docs/documentation-guide.md).

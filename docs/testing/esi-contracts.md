@@ -152,3 +152,5 @@ Lorsque `treasury_source_mode = corporation`, `TreasuryEngine` n'utilise jamais 
 Le wallet observé reste factuel, y compris s'il est négatif. Le capital dépensable est dérivé séparément et ne peut jamais être négatif. En cas de source corporation indisponible, la résolution échoue fermement vers un capital dépensable nul avec un statut `unavailable`, au lieu de réutiliser un ancien capital personnage.
 
 La synchronisation automatique de l'actif character peut rafraîchir cette source ESI lorsque le mode corporation est sélectionné. Un budget corporation explicitement manuel n'est pas écrasé automatiquement.
+
+Les configurations persistées constituent également une frontière testée : une source corporation absente ou inconnue est convertie en `unavailable`, même si un ancien solde positif subsiste. La synchronisation automatique de la trésorerie est séparée du chargement des données personnage afin d'éviter qu'une mise à jour de portefeuille corporation ne relance implicitement tout le cycle character.

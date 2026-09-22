@@ -1,4 +1,5 @@
 import { EsiService } from './esi';
+import { AuthService } from './authService';
 import { InterRegionalScanner } from './scanner';
 import { TraderAnalyticsService } from './traderAnalytics';
 import { MarketDataStore } from './marketDataStore';
@@ -400,6 +401,7 @@ export class GlobalMarketSyncService {
           // Evaluate Arbitrage Opportunities for this item
           if (Object.keys(itemOrderBooks).length > 1) {
             try {
+              const characters = AuthService.getLinkedCharacters();
               const opps = InterRegionalScanner.scanItemAcrossHubs(
                 item,
                 activeHubs,
@@ -407,7 +409,8 @@ export class GlobalMarketSyncService {
                 config,
                 itemOrderBooks,
                 itemHistoryCache,
-                itemQualities
+                itemQualities,
+                characters
               );
 
               if (opps.length > 0) {

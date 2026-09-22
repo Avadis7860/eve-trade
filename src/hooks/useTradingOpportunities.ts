@@ -7,6 +7,7 @@ import {
   RawMarketOrder,
   HistoricalStats,
   InterRegionalOpportunity,
+  EveCharacterSession,
 } from '../types';
 import { InterRegionalScanner } from '../services/scanner';
 import { PortfolioOptimizer } from '../engine/portfolio';
@@ -21,7 +22,8 @@ export function useTradingOpportunities(
   historyCache: Record<number, HistoricalStats>,
   highSecOnly: boolean,
   filterRoute: string,
-  sortBy: 'score' | 'profit' | 'roi' | 'profit_day' | 'turnover'
+  sortBy: 'score' | 'profit' | 'roi' | 'profit_day' | 'turnover',
+  characters?: EveCharacterSession[]
 ) {
   const opportunities = useMemo(() => {
     const qualities = MarketDataStore.getQualitiesForType(selectedType.type_id, hubs);
@@ -32,9 +34,10 @@ export function useTradingOpportunities(
       config,
       orderBooks,
       historyCache,
-      qualities
+      qualities,
+      characters
     );
-  }, [selectedType, hubs, strategy, config, orderBooks, historyCache]);
+  }, [selectedType, hubs, strategy, config, orderBooks, historyCache, characters]);
 
   const sortedOpportunities = useMemo(() => {
     return opportunities

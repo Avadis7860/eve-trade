@@ -59,7 +59,7 @@ const AppShell: React.FC = () => {
   } = useTradingConfig();
 
   // Auth Context
-  const { characterSession, setActiveCharacter } = useAuth();
+  const { characterSession, linkedCharacters, setActiveCharacter } = useAuth();
 
   // Views & Modals
   const [currentView, setCurrentView] = useState<'cockpit' | 'global' | 'portfolio' | 'orders' | 'journal' | 'config'>('cockpit');
@@ -119,7 +119,8 @@ const AppShell: React.FC = () => {
     historyCache,
     highSecOnly,
     filterRoute,
-    sortBy
+    sortBy,
+    linkedCharacters
   );
 
   const handleSelectOpportunityForCockpit = (opp: UniverseWideOpportunity) => {

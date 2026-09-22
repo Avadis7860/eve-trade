@@ -1,5 +1,6 @@
-import { EveCharacterSession, SessionAuthStatus } from '../../types';
+import { EveCharacterSession, SessionAuthStatus, FleetRole, TradingFleetOverview } from '../../types';
 import { CharacterSnapshot, CharacterStoreSchemaV3, FreshnessStatus } from './CharacterTypes';
+import { TradingFleetEngine } from '../../engine/fleet';
 
 const STORAGE_KEY_V3 = 'eve_trade_character_store_v3';
 const LEGACY_STORAGE_KEY = 'eve_char_session';
@@ -271,6 +272,58 @@ export class CharacterRepository {
     this.persist(nextStore);
     this.notify();
     return updated;
+  }
+
+  /**
+   * Updates fleet role, assigned hub, and cargo capacity for an alt.
+   */
+  updateCharacterFleetSettings(
+    characterId: number,
+    settings: {
+      fleet_role?: FleetRole;
+      assigned_hub_id?: string;
+      assigned_hub_name?: string;
+      assigned_station_id?: number;
+      ship_cargo_capacity_m3?: number;
+    }
+  ): EveCharacterSession[] {
+    const updated = this.store.characters.map((c) => {
+      if (c.character_id === characterId) {
+        return {
+          ...c,
+          fleet_role: settings.fleet_role !== undefined ? settings.fleet_role : c.fleet_role,
+          assigned_hub_id: settings.assigned_hub_id !== undefined ? settings.assigned_hub_id : c.assigned_hub_id,
+          assigned_hub_name: settings.assigned_hub_name !== undefined ? settings.assigned_hub_name : c.assigned_hub_name,
+          assigned_station_id: settings.assigned_station_id !== undefined ? settings.assigned_station_id : c.assigned_station_id,
+          ship_cargo_capacity_m3: settings.ship_cargo_capacity_m3 !== undefined ? settings.ship_cargo_capacity_m3 : c.ship_cargo_capacity_m3,
+        };
+      }
+      return c;
+    });
+
+    const nextStore: CharacterStoreSchemaV3 = {
+      ...this.store,
+      characters: updated,
+      updated_at: new Date().toISOString(),
+    };
+
+    this.persist(nextStore);
+    this.notify();
+    return updated;
+  }
+
+  /**
+   * Returns a snapshot map of all connected characters.
+   */
+  getAllSnapshots(): Record<number, CharacterSnapshot> {
+    return this.store.snapshots;
+  }
+
+  /**
+   * Returns a consolidated overview of the whole trading fleet.
+   */
+  getFleetOverview(): TradingFleetOverview {
+    return TradingFleetEngine.computeFleetOverview(this.store.characters, this.store.snapshots);
   }
 
   saveSnapshot(characterId: number, snapshot: Partial<CharacterSnapshot>): CharacterSnapshot {

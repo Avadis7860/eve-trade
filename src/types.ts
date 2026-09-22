@@ -431,6 +431,8 @@ export interface FinancialConfig {
   max_market_participation_pct?: number;    // Cap trade volume at fraction of daily volume (e.g. 0.25 = 25%)
   avoid_chokepoints?: boolean;              // Flag or avoid high-risk lowsec/gank chokepoints
   trader_profile?: 'balanced' | 'highsec_daytrader' | 'station_trader' | 'heavy_hauler';
+  fleet_calculation_mode?: 'active_character' | 'fleet_consolidated';
+  fleet_consolidated_capital?: number;
 }
 
 export interface DailyMarketHistory {
@@ -721,6 +723,9 @@ export interface InterRegionalOpportunity {
   provenance?: OpportunityProvenance;
   evidence?: OpportunityEvidence;
 
+  // Fleet Multi-Character Ecosystem Execution Plan
+  fleet_plan?: TradeFleetPlan;
+
   detected_at: string;
 }
 
@@ -896,6 +901,79 @@ export type SessionAuthStatus =
   | 'SESSION_REVOKED'
   | 'SESSION_CORRUPTED';
 
+export type FleetRole = 'buyer' | 'seller' | 'hauler' | 'all_rounder' | 'scout';
+export type FleetCalculationMode = 'active_character' | 'fleet_consolidated';
+
+export interface FleetCharacterSummary {
+  character_id: number;
+  character_name: string;
+  portrait_url: string;
+  assigned_hub_id?: string;
+  assigned_hub_name?: string;
+  assigned_station_id?: number;
+  fleet_role: FleetRole;
+  wallet_balance?: number;
+  accounting_skill: number;
+  broker_relations_skill: number;
+  advanced_broker_relations_skill?: number;
+  ship_cargo_capacity_m3?: number;
+  is_active?: boolean;
+}
+
+export interface TradeFleetStep {
+  step_number: number;
+  phase: 'BUY' | 'HAUL' | 'SELL';
+  title: string;
+  assigned_character?: FleetCharacterSummary;
+  location_id: number;
+  location_name: string;
+  action_summary: string;
+  fees_summary?: string;
+  details: {
+    quantity?: number;
+    unit_price?: number;
+    total_isk?: number;
+    fee_rate_pct?: number;
+    fee_cost?: number;
+    cargo_volume_m3?: number;
+    cargo_capacity_m3?: number;
+    cargo_utilization_pct?: number;
+    jumps?: number;
+    route_security?: string;
+    has_sufficient_wallet?: boolean;
+    wallet_deficit_isk?: number;
+  };
+}
+
+export interface TradeFleetPlan {
+  is_fleet_enabled: boolean;
+  fleet_size: number;
+  buyer_character?: FleetCharacterSummary;
+  hauler_character?: FleetCharacterSummary;
+  seller_character?: FleetCharacterSummary;
+  steps: TradeFleetStep[];
+  is_cross_character: boolean; // True if buyer !== seller or dedicated hauler used
+  total_fleet_capital_available: number;
+  buyer_wallet_balance?: number;
+  buyer_has_sufficient_capital: boolean;
+  buyer_capital_deficit: number;
+  hauler_cargo_capacity_m3: number;
+  hauler_cargo_sufficient: boolean;
+  notes: string[];
+}
+
+export interface TradingFleetOverview {
+  total_characters: number;
+  active_character_id: number | null;
+  consolidated_wallet_balance: number;
+  total_active_orders_count: number;
+  total_buy_orders_count: number;
+  total_sell_orders_count: number;
+  total_escrow_locked: number;
+  characters: FleetCharacterSummary[];
+  hub_coverage: Record<string, FleetCharacterSummary[]>; // hub_id -> characters stationed there
+}
+
 export interface EveCharacterSession {
   session_version?: number; // Version 2
   character_id: number;
@@ -907,8 +985,14 @@ export interface EveCharacterSession {
   wallet_balance?: number;
   accounting_skill?: number;
   broker_relations_skill?: number;
+  advanced_broker_relations_skill?: number;
   location_name?: string;
   ship_name?: string;
+  assigned_hub_id?: string; // e.g. "jita", "amarr", "dodixie", "rens", "hek"
+  assigned_hub_name?: string;
+  assigned_station_id?: number;
+  fleet_role?: FleetRole;
+  ship_cargo_capacity_m3?: number; // e.g. 5000, 60000, 350000
   active_orders_count?: {
     buy_orders: number;
     sell_orders: number;
@@ -947,6 +1031,8 @@ export interface UniverseWideOpportunity extends InterRegionalOpportunity {
 
 export interface EveCharacterOrder {
   order_id: number;
+  character_id?: number;
+  character_name?: string;
   type_id: number;
   type_name?: string;
   region_id: number;
@@ -972,6 +1058,8 @@ export interface EveCharacterOrder {
 
 export interface EveCharacterTransaction {
   transaction_id: number;
+  character_id?: number;
+  character_name?: string;
   date: string;
   type_id: number;
   type_name?: string;
@@ -996,6 +1084,8 @@ export interface EveRegionInfo {
 
 export interface EveCharacterOrderHistory {
   order_id: number;
+  character_id?: number;
+  character_name?: string;
   type_id: number;
   type_name?: string;
   region_id: number;

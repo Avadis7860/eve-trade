@@ -1,4 +1,4 @@
-import { EveCharacterSession, SessionAuthStatus } from '../types';
+import { EveCharacterSession, SessionAuthStatus, FleetRole, TradingFleetOverview } from '../types';
 import { CharacterRepository } from '../domain/character/CharacterRepository';
 
 const memoryStore = new Map<string, string>();
@@ -186,6 +186,32 @@ export class AuthService {
     return list;
   }
 
+  /**
+   * Updates fleet role and assigned hub for an alt.
+   */
+  static updateCharacterFleetSettings(
+    characterId: number,
+    settings: {
+      fleet_role?: FleetRole;
+      assigned_hub_id?: string;
+      assigned_hub_name?: string;
+      assigned_station_id?: number;
+      ship_cargo_capacity_m3?: number;
+    }
+  ): EveCharacterSession[] {
+    const list = CharacterRepository.getInstance().updateCharacterFleetSettings(characterId, settings);
+    const active = CharacterRepository.getInstance().getActiveCharacter();
+    this.notifyListeners(active);
+    return list;
+  }
+
+  /**
+   * Retrieves the consolidated trading fleet overview.
+   */
+  static getFleetOverview(): TradingFleetOverview {
+    return CharacterRepository.getInstance().getFleetOverview();
+  }
+
 
   /**
    * Checks if an access token is expired or close to expiration (< 2 minutes).
@@ -338,15 +364,68 @@ export class AuthService {
   }
 
   /**
+   * Gets the preferred redirect URI for EVE SSO (defaults to localhost:8000/callback or app callback).
+   */
+  static getPreferredRedirectUri(): string {
+    const stored = safeStorage.getItem('eve_sso_preferred_redirect_uri');
+    if (stored && stored.trim()) return stored.trim();
+    return 'http://localhost:8000/callback';
+  }
+
+  /**
+   * Sets the user's preferred redirect URI across the application.
+   */
+  static setPreferredRedirectUri(uri: string): void {
+    if (uri && uri.trim()) {
+      safeStorage.setItem('eve_sso_preferred_redirect_uri', uri.trim());
+    }
+  }
+
+  /**
+   * Suggested standard redirect URIs for EVE SSO based on environment.
+   */
+  static getSuggestedRedirectUris(): { id: string; label: string; uri: string }[] {
+    const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+    return [
+      { id: 'localhost8000', label: 'Localhost (8000)', uri: 'http://localhost:8000/callback' },
+      { id: 'cloudrun', label: 'App Host / Preview', uri: `${currentOrigin}/auth/callback` },
+      { id: 'localhost3000', label: 'Localhost (3000)', uri: 'http://localhost:3000/auth/callback' },
+    ];
+  }
+
+  /**
    * Exchanges an authorization code for access and refresh tokens.
    */
   static async exchangeCodeForSession(code: string, redirectUri?: string, state?: string): Promise<EveCharacterSession> {
+    let cleanCode = code.trim();
+    let effectiveRedirectUri = redirectUri || this.getPreferredRedirectUri();
+    let effectiveState = state;
+
+    // Auto-parse full pasted URLs
+    if (cleanCode.includes('code=') || cleanCode.startsWith('http')) {
+      try {
+        const urlObj = new URL(cleanCode);
+        const extractedCode = urlObj.searchParams.get('code');
+        const extractedState = urlObj.searchParams.get('state');
+        if (extractedCode) cleanCode = extractedCode;
+        if (extractedState && !effectiveState) effectiveState = extractedState;
+        if (!redirectUri) {
+          effectiveRedirectUri = `${urlObj.origin}${urlObj.pathname}`;
+        }
+      } catch {
+        const match = cleanCode.match(/code=([^&]+)/);
+        if (match) cleanCode = decodeURIComponent(match[1]);
+        const stateMatch = cleanCode.match(/state=([^&]+)/);
+        if (stateMatch && !effectiveState) effectiveState = decodeURIComponent(stateMatch[1]);
+      }
+    }
+
     const payloadBody: Record<string, string> = {
-      code: code.trim(),
-      redirect_uri: redirectUri || 'http://localhost:8000/callback',
+      code: cleanCode,
+      redirect_uri: effectiveRedirectUri,
     };
-    if (state) {
-      payloadBody.state = state;
+    if (effectiveState) {
+      payloadBody.state = effectiveState;
     }
 
     const response = await fetch('/api/auth/token', {

@@ -38,18 +38,18 @@ export interface UniverseGraph {
 
 function assertSystemId(systemId: number, label: string): void {
   if (!Number.isInteger(systemId) || systemId <= 0) {
-    throw new Error(`Invalid \${label} system ID: \${systemId}`);
+    throw new Error(`Invalid ${label} system ID: ${systemId}`);
   }
 }
 
 function assertSecurityStatus(securityStatus: number | null): void {
   if (securityStatus !== null && (!Number.isFinite(securityStatus) || securityStatus < -1 || securityStatus > 1)) {
-    throw new Error(`Invalid security status: \${securityStatus}`);
+    throw new Error(`Invalid security status: ${securityStatus}`);
   }
 }
 
 function canonicalEdgeKey(from: number, to: number): string {
-  return `\${from}:\${to}`;
+  return `${from}:${to}`;
 }
 
 export function buildUniverseGraph(input: UniverseGraphInput): UniverseGraph {
@@ -60,7 +60,7 @@ export function buildUniverseGraph(input: UniverseGraphInput): UniverseGraph {
     assertSystemId(node.system_id, 'node');
     assertSecurityStatus(node.security_status);
     if (nodes.has(node.system_id)) {
-      throw new Error(`Duplicate universe graph node: \${node.system_id}`);
+      throw new Error(`Duplicate universe graph node: ${node.system_id}`);
     }
     nodes.set(node.system_id, Object.freeze({ ...node }));
     adjacency.set(node.system_id, new Set());
@@ -73,11 +73,11 @@ export function buildUniverseGraph(input: UniverseGraphInput): UniverseGraph {
     assertSystemId(edge.to_system_id, 'edge destination');
 
     if (edge.from_system_id === edge.to_system_id) {
-      throw new Error(`Self-loop is not a canonical stargate edge: \${edge.from_system_id}`);
+      throw new Error(`Self-loop is not a canonical stargate edge: ${edge.from_system_id}`);
     }
     if (!nodes.has(edge.from_system_id) || !nodes.has(edge.to_system_id)) {
       throw new Error(
-        `Universe graph edge references unknown system: \${edge.from_system_id} -> \${edge.to_system_id}`,
+        `Universe graph edge references unknown system: ${edge.from_system_id} -> ${edge.to_system_id}`,
       );
     }
 

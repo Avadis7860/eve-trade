@@ -31,7 +31,7 @@ async function runQualityTests() {
   // 1. Test validateOrder in EsiService
   console.log('1. Testing EsiService order validation...');
   const validOrder: RawMarketOrder = {
-    order_id: 1001,
+    order_id: '1001',
     type_id: 34,
     location_id: 60003760,
     system_id: 30000142,
@@ -54,8 +54,8 @@ async function runQualityTests() {
   assert(!EsiService.validateOrder({ ...validOrder, price: NaN }, 10000002, 34).isValid, 'NaN price must fail validation');
   assert(!EsiService.validateOrder({ ...validOrder, volume_remain: 0 }, 10000002, 34).isValid, 'volume_remain 0 must fail validation');
   assert(!EsiService.validateOrder({ ...validOrder, volume_remain: -10 }, 10000002, 34).isValid, 'Negative volume_remain must fail validation');
-  assert(!EsiService.validateOrder({ ...validOrder, order_id: 0 }, 10000002, 34).isValid, 'order_id 0 must fail validation');
-  assert(!EsiService.validateOrder({ ...validOrder, order_id: -1 }, 10000002, 34).isValid, 'Negative order_id must fail validation');
+  assert(!EsiService.validateOrder({ ...validOrder, order_id: '0' }, 10000002, 34).isValid, 'order_id 0 must fail validation');
+  assert(!EsiService.validateOrder({ ...validOrder, order_id: '-1' }, 10000002, 34).isValid, 'Negative order_id must fail validation');
   assert(!EsiService.validateOrder(null, 10000002, 34).isValid, 'null order must fail validation');
   assert(!EsiService.validateOrder(undefined, 10000002, 34).isValid, 'undefined order must fail validation');
 
@@ -154,7 +154,7 @@ async function runQualityTests() {
   };
 
   const jitaSellOrder: RawMarketOrder = {
-    order_id: 2001,
+    order_id: '2001',
     type_id: 34,
     location_id: 60003760,
     system_id: 30000142,
@@ -170,7 +170,7 @@ async function runQualityTests() {
   };
 
   const amarrBuyOrder: RawMarketOrder = {
-    order_id: 2002,
+    order_id: '2002',
     type_id: 34,
     location_id: 60008494,
     system_id: 30002187,

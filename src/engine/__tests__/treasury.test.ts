@@ -75,6 +75,93 @@ async function runTests(): Promise<void> {
     assert(result.effective_capital === 0, 'Active-character spendable capital must be zero');
   });
 
+  await test('corporation treasury uses observed corporation balance even when the character wallet is negative', () => {
+    const result = TreasuryEngine.resolveEffectiveCapital(
+      {
+        treasury_source_mode: 'corporation',
+        corporation_wallet_division: 1,
+        corporation_wallet_balance: 5_000_000_000,
+        corporation_wallet_source: 'esi',
+        corporation_divisions: [
+          { division: 1, name: 'Trade', balance: 5_000_000_000 },
+        ],
+        available_capital: 0,
+      },
+      [{
+        character_id: 1001,
+        character_name: 'Negative Wallet Pilot',
+        wallet_balance: -250_000_000,
+        is_active: true,
+      } as any],
+      1001,
+    );
+
+    assert(result.effective_capital === 5_000_000_000, 'Corporation capital must not be reduced by the character wallet');
+    assert(result.capital_status === 'observed_esi', 'Corporation source must be marked as observed ESI');
+  });
+
+  await test('corporation treasury does not fall back to character-derived available capital when ESI data is unavailable', () => {
+    const result = TreasuryEngine.resolveEffectiveCapital(
+      {
+        treasury_source_mode: 'corporation',
+        corporation_wallet_division: 1,
+        corporation_wallet_balance: 5_000_000_000,
+        corporation_wallet_source: 'unavailable',
+        available_capital: 3_000_000_000,
+      },
+      [{
+        character_id: 1001,
+        character_name: 'Negative Wallet Pilot',
+        wallet_balance: -250_000_000,
+        is_active: true,
+      } as any],
+      1001,
+    );
+
+    assert(result.effective_capital === 0, 'Unavailable corporation capital must fail closed to zero spendable capital');
+    assert(result.capital_status === 'unavailable', 'Unavailable corporation data must remain distinguishable from zero');
+  });
+
+  await test('corporation manual budget remains explicit and independent from character wallet', () => {
+    const result = TreasuryEngine.resolveEffectiveCapital(
+      {
+        treasury_source_mode: 'corporation',
+        corporation_wallet_division: 2,
+        corporation_wallet_balance: 1_500_000_000,
+        corporation_wallet_source: 'manual',
+        available_capital: 50_000_000,
+      },
+      [{
+        character_id: 1001,
+        character_name: 'Negative Wallet Pilot',
+        wallet_balance: -250_000_000,
+        is_active: true,
+      } as any],
+      1001,
+    );
+
+    assert(result.effective_capital === 1_500_000_000, 'Explicit corporation manual capital must be used');
+    assert(result.capital_status === 'manual', 'Manual corporation capital must be labeled manual');
+  });
+
+  await test('negative corporation wallet remains factual while producing zero spendable capital', () => {
+    const result = TreasuryEngine.resolveEffectiveCapital(
+      {
+        treasury_source_mode: 'corporation',
+        corporation_wallet_division: 1,
+        corporation_wallet_balance: -100_000_000,
+        corporation_wallet_source: 'esi',
+        corporation_divisions: [
+          { division: 1, name: 'Trade', balance: -100_000_000 },
+        ],
+      },
+      [],
+    );
+
+    assert(result.effective_capital === 0, 'Negative corporation balance must not become negative spendable capital');
+    assert(result.capital_status === 'observed_esi', 'Negative corporation balance is still observed ESI data');
+  });
+
   console.log('\nTreasury wallet invariants: ' + passed + ' passed, ' + failed + ' failed.');
   if (failed > 0) process.exit(1);
 }

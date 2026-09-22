@@ -187,6 +187,22 @@ export type TypeCatalogStatus =
   | 'CATALOG_LOADED'
   | 'CATALOG_FALLBACK_CORE';
 
+export type CatalogProvenanceSource = 'canonical_asset' | 'server' | 'indexeddb' | 'fallback_core' | 'dynamic' | 'esi' | 'unknown';
+
+export type CatalogCompleteness = 'complete' | 'partial' | 'unknown';
+
+export interface CatalogProvenance {
+  source: CatalogProvenanceSource;
+  loaded_at: string;
+  verified: boolean;
+  confidence: number;
+  completeness: CatalogCompleteness;
+  version?: string;
+  checksum?: string;
+  expected_count?: number;
+  error?: string;
+}
+
 export interface TypeCatalogMetadata {
   version: string;
   checksum: string;
@@ -199,6 +215,7 @@ export interface TypeCatalogMetadata {
   minimum_expected_count?: number;
   expected_count?: number;
   is_degraded?: boolean;
+  provenance?: CatalogProvenance;
 }
 
 export interface TypeCatalogResponse {

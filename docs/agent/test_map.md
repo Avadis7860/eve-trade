@@ -65,6 +65,8 @@ Agents must report the checks actually executed; documentation alone is never ev
 
 The corporation boundary has a dedicated gateway contract suite and is included in the existing `test:esi` CI gate.
 
+The corporation treasury boundary also has a focused `test:corporation-boundary` gate executed before the broad unit suite. It covers persisted configuration provenance migration, treasury source isolation, corporation gateway validation, HTTP fail-closed behavior and the architecture rule preventing direct corporation ESI access from character routes.
+
 Required regression surfaces:
 
 - gateway endpoint/path/query/principal mapping;

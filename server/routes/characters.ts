@@ -13,10 +13,23 @@ interface CharacterAuthParams {
 // Character-owned authenticated routes accept only a Bearer credential.
 // The raw Authorization header never crosses into the ESI gateway: the gateway
 // reconstructs the outbound header from the principal context.
-function validateCharacterParams(req: Request, res: Response): CharacterAuthParams | null {
+function validateCharacterId(req: Request, res: Response): number | null {
   const rawId = req.params.characterId;
   const numId = Number(rawId);
   if (!Number.isInteger(numId) || numId <= 0 || String(numId) !== String(rawId).trim()) {
+    res.status(400).json({
+      error: 'INVALID_CHARACTER_ID',
+      message: 'characterId must be a positive integer',
+    });
+    return null;
+  }
+  return numId;
+}
+
+function validateCharacterParams(req: Request, res: Response): CharacterAuthParams | null {
+  const rawId = req.params.characterId;
+  const numId = validateCharacterId(req, res);
+  if (numId === null) return null;
     res.status(400).json({
       error: 'INVALID_CHARACTER_ID',
       message: 'characterId must be a positive integer',
@@ -271,11 +284,11 @@ charactersRouter.get('/:characterId/journal', async (req: Request, res: Response
 
 // 7. Proxy character corporation profile
 charactersRouter.get('/:characterId/corporation', async (req: Request, res: Response) => {
-  const params = validateCharacterParams(req, res);
-  if (!params) return;
+  const characterId = validateCharacterId(req, res);
+  if (characterId === null) return;
 
   try {
-    const charRes = await characterEsiGateway.fetchPublicIdentity(params.characterId);
+    const charRes = await characterEsiGateway.fetchPublicIdentity(characterId);
     if (!charRes.ok || !charRes.data?.corporation_id) {
       return sendCharacterError(res, charRes, 'FAILED_TO_RESOLVE_CORPORATION');
     }
@@ -288,7 +301,7 @@ charactersRouter.get('/:characterId/corporation', async (req: Request, res: Resp
     }
 
     return sendCharacterSuccess(res, corpRes, {
-      character_id: params.characterId,
+      character_id: characterId,
       corporation_id: corporationId,
       corporation_name: corpRes.data?.name,
       ticker: corpRes.data?.ticker,

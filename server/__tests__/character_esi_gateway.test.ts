@@ -102,7 +102,10 @@ async function runTests(): Promise<void> {
     assert(result.data === -12_500_000, 'Negative wallet balance must remain exact');
     assert(calls[0].request.path === '/characters/2112345678/wallet/', 'Unexpected wallet path');
     assert(calls[0].context.type === 'character', 'Wallet must use character principal');
-    assert(calls[0].context.type === 'character' && calls[0].context.bearerCredential === 'token-main', 'Wallet credential must remain principal-owned');
+    assert(
+      calls[0].context.type === 'character' && calls[0].context.bearerCredential === 'token-main',
+      'Wallet credential must remain principal-owned',
+    );
   });
 
   await test('skills use the authenticated character principal and preserve payload', async () => {

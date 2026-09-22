@@ -2,7 +2,7 @@
 
 Status: CURRENT
 Scope: synthetic state of current `main`
-Source of truth: code, tests, CI and manifests at main `3babb086dbca7e1b7b2096d703b71e06cfd2ad45`
+Source of truth: code, tests, CI and manifests at main `eb7810dde5b4a1f3b7b1949d6a512cd606c853d1`
 
 | Domaine | État | Implémentation principale | Validation | Documentation | Suite |
 |---|---|---|---|---|---|
@@ -19,3 +19,4 @@ Source of truth: code, tests, CI and manifests at main `3babb086dbca7e1b7b2096d7
 | Persistence | STABLE | `IndexedDbStore` v5 / 11 stores | persistence tests | [persistence](../architecture/persistence.md) | structural refactor |
 | Security | STABLE | auth + ESI principal boundary | security/ESI | [security](../architecture/security-boundary.md) | new scopes |
 | UI | PARTIAL | React components/hooks | typecheck/build | [frontend](../architecture/frontend.md) | E2E + UX/performance |
+| Browser E2E | PARTIAL | no reference browser harness yet | HTTP/API + service/engine only | [e2e](../validation/e2e.md) | E2E-001 |

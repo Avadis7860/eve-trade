@@ -5,6 +5,7 @@ import type {
   ExecutionFeeRoleMode,
   TreasurySourceMode,
 } from './financial';
+import type { OrderId } from './order';
 
 export type SessionAuthStatus =
   | 'SESSION_VALID'
@@ -149,7 +150,7 @@ export interface OrderOwnership {
 }
 
 export interface EveCharacterOrder {
-  order_id: number;
+  order_id: OrderId;
   /**
    * Backward-compatible character-owner projection.
    * Must be undefined for corporation-owned orders; use ownership as authority.
@@ -232,7 +233,7 @@ export interface EveCharacterTransaction {
 }
 
 export interface EveCharacterOrderHistory {
-  order_id: number;
+  order_id: OrderId;
   /** Canonical ownership/provenance; legacy snapshots may omit this during migration. */
   ownership?: OrderOwnership;
   /** Backward-compatible character-owner projection; undefined for corporation-owned orders. */
@@ -398,7 +399,7 @@ export interface TraderPerformanceMetrics {
 export type OrderAdvisorAction = 'keep' | 'lower_price' | 'cancel' | 'relocate';
 
 export interface OrderAdvisorRecommendation {
-  order_id: number;
+  order_id: OrderId;
   type_id: number;
   type_name: string;
   is_buy_order: boolean;

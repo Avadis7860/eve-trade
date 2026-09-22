@@ -4,6 +4,9 @@ import {
   EVE_CLIENT_ID,
   EVE_CLIENT_SECRET,
   EVE_CALLBACK_URL,
+  EVE_SSO_AUTHORIZE_URL,
+  EVE_SSO_TOKEN_URL,
+  EVE_SSO_VERIFY_URL,
   EVE_SCOPES,
   generateOAuthState,
   validateAndConsumeOAuthState,
@@ -172,7 +175,7 @@ authRouter.post('/token', async (req: Request, res: Response) => {
       params.append('redirect_uri', redirect_uri.trim());
     }
 
-    const response = await fetch('https://login.eveonline.com/v2/oauth/token', {
+    const response = await fetch(EVE_SSO_TOKEN_URL, {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${basicAuth}`,
@@ -207,7 +210,7 @@ authRouter.post('/token', async (req: Request, res: Response) => {
 
     if (!characterId) {
       try {
-        const verifyRes = await fetch('https://login.eveonline.com/oauth/verify', {
+        const verifyRes = await fetch(EVE_SSO_VERIFY_URL, {
           headers: {
             'Authorization': `Bearer ${tokenData.access_token}`,
             'User-Agent': 'eve-trade-interregional/0.2',
@@ -266,7 +269,7 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
       refresh_token: refresh_token,
     });
 
-    const response = await fetch('https://login.eveonline.com/v2/oauth/token', {
+    const response = await fetch(EVE_SSO_TOKEN_URL, {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${basicAuth}`,
@@ -359,7 +362,7 @@ export const callbackHandler = async (req: Request, res: Response) => {
       redirect_uri: redirectUri,
     });
 
-    const tokenRes = await fetch('https://login.eveonline.com/v2/oauth/token', {
+    const tokenRes = await fetch(EVE_SSO_TOKEN_URL, {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${basicAuth}`,
@@ -385,7 +388,7 @@ export const callbackHandler = async (req: Request, res: Response) => {
 
       if (!characterId) {
         try {
-          const verifyRes = await fetch('https://login.eveonline.com/oauth/verify', {
+          const verifyRes = await fetch(EVE_SSO_VERIFY_URL, {
             headers: {
               'Authorization': `Bearer ${tokenData.access_token}`,
               'User-Agent': 'eve-trade-interregional/0.2',
@@ -495,11 +498,7 @@ export const callbackHandler = async (req: Request, res: Response) => {
           };
 
           if (window.opener) {
-            try {
-              window.opener.postMessage(payload, window.location.origin);
-            } catch (e) {
-              window.opener.postMessage(payload, '*');
-            }
+            window.opener.postMessage(payload, window.location.origin);
             setTimeout(() => window.close(), 1000);
           } else {
             setTimeout(() => {

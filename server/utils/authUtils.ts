@@ -5,6 +5,15 @@ export const EVE_CLIENT_ID = process.env.EVE_CLIENT_ID || '';
 export const EVE_CLIENT_SECRET = process.env.EVE_CLIENT_SECRET || '';
 export const EVE_CALLBACK_URL = process.env.EVE_CALLBACK_URL?.trim() || '';
 
+// Upstream EVE SSO endpoints. Production defaults remain CCP; local E2E can
+// point these boundaries at deterministic fixtures without changing the flow.
+export const EVE_SSO_AUTHORIZE_URL =
+  process.env.EVE_SSO_AUTHORIZE_URL?.trim() || 'https://login.eveonline.com/v2/oauth/authorize/';
+export const EVE_SSO_TOKEN_URL =
+  process.env.EVE_SSO_TOKEN_URL?.trim() || 'https://login.eveonline.com/v2/oauth/token';
+export const EVE_SSO_VERIFY_URL =
+  process.env.EVE_SSO_VERIFY_URL?.trim() || 'https://login.eveonline.com/oauth/verify';
+
 export const EVE_SCOPES = [
   'esi-markets.read_character_orders.v1',
   'esi-markets.read_corporation_orders.v1',
@@ -351,11 +360,7 @@ export function renderAuthErrorHtml(title: string, message: string, errorCode: s
         </div>
         <script>
           if (window.opener) {
-            try {
-              window.opener.postMessage(${payloadJson}, window.location.origin);
-            } catch (e) {
-              window.opener.postMessage(${payloadJson}, '*');
-            }
+            window.opener.postMessage(${payloadJson}, window.location.origin);
           }
         </script>
       </body>

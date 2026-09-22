@@ -1,76 +1,118 @@
 # Browser E2E Validation
 
-Status: PARTIAL
+Status: IN PROGRESS
 Scope: end-to-end browser proof
-Source of truth: current `package.json`, browser/application wiring and CI workflow
-Implementation: no browser E2E harness is currently a reference gate
-CI gate: none
+Source of truth: application browser wiring, `playwright.config.ts`, deterministic harness and CI workflow
+Implementation: Playwright deterministic browser gate on E2E-001 branch
+CI gate: pending branch validation
 
-## Current state
+## Current proof model
 
-The repository has strong HTTP/API and deterministic service/engine validation, but no browser E2E command in the current package scripts or CI workflow.
+The browser suite deliberately uses the real eve-trade frontend/backend, while replacing only the external OAuth and ESI boundaries with deterministic local fixtures.
 
-Authentication is already covered below the browser layer by API/security tests. The missing proof is the composition of the real frontend, backend, OAuth callback, session, authenticated API and persistence/session restoration behavior in an actual browser runtime.
+```
+Browser
+  ↓
+SsoConnectCard
+  ↓
+/api/auth/url
+  ↓
+controlled OAuth fixture
+  ↓
+/auth/callback
+  ↓
+postMessage
+  ↓
+AuthService / CharacterRepository
+  ↓
+/api/character/*
+  ↓
+CharacterEsiGateway
+  ↓
+EsiGateway
+  ↓
+controlled ESI fixture
+```
 
-## E2E-001 objective
+The application continues to use CCP/ESI endpoints by default. The test harness changes those upstream URLs only through environment variables before the server module is loaded.
 
-Establish a reproducible browser-level authentication gate for the existing application without redefining the authentication or ESI architecture.
+## Deterministic browser command
 
-The primary flow to prove is:
+From a clean checkout:
 
-`Browser → SsoConnectCard → /api/auth/url → OAuth/SSO boundary → /auth/callback → session establishment → AuthService → authenticated API → ESI boundary`
+```text
+npm ci --no-audit --no-fund
+npx playwright install chromium
+npm run test:e2e
+```
 
-The browser proof must cover the success path and the material failure paths that can break integration despite passing isolated HTTP tests.
+For an interactive local browser run:
 
-## Test layers
+```text
+npm run test:e2e:headed
+```
 
-### Deterministic CI/browser layer
+The configured Playwright `webServer` starts `scripts/e2e/start-harness.ts`, which starts the deterministic external fixture and the real eve-trade server.
 
-The automated CI path must:
+Default local ports:
 
-- use a real browser harness;
-- launch the real eve-trade application/backend path used by the project;
-- exercise the browser-facing SSO flow rather than the manual code/token mode;
-- control the external OAuth and ESI boundaries deterministically;
-- verify callback completion, session creation and session restoration;
-- verify an authenticated character request reaches the expected application boundary;
-- verify character/session isolation;
-- verify logout and relevant authentication failures;
-- run reproducibly without a real CCP account or interactive credentials.
+- application: `3000`
+- deterministic OAuth/ESI fixture: `43123`
 
-The test must add unique browser-level evidence instead of merely duplicating the existing HTTP security suite.
+The ports can be overridden with `E2E_APP_PORT` and `E2E_MOCK_PORT`.
 
-### Real CCP smoke layer
+## Deterministic fixture
 
-A separate local smoke path must validate the integration against CCP SSO with a dedicated disposable test account.
+The fixture provides two isolated characters:
 
-The operator may perform the CCP login/consent interaction manually. Once authorization is granted, the test may continue through the real callback, session creation and real authenticated ESI request.
+- Alpha: character `1001`, corporation `99001`
+- Beta: character `1002`, corporation `99002`
 
-Credentials and long-lived secrets must remain local. They must not be committed, placed in fixtures, emitted in logs, or required by CI.
+The OAuth fixture issues deterministic authorization codes and access/refresh tokens. The ESI fixture rejects a credential when it is used for the wrong character or corporation context.
 
-This smoke path is used for local integration verification and for the post-install acceptance test performed on the user's own PC. It is not a CI dependency.
+No CCP login, password, token, client secret or personal credential is used by this layer.
 
-## Required evidence
+## Browser scenarios
 
-E2E-001 is complete only when the implementation provides:
+The current suite covers:
 
-- a documented browser test command;
-- reproducible local startup/bootstrap instructions;
-- CI integration for the deterministic browser suite;
-- success and failure coverage for the OAuth callback/session composition;
-- session persistence/restoration coverage where the current architecture supports it;
-- authenticated request and identity-isolation evidence;
-- no dependency on a real CCP account in CI;
-- a documented real-CCP smoke procedure;
-- green typecheck, unit/API/security/ESI suites, production build and CI.
+- nominal SSO popup → callback → postMessage → authenticated ESI → persisted session;
+- reload/session restoration;
+- forged same-origin `postMessage` from the main window;
+- callback with an unissued state;
+- callback state replay;
+- expired local session followed by refresh through the frontend API path;
+- logout;
+- second-character connection, token preservation and active-character switching;
+- controlled OAuth denial;
+- popup closed before completion.
 
-## Gate requirement
+HTTP/security suites remain responsible for the exhaustive state TTL and lower-level protocol validation already present in the repository. The browser suite tests composition failures that those suites cannot observe.
 
-Before browser E2E becomes a release-quality proof, the local EVE SSO/OAuth callback, session and authenticated API flow must be reproducibly validated outside any special agent environment.
+## Real CCP smoke test
 
-The post-implementation acceptance sequence is:
+This is a separate local acceptance procedure and is never a CI prerequisite.
 
-1. merge the E2E-001 implementation after normal CI validation;
-2. install/run the application on the user's PC;
-3. execute the documented real-CCP smoke path with the disposable test account;
-4. record any discrepancy as a regression input before declaring the integration proven.
+1. Copy `.env.example` to a local environment file and populate only local CCP application values.
+2. Register the exact callback URI with the CCP developer application and set the same value in `EVE_CALLBACK_URL`.
+3. Start the normal application with `npm run dev`.
+4. Open the Orders view, keep the SSO tab selected, and choose the callback option matching the registered CCP callback.
+5. Click the official EVE SSO button.
+6. Complete CCP login and consent manually in the official CCP page. Do not automate password entry and do not paste or record the password in the project.
+7. Verify that the browser returns to `/auth/callback`, the character appears authenticated, and authenticated ESI data loads.
+8. Perform the same check for a dedicated disposable test character when multi-character validation is required.
+
+Real values remain outside Git and outside logs. The smoke test is expected to be run by the repository owner after installation on the target PC.
+
+## CI
+
+The GitHub Actions workflow contains two complementary jobs:
+
+- the existing validation job for the established typecheck/unit/API/security/ESI/corporation/build gates;
+- the Playwright browser job, which installs Chromium and executes `npm run test:e2e`.
+
+The browser job has no CCP dependency and uploads Playwright diagnostics when available.
+
+## Completion gate
+
+E2E-001 is not complete until the browser job is green in CI on the branch/PR, the existing regression gates remain green, and the active documentation is synchronized with the delivered behavior.

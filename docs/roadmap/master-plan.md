@@ -9,7 +9,7 @@ CI gate: PR CI
 
 ## Current state
 
-The documentation reconstruction (DOC-001) is complete and merged as PR #43, with a final state synchronization in PR #44. The stabilization sequence #37–#42 remains the functional foundation. Current `main` is `eb7810dde5b4a1f3b7b1949d6a512cd606c853d1` and its post-merge CI is green.
+The documentation reconstruction (DOC-001) is complete and merged. PR #45 prepared the E2E-001 bootstrap documentation. The stabilization sequence #37–#42 remains the functional foundation. Current `main` is `a31979c6c76ba93cc19a7437894f3935e69a01c7` and its post-merge CI is green.
 
 Stable foundations are listed in [stable-domains](../state/stable-domains.md). Do not reopen them without a demonstrable regression.
 
@@ -18,7 +18,7 @@ Stable foundations are listed in [stable-domains](../state/stable-domains.md). D
 | ID | Status | Goal | Dependencies | Risk | Validation |
 |---|---|---|---|---|---|
 | DOC-001 | DONE | Reconstruct modular documentation governance | current mission | stale truth if incomplete | docs/link audit + CI |
-| E2E-001 | NEXT | Establish reproducible local OAuth/browser gate, deterministic CI E2E coverage, and a separately executed real-CCP smoke path | stable auth/ESI | environment-sensitive auth and callback integration | browser E2E + security/API + local CCP smoke |
+| E2E-001 | IN PROGRESS | Establish reproducible local OAuth/browser gate, deterministic CI E2E coverage, and a separately executed real-CCP smoke path | stable auth/ESI | environment-sensitive auth and callback integration | browser E2E + security/API + local CCP smoke |
 | PST-001 | PLANNED | Decompose IndexedDB implementation without semantic drift | persistence contract + E2E-001 safety net | migration/data-loss risk | persistence + full regression |
 | UI-001 | PLANNED | Expose corporation trading scope cleanly in UI | trading contracts stable | UI may bypass ownership semantics | typecheck + targeted UI tests |
 | E2E-002 | PLANNED | Add critical browser workflows beyond authentication | E2E-001, UI-001, PST-001 as needed | false confidence from partial flows | browser suite + CI |

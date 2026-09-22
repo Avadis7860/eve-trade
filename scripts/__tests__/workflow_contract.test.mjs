@@ -8,6 +8,7 @@ const ci = read('.github/workflows/ci.yml');
 const sde = read('.github/workflows/phase-2.7c-sde.yml');
 
 const requiredCiCommands = [
+  'npm run test:e2e',
   'npm ci --no-audit --no-fund',
   'npm run typecheck',
   'npm run typecheck:server',
@@ -29,6 +30,11 @@ assert.match(
   ci,
   /Install dependencies[\s\S]*Frontend typecheck[\s\S]*Backend typecheck/,
   'CI validation order must keep dependency installation before typechecks',
+);
+assert.match(
+  ci,
+  /browser-e2e:[\s\S]*npx playwright install --with-deps chromium[\s\S]*npm run test:e2e/,
+  'CI must execute the deterministic Playwright browser gate',
 );
 
 assert.match(

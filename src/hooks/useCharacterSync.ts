@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { EveCharacterSession, EveCharacterOrder, MarketHub } from '../types';
 import { EsiService } from '../services/esi';
 import { AuthService } from '../services/authService';
@@ -20,6 +20,7 @@ export function useCharacterSync(
   const { setConfig } = useTradingConfig();
   const [characterOrders, setCharacterOrders] = useState<EveCharacterOrder[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState<boolean>(false);
+  const ssoPopupRef = useRef<Window | null>(null);
 
   const loadCharacterData = useCallback(
     async (
@@ -252,7 +253,12 @@ export function useCharacterSync(
   // Handle postMessage from OAuth popup
   useEffect(() => {
     const handleMessage = async (event: MessageEvent) => {
-      if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
+      if (event.origin !== window.location.origin) return;
+      if (!ssoPopupRef.current || event.source !== ssoPopupRef.current) return;
+      if (!event.data || typeof event.data !== 'object') return;
+
+      if (event.data.type === 'OAUTH_AUTH_SUCCESS') {
+        ssoPopupRef.current = null;
         if (event.data?.session) {
           const s = event.data.session as EveCharacterSession;
           updateSession(s);
@@ -359,7 +365,10 @@ export function useCharacterSync(
       );
 
       if (!popup) {
+        ssoPopupRef.current = null;
         window.location.href = authUrl;
+      } else {
+        ssoPopupRef.current = popup;
       }
     } catch (err) {
       alert(`Erreur d initialisation SSO : ${err}`);

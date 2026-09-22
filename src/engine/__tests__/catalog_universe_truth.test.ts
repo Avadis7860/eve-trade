@@ -151,7 +151,7 @@ assert(
     knownRoute.is_verified === true &&
     knownRoute.source === 'canonical_graph' &&
     knownRoute.is_highsec_only === true &&
-    knownRoute.jumps === 9,
+    knownRoute.jumps === 39,
   'Jita -> Amarr must resolve as a certified canonical SDE high-sec route',
 );
 assert(
@@ -166,8 +166,10 @@ assert(
     shortestRoute.is_verified === true &&
     shortestRoute.source === 'canonical_graph' &&
     Number.isFinite(shortestRoute.jumps) &&
-    shortestRoute.jumps >= 0,
-  'Shortest route policy must also resolve through the canonical graph',
+    shortestRoute.jumps === 11 &&
+    shortestRoute.is_highsec_only === false &&
+    shortestRoute.min_security < 0.5,
+  'Shortest route policy must resolve the true shortest path, even when it is not High-Sec only',
 );
 
 const unknownRoute = universe.getRoute(30000142, 999999999, 'SHORTEST');

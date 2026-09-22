@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { fetchEsi } from '../utils/esiClient';
 import { characterEsiGateway, setCharacterRetryAfter } from '../gateways/characterEsiGateway';
-import type { EsiResponseMetadata } from '../utils/esiTypes';
+import type { EsiGatewayResponse, EsiResponseMetadata } from '../utils/esiTypes';
 
 export const charactersRouter = Router();
 
@@ -14,8 +14,9 @@ interface CharacterAuthParams {
 // The raw Authorization header never crosses into the ESI gateway: the gateway
 // reconstructs the outbound header from the principal context.
 function validateCharacterParams(req: Request, res: Response): CharacterAuthParams | null {
-  const numId = Number(req.params.characterId);
-  if (!Number.isInteger(numId) || numId <= 0) {
+  const rawId = req.params.characterId;
+  const numId = Number(rawId);
+  if (!Number.isInteger(numId) || numId <= 0 || String(numId) !== String(rawId).trim()) {
     res.status(400).json({
       error: 'INVALID_CHARACTER_ID',
       message: 'characterId must be a positive integer',
@@ -46,19 +47,74 @@ function validateCharacterParams(req: Request, res: Response): CharacterAuthPara
 
 function sendCharacterError(
   res: Response,
-  result: { status: number; error?: { kind: string; message: string; retryAfterSeconds?: number } },
+  result: Pick<EsiGatewayResponse<unknown>, 'status' | 'error' | 'metadata'>,
   label: string,
 ) {
+  sendCharacterMetadata(res, result.metadata);
+
   return res.status(result.status || 500).json({
     error: label,
     details: result.error?.message,
     esi_error_kind: result.error?.kind,
     retryAfter: result.error?.retryAfterSeconds,
+    errorLimitRemain: result.metadata.rateLimit.errorLimitRemain,
+    errorLimitReset: result.metadata.rateLimit.errorLimitResetSeconds,
   });
 }
 
-function sendMetadata(res: Response, result: { metadata: ReturnType<typeof characterEsiGateway.fetchOrders> extends Promise<infer T> ? T extends { metadata: infer M } ? M : never : never }) {
-  setCharacterRetryAfter(res, result.metadata);
+function sendCharacterMetadata(res: Response, metadata: EsiResponseMetadata): void {
+  const cache = metadata.cache;
+  const rateLimit = metadata.rateLimit;
+  const pagination = metadata.pagination;
+
+  if (cache.etag !== undefined) res.setHeader('ETag', cache.etag);
+  if (cache.expires !== undefined) res.setHeader('Expires', cache.expires);
+  if (cache.lastModified !== undefined) res.setHeader('Last-Modified', cache.lastModified);
+  if (cache.cacheControl !== undefined) res.setHeader('Cache-Control', cache.cacheControl);
+  if (cache.compatibilityDate !== undefined) {
+    res.setHeader('X-Compatibility-Date', cache.compatibilityDate);
+  }
+
+  if (pagination.xPages !== undefined) res.setHeader('X-Pages', String(pagination.xPages));
+
+  if (rateLimit.rateLimitGroup !== undefined) {
+    res.setHeader('X-RateLimit-Group', rateLimit.rateLimitGroup);
+  }
+  if (rateLimit.rateLimitLimit !== undefined) {
+    res.setHeader('X-RateLimit-Limit', rateLimit.rateLimitLimit);
+  }
+  if (rateLimit.rateLimitRemaining !== undefined) {
+    res.setHeader('X-RateLimit-Remaining', String(rateLimit.rateLimitRemaining));
+  }
+  if (rateLimit.rateLimitUsed !== undefined) {
+    res.setHeader('X-RateLimit-Used', String(rateLimit.rateLimitUsed));
+  }
+
+  setCharacterRetryAfter(res, metadata);
+}
+
+function sendCharacterSuccess<T>(
+  res: Response,
+  result: Pick<EsiGatewayResponse<T>, 'status' | 'data' | 'metadata'>,
+  payload: unknown = result.data,
+) {
+  sendCharacterMetadata(res, result.metadata);
+
+  // A 304 has no response body and must remain a transport-level cache result.
+  if (result.status === 304) {
+    return res.status(304).end();
+  }
+
+  // Character routes are fail-loud: a source-side 2xx without a payload is not
+  // represented as fake zero/null business data.
+  if (result.data === null) {
+    return res.status(502).json({
+      error: 'INVALID_ESI_RESPONSE',
+      message: 'ESI returned no payload for a successful character request',
+    });
+  }
+
+  return res.status(result.status || 200).json(payload);
 }
 
 // 1. Proxy character orders (active)
@@ -72,12 +128,11 @@ charactersRouter.get('/:characterId/orders', async (req: Request, res: Response)
       params.bearerCredential,
     );
 
-    sendMetadata(res, result);
     if (!result.ok) {
       return sendCharacterError(res, result, 'ESI orders error');
     }
 
-    return res.json(result.data);
+    return sendCharacterSuccess(res, result);
   } catch (err: unknown) {
     return res.status(500).json({ error: 'ESI orders gateway error', message: String(err) });
   }
@@ -107,12 +162,11 @@ charactersRouter.get('/:characterId/orders/history', async (req: Request, res: R
       page,
     );
 
-    sendMetadata(res, result);
     if (!result.ok) {
       return sendCharacterError(res, result, 'ESI order history error');
     }
 
-    return res.json(result.data);
+    return sendCharacterSuccess(res, result);
   } catch (err: unknown) {
     return res.status(500).json({ error: 'ESI order history gateway error', message: String(err) });
   }
@@ -129,12 +183,11 @@ charactersRouter.get('/:characterId/wallet', async (req: Request, res: Response)
       params.bearerCredential,
     );
 
-    sendMetadata(res, result);
     if (!result.ok) {
       return sendCharacterError(res, result, 'ESI wallet error');
     }
 
-    return res.json({ balance: result.data });
+    return sendCharacterSuccess(res, result, { balance: result.data });
   } catch (err: unknown) {
     return res.status(500).json({ error: 'ESI wallet gateway error', message: String(err) });
   }
@@ -151,12 +204,11 @@ charactersRouter.get('/:characterId/skills', async (req: Request, res: Response)
       params.bearerCredential,
     );
 
-    sendMetadata(res, result);
     if (!result.ok) {
       return sendCharacterError(res, result, 'ESI skills error');
     }
 
-    return res.json(result.data);
+    return sendCharacterSuccess(res, result);
   } catch (err: unknown) {
     return res.status(500).json({ error: 'ESI skills gateway error', message: String(err) });
   }
@@ -186,19 +238,11 @@ charactersRouter.get('/:characterId/transactions', async (req: Request, res: Res
       fromId,
     );
 
-    sendMetadata(res, result);
     if (!result.ok) {
-      return res.status(result.status).json({
-        error: 'ESI transactions error',
-        details: result.error?.message,
-        esi_error_kind: result.error?.kind,
-        retryAfter: result.error?.retryAfterSeconds,
-        errorLimitRemain: result.metadata.rateLimit.errorLimitRemain,
-        errorLimitReset: result.metadata.rateLimit.errorLimitResetSeconds,
-      });
+      return sendCharacterError(res, result, 'ESI transactions error');
     }
 
-    return res.json(result.data);
+    return sendCharacterSuccess(res, result);
   } catch (err: unknown) {
     return res.status(500).json({ error: 'ESI transactions gateway error', message: String(err) });
   }
@@ -215,12 +259,11 @@ charactersRouter.get('/:characterId/journal', async (req: Request, res: Response
       params.bearerCredential,
     );
 
-    sendMetadata(res, result);
     if (!result.ok) {
       return sendCharacterError(res, result, 'ESI wallet journal error');
     }
 
-    return res.json(result.data);
+    return sendCharacterSuccess(res, result);
   } catch (err: unknown) {
     return res.status(500).json({ error: 'ESI wallet journal gateway error', message: String(err) });
   }
@@ -229,8 +272,11 @@ charactersRouter.get('/:characterId/journal', async (req: Request, res: Response
 // 7. Proxy character corporation profile
 charactersRouter.get('/:characterId/corporation', async (req: Request, res: Response) => {
   const numId = Number(req.params.characterId);
-  if (!Number.isInteger(numId) || numId <= 0) {
-    return res.status(400).json({ error: 'INVALID_CHARACTER_ID', message: 'characterId must be a positive integer' });
+  if (!Number.isInteger(numId) || numId <= 0 || String(numId) !== String(req.params.characterId).trim()) {
+    return res.status(400).json({
+      error: 'INVALID_CHARACTER_ID',
+      message: 'characterId must be a positive integer',
+    });
   }
 
   const charRes = await characterEsiGateway.fetchPublicIdentity(numId);

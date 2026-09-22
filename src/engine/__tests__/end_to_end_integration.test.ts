@@ -266,6 +266,7 @@ function runEndToEndIntegrationTests() {
   const ordersFleet = selectOrdersByScope(allOrders, scopeFleet, {
     activeCharacterId: '1001',
     fleetCharacterIds: fleetCharIds,
+    corporationIds: [],
   });
   assert(ordersFleet.length === 3, 'Fleet scope should contain all 3 orders');
   // Invariant: Orders retain original character_id (no replacement with 0 or fleet id)

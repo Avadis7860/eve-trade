@@ -763,6 +763,81 @@ export class EsiService {
   }
 
   /**
+   * Fetches character corporation profile (ID, Name, Ticker)
+   */
+  static async fetchCorporationInfo(
+    characterId: number,
+    accessToken?: string
+  ): Promise<{
+    ok: boolean;
+    data?: {
+      character_id: number;
+      corporation_id: number;
+      corporation_name: string;
+      ticker?: string;
+      member_count?: number;
+    };
+    error?: string;
+  }> {
+    try {
+      const res = await fetch(`/api/character/${characterId}/corporation`, {
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return { ok: true, data };
+      }
+      return { ok: false, error: `HTTP_${res.status}` };
+    } catch (err) {
+      return { ok: false, error: String(err) };
+    }
+  }
+
+  /**
+   * Fetches corporation wallet divisions and balances from ESI proxy.
+   * If character lacks Director/Accountant roles or scopes, returns structured error without crashing.
+   */
+  static async fetchCorporationWallets(
+    characterId: number,
+    accessToken: string
+  ): Promise<{
+    ok: boolean;
+    data?: {
+      corporation_id: number;
+      wallets: Array<{ division: number; name: string; balance: number }>;
+    };
+    error?: string;
+    status?: number;
+  }> {
+    const resObj = await this.executeWithAuthRefresh<{
+      corporation_id: number;
+      wallets: Array<{ division: number; name: string; balance: number }>;
+    }>(characterId, accessToken, async (token: string) => {
+      try {
+        const res = await fetch(`/api/character/${characterId}/corporation/wallets`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (res.ok) {
+          return { ok: true, status: res.status, data };
+        }
+        return {
+          ok: false,
+          status: res.status,
+          error: data.message || data.error || `HTTP_${res.status}`,
+        };
+      } catch (err) {
+        return { ok: false, status: 500, error: String(err) };
+      }
+    });
+
+    if (resObj) {
+      return { ok: true, data: resObj };
+    }
+    return { ok: false, error: 'CORPORATION_WALLETS_UNAVAILABLE' };
+  }
+
+  /**
    * Fetches metadata status of the Type Catalog
    */
   static async getTypeCatalogStatus(): Promise<TypeCatalogMetadata> {

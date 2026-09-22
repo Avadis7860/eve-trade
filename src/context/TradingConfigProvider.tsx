@@ -19,6 +19,10 @@ interface TradingConfigContextType {
 
 const DEFAULT_CONFIG: FinancialConfig = {
   available_capital: 1000000000.0, // 1 Billion ISK
+  treasury_source_mode: 'corporation', // Corporation / Fleet / Personal treasury mode
+  corporation_wallet_division: 1,      // Division 1 (Master / 1ère division)
+  corporation_wallet_balance: 5000000000.0, // 5B ISK
+  corporation_name: 'Corporation Personnelle',
   enable_transport_costs: false,   // Disabled by default -> 0 ISK transport cost
   broker_fee: 0.0145,              // 1.45%
   sales_tax: 0.035,               // 3.5%

@@ -7,6 +7,8 @@ import {
   TradeStrategy,
 } from '../types';
 import { InterRegionalFinancialEngine } from '../engine/interRegional';
+import { TreasuryEngine } from '../engine/treasury';
+import { useAuth } from '../context/AuthProvider';
 import {
   Globe,
   Filter,
@@ -25,6 +27,7 @@ import {
   SlidersHorizontal,
   Package,
   Info,
+  Building2,
 } from 'lucide-react';
 
 interface GlobalScannerViewProps {
@@ -42,6 +45,7 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
   onOpenGlobalSyncModal,
   onSelectOpportunityForCockpit,
 }) => {
+  const { characterSession, linkedCharacters } = useAuth();
   const [opportunities, setOpportunities] = useState<UniverseWideOpportunity[]>(() => {
     const mem = GlobalMarketSyncService.getUniverseOpportunities();
     if (mem.length > 0) return mem;
@@ -218,20 +222,34 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
 
         <div className="flex items-center gap-3">
           {/* Active Cargo & Capital Badge */}
-          <div className="hidden sm:flex items-center gap-2 bg-[#0e1117] border border-[#262730] px-3 py-1.5 rounded-xl text-[11px] font-mono">
-            <span className="text-[#808495] flex items-center gap-1">
-              <Package className="w-3.5 h-3.5 text-blue-400" />
-              Soute :
-            </span>
-            <span className="text-[#fafafa] font-bold">
-              {(config.max_cargo_m3 ?? 35000).toLocaleString('fr-FR')} m³
-            </span>
-            <span className="text-[#808495]">&bull;</span>
-            <span className="text-[#808495]">Capital :</span>
-            <span className="text-emerald-400 font-bold">
-              {((config.available_capital ?? 1000000000) / 1000000).toFixed(0)}M ISK
-            </span>
-          </div>
+          {(() => {
+            const treasury = TreasuryEngine.resolveEffectiveCapital(config, linkedCharacters, characterSession?.character_id);
+            return (
+              <div className="hidden sm:flex items-center gap-2 bg-[#0e1117] border border-[#262730] px-3 py-1.5 rounded-xl text-[11px] font-mono">
+                <span className="text-[#808495] flex items-center gap-1">
+                  <Package className="w-3.5 h-3.5 text-blue-400" />
+                  Soute :
+                </span>
+                <span className="text-[#fafafa] font-bold">
+                  {(config.max_cargo_m3 ?? 35000).toLocaleString('fr-FR')} m³
+                </span>
+                <span className="text-[#808495]">&bull;</span>
+                <span className="text-[#808495] flex items-center gap-1">
+                  {treasury.is_corporation ? (
+                    <Building2 className="w-3 h-3 text-amber-400" />
+                  ) : (
+                    <Coins className="w-3 h-3 text-emerald-400" />
+                  )}
+                  {treasury.is_corporation ? `Corp Div.${treasury.division} :` : 'Capital :'}
+                </span>
+                <span className={treasury.is_corporation ? 'text-amber-400 font-bold' : 'text-emerald-400 font-bold'}>
+                  {treasury.effective_capital >= 1000000000
+                    ? `${(treasury.effective_capital / 1000000000).toFixed(2)}B ISK`
+                    : `${(treasury.effective_capital / 1000000).toFixed(0)}M ISK`}
+                </span>
+              </div>
+            );
+          })()}
 
           <button
             onClick={onOpenGlobalSyncModal}

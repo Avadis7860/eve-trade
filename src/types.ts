@@ -400,6 +400,24 @@ export interface ScenarioFinancialResult {
   fee_resolution?: FeeRateResolution;
 }
 
+export type TreasurySourceMode = 'corporation' | 'fleet_consolidated' | 'active_character' | 'manual_budget';
+
+export interface CorporationWalletDivisionInfo {
+  division: number; // 1 to 7
+  name: string;     // e.g. "Master (Division 1)", "Trading Division", etc.
+  balance: number;  // ISK balance
+}
+
+export interface TreasuryResolution {
+  source_mode: TreasurySourceMode;
+  effective_capital: number;
+  label: string;
+  division?: number;
+  division_name?: string;
+  corporation_name?: string;
+  is_corporation: boolean;
+}
+
 export interface FinancialConfig {
   available_capital: number;
   broker_fee: number;      // e.g. 0.0145 (1.45%)
@@ -433,6 +451,14 @@ export interface FinancialConfig {
   trader_profile?: 'balanced' | 'highsec_daytrader' | 'station_trader' | 'heavy_hauler';
   fleet_calculation_mode?: 'active_character' | 'fleet_consolidated';
   fleet_consolidated_capital?: number;
+
+  // Treasury & Corporation Wallet configuration
+  treasury_source_mode?: TreasurySourceMode; // 'corporation' | 'fleet_consolidated' | 'active_character' | 'manual_budget'
+  corporation_wallet_division?: number;      // 1 to 7 (division number, default 1)
+  corporation_wallet_balance?: number;       // ISK balance for chosen corp division
+  corporation_id?: number;
+  corporation_name?: string;
+  corporation_divisions?: CorporationWalletDivisionInfo[];
 }
 
 export interface DailyMarketHistory {
@@ -972,6 +998,12 @@ export interface TradingFleetOverview {
   total_escrow_locked: number;
   characters: FleetCharacterSummary[];
   hub_coverage: Record<string, FleetCharacterSummary[]>; // hub_id -> characters stationed there
+  treasury_source_mode?: TreasurySourceMode;
+  effective_trading_capital?: number;
+  corporation_wallet_division?: number;
+  corporation_wallet_balance?: number;
+  corporation_name?: string;
+  treasury_label?: string;
 }
 
 export interface EveCharacterSession {
@@ -983,6 +1015,10 @@ export interface EveCharacterSession {
   refresh_token?: string;
   expires_at?: number; // Unix timestamp in milliseconds
   wallet_balance?: number;
+  corporation_id?: number;
+  corporation_name?: string;
+  corporation_ticker?: string;
+  corporation_wallets?: CorporationWalletDivisionInfo[];
   accounting_skill?: number;
   broker_relations_skill?: number;
   advanced_broker_relations_skill?: number;

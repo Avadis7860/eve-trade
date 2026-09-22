@@ -31,6 +31,7 @@ import { FailureSemantics } from './failureSemantics';
 import { OpportunityEvidenceEngine, CURRENT_CERTIFICATION_VERSION } from './evidence';
 import { CatalogRepository } from '../domain/catalog/CatalogRepository';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
+import { TreasuryEngine } from './treasury';
 
 export class InterRegionalFinancialEngine {
   /**
@@ -161,7 +162,7 @@ export class InterRegionalFinancialEngine {
     sourceAvailableVolume: number,
     destinationAbsorptionVolume: number,
     route: JumpRoute,
-    config: FinancialConfig
+    config: Partial<FinancialConfig> | FinancialConfig
   ): {
     quantity: number;
     bottleneck: 'capital' | 'cargo' | 'source_market' | 'destination_market';
@@ -171,7 +172,8 @@ export class InterRegionalFinancialEngine {
     sourceAvailableUnits: number;
     destAvailableUnits: number;
   } {
-    const availableCap = config.available_capital ?? 1000000000;
+    const treasury = TreasuryEngine.resolveEffectiveCapital(config);
+    const availableCap = treasury.effective_capital;
     const maxCapPerTrade = config.max_capital_per_trade ?? availableCap;
     const maxCapitalToUse = Math.min(availableCap, maxCapPerTrade);
     const effectiveUnitVolume = unitVolume && unitVolume > 0 ? unitVolume : 0.01;

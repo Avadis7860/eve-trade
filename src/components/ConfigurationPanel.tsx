@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { MarketHub, FinancialConfig, TradeStrategy } from '../types';
+import React, { useState, useEffect } from 'react';
+import { MarketHub, FinancialConfig, TradeStrategy, TreasurySourceMode } from '../types';
 import { FeeCalculator } from '../engine/fee';
 import { EsiService } from '../services/esi';
+import { TreasuryEngine } from '../engine/treasury';
+import { useAuth } from '../context/AuthProvider';
 import {
   Save,
   Sliders,
@@ -15,6 +17,13 @@ import {
   Square,
   Sparkles,
   Info,
+  Building2,
+  Wallet,
+  Users,
+  Coins,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
 
 interface ConfigurationPanelProps {
@@ -36,8 +45,13 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
   strategy,
   onChangeStrategy,
 }) => {
+  const { characterSession, linkedCharacters } = useAuth();
   const [form, setForm] = useState<FinancialConfig>({
     ...config,
+    treasury_source_mode: config.treasury_source_mode ?? 'corporation',
+    corporation_wallet_division: config.corporation_wallet_division ?? 1,
+    corporation_wallet_balance: config.corporation_wallet_balance ?? 5000000000.0,
+    corporation_name: config.corporation_name ?? 'Ma Corporation',
     enable_transport_costs: config.enable_transport_costs ?? false,
     accounting_level: config.accounting_level ?? 5,
     broker_relations_level: config.broker_relations_level ?? 5,
@@ -46,11 +60,108 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
   });
   const [saved, setSaved] = useState(false);
   const [cacheStats, setCacheStats] = useState(() => EsiService.getOrderDatabaseStats());
+  const [isSyncingCorp, setIsSyncingCorp] = useState(false);
+  const [corpSyncStatus, setCorpSyncStatus] = useState<{
+    success?: boolean;
+    message?: string;
+  } | null>(null);
+
+  // Compute live treasury resolution for preview
+  const treasuryResolution = TreasuryEngine.resolveEffectiveCapital(
+    form,
+    linkedCharacters,
+    characterSession?.character_id
+  );
 
   const handleSave = () => {
-    onUpdateConfig(form);
+    // When saving, also synchronize available_capital with effective treasury capital
+    const resolved = TreasuryEngine.resolveEffectiveCapital(
+      form,
+      linkedCharacters,
+      characterSession?.character_id
+    );
+    const updatedForm: FinancialConfig = {
+      ...form,
+      available_capital: resolved.effective_capital,
+    };
+    onUpdateConfig(updatedForm);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
+  };
+
+  // Live ESI sync for corporation wallets
+  const handleSyncCorpWallets = async () => {
+    if (!characterSession) {
+      setCorpSyncStatus({
+        success: false,
+        message: 'Aucun personnage EVE SSO actif connecté.',
+      });
+      return;
+    }
+    setIsSyncingCorp(true);
+    setCorpSyncStatus(null);
+    try {
+      // 1. Fetch Corp profile
+      const corpInfo = await EsiService.fetchCorporationInfo(
+        characterSession.character_id,
+        characterSession.access_token
+      );
+      let corpName = form.corporation_name;
+      if (corpInfo.ok && corpInfo.data) {
+        corpName = corpInfo.data.corporation_name;
+      }
+
+      // 2. Fetch Corp wallets
+      const walletsRes = await EsiService.fetchCorporationWallets(
+        characterSession.character_id,
+        characterSession.access_token
+      );
+
+      if (walletsRes.ok && walletsRes.data && walletsRes.data.wallets) {
+        const divisionWallets = walletsRes.data.wallets;
+        const currentDiv = form.corporation_wallet_division || 1;
+        const matchingDiv = divisionWallets.find((w) => w.division === currentDiv) || divisionWallets[0];
+        const newBalance = matchingDiv ? matchingDiv.balance : form.corporation_wallet_balance;
+
+        setForm((prev) => ({
+          ...prev,
+          corporation_name: corpName,
+          corporation_id: corpInfo.data?.corporation_id,
+          corporation_wallet_balance: newBalance,
+          corporation_divisions: divisionWallets,
+        }));
+
+        setCorpSyncStatus({
+          success: true,
+          message: `Synchronisé depuis ESI : ${corpName} (Division ${currentDiv} : ${(newBalance || 0).toLocaleString()} ISK)`,
+        });
+      } else {
+        // Fallback info when character doesn't have director roles in ESI
+        if (corpInfo.ok && corpInfo.data) {
+          setForm((prev) => ({
+            ...prev,
+            corporation_name: corpInfo.data!.corporation_name,
+            corporation_id: corpInfo.data!.corporation_id,
+          }));
+          setCorpSyncStatus({
+            success: true,
+            message: `Corporation détectée : ${corpInfo.data.corporation_name}. (Note ESI : Rôles Directeur requis pour lecture automatique du solde)`,
+          });
+        } else {
+          setCorpSyncStatus({
+            success: false,
+            message: walletsRes.error || 'Impossible de lire les portefeuilles de corporation.',
+          });
+        }
+      }
+    } catch (err) {
+      setCorpSyncStatus({
+        success: false,
+        message: `Erreur lors de la synchronisation : ${String(err)}`,
+      });
+    } finally {
+      setIsSyncingCorp(false);
+    }
   };
 
   // Skill based auto recalculation
@@ -191,6 +302,311 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
           </label>
           <p className="text-[9px] text-[#808495] mt-0.5 ml-6">Stations NPC uniquement (aucun risque d'amarrage)</p>
         </div>
+      </div>
+
+      {/* 🏛️ GESTION DE LA TRÉSORERIE & PORTEFEUILLE DE CORPORATION / FLOTTE */}
+      <div className="bg-[#0e1117] p-4 rounded-xl border border-[#262730] space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#262730] pb-2.5">
+          <div className="flex items-center gap-2">
+            <Building2 className="w-4 h-4 text-amber-400" />
+            <h3 className="font-bold text-[#fafafa] text-xs">
+              Trésorerie &amp; Source de Financement des Achats
+            </h3>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-[#808495]">Capital effectif alloué :</span>
+            <span className="px-2.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 font-mono font-bold text-xs">
+              {treasuryResolution.effective_capital.toLocaleString()} ISK
+            </span>
+            <span className="text-[10px] text-[#808495]">({treasuryResolution.label})</span>
+          </div>
+        </div>
+
+        {/* Sélection du mode de trésorerie */}
+        <div>
+          <label className="block text-[#808495] text-[11px] mb-2 font-semibold">
+            Sélectionnez la source de fonds utilisée par le moteur pour calibrer les achats :
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+            {/* Mode 1: Corporation */}
+            <button
+              type="button"
+              onClick={() => setForm((prev) => ({ ...prev, treasury_source_mode: 'corporation' }))}
+              className={`p-3 rounded-lg border text-left transition-all ${
+                (form.treasury_source_mode || 'corporation') === 'corporation'
+                  ? 'bg-amber-500/15 border-amber-500/60 text-[#fafafa] shadow-md'
+                  : 'bg-[#161821] border-[#262730] text-[#808495] hover:text-[#fafafa] hover:border-[#3a3d4d]'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-bold text-xs flex items-center gap-1.5 text-amber-300">
+                  <Building2 className="w-3.5 h-3.5" />
+                  Portefeuille Corp
+                </span>
+                {(form.treasury_source_mode || 'corporation') === 'corporation' && (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-amber-400" />
+                )}
+              </div>
+              <p className="text-[10px] text-[#a0a4b5] leading-tight">
+                Utilise une division spécifique du wallet de votre corporation personnelle.
+              </p>
+            </button>
+
+            {/* Mode 2: Flotte Consolidée */}
+            <button
+              type="button"
+              onClick={() => setForm((prev) => ({ ...prev, treasury_source_mode: 'fleet_consolidated' }))}
+              className={`p-3 rounded-lg border text-left transition-all ${
+                form.treasury_source_mode === 'fleet_consolidated'
+                  ? 'bg-cyan-500/15 border-cyan-500/60 text-[#fafafa] shadow-md'
+                  : 'bg-[#161821] border-[#262730] text-[#808495] hover:text-[#fafafa] hover:border-[#3a3d4d]'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-bold text-xs flex items-center gap-1.5 text-cyan-300">
+                  <Users className="w-3.5 h-3.5" />
+                  Flotte Consolidée
+                </span>
+                {form.treasury_source_mode === 'fleet_consolidated' && (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />
+                )}
+              </div>
+              <p className="text-[10px] text-[#a0a4b5] leading-tight">
+                Cumul automatique des soldes de tous les personnages connectés.
+              </p>
+            </button>
+
+            {/* Mode 3: Pilote Actif */}
+            <button
+              type="button"
+              onClick={() => setForm((prev) => ({ ...prev, treasury_source_mode: 'active_character' }))}
+              className={`p-3 rounded-lg border text-left transition-all ${
+                form.treasury_source_mode === 'active_character'
+                  ? 'bg-emerald-500/15 border-emerald-500/60 text-[#fafafa] shadow-md'
+                  : 'bg-[#161821] border-[#262730] text-[#808495] hover:text-[#fafafa] hover:border-[#3a3d4d]'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-bold text-xs flex items-center gap-1.5 text-emerald-300">
+                  <Wallet className="w-3.5 h-3.5" />
+                  Wallet Pilote Actif
+                </span>
+                {form.treasury_source_mode === 'active_character' && (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                )}
+              </div>
+              <p className="text-[10px] text-[#a0a4b5] leading-tight">
+                Solde strict du personnage EVE actuellement sélectionné.
+              </p>
+            </button>
+
+            {/* Mode 4: Budget Manuel */}
+            <button
+              type="button"
+              onClick={() => setForm((prev) => ({ ...prev, treasury_source_mode: 'manual_budget' }))}
+              className={`p-3 rounded-lg border text-left transition-all ${
+                form.treasury_source_mode === 'manual_budget'
+                  ? 'bg-purple-500/15 border-purple-500/60 text-[#fafafa] shadow-md'
+                  : 'bg-[#161821] border-[#262730] text-[#808495] hover:text-[#fafafa] hover:border-[#3a3d4d]'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-bold text-xs flex items-center gap-1.5 text-purple-300">
+                  <Coins className="w-3.5 h-3.5" />
+                  Budget Fixe / Manuel
+                </span>
+                {form.treasury_source_mode === 'manual_budget' && (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-purple-400" />
+                )}
+              </div>
+              <p className="text-[10px] text-[#a0a4b5] leading-tight">
+                Allocation manuelle personnalisée (indépendante des portefeuilles ESI).
+              </p>
+            </button>
+          </div>
+        </div>
+
+        {/* Détail de configuration quand le mode Corporation est actif */}
+        {(form.treasury_source_mode || 'corporation') === 'corporation' && (
+          <div className="p-3.5 bg-[#161821] rounded-lg border border-[#262730] space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="font-bold text-xs text-amber-300 flex items-center gap-1.5">
+                <Building2 className="w-4 h-4" />
+                Paramétrage de la Division du Wallet Corporation
+              </div>
+              <button
+                type="button"
+                onClick={handleSyncCorpWallets}
+                disabled={isSyncingCorp || !characterSession}
+                className="px-2.5 py-1 bg-[#262730] hover:bg-[#31333f] text-[#fafafa] rounded text-[11px] flex items-center gap-1.5 transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3 h-3 ${isSyncingCorp ? 'animate-spin text-amber-400' : 'text-amber-400'}`} />
+                {isSyncingCorp ? 'Lecture ESI...' : 'Synchroniser Divisions via ESI'}
+              </button>
+            </div>
+
+            {corpSyncStatus && (
+              <div
+                className={`p-2 rounded text-[11px] flex items-center gap-1.5 ${
+                  corpSyncStatus.success
+                    ? 'bg-green-500/10 border border-green-500/30 text-green-300'
+                    : 'bg-amber-500/10 border border-amber-500/30 text-amber-300'
+                }`}
+              >
+                {corpSyncStatus.success ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Info className="w-3.5 h-3.5" />}
+                <span>{corpSyncStatus.message}</span>
+              </div>
+            )}
+
+            {/* Division Picker (Divisions 1 à 7) */}
+            <div>
+              <span className="text-[11px] text-[#808495] block mb-1 font-semibold">
+                Division de Corporation à utiliser pour les achats (1ère division par défaut) :
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5">
+                {[1, 2, 3, 4, 5, 6, 7].map((divNum) => {
+                  const isSelected = (form.corporation_wallet_division || 1) === divNum;
+                  const divInfo = form.corporation_divisions?.find((d) => d.division === divNum);
+                  return (
+                    <button
+                      key={divNum}
+                      type="button"
+                      onClick={() => {
+                        const newBal = divInfo ? divInfo.balance : form.corporation_wallet_balance;
+                        setForm((prev) => ({
+                          ...prev,
+                          corporation_wallet_division: divNum,
+                          corporation_wallet_balance: newBal,
+                        }));
+                      }}
+                      className={`p-2 rounded text-center border transition-all ${
+                        isSelected
+                          ? 'bg-amber-500/20 border-amber-500/60 text-amber-300 font-bold'
+                          : 'bg-[#0e1117] border-[#262730] text-[#808495] hover:text-[#fafafa] hover:border-[#3a3d4d]'
+                      }`}
+                    >
+                      <div className="text-[11px]">
+                        Div. {divNum} {divNum === 1 ? '★ (1ère)' : ''}
+                      </div>
+                      <div className="text-[9px] opacity-75 truncate">
+                        {divInfo?.name || (divNum === 1 ? 'Master' : `Wallet ${divNum}`)}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Inputs: Nom Corp & Solde ISK de la Division */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+              <div>
+                <label className="block text-[#808495] text-[11px] mb-1">Nom de la Corporation :</label>
+                <input
+                  type="text"
+                  value={form.corporation_name || ''}
+                  placeholder="Ex: Ma Corporation Personnelle"
+                  onChange={(e) => setForm({ ...form, corporation_name: e.target.value })}
+                  className="w-full bg-[#0e1117] border border-[#262730] text-[#fafafa] p-1.5 rounded text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[#808495] text-[11px] mb-1">
+                  Solde disponible Division {form.corporation_wallet_division || 1} (ISK) :
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1000000"
+                  value={form.corporation_wallet_balance ?? 5000000000}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      corporation_wallet_balance: parseFloat(e.target.value) || 0,
+                    })
+                  }
+                  className="w-full bg-[#0e1117] border border-[#262730] text-[#fafafa] p-1.5 rounded font-mono text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Boutons rapides pour ajuster le solde corporation */}
+            <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+              <span className="text-[10px] text-[#808495] mr-1">Raccourcis Solde Corp :</span>
+              {[
+                { label: '500M', val: 500000000 },
+                { label: '1 Mrd', val: 1000000000 },
+                { label: '2.5 Mrd', val: 2500000000 },
+                { label: '5 Mrd', val: 5000000000 },
+                { label: '10 Mrd', val: 10000000000 },
+                { label: '25 Mrd', val: 25000000000 },
+                { label: '50 Mrd', val: 50000000000 },
+              ].map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() =>
+                    setForm((prev) => ({
+                      ...prev,
+                      corporation_wallet_balance: preset.val,
+                    }))
+                  }
+                  className="px-2 py-0.5 bg-[#0e1117] hover:bg-[#262730] border border-[#262730] rounded text-[10px] font-mono text-[#cfd3dc]"
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Détail de configuration quand le mode Budget Manuel est actif */}
+        {form.treasury_source_mode === 'manual_budget' && (
+          <div className="p-3.5 bg-[#161821] rounded-lg border border-[#262730] space-y-3">
+            <div>
+              <label className="block text-[#808495] text-[11px] mb-1">
+                Capital Total Alloué au Trading (ISK) :
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="1000000"
+                value={form.available_capital ?? 1000000000}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    available_capital: parseFloat(e.target.value) || 0,
+                  })
+                }
+                className="w-full bg-[#0e1117] border border-[#262730] text-[#fafafa] p-1.5 rounded font-mono text-xs"
+              />
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] text-[#808495] mr-1">Raccourcis Budget :</span>
+              {[
+                { label: '100M', val: 100000000 },
+                { label: '500M', val: 500000000 },
+                { label: '1 Mrd', val: 1000000000 },
+                { label: '5 Mrd', val: 5000000000 },
+                { label: '10 Mrd', val: 10000000000 },
+              ].map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() =>
+                    setForm((prev) => ({
+                      ...prev,
+                      available_capital: preset.val,
+                    }))
+                  }
+                  className="px-2 py-0.5 bg-[#0e1117] hover:bg-[#262730] border border-[#262730] rounded text-[10px] font-mono text-[#cfd3dc]"
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

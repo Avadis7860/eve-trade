@@ -159,3 +159,98 @@ charactersRouter.get('/:characterId/journal', async (req: Request, res: Response
 
   res.json(result.data);
 });
+
+// 7. Proxy character corporation profile
+charactersRouter.get('/:characterId/corporation', async (req: Request, res: Response) => {
+  const params = validateCharacterParams(req, res);
+  if (!params) return;
+
+  // 1. Fetch character public info to get corporation_id
+  const charRes = await fetchEsi<{ corporation_id?: number; name?: string }>(
+    `characters/${params.characterId}/?datasource=tranquility`
+  );
+
+  if (!charRes.ok || !charRes.data?.corporation_id) {
+    return res.status(charRes.status || 500).json({
+      error: 'FAILED_TO_RESOLVE_CORPORATION',
+      details: charRes.error,
+    });
+  }
+
+  const corporationId = charRes.data.corporation_id;
+
+  // 2. Fetch corporation public info
+  const corpRes = await fetchEsi<{ name?: string; ticker?: string; member_count?: number }>(
+    `corporations/${corporationId}/?datasource=tranquility`
+  );
+
+  res.json({
+    character_id: params.characterId,
+    corporation_id: corporationId,
+    corporation_name: corpRes.ok && corpRes.data?.name ? corpRes.data.name : `Corporation #${corporationId}`,
+    ticker: corpRes.ok && corpRes.data?.ticker ? corpRes.data.ticker : undefined,
+    member_count: corpRes.ok ? corpRes.data?.member_count : undefined,
+  });
+});
+
+// 8. Proxy corporation wallet divisions and balances
+charactersRouter.get('/:characterId/corporation/wallets', async (req: Request, res: Response) => {
+  const params = validateCharacterParams(req, res);
+  if (!params) return;
+
+  // 1. Resolve corporation_id
+  const charRes = await fetchEsi<{ corporation_id?: number }>(
+    `characters/${params.characterId}/?datasource=tranquility`
+  );
+
+  if (!charRes.ok || !charRes.data?.corporation_id) {
+    return res.status(404).json({ error: 'CHARACTER_OR_CORP_NOT_FOUND', details: charRes.error });
+  }
+
+  const corporationId = charRes.data.corporation_id;
+
+  // 2. Fetch corporation wallets using character auth token
+  const walletRes = await fetchEsi<Array<{ division: number; balance: number }>>(
+    `corporations/${corporationId}/wallets/?datasource=tranquility`,
+    {
+      headers: { Authorization: params.authHeader },
+    }
+  );
+
+  if (!walletRes.ok) {
+    return res.status(walletRes.status).json({
+      error: 'CORP_WALLET_ACCESS_DENIED',
+      message: 'Character does not have Director or Accountant role in Corporation or scope not granted.',
+      corporation_id: corporationId,
+      status: walletRes.status,
+      details: walletRes.error,
+    });
+  }
+
+  // 3. Optionally fetch division names
+  const divisionsRes = await fetchEsi<{
+    wallet?: Array<{ division: number; name: string }>;
+  }>(`corporations/${corporationId}/divisions/?datasource=tranquility`, {
+    headers: { Authorization: params.authHeader },
+  });
+
+  const divisionNameMap = new Map<number, string>();
+  if (divisionsRes.ok && divisionsRes.data?.wallet) {
+    for (const d of divisionsRes.data.wallet) {
+      if (d.division && d.name) {
+        divisionNameMap.set(d.division, d.name);
+      }
+    }
+  }
+
+  const wallets = (walletRes.data || []).map((w) => ({
+    division: w.division,
+    name: divisionNameMap.get(w.division) || (w.division === 1 ? 'Master (Division 1)' : `Division ${w.division}`),
+    balance: w.balance,
+  }));
+
+  res.json({
+    corporation_id: corporationId,
+    wallets,
+  });
+});

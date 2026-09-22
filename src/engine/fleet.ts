@@ -11,6 +11,7 @@ import {
 } from '../types';
 import { FeeEngine } from './fee';
 import { roundIsk } from './money';
+import { TreasuryEngine } from './treasury';
 
 /**
  * 🚀 TradingFleetEngine — Pure Mathematical Multi-Character Fleet Engine
@@ -20,6 +21,7 @@ import { roundIsk } from './money';
  * - Hauler / Logistics pilot with cargo capacity (e.g. DST / Freighter)
  * - Station Trader / Seller alt at Destination Hub (e.g. Amarr VIII)
  * - Consolidated Fleet Capital & Escrow accounting
+ * - Corporation Wallet Division Treasury integration
  * - Cross-Skill Tax & Fee calculation (Buyer's Broker Relations + Seller's Accounting)
  *
  * ⚠️ INVARIANT: ZERO side-effects, no network, no React hooks, no localStorage.
@@ -51,9 +53,12 @@ export class TradingFleetEngine {
    */
   static computeFleetOverview(
     characters: EveCharacterSession[],
-    snapshots: Record<number, any> = {}
+    snapshots: Record<number, any> = {},
+    config?: FinancialConfig
   ): TradingFleetOverview {
     if (!characters || characters.length === 0) {
+      const cfg = config || { available_capital: 1000000000 };
+      const treasury = TreasuryEngine.resolveEffectiveCapital(cfg, []);
       return {
         total_characters: 0,
         active_character_id: null,
@@ -64,6 +69,12 @@ export class TradingFleetEngine {
         total_escrow_locked: 0,
         characters: [],
         hub_coverage: {},
+        treasury_source_mode: treasury.source_mode,
+        effective_trading_capital: treasury.effective_capital,
+        corporation_wallet_division: treasury.division,
+        corporation_wallet_balance: treasury.is_corporation ? treasury.effective_capital : undefined,
+        corporation_name: treasury.corporation_name,
+        treasury_label: treasury.label,
       };
     }
 
@@ -106,6 +117,9 @@ export class TradingFleetEngine {
       }
     }
 
+    const cfg = config || { available_capital: consolidatedWallet, fleet_consolidated_capital: consolidatedWallet };
+    const treasury = TreasuryEngine.resolveEffectiveCapital(cfg, characters, activeChar?.character_id);
+
     return {
       total_characters: characters.length,
       active_character_id: activeChar ? activeChar.character_id : null,
@@ -116,6 +130,12 @@ export class TradingFleetEngine {
       total_escrow_locked: roundIsk(totalEscrow),
       characters: summaries,
       hub_coverage: hubCoverage,
+      treasury_source_mode: treasury.source_mode,
+      effective_trading_capital: treasury.effective_capital,
+      corporation_wallet_division: treasury.division,
+      corporation_wallet_balance: treasury.is_corporation ? treasury.effective_capital : undefined,
+      corporation_name: treasury.corporation_name,
+      treasury_label: treasury.label,
     };
   }
 
@@ -194,7 +214,7 @@ export class TradingFleetEngine {
     const totalAcquisitionCost = costs?.total_acquisition_cost || costs?.purchase_cost || 0;
     const quantity = opp.quantity_tradable || 1;
 
-    const fleetOverview = this.computeFleetOverview(characters);
+    const fleetOverview = this.computeFleetOverview(characters, {}, config);
     const hasCharacters = characters && characters.length > 0;
 
     const buyer = hasCharacters
@@ -213,11 +233,23 @@ export class TradingFleetEngine {
       buyer && seller && (buyer.character_id !== seller.character_id || (hauler && hauler.character_id !== buyer.character_id))
     );
 
-    const buyerWallet = buyer?.wallet_balance;
-    const buyerHasSufficient = typeof buyerWallet === 'number' ? buyerWallet >= totalAcquisitionCost : true;
-    const buyerDeficit = typeof buyerWallet === 'number' && buyerWallet < totalAcquisitionCost
-      ? roundIsk(totalAcquisitionCost - buyerWallet)
-      : 0;
+    // Resolve treasury source & effective purchasing power
+    const treasury = TreasuryEngine.resolveEffectiveCapital(config, characters, buyer?.character_id);
+
+    let effectivePurchasingPower = treasury.effective_capital;
+    let buyerHasSufficient = true;
+    let buyerDeficit = 0;
+
+    if (treasury.is_corporation) {
+      buyerHasSufficient = effectivePurchasingPower >= totalAcquisitionCost;
+      buyerDeficit = buyerHasSufficient ? 0 : roundIsk(totalAcquisitionCost - effectivePurchasingPower);
+    } else {
+      const buyerWallet = buyer?.wallet_balance;
+      buyerHasSufficient = typeof buyerWallet === 'number' ? buyerWallet >= totalAcquisitionCost : true;
+      buyerDeficit = typeof buyerWallet === 'number' && buyerWallet < totalAcquisitionCost
+        ? roundIsk(totalAcquisitionCost - buyerWallet)
+        : 0;
+    }
 
     const haulerCapacity = hauler?.ship_cargo_capacity_m3 || config.max_cargo_m3 || 60000;
     const haulerCargoSufficient = totalCargoVolume <= haulerCapacity;
@@ -239,15 +271,21 @@ export class TradingFleetEngine {
     const jumps = opp.route?.jumps || 0;
     const routeSecurity = opp.route?.is_highsec_only ? '100% High-Sec' : 'Low-Sec détecté';
 
+    const buyActionSummary = treasury.is_corporation
+      ? `Acheter ${quantity.toLocaleString()} unité(s) à ${buyHub?.name || 'Source'} (Financement : ${treasury.label})`
+      : `Acheter ${quantity.toLocaleString()} unité(s) à ${buyHub?.name || 'Source'} (${roundIsk(opp.effective_buy_price || 0).toLocaleString()} ISK/u)`;
+
     const steps: TradeFleetStep[] = [
       {
         step_number: 1,
         phase: 'BUY',
-        title: buyer ? `Achat Local par ${buyer.character_name}` : 'Achat Local au Hub Source',
+        title: buyer
+          ? `Achat Local par ${buyer.character_name}${treasury.is_corporation ? ` [${treasury.corporation_name} Div.${treasury.division}]` : ''}`
+          : 'Achat Local au Hub Source',
         assigned_character: buyer,
         location_id: buyHub?.station_id || 0,
         location_name: buyHub?.name || 'Hub Source',
-        action_summary: `Acheter ${quantity.toLocaleString()} unité(s) à ${buyHub?.name || 'Source'} (${roundIsk(opp.effective_buy_price || 0).toLocaleString()} ISK/u)`,
+        action_summary: buyActionSummary,
         fees_summary: `Courtage acheteur : ${buyerBrokerFeePct}% (${roundIsk(costs?.buy_broker_fee || 0).toLocaleString()} ISK)`,
         details: {
           quantity,
@@ -300,11 +338,15 @@ export class TradingFleetEngine {
     ];
 
     const notes: string[] = [];
+    if (treasury.is_corporation) {
+      notes.push(`Trésorerie Corporation active : Financement imputé sur ${treasury.label} (Solde : ${treasury.effective_capital.toLocaleString()} ISK).`);
+    }
     if (isCrossCharacter && buyer && seller) {
       notes.push(`Écosystème multi-personnages actif : Achat via ${buyer.character_name} (${buyHub?.name}), Vente via ${seller.character_name} (${sellHub?.name}).`);
     }
-    if (!buyerHasSufficient && buyerDeficit > 0 && buyer) {
-      notes.push(`Transfert de trésorerie requis : ${buyer.character_name} a un déficit de ${buyerDeficit.toLocaleString()} ISK pour cet achat.`);
+    if (!buyerHasSufficient && buyerDeficit > 0) {
+      const fundSource = treasury.is_corporation ? `le compte de corporation (${treasury.label})` : `${buyer?.character_name || 'l\'acheteur'}`;
+      notes.push(`Trésorerie insuffisante : ${fundSource} présente un déficit de ${buyerDeficit.toLocaleString()} ISK pour cet achat.`);
     }
     if (!haulerCargoSufficient && hauler) {
       notes.push(`Capacité de transport dépassée : Volume requis ${totalCargoVolume.toLocaleString()} m³ > Soute ${hauler.character_name} (${haulerCapacity.toLocaleString()} m³).`);
@@ -318,8 +360,8 @@ export class TradingFleetEngine {
       seller_character: seller,
       steps,
       is_cross_character: isCrossCharacter,
-      total_fleet_capital_available: fleetOverview.consolidated_wallet_balance,
-      buyer_wallet_balance: buyerWallet,
+      total_fleet_capital_available: treasury.effective_capital,
+      buyer_wallet_balance: treasury.is_corporation ? treasury.effective_capital : buyer?.wallet_balance,
       buyer_has_sufficient_capital: buyerHasSufficient,
       buyer_capital_deficit: buyerDeficit,
       hauler_cargo_capacity_m3: haulerCapacity,

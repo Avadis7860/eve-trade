@@ -343,6 +343,8 @@ export function runFinancialEngineTests() {
   };
 
   const dummyRoute = {
+    from_system_id: 30000142,
+    to_system_id: 30002187,
     source_system_id: 30000142,
     dest_system_id: 30002187,
     jumps: 9,
@@ -375,6 +377,49 @@ export function runFinancialEngineTests() {
   assert(largeCargoRes.quantity === 700, `Large cargo capped at 700 units (35000m³ / 50m³ = 700), got ${largeCargoRes.quantity}`);
   assert(largeCargoRes.bottleneck === 'cargo', `Bottleneck is cargo, got ${largeCargoRes.bottleneck}`);
   assert(largeCargoRes.totalCargoVolume === 35000, `Cargo volume is 35000m³, got ${largeCargoRes.totalCargoVolume}`);
+
+  // 8.7 Corporation Treasury & Division Resolution Tests
+  console.log('8.7 Testing Corporate Treasury & Multi-Division Resolution...');
+  const corpConfig: Partial<FinancialConfig> = {
+    ...baseConfig,
+    treasury_source_mode: 'corporation',
+    corporation_wallet_division: 1,
+    corporation_name: 'Starlight Holdings Inc.',
+    corporation_wallet_balance: 5_000_000_000,
+    corporation_divisions: [
+      { division: 1, name: 'Master Operations', balance: 5_000_000_000 },
+      { division: 2, name: 'Hauling Fund', balance: 750_000_000 },
+      { division: 3, name: 'Speculation', balance: 12_000_000_000 },
+    ],
+  };
+
+  const corpTradableDiv1 = InterRegionalFinancialEngine.determineTradableQuantity(
+    100_000_000, // 100M ISK per unit
+    1, // 1 m³
+    1000,
+    1000,
+    dummyRoute,
+    corpConfig
+  );
+  assert(corpTradableDiv1.quantity === 50, `Division 1 capital (5B) allows 50 units @ 100M, got ${corpTradableDiv1.quantity}`);
+  assert(corpTradableDiv1.bottleneck === 'capital', `Bottleneck is capital, got ${corpTradableDiv1.bottleneck}`);
+
+  // Switch to Division 2 (750M balance)
+  const corpConfigDiv2: Partial<FinancialConfig> = {
+    ...corpConfig,
+    corporation_wallet_division: 2,
+  };
+  const corpTradableDiv2 = InterRegionalFinancialEngine.determineTradableQuantity(
+    100_000_000, // 100M ISK per unit
+    1, // 1 m³
+    1000,
+    1000,
+    dummyRoute,
+    corpConfigDiv2
+  );
+  assert(corpTradableDiv2.quantity === 7, `Division 2 capital (750M) allows 7 units @ 100M, got ${corpTradableDiv2.quantity}`);
+
+  console.log('✅ All Boundary & Edge Cases passed.');
 
   console.log('✅ All Boundary & Edge Cases passed.');
   console.log('🎉 ALL COMPREHENSIVE FINANCIAL ENGINE TESTS PASSED WITH 100% SUCCESS!');

@@ -8,6 +8,8 @@ export const EVE_CALLBACK_URL = process.env.EVE_CALLBACK_URL?.trim() || '';
 export const EVE_SCOPES = [
   'esi-markets.read_character_orders.v1',
   'esi-wallet.read_character_wallet.v1',
+  'esi-wallet.read_corporation_wallets.v1',
+  'esi-corporations.read_divisions.v1',
   'esi-skills.read_skills.v1',
   'publicData',
 ].join(' ');

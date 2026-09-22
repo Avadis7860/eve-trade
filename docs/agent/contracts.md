@@ -116,12 +116,12 @@ These routes require a canonical positive integer `characterId` and a non-empty 
 **Public identity / corporation profile**
 - `corporation`
 
-This route resolves the character's public identity anonymously through `CharacterEsiGateway`, then resolves the public corporation profile. An HTTP Authorization header from the caller must never cross the public character identity boundary.
+This route resolves the character's public identity anonymously through `CharacterEsiGateway`, then resolves the public corporation profile through `CorporationEsiGateway`. An HTTP Authorization header from the caller must never cross either public ESI boundary.
 
 **Authenticated corporation wallet**
 - `corporation/wallets`
 
-This route remains on its current legacy corporation transport for now. It is covered by non-regression tests and still requires character authentication.
+This route resolves the corporation through `CharacterEsiGateway` and then accesses corporation wallets/divisions through `CorporationEsiGateway` using the authenticated character principal. There is no synthetic corporation credential or legacy direct `fetchEsi` path.
 
 For authenticated character-owned routes, the HTTP response contract is fail-loud:
 - source payloads are returned without normalization (including negative, zero and decimal wallet balances);
@@ -321,3 +321,29 @@ The inter-regional opportunity path is split into an infrastructure resolution b
 - `src/engine/interRegional.ts` assembles the calculation result into Opportunity/Evidence and may retain infrastructure access for assembly-only concerns.
 - Unknown, dynamic/structure, unverified or inconsistent Catalog/Universe inputs are rejected before financial calculation.
 - Numeric order-range routing uses a resolver-produced route map so the pure core does not resolve Universe state itself.
+
+## Phase 4.6 — Corporation ESI contract
+
+`server/gateways/corporationEsiGateway.ts` is the single backend mapping boundary for the corporation ESI resources currently required by the application:
+
+- public corporation profile;
+- corporation wallets;
+- corporation wallet divisions.
+
+The gateway is intentionally domain-neutral. Trading treasury resolution happens in `TreasuryEngine`; future industry/corporation features should consume the same gateway rather than adding direct ESI acquisition to routes or UI services.
+
+### Corporation treasury source contract
+
+The frontend corporation treasury sync has one orchestration boundary: `src/services/corporationTreasurySync.ts`. Both automatic character lifecycle sync and the manual configuration action consume the same result contract. A successful ESI certification requires the resolved corporation identity, a wallet snapshot, a matching corporation identity, and the requested division to be present with a finite balance. Missing divisions or mismatched corporation IDs fail closed instead of silently falling back to another division.
+
+When the selected source is `manual`, changing the selected division never imports balances from `corporation_divisions`; those rows are treated as historical/observed ESI data only. An explicit manual budget remains independent until the user edits it or an ESI sync explicitly succeeds.
+
+`FinancialConfig.corporation_wallet_source` is part of the financial boundary:
+
+- `esi`: value originated from a successful corporation wallet ESI read;
+- `manual`: value was explicitly configured by the user;
+- `unavailable`: no corporation capital is currently certified for trading.
+
+In corporation treasury mode, only `esi` or explicit `manual` corporation funding can produce spendable capital. Character wallets and the generic `available_capital` field are never implicit corporation fallbacks.
+
+Legacy configuration migration is explicit: if a persisted corporation configuration has a wallet balance/divisions but no valid `corporation_wallet_source`, normalization assigns `unavailable`. The legacy raw balance remains readable/editable but is not trusted as spendable capital until a fresh ESI observation or explicit manual budget is established. Unknown source values also normalize to `unavailable`.

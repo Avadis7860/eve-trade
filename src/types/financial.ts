@@ -41,6 +41,8 @@ export interface ScenarioFinancialResult {
 }
 
 export type TreasurySourceMode = 'corporation' | 'fleet_consolidated' | 'active_character' | 'manual_budget';
+export type CorporationWalletSource = 'esi' | 'manual' | 'unavailable';
+export type TreasuryCapitalStatus = 'observed_esi' | 'manual' | 'unavailable';
 
 export interface CorporationWalletDivisionInfo {
   division: number; // 1 to 7
@@ -56,6 +58,7 @@ export interface TreasuryResolution {
   division_name?: string;
   corporation_name?: string;
   is_corporation: boolean;
+  capital_status: TreasuryCapitalStatus;
 }
 
 export interface FinancialConfig {
@@ -95,7 +98,8 @@ export interface FinancialConfig {
   // Treasury & Corporation Wallet configuration
   treasury_source_mode?: TreasurySourceMode; // 'corporation' | 'fleet_consolidated' | 'active_character' | 'manual_budget'
   corporation_wallet_division?: number;      // 1 to 7 (division number, default 1)
-  corporation_wallet_balance?: number;       // ISK balance for chosen corp division
+  corporation_wallet_balance?: number;       // Last selected division balance (observed or manual)
+  corporation_wallet_source?: CorporationWalletSource;
   corporation_id?: number;
   corporation_name?: string;
   corporation_divisions?: CorporationWalletDivisionInfo[];

@@ -8,6 +8,7 @@ import { OpportunityEvidenceEngine } from '../engine/evidence';
 import { CatalogRepository } from '../domain/catalog/CatalogRepository';
 import { MarketGroupRepository } from '../domain/catalog/MarketGroupRepository';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
+import { normalizeFinancialConfig } from '../engine/financialConfig';
 import {
   EveTypeDetail,
   MarketHub,
@@ -192,6 +193,8 @@ export class GlobalMarketSyncService {
     options: GlobalSyncOptions = {},
     customItems: EveTypeDetail[] = []
   ): Promise<UniverseWideOpportunity[]> {
+    const normalizedConfig = normalizeFinancialConfig(config) as FinancialConfig;
+
     if (this.isRunning) {
       console.warn('Global sync is already running.');
       return this.universeOpportunities;
@@ -401,12 +404,15 @@ export class GlobalMarketSyncService {
           // Evaluate Arbitrage Opportunities for this item
           if (Object.keys(itemOrderBooks).length > 1) {
             try {
-              let currentConfig = config;
+              let currentConfig: FinancialConfig = normalizedConfig;
               try {
                 if (typeof window !== 'undefined' && window.localStorage) {
                   const savedCfg = localStorage.getItem('eve_trade_config');
                   if (savedCfg) {
-                    currentConfig = { ...config, ...JSON.parse(savedCfg) };
+                    currentConfig = normalizeFinancialConfig({
+                      ...normalizedConfig,
+                      ...JSON.parse(savedCfg),
+                    }) as FinancialConfig;
                   }
                 }
               } catch {}

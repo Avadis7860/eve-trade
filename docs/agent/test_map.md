@@ -7,7 +7,7 @@ A task is not complete until its affected validation surface is identified. This
 | Change area | First validation surface | Additional checks |
 |---|---|---|
 | `src/engine/**` | Matching suite under `src/engine/__tests__/` | `npm test`, typecheck and build |
-| ESI backend client/routes | `server/__tests__/esi_hardening.test.ts` and API/smoke suites | `npm run test:esi`, `npm run test:api`, `npm run test:smoke`, build |
+| ESI backend client/routes | `server/__tests__/esi_hardening.test.ts` and API/smoke suites | `server/__tests__/corporation_esi_gateway.test.ts`, `server/__tests__/character_routes_contract.test.ts`, `npm run test:esi`, `npm run test:api`, build |
 | Backend security/auth | `server/__tests__/security_hardening.test.ts` | API/smoke + `npm run test:security` |
 | API route contracts | `server/__tests__/api_integration.test.ts` | Smoke/security/ESI suites as applicable |
 | Character transactions | `character_transaction_ingestion.test.ts` / `character_transaction_persistence.test.ts` | Execution correlation and integration suites |
@@ -60,3 +60,24 @@ Agents must report the checks actually executed; documentation alone is never ev
 2. Vérifier callback, session, refresh et accès authentifié.
 3. Seulement ensuite lancer l'E2E fonctionnel complet.
 4. Couvrir aussi UNKNOWN/PARTIAL/ERROR, pas seulement le chemin nominal.
+
+## Phase 4.6 — Corporation ESI validation
+
+The corporation boundary has a dedicated gateway contract suite and is included in the existing `test:esi` CI gate.
+
+The corporation treasury boundary also has a focused `test:corporation-boundary` gate executed before the broad unit suite. It covers persisted configuration provenance migration, treasury source isolation, corporation gateway validation, HTTP fail-closed behavior and the architecture rule preventing direct corporation ESI access from character routes.
+
+Required regression surfaces:
+
+- gateway endpoint/path/query/principal mapping;
+- static architecture guard preventing direct `fetchEsi` calls from character routes;
+- anonymous vs character credential isolation;
+- metadata propagation;
+- ESI error status preservation;
+- 304 and null-payload semantics;
+- negative/zero/decimal wallet fidelity;
+- real Express -> CharacterEsiGateway -> CorporationEsiGateway -> EsiGateway -> ESI mock traversal;
+- treasury source isolation for character-negative/corporation-positive and corporation-unavailable scenarios.
+- shared corporation treasury orchestration, HTTP-status propagation, division selection, identity mismatch and fail-closed behavior;
+- manual-budget isolation from stale ESI division rows;
+- finite-value semantics for corporation and fleet capital provenance.

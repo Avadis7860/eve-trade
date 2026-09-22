@@ -130,13 +130,18 @@ export function useCharacterSync(
           updateSession(sessionObj);
           setConfig((prev) => ({
             ...prev,
+            // Character wallet synchronization must not become an implicit
+            // corporation treasury source.
             available_capital:
-              TreasuryEngine.normalizeWalletTradingCapital(balance) ?? prev.available_capital,
+              prev.treasury_source_mode === 'corporation'
+                ? prev.available_capital
+                : TreasuryEngine.normalizeWalletTradingCapital(balance) ?? prev.available_capital,
             accounting_level: accountingLvl,
             broker_relations_level: brokerRelLvl,
             broker_fee: calculatedBrokerFee,
             sales_tax: calculatedSalesTax,
           }));
+
         } else {
           AuthService.saveCharacter(sessionObj, false);
         }
@@ -148,7 +153,12 @@ export function useCharacterSync(
         }
       }
     },
-    [orderBooks, hubs, updateSession, setConfig]
+    [
+      orderBooks,
+      hubs,
+      updateSession,
+      setConfig,
+    ]
   );
 
   // Handle SSO redirect in main window

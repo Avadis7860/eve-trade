@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { FinancialConfig, TradeStrategy, MarketHub } from '../types';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
+import { loadPersistedFinancialConfig, normalizeFinancialConfig } from '../engine/financialConfig';
 
 interface TradingConfigContextType {
   config: FinancialConfig;
@@ -21,7 +22,7 @@ const DEFAULT_CONFIG: FinancialConfig = {
   available_capital: 1000000000.0, // 1 Billion ISK
   treasury_source_mode: 'corporation', // Corporation / Fleet / Personal treasury mode
   corporation_wallet_division: 1,      // Division 1 (Master / 1ère division)
-  corporation_wallet_balance: 5000000000.0, // 5B ISK
+  corporation_wallet_source: 'unavailable',
   corporation_name: 'Corporation Personnelle',
   enable_transport_costs: false,   // Disabled by default -> 0 ISK transport cost
   broker_fee: 0.0145,              // 1.45%
@@ -45,15 +46,23 @@ const DEFAULT_CONFIG: FinancialConfig = {
 const TradingConfigContext = createContext<TradingConfigContextType | undefined>(undefined);
 
 export const TradingConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [config, setConfig] = useState<FinancialConfig>(() => {
+  const [config, setConfigState] = useState<FinancialConfig>(() => {
     const saved = localStorage.getItem('eve_trade_config');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {}
-    }
-    return DEFAULT_CONFIG;
+    return loadPersistedFinancialConfig(saved, DEFAULT_CONFIG);
   });
+
+  const setConfig = useCallback<React.Dispatch<React.SetStateAction<FinancialConfig>>>(
+    (update) => {
+      setConfigState((previous) => {
+        const next =
+          typeof update === 'function'
+            ? update(previous)
+            : update;
+        return normalizeFinancialConfig(next) as FinancialConfig;
+      });
+    },
+    [],
+  );
 
   const [strategy, setStrategy] = useState<TradeStrategy>('relist');
   const [hubs, setHubs] = useState<MarketHub[]>(() => UniverseRepository.getInstance().getHubs());

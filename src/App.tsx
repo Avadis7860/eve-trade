@@ -23,6 +23,7 @@ import { CatalogProvider, useCatalog } from './context/CatalogProvider';
 import { TradingConfigProvider, useTradingConfig } from './context/TradingConfigProvider';
 
 import { useCharacterSync } from './hooks/useCharacterSync';
+import { useCorporationTreasurySync } from './hooks/useCorporationTreasurySync';
 import { useMarketData } from './hooks/useMarketData';
 import { useTradeJournal } from './hooks/useTradeJournal';
 import { useTradingOpportunities } from './hooks/useTradingOpportunities';
@@ -99,6 +100,11 @@ const AppShell: React.FC = () => {
     handleDirectTokenInput,
     handleLogoutCharacter,
   } = useCharacterSync(orderBooks, hubs, () => setCurrentView('orders'));
+
+  // Corporation treasury has its own lifecycle: character OAuth remains the
+  // authenticated principal, while treasury synchronization stays isolated.
+  useCorporationTreasurySync();
+
 
   // Phase 2 — Order Scoping & Multi-Character Context
   const [orderScope, setOrderScope] = useState<OrderScope>({ type: 'active_character' });

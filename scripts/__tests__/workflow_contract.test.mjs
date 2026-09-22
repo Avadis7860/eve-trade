@@ -12,6 +12,7 @@ const requiredCiCommands = [
   'npm run typecheck',
   'npm run typecheck:server',
   'npm run test:truth',
+  'npm run test:corporation-boundary',
   'npm test',
   'npm run test:api',
   'npm run test:smoke',

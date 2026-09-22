@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { MarketHub, FinancialConfig, TradeStrategy, TreasurySourceMode } from '../types';
 import { FeeCalculator } from '../engine/fee';
+import { selectCorporationWalletDivision } from '../engine/financialConfig';
 import { EsiService } from '../services/esi';
+import { syncCorporationTreasury } from '../services/corporationTreasurySync';
 import { TreasuryEngine } from '../engine/treasury';
 import { useAuth } from '../context/AuthProvider';
 import {
@@ -50,7 +52,8 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
     ...config,
     treasury_source_mode: config.treasury_source_mode ?? 'corporation',
     corporation_wallet_division: config.corporation_wallet_division ?? 1,
-    corporation_wallet_balance: config.corporation_wallet_balance ?? 5000000000.0,
+    corporation_wallet_balance: config.corporation_wallet_balance,
+    corporation_wallet_source: config.corporation_wallet_source ?? 'unavailable',
     corporation_name: config.corporation_name ?? 'Ma Corporation',
     enable_transport_costs: config.enable_transport_costs ?? false,
     accounting_level: config.accounting_level ?? 5,
@@ -65,6 +68,38 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
     success?: boolean;
     message?: string;
   } | null>(null);
+
+  // Keep corporation fields aligned with authoritative external config updates
+  // without allowing an external ESI refresh to destroy an unsaved manual
+  // budget selected locally in this form.
+  useEffect(() => {
+    setForm((prev) => {
+      const preservingLocalManualEdits =
+        prev.corporation_wallet_source === 'manual' &&
+        config.corporation_wallet_source === 'esi';
+
+      if (preservingLocalManualEdits) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        corporation_id: config.corporation_id,
+        corporation_name: config.corporation_name ?? prev.corporation_name,
+        corporation_wallet_division: config.corporation_wallet_division ?? prev.corporation_wallet_division,
+        corporation_wallet_balance: config.corporation_wallet_balance,
+        corporation_wallet_source: config.corporation_wallet_source ?? 'unavailable',
+        corporation_divisions: config.corporation_divisions,
+      };
+    });
+  }, [
+    config.corporation_id,
+    config.corporation_name,
+    config.corporation_wallet_division,
+    config.corporation_wallet_balance,
+    config.corporation_wallet_source,
+    config.corporation_divisions,
+  ]);
 
   // Compute live treasury resolution for preview
   const treasuryResolution = TreasuryEngine.resolveEffectiveCapital(
@@ -82,14 +117,20 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
     );
     const updatedForm: FinancialConfig = {
       ...form,
-      available_capital: resolved.effective_capital,
+      // Corporation capital is a distinct funding source and must not overwrite
+      // the manual/character-oriented available_capital field.
+      available_capital:
+        form.treasury_source_mode === 'corporation'
+          ? form.available_capital
+          : resolved.effective_capital,
     };
     onUpdateConfig(updatedForm);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };
 
-  // Live ESI sync for corporation wallets
+  // Manual UI trigger delegates to the same corporation treasury sync boundary
+  // used by the automatic character lifecycle.
   const handleSyncCorpWallets = async () => {
     if (!characterSession) {
       setCorpSyncStatus({
@@ -98,63 +139,58 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
       });
       return;
     }
+
     setIsSyncingCorp(true);
     setCorpSyncStatus(null);
+
     try {
-      // 1. Fetch Corp profile
-      const corpInfo = await EsiService.fetchCorporationInfo(
-        characterSession.character_id,
-        characterSession.access_token
-      );
-      let corpName = form.corporation_name;
-      if (corpInfo.ok && corpInfo.data) {
-        corpName = corpInfo.data.corporation_name;
-      }
+      const result = await syncCorporationTreasury({
+        characterId: characterSession.character_id,
+        accessToken: characterSession.access_token,
+        division: form.corporation_wallet_division || 1,
+      });
 
-      // 2. Fetch Corp wallets
-      const walletsRes = await EsiService.fetchCorporationWallets(
-        characterSession.character_id,
-        characterSession.access_token
-      );
-
-      if (walletsRes.ok && walletsRes.data && walletsRes.data.wallets) {
-        const divisionWallets = walletsRes.data.wallets;
-        const currentDiv = form.corporation_wallet_division || 1;
-        const matchingDiv = divisionWallets.find((w) => w.division === currentDiv) || divisionWallets[0];
-        const newBalance = matchingDiv ? matchingDiv.balance : form.corporation_wallet_balance;
-
+      if (result.ok) {
         setForm((prev) => ({
           ...prev,
-          corporation_name: corpName,
-          corporation_id: corpInfo.data?.corporation_id,
-          corporation_wallet_balance: newBalance,
-          corporation_divisions: divisionWallets,
+          corporation_name: result.corporation.corporation_name,
+          corporation_id: result.corporation.corporation_id,
+          corporation_wallet_balance: result.selectedWallet.balance,
+          corporation_wallet_source: 'esi',
+          corporation_divisions: result.wallets,
         }));
-
         setCorpSyncStatus({
           success: true,
-          message: `Synchronisé depuis ESI : ${corpName} (Division ${currentDiv} : ${(newBalance || 0).toLocaleString()} ISK)`,
+          message: `Synchronisé depuis ESI : ${result.corporation.corporation_name} (Division ${result.selectedWallet.division} : ${result.selectedWallet.balance.toLocaleString()} ISK)`,
         });
-      } else {
-        // Fallback info when character doesn't have director roles in ESI
-        if (corpInfo.ok && corpInfo.data) {
-          setForm((prev) => ({
-            ...prev,
-            corporation_name: corpInfo.data!.corporation_name,
-            corporation_id: corpInfo.data!.corporation_id,
-          }));
-          setCorpSyncStatus({
-            success: true,
-            message: `Corporation détectée : ${corpInfo.data.corporation_name}. (Note ESI : Rôles Directeur requis pour lecture automatique du solde)`,
-          });
-        } else {
-          setCorpSyncStatus({
-            success: false,
-            message: walletsRes.error || 'Impossible de lire les portefeuilles de corporation.',
-          });
-        }
+        return;
       }
+
+      setForm((prev) => ({
+        ...prev,
+        ...(result.corporation
+          ? {
+              corporation_id: result.corporation.corporation_id,
+              corporation_name: result.corporation.corporation_name,
+            }
+          : {}),
+        corporation_wallet_source: 'unavailable',
+      }));
+
+      const detail = result.error || 'Synchronisation corporation indisponible.';
+      const suffix = result.status ? ` (HTTP ${result.status})` : '';
+      setCorpSyncStatus({
+        success: false,
+        message:
+          result.stage === 'wallets'
+            ? `Corporation détectée${result.corporation ? ` : ${result.corporation.corporation_name}` : ''}, mais les portefeuilles ESI sont indisponibles : ${detail}${suffix}`
+            : `Synchronisation corporation impossible : ${detail}${suffix}`,
+      });
     } catch (err) {
+      setForm((prev) => ({
+        ...prev,
+        corporation_wallet_source: 'unavailable',
+      }));
       setCorpSyncStatus({
         success: false,
         message: `Erreur lors de la synchronisation : ${String(err)}`,
@@ -163,7 +199,6 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
       setIsSyncingCorp(false);
     }
   };
-
   // Skill based auto recalculation
   const updateSkills = (accounting: number, brokerRelations: number, faction: number = 0, corp: number = 0) => {
     const newSalesTax = FeeCalculator.calculateSalesTaxRate(accounting);
@@ -472,11 +507,9 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
                       key={divNum}
                       type="button"
                       onClick={() => {
-                        const newBal = divInfo ? divInfo.balance : form.corporation_wallet_balance;
                         setForm((prev) => ({
                           ...prev,
-                          corporation_wallet_division: divNum,
-                          corporation_wallet_balance: newBal,
+                          ...selectCorporationWalletDivision(prev, divNum),
                         }));
                       }}
                       className={`p-2 rounded text-center border transition-all ${
@@ -514,15 +547,23 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
                 <label className="block text-[#808495] text-[11px] mb-1">
                   Solde disponible Division {form.corporation_wallet_division || 1} (ISK) :
                 </label>
+                <div className="text-[10px] text-[#808495] mb-1">
+                  {form.corporation_wallet_source === 'esi'
+                    ? 'Source : solde observé via ESI'
+                    : form.corporation_wallet_source === 'manual'
+                      ? 'Source : budget corporation manuel'
+                      : 'Source : solde corporation ESI indisponible'}
+                </div>
                 <input
                   type="number"
                   min="0"
                   step="1000000"
-                  value={form.corporation_wallet_balance ?? 5000000000}
+                  value={form.corporation_wallet_balance ?? ''}
                   onChange={(e) =>
                     setForm({
                       ...form,
                       corporation_wallet_balance: parseFloat(e.target.value) || 0,
+                      corporation_wallet_source: 'manual',
                     })
                   }
                   className="w-full bg-[#0e1117] border border-[#262730] text-[#fafafa] p-1.5 rounded font-mono text-xs"
@@ -549,6 +590,7 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
                     setForm((prev) => ({
                       ...prev,
                       corporation_wallet_balance: preset.val,
+                      corporation_wallet_source: 'manual',
                     }))
                   }
                   className="px-2 py-0.5 bg-[#0e1117] hover:bg-[#262730] border border-[#262730] rounded text-[10px] font-mono text-[#cfd3dc]"

@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { fetchEsi } from '../utils/esiClient';
 import { characterEsiGateway, setCharacterRetryAfter } from '../gateways/characterEsiGateway';
+import { corporationEsiGateway } from '../gateways/corporationEsiGateway';
 import type { EsiGatewayResponse, EsiResponseMetadata } from '../utils/esiTypes';
 
 export const charactersRouter = Router();
@@ -13,7 +13,7 @@ interface CharacterAuthParams {
 // Character-owned authenticated routes accept only a Bearer credential.
 // The raw Authorization header never crosses into the ESI gateway: the gateway
 // reconstructs the outbound header from the principal context.
-function validateCharacterParams(req: Request, res: Response): CharacterAuthParams | null {
+function validateCharacterId(req: Request, res: Response): number | null {
   const rawId = req.params.characterId;
   const numId = Number(rawId);
   if (!Number.isInteger(numId) || numId <= 0 || String(numId) !== String(rawId).trim()) {
@@ -23,6 +23,12 @@ function validateCharacterParams(req: Request, res: Response): CharacterAuthPara
     });
     return null;
   }
+  return numId;
+}
+
+function validateCharacterParams(req: Request, res: Response): CharacterAuthParams | null {
+  const numId = validateCharacterId(req, res);
+  if (numId === null) return null;
 
   const authHeader = req.headers.authorization;
   if (!authHeader || typeof authHeader !== 'string' || !authHeader.trim()) {
@@ -271,36 +277,35 @@ charactersRouter.get('/:characterId/journal', async (req: Request, res: Response
 
 // 7. Proxy character corporation profile
 charactersRouter.get('/:characterId/corporation', async (req: Request, res: Response) => {
-  const numId = Number(req.params.characterId);
-  if (!Number.isInteger(numId) || numId <= 0 || String(numId) !== String(req.params.characterId).trim()) {
-    return res.status(400).json({
-      error: 'INVALID_CHARACTER_ID',
-      message: 'characterId must be a positive integer',
+  const characterId = validateCharacterId(req, res);
+  if (characterId === null) return;
+
+  try {
+    const charRes = await characterEsiGateway.fetchPublicIdentity(characterId);
+    if (!charRes.ok || !charRes.data?.corporation_id) {
+      return sendCharacterError(res, charRes, 'FAILED_TO_RESOLVE_CORPORATION');
+    }
+
+    const corporationId = charRes.data.corporation_id;
+    const corpRes = await corporationEsiGateway.fetchProfile(corporationId);
+
+    if (!corpRes.ok) {
+      return sendCharacterError(res, corpRes, 'ESI corporation profile error');
+    }
+
+    return sendCharacterSuccess(res, corpRes, {
+      character_id: characterId,
+      corporation_id: corporationId,
+      corporation_name: corpRes.data?.name,
+      ticker: corpRes.data?.ticker,
+      member_count: corpRes.data?.member_count,
+    });
+  } catch (err: unknown) {
+    return res.status(500).json({
+      error: 'ESI corporation profile gateway error',
+      message: String(err),
     });
   }
-
-  const charRes = await characterEsiGateway.fetchPublicIdentity(numId);
-  if (!charRes.ok || !charRes.data?.corporation_id) {
-    return res.status(charRes.status || 500).json({
-      error: 'FAILED_TO_RESOLVE_CORPORATION',
-      details: charRes.error?.message,
-      esi_error_kind: charRes.error?.kind,
-    });
-  }
-
-  const corporationId = charRes.data.corporation_id;
-
-  const corpRes = await fetchEsi<{ name?: string; ticker?: string; member_count?: number }>(
-    `corporations/${corporationId}/?datasource=tranquility`
-  );
-
-  return res.json({
-    character_id: numId,
-    corporation_id: corporationId,
-    corporation_name: corpRes.ok && corpRes.data?.name ? corpRes.data.name : `Corporation #${corporationId}`,
-    ticker: corpRes.ok && corpRes.data?.ticker ? corpRes.data.ticker : undefined,
-    member_count: corpRes.ok ? corpRes.data?.member_count : undefined,
-  });
 });
 
 // 8. Proxy corporation wallet divisions and balances
@@ -315,28 +320,21 @@ charactersRouter.get('/:characterId/corporation/wallets', async (req: Request, r
 
   const corporationId = charRes.data.corporation_id;
 
-  const walletRes = await fetchEsi<Array<{ division: number; balance: number }>>(
-    `corporations/${corporationId}/wallets/?datasource=tranquility`,
-    {
-      headers: { Authorization: `Bearer ${params.bearerCredential}` },
-    }
+  const walletRes = await corporationEsiGateway.fetchWallets(
+    corporationId,
+    params.characterId,
+    params.bearerCredential,
   );
 
   if (!walletRes.ok) {
-    return res.status(walletRes.status).json({
-      error: 'CORP_WALLET_ACCESS_DENIED',
-      message: 'Character does not have Director or Accountant role in Corporation or scope not granted.',
-      corporation_id: corporationId,
-      status: walletRes.status,
-      details: walletRes.error,
-    });
+    return sendCharacterError(res, walletRes, 'CORP_WALLET_ACCESS_DENIED');
   }
 
-  const divisionsRes = await fetchEsi<{
-    wallet?: Array<{ division: number; name: string }>;
-  }>(`corporations/${corporationId}/divisions/?datasource=tranquility`, {
-    headers: { Authorization: `Bearer ${params.bearerCredential}` },
-  });
+  const divisionsRes = await corporationEsiGateway.fetchDivisions(
+    corporationId,
+    params.characterId,
+    params.bearerCredential,
+  );
 
   const divisionNameMap = new Map<number, string>();
   if (divisionsRes.ok && divisionsRes.data?.wallet) {
@@ -353,7 +351,7 @@ charactersRouter.get('/:characterId/corporation/wallets', async (req: Request, r
     balance: w.balance,
   }));
 
-  return res.json({
+  return sendCharacterSuccess(res, walletRes, {
     corporation_id: corporationId,
     wallets,
   });

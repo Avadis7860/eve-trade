@@ -8,6 +8,7 @@ Cette matrice protège la frontière la plus sensible de l'acquisition CCP :
 HTTP client
   -> Express /api/character/:characterId/*
   -> CharacterEsiGateway
+  -> CorporationEsiGateway (for corporation data)
   -> EsiGateway
   -> fetchEsi
   -> CCP ESI
@@ -36,8 +37,8 @@ Le principe directeur est **NO DATA != ZERO DATA** : une absence de donnée, une
 | `skills` | Bearer | `characterId` | payload ESI | statut + classification |
 | `transactions` | Bearer | `from_id > 0` optionnel | tableau ESI | statut + classification |
 | `journal` | Bearer | `characterId` | tableau ESI | statut + classification |
-| `corporation` | non requis pour l'identité publique | `characterId` | profil corporation résolu | échec de résolution explicite |
-| `corporation/wallets` | Bearer | `characterId` | divisions + soldes ESI | accès refusé explicitement |
+| `corporation` | non requis pour l'identité publique | `characterId` | profil corporation résolu via `CorporationEsiGateway` | échec de résolution explicite |
+| `corporation/wallets` | Bearer du personnage | `characterId` | wallets + noms de divisions via `CorporationEsiGateway` | accès refusé explicitement |
 
 ## Invariants d'authentification
 
@@ -125,3 +126,31 @@ Une modification de contrat ESI doit être accompagnée dans le même changement
 4. la validation CI complète.
 
 Une modification ne doit pas être acceptée uniquement parce qu'elle corrige un symptôme observé : le cas de régression doit devenir un invariant automatisé.
+
+## Phase 4.6 — Corporation ESI boundary
+
+Les endpoints corporation sont maintenant encapsulés par `server/gateways/corporationEsiGateway.ts`.
+
+| Méthode du gateway | Endpoint CCP | Principal |
+|---|---|---|
+| `fetchProfile(corporationId)` | `GET /corporations/{id}/` | anonymous |
+| `fetchWallets(corporationId, characterId, credential)` | `GET /corporations/{id}/wallets/` | character |
+| `fetchDivisions(corporationId, characterId, credential)` | `GET /corporations/{id}/divisions/` | character |
+
+Il n'existe volontairement aucun principal corporation artificiel : l'autorisation ESI appartient au personnage authentifié qui appelle la corporation.
+
+### Treasury boundary
+
+`FinancialConfig.corporation_wallet_source` distingue explicitement :
+
+- `esi` : solde corporation observé depuis CCP ESI;
+- `manual` : budget corporation saisi explicitement par l'utilisateur;
+- `unavailable` : aucune donnée corporation exploitable actuellement.
+
+Lorsque `treasury_source_mode = corporation`, `TreasuryEngine` n'utilise jamais `available_capital` ou le wallet d'un personnage comme fallback implicite.
+
+Le wallet observé reste factuel, y compris s'il est négatif. Le capital dépensable est dérivé séparément et ne peut jamais être négatif. En cas de source corporation indisponible, la résolution échoue fermement vers un capital dépensable nul avec un statut `unavailable`, au lieu de réutiliser un ancien capital personnage.
+
+La synchronisation automatique de l'actif character peut rafraîchir cette source ESI lorsque le mode corporation est sélectionné. Un budget corporation explicitement manuel n'est pas écrasé automatiquement.
+
+Les configurations persistées constituent également une frontière testée : une source corporation absente ou inconnue est convertie en `unavailable`, même si un ancien solde positif subsiste. La synchronisation automatique de la trésorerie est séparée du chargement des données personnage afin d'éviter qu'une mise à jour de portefeuille corporation ne relance implicitement tout le cycle character.

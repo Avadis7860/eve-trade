@@ -22,9 +22,9 @@ export class UniverseValidator {
   static serializeDeterministic(raw: unknown): string {
     const data=raw as UniverseDataFormat;
     const canonical={
-      regions:Object.entries(data.regions||{}).map(([id,name])=>[Number(id),String(name)]).sort((a,b)=>a[0]-b[0]),
-      systems:Object.entries(data.systems||{}).map(([id,v])=>[Number(id),{name:String(v.name),region_id:Number(v.region_id),security:Number(v.security)}]).sort((a,b)=>a[0]-b[0]),
-      stations:Object.entries(data.stations||{}).map(([id,v])=>[Number(id),{name:String(v.name),system_id:Number(v.system_id),...(v.type_id===undefined?{}:{type_id:Number(v.type_id)})}]).sort((a,b)=>a[0]-b[0]),
+      regions:Object.entries(data.regions||{}).map(([id,name]): [number,string] => [Number(id),String(name)]).sort((a,b)=>a[0]-b[0]),
+      systems:Object.entries(data.systems||{}).map(([id,v]): [number,{name:string;region_id:number;security:number}] => [Number(id),{name:String(v.name),region_id:Number(v.region_id),security:Number(v.security)}]).sort((a,b)=>a[0]-b[0]),
+      stations:Object.entries(data.stations||{}).map(([id,v]): [number,{name:string;system_id:number;type_id?:number}] => [Number(id),{name:String(v.name),system_id:Number(v.system_id),...(v.type_id===undefined?{}:{type_id:Number(v.type_id)})}]).sort((a,b)=>a[0]-b[0]),
     };
     return JSON.stringify(canonical);
   }

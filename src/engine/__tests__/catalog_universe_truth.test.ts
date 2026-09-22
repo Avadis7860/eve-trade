@@ -180,6 +180,11 @@ assert(
   'Unknown route must never receive synthetic values',
 );
 
+const safeRouteIndexA = universe.getRouteIndex(30002187, 'SAFE');
+const safeRouteIndexB = universe.getRouteIndex(30002187, 'SAFE');
+assert(safeRouteIndexA === safeRouteIndexB, 'Route index must be reused for identical graph/policy/destination identity');
+assert(safeRouteIndexA.build_count === 1, 'Route index must build its destination traversal only once');
+
 const unknownLocation = universe.resolveLocationSync(999999999);
 assert(unknownLocation.status === 'LOCATION_UNKNOWN' && unknownLocation.is_verified === false, 'Unknown location must remain UNKNOWN');
 

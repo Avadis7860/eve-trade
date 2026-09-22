@@ -78,36 +78,35 @@ The importer:
 No topology is inferred from names, coordinates, region membership, ESI responses or the legacy route table.
 
 ## Current implementation state
-
-Implemented and hardened on the Phase 2.7B branch:
+Implemented and hardened across Phase 2.7B and Phase 2.7C:
 - immutable graph domain contract;
-- canonical graph builder validation;
-- deterministic BFS route engine;
+- canonical SDE graph builder validation;
+- real CCP SDE artifact for build `3503375`;
+- deterministic SHA-256 graph and source identity checks;
+- deterministic SHORTEST route engine;
+- constrained SAFE route engine;
+- destination route indexing for repeated order-range checks;
 - ordered traversal preservation;
 - complete-path security evaluation;
 - `SAFE / NON_SAFE / UNKNOWN` semantics;
 - fail-closed partial-graph semantics;
-- route certification;
-- graph/dataset provenance identity checks;
-- deterministic regression coverage;
-- canonical SDE importer.
+- certified route provenance;
+- explicit `CertifiedJumpRoute -> JumpRoute` financial adapter;
+- production `UniverseRepository.getRoute()` resolution from the canonical SDE graph;
+- `InterRegionalResolver` integration with SAFE trade routes and indexed SHORTEST range checks;
+- legacy `KNOWN_ROUTES` route authority removed;
+- end-to-end regression proving canonical routes cannot be bypassed at the financial boundary.
 
-Not yet integrated into the financial runtime:
-- a checked-in/generated canonical New Eden graph artifact;
-- `UniverseGraphRepository` loading that real artifact in production;
-- replacement of `UniverseRepository.getRoute()`'s legacy `KNOWN_ROUTES` implementation;
-- adaptation of `JumpRoute` so the certified route becomes the sole financial route contract;
-- wiring `InterRegionalResolver` to consume only certified graph routes;
-- end-to-end regression proving that unknown/unqualified routes cannot reach the financial core.
+The runtime graph currently contains 5,485 New Eden systems and 13,978 directed stargate edges. Its canonical graph checksum is:
+`5465da368fa3b6bf03d610554de453af1c54182199d325fe318d431d29225b3c`.
 
-These steps are intentionally blocked until a real SDE build is imported and validated. No synthetic topology is permitted to unblock them.
+The pinned artifact is intentionally verified in CI by reproducibly regenerating it from the same CCP SDE build. CI does not silently rewrite the branch.
 
 ## Legacy route table
 
-`src/data/universe.ts` remains compatibility data only during this transition.
+The historical `KNOWN_ROUTES` table has been removed from `src/data/universe.ts`. Route resolution is exclusively graph-backed.
 
-It must not be extended and must not be treated as a graph source. The final integration must remove route resolution responsibility from `KNOWN_ROUTES` rather than wrapping it with a new abstraction.
-
+## Validation policy
 ## Validation policy
 
 Phase 2.7B must validate graph construction, pathfinding, security traversal, certification, UNKNOWN semantics and determinism before touching financial behavior.

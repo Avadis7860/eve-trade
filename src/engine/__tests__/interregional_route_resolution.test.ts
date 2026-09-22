@@ -23,7 +23,7 @@ const destinationBuyOrder = {
   volume_remain: 1000,
   volume_total: 1000,
   is_buy_order: true,
-  order_range: '9',
+  order_range: '11',
   min_volume: 1,
   issued: '2026-09-22T00:00:00Z',
   duration: 90,
@@ -59,7 +59,7 @@ assert.equal(resolved.route.is_highsec_only, true);
 assert.equal(resolved.route.jumps, 9);
 assert.equal(resolved.route.provenance?.source, 'sde_canonical');
 assert.equal(resolved.routeBySystemId[jita.system_id]?.source, 'canonical_graph');
-assert.equal(resolved.routeBySystemId[jita.system_id]?.jumps, 9);
+assert.equal(resolved.routeBySystemId[jita.system_id]?.jumps, 11);
 
 const filteredAtNine = InterRegionalCalculationEngine.filterAccessibleOrdersForHub(
   [destinationBuyOrder],
@@ -70,7 +70,7 @@ const filteredAtNine = InterRegionalCalculationEngine.filterAccessibleOrdersForH
 );
 assert.equal(filteredAtNine.length, 1);
 
-const tooShortRange = { ...destinationBuyOrder, order_id: 880002, order_range: '8' };
+const tooShortRange = { ...destinationBuyOrder, order_id: 880002, order_range: '10' };
 const resolvedTooShort = InterRegionalResolver.resolve(
   item,
   jita,
@@ -86,7 +86,7 @@ const resolvedTooShort = InterRegionalResolver.resolve(
   [tooShortRange],
 );
 assert(resolvedTooShort, 'resolver must still certify the main trade route');
-assert.equal(resolvedTooShort.routeBySystemId[jita.system_id]?.jumps, 9);
+assert.equal(resolvedTooShort.routeBySystemId[jita.system_id]?.jumps, 11);
 assert.equal(resolvedTooShort.routeBySystemId[jita.system_id]?.status, 'KNOWN');
 const filteredAtEight = InterRegionalCalculationEngine.filterAccessibleOrdersForHub(
   [tooShortRange],

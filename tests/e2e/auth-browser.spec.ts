@@ -114,14 +114,14 @@ test.describe('E2E-001 — browser OAuth composition', () => {
       timeout: 15_000,
     });
 
-    await expect(page.getByText(ALPHA.name)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: ALPHA.name, exact: true })).toBeVisible({ timeout: 15_000 });
     expect(await page.evaluate(() => localStorage.getItem('eve_trade_character_store_v3'))).toContain(ALPHA.name);
     expect(
       backendRequests.some(url => url.includes(`/api/character/${ALPHA.id}/orders`)),
     ).toBeTruthy();
 
     await page.reload();
-    await expect(page.getByText(ALPHA.name)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: ALPHA.name, exact: true })).toBeVisible({ timeout: 15_000 });
     expect(await page.evaluate(() => localStorage.getItem('eve_trade_character_store_v3'))).toContain(ALPHA.name);
   });
 
@@ -140,7 +140,7 @@ test.describe('E2E-001 — browser OAuth composition', () => {
       );
     }, BETA);
 
-    await expect(page.getByText(BETA.name)).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: BETA.name, exact: true })).toHaveCount(0);
     expect(await emptyCharacterStore(page)).toBeTruthy();
   });
 
@@ -166,7 +166,7 @@ test.describe('E2E-001 — browser OAuth composition', () => {
     await expect(popup.getByText(/Sécurité CSRF : Jeton Invalide ou Expiré/)).toBeVisible({
       timeout: 15_000,
     });
-    await expect(page.getByText(ALPHA.name)).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: ALPHA.name, exact: true })).toHaveCount(0);
     expect(await emptyCharacterStore(page)).toBeTruthy();
   });
 
@@ -178,7 +178,7 @@ test.describe('E2E-001 — browser OAuth composition', () => {
     });
 
     const callbackUrl = popup.url();
-    await expect(page.getByText(ALPHA.name)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: ALPHA.name, exact: true })).toBeVisible({ timeout: 15_000 });
     await popup.close();
 
     const replay = await page.goto(callbackUrl);
@@ -192,7 +192,7 @@ test.describe('E2E-001 — browser OAuth composition', () => {
       waitUntil: 'domcontentloaded',
       timeout: 15_000,
     });
-    await expect(page.getByText(ALPHA.name)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: ALPHA.name, exact: true })).toBeVisible({ timeout: 15_000 });
 
     await page.evaluate(() => {
       const raw = localStorage.getItem('eve_trade_character_store_v3');
@@ -207,7 +207,7 @@ test.describe('E2E-001 — browser OAuth composition', () => {
     });
 
     await page.reload();
-    await expect(page.getByText(ALPHA.name)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: ALPHA.name, exact: true })).toBeVisible({ timeout: 15_000 });
 
     const store = await page.evaluate(() => JSON.parse(localStorage.getItem('eve_trade_character_store_v3')!));
     expect(store.characters[0].character_id).toBe(ALPHA.id);
@@ -221,7 +221,7 @@ test.describe('E2E-001 — browser OAuth composition', () => {
       waitUntil: 'domcontentloaded',
       timeout: 15_000,
     });
-    await expect(page.getByText(ALPHA.name)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: ALPHA.name, exact: true })).toBeVisible({ timeout: 15_000 });
 
     await page.getByRole('button', { name: 'Déconnexion' }).click();
     await expect(
@@ -236,7 +236,7 @@ test.describe('E2E-001 — browser OAuth composition', () => {
       waitUntil: 'domcontentloaded',
       timeout: 15_000,
     });
-    await expect(page.getByText(ALPHA.name)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: ALPHA.name, exact: true })).toBeVisible({ timeout: 15_000 });
     await first.popup.close();
 
     await page.getByTitle('Gérer vos personnages et comptes EVE liés').click();
@@ -250,7 +250,7 @@ test.describe('E2E-001 — browser OAuth composition', () => {
       waitUntil: 'domcontentloaded',
       timeout: 15_000,
     });
-    await expect(page.getByText(BETA.name)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: BETA.name, exact: true })).toBeVisible({ timeout: 15_000 });
     await second.popup.close();
 
     const store = await page.evaluate(() => JSON.parse(localStorage.getItem('eve_trade_character_store_v3')!));
@@ -298,7 +298,7 @@ test.describe('E2E-001 — browser OAuth composition', () => {
 
     await expect(popup.getByText('Autorisation Refusée')).toBeVisible();
     expect(await emptyCharacterStore(page)).toBeTruthy();
-    await expect(page.getByText(ALPHA.name)).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: ALPHA.name, exact: true })).toHaveCount(0);
     await expect(
       page.getByRole('button', { name: 'Ouvrir la Fenêtre Officielle EVE SSO' }),
     ).toBeVisible();
@@ -311,6 +311,6 @@ test.describe('E2E-001 — browser OAuth composition', () => {
     await popup.close();
 
     expect(await emptyCharacterStore(page)).toBeTruthy();
-    await expect(page.getByText(ALPHA.name)).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: ALPHA.name, exact: true })).toHaveCount(0);
   });
 });

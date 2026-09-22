@@ -1,17 +1,16 @@
-# 🤖 EVE Trade — Guide des Directives IA (GEMINI.md)
+# EVE Trade — Agent AI
 
-Ce fichier étend et applique les instructions opérationnelles pour le modèle **Gemini** et la plateforme **Google AI Studio Build**.
+Point d'entrée léger pour les agents.
 
-## 📌 Références Essentielles
-* **Directives complètes pour les Agents :** Voir [`AGENTS.md`](./AGENTS.md).
-* **Audit et Traçabilité des Algorithmes :** Voir [`docs/algorithms_and_engine_audit.md`](./docs/algorithms_and_engine_audit.md).
-* **Architecture Technique Globale :** Voir [`ARCHITECTURE.md`](./ARCHITECTURE.md).
-* **Intégration API CCP ESI :** Voir [`docs/api_and_esi_integration.md`](./docs/api_and_esi_integration.md).
+## Première lecture
 
----
+- [docs/index.md](docs/index.md)
+- [docs/state/current-state.md](docs/state/current-state.md)
+- [docs/state/truth-matrix.md](docs/state/truth-matrix.md)
+- [docs/roadmap/current-chunk.md](docs/roadmap/current-chunk.md)
 
-## ⚡ Résumé des Invariants Opérationnels
-1. **Moteurs purs (`/src/engine/*`)** : Aucune dépendance réseau, React ou localStorage. Uniquement des calculs mathématiques purs.
-2. **Cycle de validation** : Toujours exécuter `npm test`, `npm run lint` et `npm run build` après modification de code.
-3. **Formatage monétaire** : Toujours utiliser les fonctions centralisées de `src/engine/money.ts` (`formatIsk`, `formatCompactIsk`, `formatPercent`).
-4. **Authentification EVE SSO** : Gérée via `AuthService` avec renouvellement automatique et support multi-personnages.
+## Règles critiques
+
+Les contrats canoniques vivent dans [docs/contracts/](docs/contracts/), les invariants dans [docs/invariants/](docs/invariants/) et les validations dans [docs/validation/](docs/validation/).
+
+Les documents sous [docs/audits/archive/](docs/audits/archive/) sont historiques. Identifier toujours l'implémentation, les tests et le gate CI avant de modifier.

@@ -83,7 +83,10 @@ assert(
 );
 
 const universeIntegrity = UniverseValidator.validate(universeDataRaw);
-assert(universeIntegrity.isReady, 'Bundled universe dataset must pass its canonical integrity manifest');
+assert(
+  universeIntegrity.isReady,
+  `Bundled universe dataset must pass its canonical integrity manifest: status=${universeIntegrity.status}, expected=${CANONICAL_UNIVERSE_MANIFEST.checksum}, got=${universeIntegrity.checksum}, counts=${universeIntegrity.regionsCount}/${universeIntegrity.systemsCount}/${universeIntegrity.stationsCount}`
+);
 assert(universeIntegrity.regionsCount === CANONICAL_UNIVERSE_MANIFEST.regionsCount, 'Region count mismatch');
 assert(universeIntegrity.systemsCount === CANONICAL_UNIVERSE_MANIFEST.systemsCount, 'System count mismatch');
 assert(universeIntegrity.stationsCount === CANONICAL_UNIVERSE_MANIFEST.stationsCount, 'Station count mismatch');

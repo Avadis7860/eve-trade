@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
+import { fetchEsi } from '../utils/esiClient';
 import { characterEsiGateway, setCharacterRetryAfter } from '../gateways/characterEsiGateway';
+import type { EsiResponseMetadata } from '../utils/esiTypes';
 
 export const charactersRouter = Router();
 
@@ -224,14 +226,11 @@ charactersRouter.get('/:characterId/journal', async (req: Request, res: Response
   }
 });
 
-// 7. Character corporation identity remains in the corporation topology phase.
+// 7. Proxy character corporation profile
 charactersRouter.get('/:characterId/corporation', async (req: Request, res: Response) => {
   const numId = Number(req.params.characterId);
   if (!Number.isInteger(numId) || numId <= 0) {
-    return res.status(400).json({
-      error: 'INVALID_CHARACTER_ID',
-      message: 'characterId must be a positive integer',
-    });
+    return res.status(400).json({ error: 'INVALID_CHARACTER_ID', message: 'characterId must be a positive integer' });
   }
 
   const charRes = await characterEsiGateway.fetchPublicIdentity(numId);
@@ -245,21 +244,71 @@ charactersRouter.get('/:characterId/corporation', async (req: Request, res: Resp
 
   const corporationId = charRes.data.corporation_id;
 
-  // Corporation public information remains intentionally outside Phase 4.4.
-  // It will be owned by CorporationEsiGateway in the corporation topology phase.
+  const corpRes = await fetchEsi<{ name?: string; ticker?: string; member_count?: number }>(
+    `corporations/${corporationId}/?datasource=tranquility`
+  );
+
   return res.json({
     character_id: numId,
     corporation_id: corporationId,
+    corporation_name: corpRes.ok && corpRes.data?.name ? corpRes.data.name : `Corporation #${corporationId}`,
+    ticker: corpRes.ok && corpRes.data?.ticker ? corpRes.data.ticker : undefined,
+    member_count: corpRes.ok ? corpRes.data?.member_count : undefined,
   });
 });
 
-// 8. Corporation wallet divisions remain in the corporation wallet phase.
+// 8. Proxy corporation wallet divisions and balances
 charactersRouter.get('/:characterId/corporation/wallets', async (req: Request, res: Response) => {
   const params = validateCharacterParams(req, res);
   if (!params) return;
 
-  return res.status(501).json({
-    error: 'CORPORATION_WALLET_MIGRATION_PENDING',
-    message: 'Corporation wallet access is handled by the corporation ESI gateway phase.',
+  const charRes = await characterEsiGateway.fetchPublicIdentity(params.characterId);
+  if (!charRes.ok || !charRes.data?.corporation_id) {
+    return res.status(404).json({ error: 'CHARACTER_OR_CORP_NOT_FOUND', details: charRes.error?.message });
+  }
+
+  const corporationId = charRes.data.corporation_id;
+
+  const walletRes = await fetchEsi<Array<{ division: number; balance: number }>>(
+    `corporations/${corporationId}/wallets/?datasource=tranquility`,
+    {
+      headers: { Authorization: `Bearer ${params.bearerCredential}` },
+    }
+  );
+
+  if (!walletRes.ok) {
+    return res.status(walletRes.status).json({
+      error: 'CORP_WALLET_ACCESS_DENIED',
+      message: 'Character does not have Director or Accountant role in Corporation or scope not granted.',
+      corporation_id: corporationId,
+      status: walletRes.status,
+      details: walletRes.error,
+    });
+  }
+
+  const divisionsRes = await fetchEsi<{
+    wallet?: Array<{ division: number; name: string }>;
+  }>(`corporations/${corporationId}/divisions/?datasource=tranquility`, {
+    headers: { Authorization: `Bearer ${params.bearerCredential}` },
+  });
+
+  const divisionNameMap = new Map<number, string>();
+  if (divisionsRes.ok && divisionsRes.data?.wallet) {
+    for (const d of divisionsRes.data.wallet) {
+      if (d.division && d.name) {
+        divisionNameMap.set(d.division, d.name);
+      }
+    }
+  }
+
+  const wallets = (walletRes.data || []).map((w) => ({
+    division: w.division,
+    name: divisionNameMap.get(w.division) || (w.division === 1 ? 'Master (Division 1)' : `Division ${w.division}`),
+    balance: w.balance,
+  }));
+
+  return res.json({
+    corporation_id: corporationId,
+    wallets,
   });
 });

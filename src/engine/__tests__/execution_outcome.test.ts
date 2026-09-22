@@ -360,7 +360,7 @@ function runAllExecutionOutcomeTests() {
     const options = {
       match_level: 'DIRECT_MATCH' as const,
       candidate_observation_ids: ['obs_test_1', 'obs_test_2'],
-      linked_order_ids: [3001],
+      linked_order_ids: ['3001'],
     };
 
     const out1 = calculateExecutionOutcome(1000, buyTxs, sellTxs, options);

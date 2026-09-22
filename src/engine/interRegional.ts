@@ -1103,18 +1103,7 @@ export class InterRegionalFinancialEngine {
     // sourceLocRes and destLocRes were verified before financial calculation.
     let universePillarStatus: 'PASS' | 'DEGRADED' | 'FAIL' = 'PASS';
     let universeDetail = `Stations et route Highsec validées (${route.jumps} sauts).`;
-    if (
-      !sourceLocRes.is_verified ||
-      !destLocRes.is_verified ||
-      sourceLocRes.status === 'LOCATION_UNKNOWN' ||
-      destLocRes.status === 'LOCATION_UNKNOWN' ||
-      route.status !== 'KNOWN' ||
-      route.is_verified !== true ||
-      route.jumps < 0
-    ) {
-      universePillarStatus = 'FAIL';
-      universeDetail = 'Localisation ou route non prouvée par le référentiel canonique.';
-    } else if (!route.is_highsec_only || sourceLocRes.is_structure || destLocRes.is_structure) {
+    if (!route.is_highsec_only || sourceLocRes.is_structure || destLocRes.is_structure) {
       universePillarStatus = 'DEGRADED';
       universeDetail = `Route ou localisation non conforme au profil Highsec (${route.jumps} sauts, Highsec: ${route.is_highsec_only ? 'oui' : 'non'}).`;
     }

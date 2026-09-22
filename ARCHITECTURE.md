@@ -64,8 +64,8 @@ L'architecture est découpée en **cinq couches orthogonales** à responsabilit�
 
 ### 1. Vérité sur les Données Embarquées
 * Le jeu EVE Online compte plus de 15 801 types échangeables sur le marché.
-* Le référentiel statique embarqué dans le dépôt (`src/data/allMarketTypes.json`) contient une collection noyau vérifiée de **53 types de base** (minéraux majeurs, PLEX, injecteurs, coques de combat emblématiques).
-* **Invariant de Transparence :** Ce jeu de 53 types est explicitement typé `CATALOG_FALLBACK_CORE`. L'architecture **interdit formellement** de prétendre qu'un catalogue de secours est un catalogue universel complet (`CATALOG_READY`). Le frontend affiche un badge ambré transparent "Noyau (53)" et un bandeau de mode dégradé explicite.
+* Le référentiel canonique embarqué et validé contient **20 526 types** selon le manifest courant. La cardinalité et le checksum du manifest sont des conditions de vérité ; le catalogue dynamique ESI reste hors vérité financière.
+* **Invariant de Transparence :** Un catalogue non canonique, dynamique, incomplet ou corrompu ne peut pas être présenté comme `CATALOG_READY`. La découverte dynamique ESI reste séparée de la vérité financière.
 
 ### 2. Hachage Déterministe Canonique (`CatalogHashing`)
 * L'empreinte cryptographique (`checksum`) ne dépend jamais du formatage du fichier, des retours à la ligne ou de l'ordre d'insertion.
@@ -206,3 +206,24 @@ L'authentification utilise le protocole officiel **EVE Online Single Sign-On (SS
    * Endpoint `/api/types/all` exposant le contrat strict `{ metadata, types }`.
    * Journalisation structurée unifiée (`logEvent`) traçant les événements de cycle de vie et les erreurs.
 
+
+
+## Phase 2.7A — État actuel
+
+La frontière inter-régionale est maintenant séparée en trois responsabilités :
+
+1. `src/services/interRegionalResolver.ts` : résolution et certification des données Catalog/Universe ;
+2. `src/engine/interRegionalCalculation.ts` : calcul financier pur sur `CertifiedInterRegionalInputs` ;
+3. `src/engine/interRegional.ts` : orchestration et assemblage Opportunity/Evidence.
+
+Le noyau pur n'accède ni aux repositories, ni à ESI, ni à la persistance, ni à l'horloge. Les données UNKNOWN, dynamiques, inférées ou non vérifiées sont rejetées avant calcul.
+
+## Phase 2.7B — Prochaine frontière architecturale
+
+La topologie New Eden complète et le pathfinding ne sont **pas encore implémentés**. La table de routes actuelle reste une connaissance limitée et ne doit pas être étendue arbitrairement.
+
+La Phase 2.7B devra construire un graphe canonique à partir des données topologiques SDE/stargates, calculer les systèmes effectivement traversés et produire une route vérifiable. Une route `safe` ne pourra utiliser **aucun système traversé dont `security_status < 0.5`**, y compris les systèmes intermédiaires. Le chemin ordonné devra rester disponible dans la preuve de route.
+
+## OAuth / E2E — Gate préalable
+
+Le navigateur E2E produit n'est pas encore une validation de référence. Avant son lancement, le flux EVE SSO/OAuth doit fonctionner dans une installation locale hors Google AI Studio : callback, session, refresh et appels authentifiés. Une correction durable doit agir sur la frontière OAuth elle-même, sans contournement spécifique à l'environnement Google AI Studio.

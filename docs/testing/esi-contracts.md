@@ -106,6 +106,15 @@ npm run test:esi
 npm run build
 ```
 
+## Wallet observé vs capital dépensable
+
+Le contrat distingue volontairement deux notions :
+
+- le **wallet observé** est la valeur CCP et doit être conservé telle quelle, y compris lorsqu'elle est négative;
+- le **capital de trading dépensable** est une valeur non négative dérivée par `TreasuryEngine.normalizeWalletTradingCapital`.
+
+Ainsi, un wallet négatif devient **0 ISK de capital dépensable**, mais ne devient jamais `0` dans la donnée financière observée. Surtout, une nouvelle synchronisation négative ne doit jamais laisser survivre un ancien `available_capital` positif.
+
 ## Règle de maintenance
 
 Une modification de contrat ESI doit être accompagnée dans le même changement par :

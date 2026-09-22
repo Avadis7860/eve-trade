@@ -110,19 +110,20 @@ export class CatalogRepository {
           const { validTypes, errors } = CatalogValidator.validateCollection(cached.types);
           const computedChecksum = CatalogValidator.computeCanonicalChecksum(validTypes);
 
-          // Stale or corrupted cache check (purge old fallback caches with < 1000 items)
           if (
             !cached.metadata ||
-            cached.metadata.item_count < 1000 ||
-            cached.types.length < 1000 ||
-            cached.metadata.checksum !== computedChecksum ||
-            cached.metadata.item_count !== validTypes.length ||
+            cached.metadata.status !== 'CATALOG_READY' ||
+            cached.metadata.expected_count !== CANONICAL_CATALOG_MANIFEST.expectedCount ||
+            cached.metadata.item_count !== CANONICAL_CATALOG_MANIFEST.expectedCount ||
+            cached.types.length !== CANONICAL_CATALOG_MANIFEST.expectedCount ||
+            cached.metadata.checksum !== CANONICAL_CATALOG_MANIFEST.checksum ||
+            computedChecksum !== CANONICAL_CATALOG_MANIFEST.checksum ||
             errors.length > 0
           ) {
             console.warn('[CatalogRepository] Stale, legacy or partial IndexedDB cache detected. Purging cache.');
             await IndexedDbStore.clearCatalog();
           } else {
-            // Cache is authentic and complete (> 1000 items)
+            // Cache is authentic and complete against the canonical manifest.
             this.typeMap.clear();
             for (const t of validTypes) {
               this.typeMap.set(t.type_id, t);
@@ -226,7 +227,7 @@ export class CatalogRepository {
             this.typeMap.set(t.type_id, t);
           }
           this.metadata = {
-            version: '2026.09.20.1',
+            version: CANONICAL_CATALOG_MANIFEST.version,
             checksum: CatalogValidator.computeCanonicalChecksum(EVE_TYPES_CATALOG),
             item_count: this.typeMap.size,
             expected_count: CANONICAL_CATALOG_MANIFEST.expectedCount,
@@ -282,7 +283,6 @@ export class CatalogRepository {
         catalog_checksum: meta.checksum,
         is_verified: false,
         confidence: 0.0,
-        confidence: 1.0,
       };
     }
 
@@ -401,8 +401,8 @@ export class CatalogRepository {
             source: 'esi_lookup',
             catalog_version: meta.version,
             catalog_checksum: meta.checksum,
-            is_verified: true,
-            confidence: 0.95,
+            is_verified: false,
+            confidence: 0.0,
           };
         }
       }

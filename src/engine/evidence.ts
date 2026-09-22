@@ -18,6 +18,7 @@ import {
   MarketDataQuality,
   InterRegionalOpportunity,
 } from '../types';
+import { normalizeOrderId, compareOrderIds } from './orderIdentity';
 import { Sha256 } from '../domain/catalog/CatalogHashing';
 
 export const CURRENT_CERTIFICATION_VERSION = '4-pillars-v1';

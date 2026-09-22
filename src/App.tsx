@@ -118,10 +118,20 @@ const AppShell: React.FC = () => {
       const snap = snapshots[char.character_id];
       if (snap?.active_orders) {
         for (const ord of snap.active_orders) {
+          const corporationOwned =
+            ord.ownership?.owner_type === 'corporation' || ord.is_corporation === true;
+
           orderMap.set(ord.order_id, {
             ...ord,
-            character_id: char.character_id,
-            character_name: char.character_name,
+            ...(corporationOwned
+              ? {
+                  character_id: undefined,
+                  character_name: undefined,
+                }
+              : {
+                  character_id: char.character_id,
+                  character_name: char.character_name,
+                }),
           });
         }
       }
@@ -130,10 +140,20 @@ const AppShell: React.FC = () => {
     // Also include currently loaded characterOrders (from active character)
     if (characterSession) {
       for (const ord of characterOrders) {
+        const corporationOwned =
+          ord.ownership?.owner_type === 'corporation' || ord.is_corporation === true;
+
         orderMap.set(ord.order_id, {
           ...ord,
-          character_id: characterSession.character_id,
-          character_name: characterSession.character_name,
+          ...(corporationOwned
+            ? {
+                character_id: undefined,
+                character_name: undefined,
+              }
+            : {
+                character_id: characterSession.character_id,
+                character_name: characterSession.character_name,
+              }),
         });
       }
     }

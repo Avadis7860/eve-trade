@@ -34,6 +34,12 @@ function runOrderScopingTests() {
     is_buy_order: true,
     issued: '2026-09-20T12:00:00Z',
     duration: 90,
+    ownership: {
+      principal_character_id: 1001,
+      owner_type: 'character',
+      owner_id: 1001,
+      owner_name: 'Trader Alpha',
+    },
     escrow: 550000,
   };
 
@@ -52,6 +58,12 @@ function runOrderScopingTests() {
     volume_total: 50000,
     is_buy_order: false,
     issued: '2026-09-20T12:30:00Z',
+    ownership: {
+      principal_character_id: 1002,
+      owner_type: 'character',
+      owner_id: 1002,
+      owner_name: 'Trader Beta',
+    },
     duration: 90,
   };
 
@@ -70,10 +82,51 @@ function runOrderScopingTests() {
     volume_total: 1000,
     is_buy_order: false,
     issued: '2026-09-20T13:00:00Z',
+    ownership: {
+      principal_character_id: 9999,
+      owner_type: 'character',
+      owner_id: 9999,
+      owner_name: 'External Alt',
+    },
     duration: 90,
   };
 
-  const allOrders = [orderA, orderB, orderC_NonFleet];
+  const corporateOrder: EveCharacterOrder = {
+    order_id: 404,
+    character_id: 1001,
+    character_name: 'Trader Alpha',
+    type_id: 34,
+    type_name: 'Tritanium',
+    region_id: 10000002,
+    region_name: 'The Forge',
+    location_id: 60003760,
+    location_name: 'Jita IV-4',
+    price: 6.0,
+    volume_remain: 500,
+    volume_total: 500,
+    is_buy_order: false,
+    issued: '2026-09-20T13:30:00Z',
+    duration: 90,
+    is_corporation: true,
+    ownership: {
+      principal_character_id: 1001,
+      owner_type: 'corporation',
+      owner_id: 9001,
+      owner_name: 'Starlight Holdings Inc.',
+      corporation_id: 9001,
+      corporation_name: 'Starlight Holdings Inc.',
+      issuer_character_id: 1001,
+      wallet_division: 2,
+    },
+  };
+
+  const legacyCorporateOrder: EveCharacterOrder = {
+    ...corporateOrder,
+    order_id: 405,
+    ownership: undefined,
+  };
+
+  const allOrders = [orderA, orderB, orderC_NonFleet, corporateOrder, legacyCorporateOrder];
 
   const context: OrderSelectionContext = {
     activeCharacterId: '1001',
@@ -116,6 +169,8 @@ function runOrderScopingTests() {
   assert(fleetOrders[1].character_id === 1002, 'Character ID 1002 preserved');
   // Verify non-fleet order is excluded
   assert(!fleetOrders.some((o) => o.character_id === 9999), 'External alt (9999) must not be in fleet orders');
+  assert(!fleetOrders.some((o) => o.order_id === 404), 'Corporation-owned order must not enter character fleet scope');
+  assert(!fleetOrders.some((o) => o.order_id === 405), 'Legacy corporation order must not be inferred to the observing character');
   console.log('  [PASS] Test 4: Scope fleet returned orders for all fleet characters and excluded non-fleet.');
 
   // 5. Test identity & immutability (No artificial character_id: 'fleet')

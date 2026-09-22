@@ -81,3 +81,15 @@ Required regression surfaces:
 - shared corporation treasury orchestration, HTTP-status propagation, division selection, identity mismatch and fail-closed behavior;
 - manual-budget isolation from stale ESI division rows;
 - finite-value semantics for corporation and fleet capital provenance.
+
+
+## Phase 4.7 — Trading ownership boundary validation
+
+Focused order-scoping validation must cover:
+
+- character-owned orders remaining attached to their actual owner;
+- corporation-owned orders being excluded from character/fleet scopes;
+- legacy `is_corporation=true` orders never being inferred to the observing character;
+- observing principal and economic owner remaining distinct.
+
+The dedicated ownership contract test is `src/engine/__tests__/order_scoping_contracts.test.ts`. Runtime consumer changes require the frontend typecheck and production build in addition to this focused regression suite.

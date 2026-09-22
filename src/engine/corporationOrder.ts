@@ -243,20 +243,34 @@ export function mergeOrderObservations(
 
   const existingOwner = existing.ownership;
   const incomingOwner = incoming.ownership;
+  const existingLegacyCorporate = !existingOwner && existing.is_corporation === true;
+  const incomingLegacyCorporate = !incomingOwner && incoming.is_corporation === true;
 
   if (
-    existingOwner &&
-    incomingOwner &&
-    (
-      existingOwner.owner_type !== incomingOwner.owner_type ||
-      existingOwner.owner_id !== incomingOwner.owner_id
-    )
+    (existingOwner && incomingOwner &&
+      (
+        existingOwner.owner_type !== incomingOwner.owner_type ||
+        existingOwner.owner_id !== incomingOwner.owner_id
+      )) ||
+    (existingLegacyCorporate && incomingOwner?.owner_type === 'character') ||
+    (incomingLegacyCorporate && existingOwner?.owner_type === 'character')
   ) {
     return null;
   }
 
   const owner = existingOwner ?? incomingOwner;
   if (!owner) {
+    // Two legacy corporate observations remain explicitly unowned rather than
+    // being attributed to either observing character.
+    if (existingLegacyCorporate || incomingLegacyCorporate) {
+      return {
+        ...existing,
+        ...incoming,
+        character_id: undefined,
+        character_name: undefined,
+        is_corporation: true,
+      };
+    }
     return existing;
   }
 
@@ -281,7 +295,7 @@ export function mergeOrderObservations(
     },
     character_id:
       owner.owner_type === 'character'
-        ? (owner.owner_id)
+        ? owner.owner_id
         : undefined,
     character_name:
       owner.owner_type === 'character'

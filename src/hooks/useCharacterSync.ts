@@ -7,6 +7,8 @@ import { CatalogRepository } from '../domain/catalog/CatalogRepository';
 import { CharacterRepository } from '../domain/character/CharacterRepository';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
 import { useAuth } from '../context/AuthProvider';
+import { useTradingConfig } from '../context/TradingConfigProvider';
+import { TreasuryEngine } from '../engine/treasury';
 
 export function useCharacterSync(
   orderBooks: Record<number, any[]>,
@@ -14,7 +16,8 @@ export function useCharacterSync(
   onLoginSuccess?: () => void
 ) {
   const { characterSession, updateSession, removeCharacter } = useAuth();
-    const [characterOrders, setCharacterOrders] = useState<EveCharacterOrder[]>([]);
+  const { setConfig } = useTradingConfig();
+  const [characterOrders, setCharacterOrders] = useState<EveCharacterOrder[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState<boolean>(false);
 
   const loadCharacterData = useCallback(
@@ -132,9 +135,7 @@ export function useCharacterSync(
             available_capital:
               prev.treasury_source_mode === 'corporation'
                 ? prev.available_capital
-                : (typeof balance === 'number'
-                    ? Math.max(0, Math.round(balance * 100) / 100)
-                    : prev.available_capital),
+                : TreasuryEngine.normalizeWalletTradingCapital(balance) ?? prev.available_capital,
             accounting_level: accountingLvl,
             broker_relations_level: brokerRelLvl,
             broker_fee: calculatedBrokerFee,

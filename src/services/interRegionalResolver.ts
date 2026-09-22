@@ -22,12 +22,26 @@ export class InterRegionalResolver {
       sourceLocation.is_structure===true||destinationLocation.is_structure===true||
       sourceLocation.system_id!==buyHub.system_id||destinationLocation.system_id!==sellHub.system_id||
       sourceLocation.region_id!==buyHub.region_id||destinationLocation.region_id!==sellHub.region_id)return null;
-    const route=universe.getRoute(sourceLocation.system_id!,destinationLocation.system_id!);
-    if(route.status!=='KNOWN'||route.is_verified!==true||!Number.isFinite(route.jumps)||route.jumps<0)return null;
+    const route=universe.getRoute(
+      sourceLocation.system_id!,
+      destinationLocation.system_id!,
+      'SAFE',
+    );
+    if(route.status!=='KNOWN'||route.is_verified!==true||!Number.isFinite(route.jumps)||route.jumps<0||route.is_highsec_only!==true)return null;
+
+    // Numeric EVE order ranges require the shortest jump distance, not the
+    // conservative high-sec transport route. Reuse one destination index for
+    // every source system instead of running a fresh BFS per order.
+    const rangeRouteIndex = universe.getRouteIndex(
+      destinationLocation.system_id!,
+      'SHORTEST',
+    );
     const routeBySystemId:Record<number,JumpRoute>={};
     const systems=new Set<number>();
     for(const order of sellRegionOrders)if(order.is_buy_order&&order.system_id>0)systems.add(order.system_id);
-    for(const systemId of systems)routeBySystemId[systemId]=universe.getRoute(systemId,destinationLocation.system_id!);
+    for(const systemId of systems) {
+      routeBySystemId[systemId]=universe.getIndexedRoute(rangeRouteIndex,systemId);
+    }
     return {item:typeResolution.type,typeResolution,sourceLocation,destinationLocation,route,buyHub,sellHub,strategy,config,buyRegionOrders,sellRegionOrders,historyStatsByRegion,qualitiesByRegion,jitaOrders,routeBySystemId};
   }
 }

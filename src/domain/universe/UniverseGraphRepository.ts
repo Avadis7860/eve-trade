@@ -1,5 +1,7 @@
 import { UniverseGraph, UniverseGraphInput, buildUniverseGraph } from './UniverseGraph';
 import { calculateUniverseGraphChecksum } from './UniverseGraphHash';
+import { RouteIndex } from './RouteIndex';
+import { RoutePolicy } from './RouteEngine';
 
 export interface CanonicalUniverseGraphSource {
   load(): UniverseGraphInput;
@@ -42,5 +44,9 @@ export class UniverseGraphRepository {
 
   getGraph(): UniverseGraph {
     return this.graph;
+  }
+
+  createRouteIndex(destinationSystemId: number, policy: RoutePolicy = 'SHORTEST'): RouteIndex {
+    return new RouteIndex(this.graph, destinationSystemId, policy);
   }
 }

@@ -119,3 +119,33 @@ Le client ESI centralisé distingue les mécanismes de limitation documentés pa
 * **Verrouillage Mutex Anti-Course :** `AuthService.getFreshToken(characterId)` utilise un verrou en mémoire (`refreshLockMap`) pour agréger les requêtes concurrentes sur un seul appel réseau de renouvellement.
 * **Résilience aux Révocations :** En cas d'invalidation explicite du refresh token (code `400 Invalid Grant`), la session est marquée comme expirée et notifiée dans l'interface sans planter le store.
 
+## 🏢 Corporation ESI — Phase 4.6
+
+Les ressources corporation actuellement consommées par EVE Trade passent par `CorporationEsiGateway` :
+
+| Endpoint ESI | Scope | Principal transport |
+|---|---|---|
+| `/corporations/{corporation_id}/` | Public | anonymous |
+| `/corporations/{corporation_id}/wallets/` | `esi-wallet.read_corporation_wallets.v1` | authenticated character |
+| `/corporations/{corporation_id}/divisions/` | `esi-corporations.read_divisions.v1` | authenticated character |
+
+Le `corporation_id` est d'abord résolu via l'identité publique du personnage. Les credentials du personnage ne sont utilisés que pour les endpoints corporation authentifiés.
+
+La chaîne backend est :
+
+```text
+charactersRouter
+  -> CharacterEsiGateway
+  -> CorporationEsiGateway
+  -> EsiGateway
+  -> fetchEsi
+  -> CCP
+```
+
+Cette frontière est volontairement neutre vis-à-vis du métier. Elle constitue le point d'extension pour de futures données corporation, notamment les domaines industrie, assets ou orders, sans les implémenter dans cette phase.
+
+### Trésorerie corporation
+
+Le mode `treasury_source_mode = corporation` sélectionne exclusivement une source corporation marquée `esi` ou `manual`. Une donnée de wallet personnage, même négative, ne peut pas réduire ni remplacer le capital corporation.
+
+Une source ESI indisponible est représentée distinctement et ne provoque pas la réutilisation silencieuse d'un ancien `available_capital`.

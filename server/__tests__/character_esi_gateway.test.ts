@@ -148,8 +148,11 @@ async function runTests(): Promise<void> {
     assert(calls.length === 2, 'Different credentials must reach the gateway independently');
     const firstContext = calls[0]?.context;
     const secondContext = calls[1]?.context;
-    assert(firstContext?.type === 'character', 'First request must use a character principal');
-    assert(secondContext?.type === 'character', 'Second request must use a character principal');
+
+    if (firstContext?.type !== 'character' || secondContext?.type !== 'character') {
+      throw new Error('Both requests must use character principals');
+    }
+
     assert(
       firstContext.bearerCredential !== secondContext.bearerCredential,
       'Credentials must remain distinct',

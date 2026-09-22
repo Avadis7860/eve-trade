@@ -634,6 +634,7 @@ export class CatalogRepository {
   getMetadata(): TypeCatalogMetadata {
     return {
       ...this.metadata,
+      // Canonical catalog identity never includes dynamically discovered types.
       item_count: this.typeMap.size,
     };
   }

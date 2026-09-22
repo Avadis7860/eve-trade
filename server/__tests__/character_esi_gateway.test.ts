@@ -146,8 +146,15 @@ async function runTests(): Promise<void> {
     ]);
 
     assert(calls.length === 2, 'Different credentials must reach the gateway independently');
-    assert(calls[0].context.type === 'character' && calls[1].context.type === 'character', 'Both requests must be authenticated');
-    assert(calls[0].context.bearerCredential !== calls[1].context.bearerCredential, 'Credentials must remain distinct');
+    const authenticatedCalls = calls.filter(
+      (call): call is typeof call & { context: Extract<EsiPrincipalContext, { type: 'character' }> } =>
+        call.context.type === 'character',
+    );
+    assert(authenticatedCalls.length === 2, 'Both requests must be authenticated');
+    assert(
+      authenticatedCalls[0].context.bearerCredential !== authenticatedCalls[1].context.bearerCredential,
+      'Credentials must remain distinct',
+    );
   });
 
   await test('public character identity is anonymous and never receives a bearer credential', async () => {

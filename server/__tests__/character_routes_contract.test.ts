@@ -58,7 +58,7 @@ async function runTests(): Promise<void> {
 
   const serverInstance: RunningServer = await startServer(0, { includeVite: false });
   const baseUrl = `http://127.0.0.1:${serverInstance.port}`;
-  const observedRequests: Array<{ url: string; authorization?: string }> = [];
+  const observedRequests: Array<{ path: string; search: string; authorization?: string }> = [];
 
   let testsPassed = 0;
   let testsFailed = 0;
@@ -80,7 +80,7 @@ async function runTests(): Promise<void> {
     assert.ok(parsed.pathname.startsWith('/latest/'), `Expected ESI latest path, got ${parsed.pathname}`);
     const esiPath = parsed.pathname.replace(/^\/latest(?=\/)/, '');
     const authorization = (init?.headers as Record<string, string> | undefined)?.Authorization;
-    observedRequests.push({ url: esiPath + parsed.search, authorization });
+    observedRequests.push({ path: esiPath, search: parsed.search, authorization });
 
     if (esiPath === `/characters/${CHARACTER_A}/orders/`) {
       if (authorization !== `Bearer ${TOKEN_A}`) return new Response('Unauthorized', { status: 401 });
@@ -338,9 +338,9 @@ async function runTests(): Promise<void> {
 
       assert.strictEqual(responses[0].status, 200);
       assert.strictEqual(responses[1].status, 200);
-      assert(observedRequests.some((r) => r.url.endsWith(`/characters/${CHARACTER_A}/orders/`) && r.authorization === `Bearer ${TOKEN_A}`));
-      assert(observedRequests.some((r) => r.url.endsWith(`/characters/${CHARACTER_B}/orders/`) && r.authorization === `Bearer ${TOKEN_B}`));
-      assert(!observedRequests.some((r) => r.url.endsWith(`/characters/${CHARACTER_B}/orders/`) && r.authorization === `Bearer ${TOKEN_A}`));
+      assert(observedRequests.some((r) => r.path === `/characters/${CHARACTER_A}/orders/` && r.authorization === `Bearer ${TOKEN_A}`));
+      assert(observedRequests.some((r) => r.path === `/characters/${CHARACTER_B}/orders/` && r.authorization === `Bearer ${TOKEN_B}`));
+      assert(!observedRequests.some((r) => r.path === `/characters/${CHARACTER_B}/orders/` && r.authorization === `Bearer ${TOKEN_A}`));
     });
 
     await test('public character identity never forwards the caller credential', async () => {
@@ -353,7 +353,7 @@ async function runTests(): Promise<void> {
       const body = await readJson(response);
       assert.strictEqual(body.corporation_id, CORPORATION_ID);
 
-      const identityCalls = observedRequests.slice(before).filter((r) => r.url.endsWith(`/characters/${CHARACTER_A}/`));
+      const identityCalls = observedRequests.slice(before).filter((r) => r.path === `/characters/${CHARACTER_A}/`);
       assert.strictEqual(identityCalls.length, 1);
       assert.strictEqual(identityCalls[0].authorization, undefined);
     });

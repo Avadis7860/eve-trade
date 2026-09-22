@@ -11,14 +11,14 @@ export function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
 }
 
-function assertNonEmptyString(value: unknown, label: string): string {
+function assertNonEmptyString(value, label) {
   if (typeof value !== 'string' || value.trim() === '') {
     throw new Error(`Missing or invalid ${label}`);
   }
   return value;
 }
 
-function parsePositiveInteger(value: unknown, label: string): number {
+function parsePositiveInteger(value, label) {
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed) || parsed <= 0) {
     throw new Error(`Invalid ${label}: ${String(value)}`);
@@ -26,7 +26,7 @@ function parsePositiveInteger(value: unknown, label: string): number {
   return parsed;
 }
 
-function assertSecurityStatus(value: unknown, systemId: number): number {
+function assertSecurityStatus(value, systemId) {
   const security = Number(value);
   if (!Number.isFinite(security) || security < -1 || security > 1) {
     throw new Error(`Invalid canonical security status for system ${systemId}: ${String(value)}`);
@@ -34,12 +34,12 @@ function assertSecurityStatus(value: unknown, systemId: number): number {
   return security;
 }
 
-export function isNewEdenSystem(systemId: number): boolean {
+export function isNewEdenSystem(systemId) {
   return systemId >= NEW_EDEN_SYSTEM_MIN && systemId <= NEW_EDEN_SYSTEM_MAX;
 }
 
 export function parseJsonl(content, sourceLabel) {
-  const rows: Record<string, unknown>[] = [];
+  const rows = [];
   for (const [index, line] of content.split(/\r?\n/).entries()) {
     if (!line.trim()) continue;
 
@@ -66,14 +66,14 @@ export function parseSdeSource(content, sourceLabel) {
   return { content, rows: parseJsonl(content, sourceLabel) };
 }
 
-function getObject(value: unknown, label: string): Record<string, unknown> {
+function getObject(value, label) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error(`Invalid ${label}: expected an object`);
   }
   return value as Record<string, unknown>;
 }
 
-function readIntegerArray(value: unknown, label: string): number[] {
+function readIntegerArray(value, label) {
   if (value === undefined) return [];
   if (!Array.isArray(value)) throw new Error(`Invalid ${label}: expected an array`);
   return value.map((entry) => parsePositiveInteger(entry, label));
@@ -84,9 +84,9 @@ export function buildUniverseGraphFromSde(input) {
   const systems = parseSdeSource(input.mapSolarSystemsContent, 'mapSolarSystems.jsonl');
   const stargates = parseSdeSource(input.mapStargatesContent, 'mapStargates.jsonl');
 
-  const nodes: CanonicalUniverseNode[] = [];
-  const nodeIds = new Set<number>();
-  const declaredStargatesBySystem = new Map<number, Set<number>>();
+  const nodes = [];
+  const nodeIds = new Set();
+  const declaredStargatesBySystem = new Map();
 
   for (const system of systems) {
     const systemId = parsePositiveInteger(system._key, 'solar system ID');
@@ -119,14 +119,10 @@ export function buildUniverseGraphFromSde(input) {
 
   nodes.sort((a, b) => a.system_id - b.system_id);
 
-  const edges: CanonicalUniverseEdge[] = [];
-  const edgeKeys = new Set<string>();
-  const stargateIds = new Set<number>();
-  const stargateById = new Map<number, {
-    from_system_id: number;
-    to_system_id: number;
-    destination_stargate_id: number;
-  }>();
+  const edges = [];
+  const edgeKeys = new Set();
+  const stargateIds = new Set();
+  const stargateById = new Map();
 
   for (const gate of stargates) {
     const gateId = parsePositiveInteger(gate._key, 'stargate ID');

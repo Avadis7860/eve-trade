@@ -17,7 +17,7 @@ Ce document décrit en détail les points de terminaison (endpoints) CCP Games E
 | **Journal Financier** | `/characters/{character_id}/wallet/journal/` | `GET` | `esi-wallet.read_character_wallet.v1` | Suivi des taxes et frais de courtage prélevés par CCP. |
 | **Compétences** | `/characters/{character_id}/skills/` | `GET` | `esi-skills.read_skills.v1` | Niveaux d'*Accounting* (ID 3443) et *Broker Relations* (ID 3444). |
 | **Univers (Stations)** | `/universe/stations/{station_id}/` | `GET` | *Public* | Résolution des noms et systèmes stellaires des stations PNJ. |
-| **Univers (Citadelles)** | `/universe/structures/{structure_id}/` | `GET` | `publicData` | Résolution des noms des structures Upwell privées. |
+| **Univers (Citadelles)** | `/universe/structures/{structure_id}/` | `GET` | `esi-universe.read_structures.v1` | Résolution des noms des structures Upwell accessibles au personnage authentifié. |
 | **Univers (Types)** | `/universe/types/{type_id}/` | `GET` | *Public* | Résolution des noms et volumes unitaires ($m^3$) des objets. |
 | **Résolution d'IDs** | `/universe/ids/` | `POST` | *Public* | Résolution universelle des noms des types, stations et systèmes. |
 
@@ -77,13 +77,15 @@ Le backend local Express fait office de proxy sécurisé, de gestionnaire de ses
 
 ## 🛡️ Gestion des Limites de Requêtes (*Error Budget & Rate Limiting*)
 
-CCP ESI utilise un système d'**Error Budget** strict (100 erreurs autorisées par fenêtre glissante) :
-* **`X-Esi-Error-Limit-Remain` / `X-Esi-Error-Limit-Reset`** : ces en-têtes sont exposés par le client ESI centralisé.
-* **`Retry-After`** : en cas de `429`, le délai est exposé pour permettre à l'orchestrateur de temporiser la reprise.
-* **`420` et `5xx`** : les erreurs sont propagées par le client unifié ; ne pas supposer une politique de retry globale non documentée.
-* **`ETag` / `304`** : `fetchEsi` supporte `If-None-Match` et représente explicitement `304 Not Modified`.
-* **Pagination** : l'en-tête `x-pages` est exposé sous forme `xPages`.
-* **User-Agent** : les appels backend passent par `server/utils/esiClient.ts`; vérifier cette implémentation avant de documenter une valeur statique.
+Le client ESI centralisé distingue les mécanismes de limitation documentés par CCP :
+* **Error Limit** : `X-ESI-Error-Limit-Remain` / `X-ESI-Error-Limit-Reset` indiquent le budget d'erreurs restant et le délai avant réinitialisation.
+* **Rate Limit par bucket** : `X-Ratelimit-Group`, `X-Ratelimit-Limit`, `X-Ratelimit-Remaining` et `X-Ratelimit-Used` sont capturés lorsqu'ils sont fournis par la route.
+* **`Retry-After`** : le délai en secondes est conservé et utilisé par la politique de reprise pour les réponses `420/429` compatibles.
+* **`420` et `5xx`** : la politique de retry reste bornée et ne contourne jamais un error budget épuisé.
+* **Cache HTTP** : `ETag`, `Expires`, `Last-Modified`, `Cache-Control` et `304 Not Modified` font partie des métadonnées transportées par le gateway.
+* **Pagination** : l'en-tête `X-Pages` est exposé en valeur brute `xPages` pour compatibilité et en valeur numérique dans les métadonnées typées.
+* **Compatibilité ESI** : chaque requête porte la date d'application `X-Compatibility-Date`, centralisée dans `server/utils/esiTypes.ts` et surchargeable uniquement via configuration explicite.
+* **User-Agent** : tous les appels backend vers ESI passent par `server/utils/esiClient.ts`.
 
 ---
 

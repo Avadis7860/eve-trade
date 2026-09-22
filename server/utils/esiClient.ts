@@ -6,6 +6,8 @@
  */
 
 import { logEvent } from './logger';
+import { ESI_COMPATIBILITY_DATE } from './esiTypes';
+import type { EsiResponseMetadata } from './esiTypes';
 
 export type EsiFetchFn = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
@@ -14,6 +16,8 @@ export interface EsiFetchOptions extends RequestInit {
   retries?: number;
   etag?: string;
   customFetch?: EsiFetchFn;
+  /** Overrides the application-wide ESI compatibility date for tests or controlled migrations. */
+  compatibilityDate?: string;
 }
 
 export interface EsiFetchResult<T = unknown> {
@@ -27,6 +31,15 @@ export interface EsiFetchResult<T = unknown> {
   errorLimitReset?: number;
   retryAfter?: number;
   xPages?: string;
+  lastModified?: string;
+  cacheControl?: string;
+  compatibilityDate?: string;
+  rateLimitGroup?: string;
+  rateLimitLimit?: string;
+  rateLimitRemaining?: number;
+  rateLimitUsed?: number;
+  retryAfterSeconds?: number;
+  metadata: EsiResponseMetadata;
 }
 
 const DEFAULT_USER_AGENT = 'eve-trade-interregional/0.3 (https://github.com/eve-trade)';
@@ -55,6 +68,7 @@ export async function fetchEsi<T = unknown>(
     retries = MAX_RETRIES,
     etag,
     customFetch,
+    compatibilityDate = ESI_COMPATIBILITY_DATE,
     headers = {},
     ...restOptions
   } = options;
@@ -66,9 +80,12 @@ export async function fetchEsi<T = unknown>(
     : `https://esi.evetech.net/latest${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
 
   const requestHeaders: Record<string, string> = {
+    ...(headers as Record<string, string>),
     'User-Agent': DEFAULT_USER_AGENT,
     Accept: 'application/json',
-    ...(headers as Record<string, string>),
+    // The compatibility date is an application-wide ESI contract and cannot
+    // be accidentally replaced by a route caller's arbitrary header.
+    'X-Compatibility-Date': compatibilityDate,
   };
 
   if (etag) {
@@ -96,11 +113,42 @@ export async function fetchEsi<T = unknown>(
       const retryAfterHeader = response.headers.get('retry-after');
       const responseEtag = response.headers.get('etag') || undefined;
       const responseExpires = response.headers.get('expires') || undefined;
+      const lastModified = response.headers.get('last-modified') || undefined;
+      const cacheControl = response.headers.get('cache-control') || undefined;
+      const responseCompatibilityDate = response.headers.get('x-compatibility-date') || compatibilityDate;
       const xPages = response.headers.get('x-pages') || undefined;
+      const rateLimitGroup = response.headers.get('x-ratelimit-group') || undefined;
+      const rateLimitLimit = response.headers.get('x-ratelimit-limit') || undefined;
+      const rateLimitRemainingHeader = response.headers.get('x-ratelimit-remaining');
+      const rateLimitUsedHeader = response.headers.get('x-ratelimit-used');
 
       const errorLimitRemain = remainHeader ? parseInt(remainHeader, 10) : undefined;
       const errorLimitReset = resetHeader ? parseInt(resetHeader, 10) : undefined;
       const retryAfter = retryAfterHeader ? parseInt(retryAfterHeader, 10) : undefined;
+      const rateLimitRemaining = rateLimitRemainingHeader ? parseInt(rateLimitRemainingHeader, 10) : undefined;
+      const rateLimitUsed = rateLimitUsedHeader ? parseInt(rateLimitUsedHeader, 10) : undefined;
+
+      const metadata: EsiResponseMetadata = {
+        cache: {
+          etag: responseEtag,
+          expires: responseExpires,
+          lastModified,
+          cacheControl,
+          compatibilityDate: responseCompatibilityDate,
+        },
+        rateLimit: {
+          retryAfterSeconds: retryAfter,
+          errorLimitRemain,
+          errorLimitResetSeconds: errorLimitReset,
+          rateLimitGroup,
+          rateLimitLimit,
+          rateLimitRemaining,
+          rateLimitUsed,
+        },
+        pagination: {
+          xPages: xPages ? parseInt(xPages, 10) : undefined,
+        },
+      };
 
       // Handle 304 Not Modified
       if (response.status === 304) {
@@ -114,6 +162,15 @@ export async function fetchEsi<T = unknown>(
           errorLimitReset,
           retryAfter,
           xPages,
+          lastModified,
+          cacheControl,
+          compatibilityDate: responseCompatibilityDate,
+          rateLimitGroup,
+          rateLimitLimit,
+          rateLimitRemaining,
+          rateLimitUsed,
+          retryAfterSeconds: retryAfter,
+          metadata,
         };
       }
 
@@ -136,6 +193,15 @@ export async function fetchEsi<T = unknown>(
           errorLimitReset,
           retryAfter,
           xPages,
+          lastModified,
+          cacheControl,
+          compatibilityDate: responseCompatibilityDate,
+          rateLimitGroup,
+          rateLimitLimit,
+          rateLimitRemaining,
+          rateLimitUsed,
+          retryAfterSeconds: retryAfter,
+          metadata,
         };
       }
 
@@ -157,6 +223,15 @@ export async function fetchEsi<T = unknown>(
             errorLimitReset,
             retryAfter,
             xPages,
+            lastModified,
+            cacheControl,
+            compatibilityDate: responseCompatibilityDate,
+            rateLimitGroup,
+            rateLimitLimit,
+            rateLimitRemaining,
+            rateLimitUsed,
+            retryAfterSeconds: retryAfter,
+            metadata,
           };
         }
 
@@ -188,6 +263,15 @@ export async function fetchEsi<T = unknown>(
           errorLimitReset,
           retryAfter,
           xPages,
+          lastModified,
+          cacheControl,
+          compatibilityDate: responseCompatibilityDate,
+          rateLimitGroup,
+          rateLimitLimit,
+          rateLimitRemaining,
+          rateLimitUsed,
+          retryAfterSeconds: retryAfter,
+          metadata,
         };
       }
 
@@ -202,6 +286,15 @@ export async function fetchEsi<T = unknown>(
         errorLimitReset,
         retryAfter,
         xPages,
+        lastModified,
+        cacheControl,
+        compatibilityDate: responseCompatibilityDate,
+        rateLimitGroup,
+        rateLimitLimit,
+        rateLimitRemaining,
+        rateLimitUsed,
+        retryAfterSeconds: retryAfter,
+        metadata,
       };
     } catch (err: unknown) {
       clearTimeout(timer);
@@ -231,5 +324,10 @@ export async function fetchEsi<T = unknown>(
     status: isAbort ? 504 : 500,
     data: null,
     error: isAbort ? 'ESI request timed out' : String(lastError || 'Network request failed'),
+    metadata: {
+      cache: { compatibilityDate },
+      rateLimit: {},
+      pagination: {},
+    },
   };
 }

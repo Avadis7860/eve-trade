@@ -203,35 +203,52 @@ export class EsiService {
   /**
    * Helper to perform authenticated requests with automatic token refresh on 401
    */
-  private static async executeWithAuthRefresh<T>(
+  private static async executeWithAuthRefreshResult<T>(
     characterId: number,
     initialToken: string,
-    requestFn: (token: string) => Promise<{ ok: boolean; status: number; data?: T }>
-  ): Promise<T | null> {
+    requestFn: (token: string) => Promise<{ ok: boolean; status: number; data?: T; error?: string }>
+  ): Promise<{ ok: boolean; status: number; data?: T; error?: string }> {
     let token = initialToken;
     try {
       const res1 = await requestFn(token);
       if (res1.ok && res1.data !== undefined) {
-        return res1.data;
+        return res1;
       }
 
-      // If 401 Unauthorized, try refreshing token immediately
+      // If 401 Unauthorized, try refreshing token immediately.
       if (res1.status === 401) {
         const freshToken = await AuthService.getFreshToken(characterId);
         if (freshToken && freshToken !== token) {
           token = freshToken;
           const res2 = await requestFn(token);
           if (res2.ok && res2.data !== undefined) {
-            return res2.data;
+            return res2;
           }
+          AuthService.markTokenExpired(characterId, 'Session SSO expirée ou révoquée (401)');
+          return res2;
         }
+
         AuthService.markTokenExpired(characterId, 'Session SSO expirée ou révoquée (401)');
       }
-      return null;
+
+      return res1;
     } catch (err) {
       console.warn(`Auth request error for character #${characterId}:`, err);
-      return null;
+      return {
+        ok: false,
+        status: 500,
+        error: String(err),
+      };
     }
+  }
+
+  private static async executeWithAuthRefresh<T>(
+    characterId: number,
+    initialToken: string,
+    requestFn: (token: string) => Promise<{ ok: boolean; status: number; data?: T }>
+  ): Promise<T | null> {
+    const result = await this.executeWithAuthRefreshResult(characterId, initialToken, requestFn);
+    return result.ok && result.data !== undefined ? result.data : null;
   }
 
   /** Fetches active character orders using the character's OAuth token */
@@ -328,15 +345,16 @@ export class EsiService {
       member_count?: number;
     };
     error?: string;
+    status?: number;
   }> {
     try {
       const res = await fetchBackendApi<any>(`/api/character/${characterId}/corporation`, {
         headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
       });
-      if (res.ok && res.data) return { ok: true, data: res.data };
-      return { ok: false, error: `HTTP_${res.status}` };
+      if (res.ok && res.data) return { ok: true, status: res.status, data: res.data };
+      return { ok: false, status: res.status, error: `HTTP_${res.status}` };
     } catch (err) {
-      return { ok: false, error: String(err) };
+      return { ok: false, status: 500, error: String(err) };
     }
   }
 
@@ -352,7 +370,7 @@ export class EsiService {
     error?: string;
     status?: number;
   }> {
-    const resObj = await this.executeWithAuthRefresh<{
+    const result = await this.executeWithAuthRefreshResult<{
       corporation_id: number;
       wallets: Array<{ division: number; name: string; balance: number }>;
     }>(characterId, accessToken, async token => {
@@ -360,13 +378,26 @@ export class EsiService {
         const res = await fetchBackendApi<any>(`/api/character/${characterId}/corporation/wallets`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        return { ok: res.ok, status: res.status, data: res.data ?? undefined };
+        return {
+          ok: res.ok,
+          status: res.status,
+          data: res.data ?? undefined,
+          error: !res.ok ? `HTTP_${res.status}` : undefined,
+        };
       } catch (err) {
-        return { ok: false, status: 500 };
+        return { ok: false, status: 500, error: String(err) };
       }
     });
-    if (resObj) return { ok: true, data: resObj };
-    return { ok: false, error: 'CORPORATION_WALLETS_UNAVAILABLE' };
+
+    if (result.ok && result.data) {
+      return { ok: true, status: result.status, data: result.data };
+    }
+
+    return {
+      ok: false,
+      status: result.status,
+      error: result.error || 'CORPORATION_WALLETS_UNAVAILABLE',
+    };
   }
   /** Fetches metadata status of the Type Catalog */
   static async getTypeCatalogStatus(): Promise<TypeCatalogMetadata> {

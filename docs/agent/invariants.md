@@ -72,3 +72,18 @@ Catalog, universe and route resolutions expose source, verification state, confi
 
 The pure inter-regional calculation core must not import or access CatalogRepository, UniverseRepository, ESI, persistence, DOM/React state or wall-clock time. It accepts only `CertifiedInterRegionalInputs` and rejects any input whose Catalog, location, structure or route provenance is not verified/canonical.
 Validation: `interregional_purity.test.ts`, typecheck, full engine regression and production build.
+
+
+## ROUTE-SAFETY-001 — Safe route security floor
+
+- Scope: Phase 2.7B route engine.
+- Rule: une route déclarée safe n'est valide que si chaque système effectivement traversé possède security_status >= 0.5, extrémités incluses.
+- Rule: la liste ordonnée des systèmes traversés doit être conservée dans le contrat de route afin de rendre la contrainte auditable.
+- Status: architectural target; not yet implemented.
+
+## OAUTH-E2E-001 — Local browser authentication gate
+
+- Scope: EVE SSO/OAuth and future browser E2E.
+- Rule: callback OAuth, session, refresh et appels authentifiés doivent fonctionner dans un navigateur local hors Google AI Studio.
+- Rule: aucun contournement spécifique à Google AI Studio ne constitue une correction valide.
+- Status: blocking prerequisite for product browser E2E.

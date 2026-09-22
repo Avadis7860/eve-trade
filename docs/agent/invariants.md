@@ -104,6 +104,8 @@ Validation: `interregional_purity.test.ts`, typecheck, full engine regression an
 - Rule: observed negative corporation or character wallets remain factual; spendable capital is independently normalized to a non-negative value.
 - Rule: unavailable corporation data fails closed instead of silently retaining a stale positive character-derived capital.
 - Validation: `src/engine/__tests__/treasury.test.ts` and the ESI corporation route/gateway contract suites.
+- Legacy persisted corporation configs with missing/invalid provenance normalize to `unavailable`; no legacy numeric balance is automatically certified as ESI or manual capital.
+- Validation: `src/engine/__tests__/financial_config.test.ts`.
 
 ## CORPORATION-DATA-SEPARATION-001 — Transport boundary remains domain-neutral
 

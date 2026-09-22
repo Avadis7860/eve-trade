@@ -18,6 +18,7 @@ import { CatalogRepository } from './domain/catalog/CatalogRepository';
 import { CharacterRepository } from './domain/character/CharacterRepository';
 import { MarketOutcomeTracker } from './services/marketOutcomeTracker';
 import { selectOrdersByScope } from './engine/orderScoping';
+import { mergeOrderObservations } from './engine/corporationOrder';
 
 import { AuthProvider, useAuth } from './context/AuthProvider';
 import { CatalogProvider, useCatalog } from './context/CatalogProvider';
@@ -122,7 +123,7 @@ const AppShell: React.FC = () => {
           const corporationOwned =
             ord.ownership?.owner_type === 'corporation' || ord.is_corporation === true;
 
-          orderMap.set(ord.order_id, {
+          const candidateOrder: EveCharacterOrder = {
             ...ord,
             ...(corporationOwned
               ? {
@@ -133,7 +134,20 @@ const AppShell: React.FC = () => {
                   character_id: char.character_id,
                   character_name: char.character_name,
                 }),
-          });
+          };
+          const existingOrder = orderMap.get(ord.order_id);
+          if (existingOrder) {
+            const mergedOrder = mergeOrderObservations(existingOrder, candidateOrder);
+            if (mergedOrder) {
+              orderMap.set(ord.order_id, mergedOrder);
+            } else {
+              console.warn(
+                `[App] conflicting ownership observations for order ${ord.order_id}; order excluded from aggregate`,
+              );
+            }
+          } else {
+            orderMap.set(ord.order_id, candidateOrder);
+          }
         }
       }
     }
@@ -144,7 +158,7 @@ const AppShell: React.FC = () => {
         const corporationOwned =
           ord.ownership?.owner_type === 'corporation' || ord.is_corporation === true;
 
-        orderMap.set(ord.order_id, {
+        const candidateOrder: EveCharacterOrder = {
           ...ord,
           ...(corporationOwned
             ? {
@@ -155,7 +169,20 @@ const AppShell: React.FC = () => {
                 character_id: characterSession.character_id,
                 character_name: characterSession.character_name,
               }),
-        });
+        };
+        const existingOrder = orderMap.get(ord.order_id);
+        if (existingOrder) {
+          const mergedOrder = mergeOrderObservations(existingOrder, candidateOrder);
+          if (mergedOrder) {
+            orderMap.set(ord.order_id, mergedOrder);
+          } else {
+            console.warn(
+              `[App] conflicting ownership observations for order ${ord.order_id}; order excluded from aggregate`,
+            );
+          }
+        } else {
+          orderMap.set(ord.order_id, candidateOrder);
+        }
       }
     }
 

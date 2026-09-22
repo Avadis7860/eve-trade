@@ -8,6 +8,7 @@ Cette matrice protège la frontière la plus sensible de l'acquisition CCP :
 HTTP client
   -> Express /api/character/:characterId/*
   -> CharacterEsiGateway
+  -> CorporationEsiGateway (for corporation data)
   -> EsiGateway
   -> fetchEsi
   -> CCP ESI

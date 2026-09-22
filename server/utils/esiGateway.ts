@@ -9,20 +9,13 @@ import type {
   EsiRequest,
   EsiError,
   EsiErrorKind,
+  EsiPrincipalContext,
 } from './esiTypes';
 
 export type EsiTransport = (
   endpoint: string,
   options?: EsiFetchOptions
 ) => Promise<EsiFetchResult<unknown>>;
-
-export type EsiPrincipalContext =
-  | { readonly type: 'anonymous' }
-  | {
-      readonly type: 'character';
-      readonly id: number;
-      readonly bearerCredential: string;
-    };
 
 function emptyMetadata() {
   return {
@@ -168,6 +161,7 @@ export class EsiGateway {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([key, value]) => key.toLowerCase() + '=' + value)
       .join('&');
+    const dedupeHeadersFingerprint = createHash('sha256').update(dedupeHeaders).digest('hex');
 
     const dedupeKey =
       method === 'GET' && request.dedupe !== false
@@ -179,7 +173,7 @@ export class EsiGateway {
           '|' +
           (request.etag || '') +
           '|' +
-          dedupeHeaders
+          dedupeHeadersFingerprint
         : undefined;
 
     if (dedupeKey) {

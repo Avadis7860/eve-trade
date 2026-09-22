@@ -248,6 +248,94 @@ async function runTests(): Promise<void> {
     assert(response.error?.retryAfterSeconds === 30, 'Expected reset value');
   });
 
+  await test('rejects malformed relative paths and control characters before transport', async () => {
+    let calls = 0;
+    const gateway = createEsiGateway(async () => {
+      calls++;
+      return successfulResult({ ok: true });
+    });
+
+    const invalidPaths = ['characters/123/wallet/', '/characters/123/wallet/\r\nX-Injected: true'];
+    for (const path of invalidPaths) {
+      const response = await gateway.request({ path });
+      assert(response.ok === false, 'Malformed path must fail');
+      assert(response.status === 400, 'Malformed path must return 400');
+      assert(response.error?.kind === 'UNKNOWN', 'Malformed path must not reach transport classification');
+    }
+
+    assert(calls === 0, 'Invalid paths must never invoke the transport');
+  });
+
+  await test('anonymous requests strip caller Authorization instead of forwarding it', async () => {
+    let observedOptions: any;
+    const gateway = createEsiGateway(async (_endpoint, options) => {
+      observedOptions = options;
+      return successfulResult({ ok: true });
+    });
+
+    await gateway.request(
+      {
+        path: '/characters/123/',
+        headers: {
+          Authorization: 'Bearer should-not-cross',
+          authorization: 'Bearer lowercase-should-not-cross',
+        },
+      },
+      { type: 'anonymous' },
+    );
+
+    assert(observedOptions.headers.Authorization === undefined, 'Anonymous principal must not receive Authorization');
+    assert(observedOptions.headers.authorization === undefined, 'Anonymous principal must strip lowercase Authorization');
+  });
+
+  await test('rejects control characters in caller-controlled headers', async () => {
+    let calls = 0;
+    const gateway = createEsiGateway(async () => {
+      calls++;
+      return successfulResult({ ok: true });
+    });
+
+    const response = await gateway.request({
+      path: '/test/',
+      headers: { 'X-Test': 'safe\r\nInjected: true' },
+    });
+
+    assert(response.ok === false, 'Header injection attempt must fail');
+    assert(response.status === 400, 'Header injection attempt must return 400');
+    assert(calls === 0, 'Rejected headers must never reach transport');
+  });
+
+  await test('maps 420 to RATE_LIMITED and malformed JSON to INVALID_RESPONSE', async () => {
+    const rateLimitedGateway = createEsiGateway(async () => ({
+      ok: false,
+      status: 420,
+      data: null,
+      error: 'Enhance Your Calm',
+      retryAfter: 12,
+      metadata: {
+        cache: {},
+        rateLimit: { retryAfterSeconds: 12 },
+        pagination: {},
+      },
+    }));
+
+    const rateLimited = await rateLimitedGateway.request({ path: '/test/' });
+    assert(rateLimited.error?.kind === 'RATE_LIMITED', '420 must map to RATE_LIMITED');
+    assert(rateLimited.error?.retryAfterSeconds === 12, 'Retry-After must survive 420 mapping');
+
+    const malformed = createEsiGateway(async () => ({
+      ok: false,
+      status: 502,
+      data: null,
+      error: 'Invalid JSON response from ESI',
+      metadata: { cache: {}, rateLimit: {}, pagination: {} },
+    }));
+
+    const malformedResponse = await malformed.request({ path: '/test/' });
+    assert(malformedResponse.error?.kind === 'INVALID_RESPONSE', 'Malformed JSON must map to INVALID_RESPONSE');
+    assert(malformedResponse.error?.retryable === false, 'Malformed response must not be retryable at the gateway boundary');
+  });
+
   await test('propagates transport metadata without altering payload', async () => {
     const gateway = createEsiGateway(async () => ({
       ok: true,

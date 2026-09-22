@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { EsiService } from '../services/esi';
 import { useAuth } from '../context/AuthProvider';
 import { useTradingConfig } from '../context/TradingConfigProvider';
+import { syncCorporationTreasury } from '../services/corporationTreasurySync';
 
 export function useCorporationTreasurySync(): void {
   const { characterSession } = useAuth();
@@ -19,7 +19,12 @@ export function useCorporationTreasurySync(): void {
       return;
     }
 
-    const syncKey = `${activeCharacter.character_id}:${division}`;
+    const credentialGeneration =
+      activeCharacter.last_validated_at ||
+      activeCharacter.expires_at ||
+      activeCharacter.session_version ||
+      'unknown';
+    const syncKey = `${activeCharacter.character_id}:${division}:${credentialGeneration}`;
 
     if (corporationWalletSource === 'manual') {
       lastSyncedKeyRef.current = null;
@@ -31,63 +36,47 @@ export function useCorporationTreasurySync(): void {
     lastSyncedKeyRef.current = syncKey;
     let cancelled = false;
 
-    const syncCorporationTreasury = async () => {
-      try {
-        const corpInfo = await EsiService.fetchCorporationInfo(
-          activeCharacter.character_id,
-          activeCharacter.access_token,
-        );
+    const sync = async () => {
+      const result = await syncCorporationTreasury({
+        characterId: activeCharacter.character_id,
+        accessToken: activeCharacter.access_token,
+        division,
+      });
 
-        if (cancelled) return;
+      if (cancelled) return;
 
-        if (!corpInfo.ok || !corpInfo.data) {
-          setConfig((prev) => ({
-            ...prev,
-            corporation_wallet_source: 'unavailable',
-          }));
-          return;
-        }
-
-        const corpWallets = await EsiService.fetchCorporationWallets(
-          activeCharacter.character_id,
-          activeCharacter.access_token,
-        );
-
-        if (cancelled) return;
-
-        if (!corpWallets.ok || !corpWallets.data?.wallets) {
-          setConfig((prev) => ({
-            ...prev,
-            corporation_id: corpInfo.data!.corporation_id,
-            corporation_name: corpInfo.data!.corporation_name,
-            corporation_wallet_source: 'unavailable',
-          }));
-          return;
-        }
-
-        const selected =
-          corpWallets.data.wallets.find((wallet) => wallet.division === division)
-          || corpWallets.data.wallets[0];
-
+      if (result.ok) {
         setConfig((prev) => ({
           ...prev,
-          corporation_id: corpInfo.data!.corporation_id,
-          corporation_name: corpInfo.data!.corporation_name,
-          corporation_wallet_balance: selected?.balance,
-          corporation_divisions: corpWallets.data!.wallets,
+          corporation_id: result.corporation.corporation_id,
+          corporation_name: result.corporation.corporation_name,
+          corporation_wallet_balance: result.selectedWallet.balance,
+          corporation_divisions: result.wallets,
           corporation_wallet_source: 'esi',
         }));
-      } catch (error) {
-        if (cancelled) return;
-        console.warn('[useCorporationTreasurySync] corporation treasury sync failed:', error);
-        setConfig((prev) => ({
-          ...prev,
-          corporation_wallet_source: 'unavailable',
-        }));
+        return;
       }
+
+      setConfig((prev) => ({
+        ...prev,
+        ...(result.corporation
+          ? {
+              corporation_id: result.corporation.corporation_id,
+              corporation_name: result.corporation.corporation_name,
+            }
+          : {}),
+        corporation_wallet_source: 'unavailable',
+      }));
     };
 
-    syncCorporationTreasury();
+    void sync().catch((error) => {
+      if (cancelled) return;
+      console.warn('[useCorporationTreasurySync] corporation treasury sync failed:', error);
+      setConfig((prev) => ({
+        ...prev,
+        corporation_wallet_source: 'unavailable',
+      }));
+    });
 
     return () => {
       cancelled = true;
@@ -95,6 +84,9 @@ export function useCorporationTreasurySync(): void {
   }, [
     characterSession?.character_id,
     characterSession?.access_token,
+    characterSession?.last_validated_at,
+    characterSession?.expires_at,
+    characterSession?.session_version,
     treasurySourceMode,
     corporationWalletSource,
     division,

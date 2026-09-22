@@ -251,3 +251,11 @@ When modifying a boundary:
 - `docs/agent/repository_map.md`
 - `docs/agent/invariants.md`
 - `docs/agent/test_map.md`
+
+## Phase 2.6 — Catalog & Universe Truth Contracts
+
+The canonical catalog is identified by a fixed manifest containing version, expected cardinality and structural SHA-256. CATALOG_READY is impossible when any value differs or structural validation fails.
+
+The bundled universe dataset is identified by fixed region/system/station counts and a structural SHA-256. The route table contains only canonical known routes; unknown system pairs return UNKNOWN with no usable jump count.
+
+The financial opportunity engine verifies catalog, location and route identity before quantity resolution, transport costing, scoring or prediction. Unknown, dynamic, inferred or unverified inputs are rejected before they can influence a financial result.

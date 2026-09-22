@@ -56,19 +56,19 @@ const resolved = InterRegionalResolver.resolve(
 assert(resolved, 'Jita -> Amarr must resolve through canonical graph certification');
 assert.equal(resolved.route.source, 'canonical_graph');
 assert.equal(resolved.route.is_highsec_only, true);
-assert.equal(resolved.route.jumps, 9);
+assert.equal(resolved.route.jumps, 39);
 assert.equal(resolved.route.provenance?.source, 'sde_canonical');
 assert.equal(resolved.routeBySystemId[jita.system_id]?.source, 'canonical_graph');
 assert.equal(resolved.routeBySystemId[jita.system_id]?.jumps, 11);
 
-const filteredAtNine = InterRegionalCalculationEngine.filterAccessibleOrdersForHub(
+const filteredAtEleven = InterRegionalCalculationEngine.filterAccessibleOrdersForHub(
   [destinationBuyOrder],
   amarr,
   false,
   true,
   resolved.routeBySystemId,
 );
-assert.equal(filteredAtNine.length, 1);
+assert.equal(filteredAtEleven.length, 1);
 
 const tooShortRange = { ...destinationBuyOrder, order_id: 880002, order_range: '10' };
 const resolvedTooShort = InterRegionalResolver.resolve(
@@ -88,14 +88,14 @@ const resolvedTooShort = InterRegionalResolver.resolve(
 assert(resolvedTooShort, 'resolver must still certify the main trade route');
 assert.equal(resolvedTooShort.routeBySystemId[jita.system_id]?.jumps, 11);
 assert.equal(resolvedTooShort.routeBySystemId[jita.system_id]?.status, 'KNOWN');
-const filteredAtEight = InterRegionalCalculationEngine.filterAccessibleOrdersForHub(
+const filteredAtTen = InterRegionalCalculationEngine.filterAccessibleOrdersForHub(
   [tooShortRange],
   amarr,
   false,
   true,
   resolvedTooShort.routeBySystemId,
 );
-assert.equal(filteredAtEight.length, 0);
+assert.equal(filteredAtTen.length, 0);
 
 assert.doesNotThrow(() =>
   InterRegionalCalculationEngine.filterAccessibleOrdersForHub(

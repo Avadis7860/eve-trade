@@ -414,6 +414,31 @@ async function runTests() {
       assert(body[0]?.average === 5.5, 'Expected average 5.5');
     });
 
+    await test('server /api/character/:id/wallet preserves a negative CCP wallet balance exactly', async () => {
+      setGlobalEsiMock(async (url, init) => {
+        const urlStr = String(url);
+        const auth = (init?.headers as Record<string, string> | undefined)?.Authorization;
+        if (!urlStr.includes('/characters/2112345678/wallet/')) {
+          return new Response('Not found', { status: 404 });
+        }
+        if (auth !== 'Bearer negative-wallet-token') {
+          return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+        }
+        return new Response(JSON.stringify(-12500000), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      });
+
+      const res = await fetch(`http://127.0.0.1:${testPort}/api/character/2112345678/wallet`, {
+        headers: { Authorization: 'Bearer negative-wallet-token' },
+      });
+      assert(res.status === 200, `Expected 200, got ${res.status}`);
+      const body = await res.json();
+      assert(body.balance === -12500000, `Expected exact negative balance -12500000, got ${body.balance}`);
+      assert(Object.is(body.balance, -0) === false, 'A genuinely negative wallet must not be normalized to -0');
+    });
+
     await test('server /api/types/lookup/:id proxies via global mock ESI for non-canonical types', async () => {
       setGlobalEsiMock(async (url) => {
         const urlStr = String(url);

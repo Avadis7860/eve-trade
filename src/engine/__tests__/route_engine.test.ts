@@ -14,6 +14,11 @@ const repositoryEdges = [
   { from_system_id: 2, to_system_id: 1 },
 ];
 
+assert.equal(
+  calculateUniverseGraphChecksum(repositoryNodes, repositoryEdges),
+  '5bdd5e4ff041e41fef78453c294fd73adc732e20de745dfb77e2cba14d56776d',
+);
+
 const provenance = {
   source: 'sde_canonical' as const,
   dataset_version: 'test-fixture',

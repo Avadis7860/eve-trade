@@ -125,3 +125,13 @@ Validation: `interregional_purity.test.ts`, typecheck, full engine regression an
 - Rule: a corporation-owned order must never acquire the observing character's `character_id`/`character_name` projection.
 - Rule: legacy orders marked `is_corporation=true` are not inferred to be personally owned.
 - Validation: `order_scoping_contracts.test.ts`, future corporation-order contract suites.
+
+
+## ORDER-ID-IDENTITY-001 — Order IDs are canonical identifiers
+
+- Scope: market orders, character orders, order history, price-level audit metadata and execution order references.
+- Rule: canonical order IDs are strings; they are never used as arithmetic values.
+- Rule: numeric order IDs are accepted only when `Number.isSafeInteger` is true; unsafe numeric values fail closed because JavaScript JSON parsing may already have lost precision.
+- Rule: canonical comparisons and deterministic sorting use identifier-aware logic and never coerce canonical IDs through `Number()`.
+- Rule: order de-duplication keys use the canonical identifier representation.
+- Validation: `src/engine/__tests__/order_identity.test.ts`, ESI and full regression suites.

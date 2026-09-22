@@ -82,7 +82,7 @@ const config: FinancialConfig = {
 
 const sourceOrders: RawMarketOrder[] = [
   {
-    order_id: 101,
+    order_id: '101',
     type_id: 34,
     region_id: 10000002,
     system_id: 30000142,
@@ -99,7 +99,7 @@ const sourceOrders: RawMarketOrder[] = [
 
 const destOrders: RawMarketOrder[] = [
   {
-    order_id: 201,
+    order_id: '201',
     type_id: 34,
     region_id: 10000043,
     system_id: 30002187,

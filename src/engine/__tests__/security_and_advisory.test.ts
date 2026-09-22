@@ -23,7 +23,7 @@ function runSecurityAndAdvisoryTests() {
   // 1. Order Advisor - Outbid Buy Order
   console.log('1. Testing Order Advisor (Buy Order Outbid)...');
   const buyOrder: EveCharacterOrder = {
-    order_id: 1001,
+    order_id: '1001',
     type_id: 34,
     region_id: 10000002,
     location_id: 60003760,
@@ -37,7 +37,7 @@ function runSecurityAndAdvisoryTests() {
 
   const competingOrders: Record<number, RawMarketOrder[]> = {
     10000002: [
-      { order_id: 2001, type_id: 34, location_id: 60003760, system_id: 30000142, region_id: 10000002, price: 4.5, volume_remain: 5000, volume_total: 5000, is_buy_order: true, duration: 90, issued: new Date().toISOString(), order_range: 'region', min_volume: 1 }
+      { order_id: '2001', type_id: 34, location_id: 60003760, system_id: 30000142, region_id: 10000002, price: 4.5, volume_remain: 5000, volume_total: 5000, is_buy_order: true, duration: 90, issued: new Date().toISOString(), order_range: 'region', min_volume: 1 }
     ]
   };
 
@@ -48,7 +48,7 @@ function runSecurityAndAdvisoryTests() {
   // 2. Order Advisor - Dead Market Sell Order Cancel Recommendation
   console.log('2. Testing Order Advisor (Dead Market Sell Cancel)...');
   const deadSellOrder: EveCharacterOrder = {
-    order_id: 1002,
+    order_id: '1002',
     type_id: 34,
     region_id: 10000002,
     location_id: 60003760,
@@ -62,7 +62,7 @@ function runSecurityAndAdvisoryTests() {
 
   const deadCompetingOrders: Record<number, RawMarketOrder[]> = {
     10000002: [
-      { order_id: 2002, type_id: 34, location_id: 60003760, system_id: 30000142, region_id: 10000002, price: 6.0, volume_remain: 5000, volume_total: 5000, is_buy_order: false, duration: 90, issued: new Date().toISOString(), order_range: 'region', min_volume: 1 }
+      { order_id: '2002', type_id: 34, location_id: 60003760, system_id: 30000142, region_id: 10000002, price: 6.0, volume_remain: 5000, volume_total: 5000, is_buy_order: false, duration: 90, issued: new Date().toISOString(), order_range: 'region', min_volume: 1 }
     ]
   };
   const deadHistory: Record<number, HistoricalStats> = {

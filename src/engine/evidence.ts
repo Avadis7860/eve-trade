@@ -18,6 +18,7 @@ import {
   MarketDataQuality,
   InterRegionalOpportunity,
 } from '../types';
+import { normalizeOrderId, compareOrderIds } from './orderIdentity';
 import { Sha256 } from '../domain/catalog/CatalogHashing';
 
 export const CURRENT_CERTIFICATION_VERSION = '4-pillars-v1';
@@ -58,15 +59,16 @@ export class OpportunityEvidenceEngine {
     }
 
     const canonicalOrders = [...orders]
-      .filter((o) => o && Number.isInteger(Number(o.order_id)) && Number(o.order_id) > 0)
-      .sort((a, b) => Number(a.order_id) - Number(b.order_id))
-      .map((o) => ({
+      .map((o) => ({ order: o, orderId: normalizeOrderId(o?.order_id) }))
+      .filter((entry): entry is { order: RawMarketOrder; orderId: string } => Boolean(entry.orderId))
+      .sort((a, b) => compareOrderIds(a.orderId, b.orderId))
+      .map(({ order: o, orderId }) => ({
         duration: Number(o.duration || 0),
         is_buy_order: Boolean(o.is_buy_order),
         issued: String(o.issued || ''),
         location_id: Number(o.location_id || 0),
         min_volume: Number(o.min_volume || 1),
-        order_id: Number(o.order_id),
+        order_id: orderId,
         order_range: String(o.order_range || 'region'),
         price: Math.round(Number(o.price || 0) * 100) / 100,
         region_id: Number(o.region_id || 0),

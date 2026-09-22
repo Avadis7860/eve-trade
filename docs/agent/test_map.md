@@ -93,3 +93,12 @@ Focused order-scoping validation must cover:
 - observing principal and economic owner remaining distinct.
 
 The dedicated ownership contract test is `src/engine/__tests__/order_scoping_contracts.test.ts`. Runtime consumer changes require the frontend typecheck and production build in addition to this focused regression suite.
+
+
+## Phase 4.7 — Canonical order identity validation
+
+The focused identity gate is `src/engine/__tests__/order_identity.test.ts`.
+
+It verifies exact string preservation, safe-number compatibility, rejection of unsafe numeric values, canonical normalization and BigInt-safe comparison. The ESI validation path also uses the same canonicalizer before accepting market orders.
+
+Changes to order identifiers additionally require the ladder, evidence, execution-correlation, execution-outcome and order-scoping regression surfaces plus frontend typecheck and production build.

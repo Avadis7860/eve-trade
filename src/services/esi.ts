@@ -11,6 +11,7 @@ import {
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
 import { AuthService } from './authService';
 import { fetchBackendApi } from './backendApiClient';
+import { normalizeOrderId } from '../engine/orderIdentity';
 
 export interface EsiFetchOrdersResult {
   orders: RawMarketOrder[];
@@ -19,7 +20,7 @@ export interface EsiFetchOrdersResult {
 
 export class EsiService {
   private static locationNameCache = new Map<number, string>();
-  private static deduplicatedOrderStore = new Map<number, RawMarketOrder>();
+  private static deduplicatedOrderStore = new Map<string, RawMarketOrder>();
 
   /**
    * Returns current statistics of the deduplicated Order Database
@@ -50,9 +51,9 @@ export class EsiService {
       return { isValid: false, reason: 'Order object is null or invalid' };
     }
 
-    const orderId = Number(raw.order_id);
-    if (!Number.isInteger(orderId) || orderId <= 0) {
-      return { isValid: false, reason: `Invalid order_id: ${raw.order_id}` };
+    const orderId = normalizeOrderId(raw.order_id);
+    if (!orderId) {
+      return { isValid: false, reason: `Invalid or unsafe order_id: ${raw.order_id}` };
     }
 
     const typeId = Number(raw.type_id || expectedTypeId);
@@ -116,7 +117,7 @@ export class EsiService {
     const startTime = Date.now(); let pagesFetched = 0; let expectedPages = 1;
     let totalRawOrders = 0; let rejectedCount = 0; let duplicateCount = 0; let errorCount = 0;
     let lastError: string | undefined;
-    const seenOrderIds = new Set<number>(); const validOrders: RawMarketOrder[] = [];
+    const seenOrderIds = new Set<string>(); const validOrders: RawMarketOrder[] = [];
     const processPage = (pageData: any[]) => {
       totalRawOrders += pageData.length;
       for (const raw of pageData) {

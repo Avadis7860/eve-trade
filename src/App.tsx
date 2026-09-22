@@ -111,7 +111,7 @@ const AppShell: React.FC = () => {
 
   const allFleetOrders = useMemo(() => {
     const snapshots = CharacterRepository.getInstance().getAllSnapshots();
-    const orderMap = new Map<number, EveCharacterOrder>();
+    const orderMap = new Map<string, EveCharacterOrder>();
 
     // Add orders from snapshots for each linked character
     for (const char of linkedCharacters) {

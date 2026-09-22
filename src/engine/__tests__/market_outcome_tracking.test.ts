@@ -90,7 +90,7 @@ const baseConfig: FinancialConfig = {
 // Initial T0 market orders (Spread: 5.0 -> 8.0)
 const initialSourceOrders: RawMarketOrder[] = [
   {
-    order_id: 1001,
+    order_id: '1001',
     type_id: 34,
     region_id: 10000002,
     system_id: 30000142,
@@ -106,7 +106,7 @@ const initialSourceOrders: RawMarketOrder[] = [
 
 const initialDestOrders: RawMarketOrder[] = [
   {
-    order_id: 2001,
+    order_id: '2001',
     type_id: 34,
     region_id: 10000043,
     system_id: 30002187,
@@ -130,7 +130,7 @@ function generateTestObservation(timestamp: string): OpportunityObservation {
     initialSourceOrders,
     [
       {
-        order_id: 2002,
+        order_id: '2002',
         type_id: 34,
         region_id: 10000043,
         system_id: 30002187,
@@ -231,7 +231,7 @@ console.log('--- Test Suite 2: Outcome Snapshot Calculations ---');
   // 1. Spread Decay Scenario: Sell price drops to 6.50 at dest (spread = (6.5 - 5)/5 = 30%)
   const destOrdersDegraded: RawMarketOrder[] = [
     {
-      order_id: 2003,
+      order_id: '2003',
       type_id: 34,
       region_id: 10000043,
       system_id: 30002187,
@@ -268,7 +268,7 @@ console.log('--- Test Suite 2: Outcome Snapshot Calculations ---');
   // 2. Spread Collapse Scenario: Dest price drops below source price (e.g. 4.80 ISK)
   const destOrdersCollapsed: RawMarketOrder[] = [
     {
-      order_id: 2004,
+      order_id: '2004',
       type_id: 34,
       region_id: 10000043,
       system_id: 30002187,
@@ -297,7 +297,7 @@ console.log('--- Test Suite 2: Outcome Snapshot Calculations ---');
   // 3. Spread Expansion Scenario: Dest price increases to 10.0 ISK
   const destOrdersExpanded: RawMarketOrder[] = [
     {
-      order_id: 2005,
+      order_id: '2005',
       type_id: 34,
       region_id: 10000043,
       system_id: 30002187,
@@ -508,7 +508,7 @@ async function testBatchScheduler() {
   });
   MarketDataStore.setOrders(34, 10000002, initialSourceOrders, true, freshQuality());
   MarketDataStore.setOrders(34, 10000043, [{
-    order_id: 2002,
+    order_id: '2002',
     type_id: 34,
     region_id: 10000043,
     system_id: 30002187,
@@ -647,7 +647,7 @@ async function testFreshnessPolicy() {
       ? initialSourceOrders
       : url.includes('/api/markets/10000043/orders')
         ? [{
-            order_id: 2002,
+            order_id: '2002',
             type_id: 34,
             region_id: 10000043,
             system_id: 30002187,

@@ -1,4 +1,5 @@
 import type { EveTypeDetail } from './universe';
+import type { OrderId } from './order';
 
 export type MarketDataSource = 'esi' | 'cache' | 'mock' | 'unavailable' | 'esi_paginated' | 'indexeddb' | 'memory';
 export type MarketDataFreshness = 'fresh' | 'recent' | 'stale' | 'expired' | 'unknown';
@@ -59,7 +60,7 @@ export interface MarketDataQuality {
 }
 
 export interface RawMarketOrder {
-  order_id: number;
+  order_id: OrderId;
   type_id: number;
   region_id: number;
   system_id: number;
@@ -114,7 +115,7 @@ export interface PriceLevel {
   volume: number;
   orders: number;
   cumulative: number;
-  order_ids?: number[];
+  order_ids?: OrderId[];
   location_ids?: number[];
   min_volume_max?: number;
 }

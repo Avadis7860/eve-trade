@@ -7,6 +7,7 @@ import type {
 } from './financial';
 import type { InterRegionalOpportunity, OpportunityObservation } from './opportunity';
 import type { PersistedCharacterTransaction } from './character';
+import type { OrderId } from './order';
 
 export interface ExecutionLevelConsumption {
   price: number;
@@ -99,7 +100,7 @@ export type CorrelationMatchLevel =
 
 export interface ExecutionTransactionRef {
   readonly transaction_id: number;
-  readonly order_id?: number;
+  readonly order_id?: OrderId;
   readonly character_id?: number;
   readonly type_id: number;
   readonly location_id: number;
@@ -252,7 +253,7 @@ export interface OpportunityExecutionOutcome {
   readonly buy_transactions: readonly ExecutionTransactionRef[];
   readonly sell_transactions: readonly ExecutionTransactionRef[];
 
-  readonly linked_order_ids: readonly number[];
+  readonly linked_order_ids: readonly OrderId[];
   readonly candidate_observation_ids: readonly string[];
 
   readonly has_inventory_inconsistency?: boolean;
@@ -263,7 +264,7 @@ export interface ExecutionOutcomeCalculationOptions {
   readonly match_level?: CorrelationMatchLevel;
   readonly candidate_observation_ids?: readonly string[];
   readonly force_status?: ExecutionStatus;
-  readonly linked_order_ids?: readonly number[];
+  readonly linked_order_ids?: readonly OrderId[];
 }
 
 // ==========================================

@@ -71,7 +71,7 @@ const tritaniumItem: EveTypeDetail = {
 
 const jitaSellOrders: RawMarketOrder[] = [
   {
-    order_id: 1001,
+    order_id: '1001',
     type_id: 34,
     region_id: 10000002,
     system_id: 30000142,
@@ -90,7 +90,7 @@ const jitaSellOrders: RawMarketOrder[] = [
 
 const amarrBuyOrders: RawMarketOrder[] = [
   {
-    order_id: 2002,
+    order_id: '2002',
     type_id: 34,
     region_id: 10000043,
     system_id: 30002187,
@@ -249,7 +249,7 @@ const dynamicItem: EveTypeDetail = {
 const dynamicSellOrders: RawMarketOrder[] = [
   {
     ...jitaSellOrders[0],
-    order_id: 3001,
+    order_id: '3001',
     type_id: 99123,
     price: 10000,
   },
@@ -257,7 +257,7 @@ const dynamicSellOrders: RawMarketOrder[] = [
 const dynamicBuyOrders: RawMarketOrder[] = [
   {
     ...amarrBuyOrders[0],
-    order_id: 3002,
+    order_id: '3002',
     type_id: 99123,
     price: 15000,
   },

@@ -66,7 +66,7 @@ function runExecutionSimulationTests() {
   console.log('1. Testing Multi-Level Order Book Aggregation and Execution Simulation...');
   const rawOrders: RawMarketOrder[] = [
     {
-      order_id: 101,
+      order_id: '101',
       type_id: 34,
       system_id: 30000142,
       region_id: 10000002,
@@ -81,7 +81,7 @@ function runExecutionSimulationTests() {
       order_range: 'region',
     },
     {
-      order_id: 102,
+      order_id: '102',
       type_id: 34,
       system_id: 30000142,
       region_id: 10000002,
@@ -96,7 +96,7 @@ function runExecutionSimulationTests() {
       order_range: 'region',
     },
     {
-      order_id: 103,
+      order_id: '103',
       type_id: 34,
       system_id: 30000142,
       region_id: 10000002,
@@ -144,7 +144,7 @@ function runExecutionSimulationTests() {
   console.log('2. Testing Spatial & Hub Accessibility Rules...');
   const spatialOrders: RawMarketOrder[] = [
     {
-      order_id: 201,
+      order_id: '201',
       type_id: 34,
       system_id: jitaHub.system_id,
       region_id: jitaHub.region_id,
@@ -158,7 +158,7 @@ function runExecutionSimulationTests() {
       issued: new Date().toISOString(),
     },
     {
-      order_id: 202,
+      order_id: '202',
       type_id: 34,
       system_id: 30000144, // Perimeter
       region_id: jitaHub.region_id,
@@ -180,7 +180,7 @@ function runExecutionSimulationTests() {
     false
   );
   assert(sourceAccessible.length === 1, 'Only 1 order must be accessible at source hub station');
-  assert(sourceAccessible[0].order_id === 201, 'Accessible order must be 201');
+  assert(sourceAccessible[0].order_id === '201', 'Accessible order must be 201');
 
   console.log('✅ Spatial & Hub Accessibility Rules verified.');
 
@@ -274,7 +274,7 @@ function runExecutionSimulationTests() {
   console.log('6. Testing Explicability Rationale Generation...');
   const buyRegionOrders: RawMarketOrder[] = [
     {
-      order_id: 401,
+      order_id: '401',
       type_id: 34,
       system_id: jitaHub.system_id,
       region_id: jitaHub.region_id,
@@ -290,7 +290,7 @@ function runExecutionSimulationTests() {
   ];
   const sellRegionOrders: RawMarketOrder[] = [
     {
-      order_id: 402,
+      order_id: '402',
       type_id: 34,
       system_id: amarrHub.system_id,
       region_id: amarrHub.region_id,

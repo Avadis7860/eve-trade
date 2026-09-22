@@ -66,7 +66,7 @@ console.log('2. Testing DataState & Quality Transitions in MarketDataStore...');
 
 const sampleOrders: RawMarketOrder[] = [
   {
-    order_id: 1001,
+    order_id: '1001',
     type_id: 34,
     region_id: 10000002,
     system_id: 30000142,
@@ -186,7 +186,7 @@ const config: FinancialConfig = {
 // 3.1 Certified viable trade
 const jitaSellOrders: RawMarketOrder[] = [
   {
-    order_id: 2001,
+    order_id: '2001',
     type_id: 34,
     region_id: 10000002,
     system_id: 30000142,
@@ -205,7 +205,7 @@ const jitaSellOrders: RawMarketOrder[] = [
 
 const amarrBuyOrders: RawMarketOrder[] = [
   {
-    order_id: 2002,
+    order_id: '2002',
     type_id: 34,
     region_id: 10000043,
     system_id: 30002187,

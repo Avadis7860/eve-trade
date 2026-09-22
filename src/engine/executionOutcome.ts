@@ -19,6 +19,7 @@ import {
   OpportunityExecutionOutcome,
   ExecutionOutcomeCalculationOptions,
 } from '../types';
+import { normalizeOrderId, compareOrderIds } from './orderIdentity';
 
 /**
  * Calculates Volume-Weighted Average Price (VWAP) for a collection of transactions.
@@ -234,25 +235,28 @@ export function calculateExecutionOutcome(
     (buyTransactions.length === 0 && sellTransactions.length === 0 ? 'UNMATCHED' : 'DIRECT_MATCH');
 
   // 8. Collect linked order IDs
-  const orderIdSet = new Set<number>();
+  const orderIdSet = new Set<string>();
   if (options?.linked_order_ids) {
     for (const id of options.linked_order_ids) {
-      if (typeof id === 'number' && Number.isFinite(id)) {
-        orderIdSet.add(id);
+      const normalizedId = normalizeOrderId(id);
+      if (normalizedId) {
+        orderIdSet.add(normalizedId);
       }
     }
   }
   for (const tx of buyTransactions) {
-    if (typeof tx.order_id === 'number' && Number.isFinite(tx.order_id)) {
-      orderIdSet.add(tx.order_id);
+    const normalizedId = normalizeOrderId(tx.order_id);
+    if (normalizedId) {
+      orderIdSet.add(normalizedId);
     }
   }
   for (const tx of sellTransactions) {
-    if (typeof tx.order_id === 'number' && Number.isFinite(tx.order_id)) {
-      orderIdSet.add(tx.order_id);
+    const normalizedId = normalizeOrderId(tx.order_id);
+    if (normalizedId) {
+      orderIdSet.add(normalizedId);
     }
   }
-  const linkedOrderIds = Object.freeze(Array.from(orderIdSet).sort((a, b) => a - b));
+  const linkedOrderIds = Object.freeze(Array.from(orderIdSet).sort(compareOrderIds));
 
   // 9. Candidate observation IDs
   const candidateObservationIds = Object.freeze(

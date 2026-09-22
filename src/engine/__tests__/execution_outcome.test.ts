@@ -29,7 +29,7 @@ function runAllExecutionOutcomeTests() {
     unit_price: number,
     is_buy: boolean,
     timestamp: string,
-    order_id?: number
+    order_id?: string
   ): ExecutionTransactionRef => ({
     transaction_id,
     order_id,
@@ -351,16 +351,16 @@ function runAllExecutionOutcomeTests() {
   // Case 6.3: Determinism (input A -> output A every time)
   {
     const buyTxs = [
-      createTx(101, 500, 10.5, true, '2026-09-20T10:00:00Z', 1001),
-      createTx(102, 500, 11.0, true, '2026-09-20T12:00:00Z', 1002),
+      createTx(101, 500, 10.5, true, '2026-09-20T10:00:00Z', '1001'),
+      createTx(102, 500, 11.0, true, '2026-09-20T12:00:00Z', '1002'),
     ];
     const sellTxs = [
-      createTx(201, 400, 14.0, false, '2026-09-20T14:00:00Z', 2001),
+      createTx(201, 400, 14.0, false, '2026-09-20T14:00:00Z', '2001'),
     ];
     const options = {
       match_level: 'DIRECT_MATCH' as const,
       candidate_observation_ids: ['obs_test_1', 'obs_test_2'],
-      linked_order_ids: [3001],
+      linked_order_ids: ['3001'],
     };
 
     const out1 = calculateExecutionOutcome(1000, buyTxs, sellTxs, options);

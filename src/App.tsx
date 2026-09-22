@@ -345,11 +345,12 @@ const AppShell: React.FC = () => {
         activeCharacter={characterSession}
         onSelectCharacter={(session) => {
           setActiveCharacter(session.character_id);
-          loadCharacterData(session.access_token, session.character_id, session.character_name, session);
+          loadCharacterData(session.access_token, session.character_id, session.character_name, session, true);
         }}
         onConnectSSO={handleConnectSSO}
         onRefreshCharacter={async (session) => {
-          await loadCharacterData(session.access_token, session.character_id, session.character_name, session);
+          const isActive = session.character_id === characterSession?.character_id;
+          await loadCharacterData(session.access_token, session.character_id, session.character_name, session, isActive);
         }}
       />
 

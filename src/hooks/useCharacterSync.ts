@@ -24,9 +24,16 @@ export function useCharacterSync(
       token: string,
       charId: number,
       charName: string,
-      existingSession?: EveCharacterSession
+      existingSession?: EveCharacterSession,
+      makeActive: boolean = true
     ) => {
-      setIsLoadingOrders(true);
+      const activeChar = AuthService.getActiveCharacter();
+      const isTargetActive = makeActive || (activeChar ? activeChar.character_id === charId : true);
+
+      if (isTargetActive) {
+        setIsLoadingOrders(true);
+      }
+
       try {
         const balance = await EsiService.fetchCharacterWallet(charId, token);
         const skills = await EsiService.fetchCharacterSkills(charId, token);
@@ -74,6 +81,8 @@ export function useCharacterSync(
 
           enrichedOrders.push({
             ...o,
+            character_id: charId,
+            character_name: charName,
             type_name: typeName,
             location_name: locName,
             market_competition: {
@@ -85,7 +94,9 @@ export function useCharacterSync(
           });
         }
 
-        setCharacterOrders(enrichedOrders);
+        if (isTargetActive) {
+          setCharacterOrders(enrichedOrders);
+        }
 
         CharacterRepository.getInstance().saveSnapshot(charId, {
           wallet_balance: balance,
@@ -109,25 +120,30 @@ export function useCharacterSync(
           accounting_skill: accountingLvl,
           broker_relations_skill: brokerRelLvl,
           last_sync: new Date().toISOString(),
-          is_active: true,
+          is_active: isTargetActive,
           session_version: 2,
           auth_status: 'SESSION_VALID',
         };
 
-        updateSession(sessionObj);
-
-        setConfig((prev) => ({
-          ...prev,
-          available_capital: balance && balance > 0 ? balance : prev.available_capital,
-          accounting_level: accountingLvl,
-          broker_relations_level: brokerRelLvl,
-          broker_fee: calculatedBrokerFee,
-          sales_tax: calculatedSalesTax,
-        }));
+        if (isTargetActive) {
+          updateSession(sessionObj);
+          setConfig((prev) => ({
+            ...prev,
+            available_capital: balance && balance > 0 ? balance : prev.available_capital,
+            accounting_level: accountingLvl,
+            broker_relations_level: brokerRelLvl,
+            broker_fee: calculatedBrokerFee,
+            sales_tax: calculatedSalesTax,
+          }));
+        } else {
+          AuthService.saveCharacter(sessionObj, false);
+        }
       } catch (err) {
         console.error('Error loading character data:', err);
       } finally {
-        setIsLoadingOrders(false);
+        if (isTargetActive) {
+          setIsLoadingOrders(false);
+        }
       }
     },
     [orderBooks, hubs, updateSession, setConfig]
@@ -197,7 +213,7 @@ export function useCharacterSync(
     return () => window.removeEventListener('message', handleMessage);
   }, [loadCharacterData, onLoginSuccess, updateSession]);
 
-  // Check and refresh active session periodically
+  // Check and refresh all linked character sessions periodically
   useEffect(() => {
     const checkAndRefresh = async () => {
       const activeChar = AuthService.getActiveCharacter();
@@ -206,19 +222,24 @@ export function useCharacterSync(
         if (snap && snap.active_orders.length > 0) {
           setCharacterOrders(snap.active_orders);
         }
+      }
 
+      const linkedChars = AuthService.getLinkedCharacters();
+      for (const char of linkedChars) {
         try {
-          const validSession = await AuthService.ensureValidToken(activeChar);
+          const validSession = await AuthService.ensureValidToken(char);
           if (!validSession.is_token_expired && validSession.access_token) {
+            const isActive = activeChar ? validSession.character_id === activeChar.character_id : false;
             await loadCharacterData(
               validSession.access_token,
               validSession.character_id,
               validSession.character_name,
-              validSession
+              validSession,
+              isActive
             );
           }
         } catch (e) {
-          console.warn('Initial character token sync notice:', e);
+          console.warn(`Character token sync notice for ${char.character_name}:`, e);
         }
       }
     };
@@ -226,9 +247,11 @@ export function useCharacterSync(
     checkAndRefresh();
 
     const interval = setInterval(() => {
-      const activeChar = AuthService.getActiveCharacter();
-      if (activeChar && !activeChar.is_token_expired) {
-        AuthService.ensureValidToken(activeChar).catch(() => {});
+      const linkedChars = AuthService.getLinkedCharacters();
+      for (const char of linkedChars) {
+        if (!char.is_token_expired) {
+          AuthService.ensureValidToken(char).catch(() => {});
+        }
       }
     }, 90000);
 

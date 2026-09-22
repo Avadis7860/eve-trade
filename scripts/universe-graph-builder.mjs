@@ -26,6 +26,8 @@ export interface GraphBuildProvenance {
   completeness: 'complete';
   route_scope: string;
   generator_version: string;
+  map_solar_systems_checksum: string;
+  map_stargates_checksum: string;
 }
 
 export interface UniverseGraphArtifact {
@@ -278,10 +280,12 @@ export function buildUniverseGraphFromSde(input: SdeBuildInput): UniverseGraphAr
   );
 
   const graphChecksum = sha256(JSON.stringify({ nodes, edges }));
+  const mapSolarSystemsChecksum = sha256(new TextEncoder().encode(input.mapSolarSystemsContent));
+  const mapStargatesChecksum = sha256(new TextEncoder().encode(input.mapStargatesContent));
   const datasetChecksum = sha256(
     JSON.stringify({
-      mapSolarSystems: sha256(new TextEncoder().encode(input.mapSolarSystemsContent)),
-      mapStargates: sha256(new TextEncoder().encode(input.mapStargatesContent)),
+      mapSolarSystems: mapSolarSystemsChecksum,
+      mapStargates: mapStargatesChecksum,
       route_scope: NEW_EDEN_ROUTE_SCOPE,
     }),
   );
@@ -299,6 +303,8 @@ export function buildUniverseGraphFromSde(input: SdeBuildInput): UniverseGraphAr
       completeness: 'complete',
       route_scope: NEW_EDEN_ROUTE_SCOPE,
       generator_version: UNIVERSE_GRAPH_GENERATOR_VERSION,
+      map_solar_systems_checksum: mapSolarSystemsChecksum,
+      map_stargates_checksum: mapStargatesChecksum,
     },
     nodes,
     edges,

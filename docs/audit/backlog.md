@@ -9,12 +9,16 @@ Ce backlog répertorie les défauts, anomalies et dettes techniques documentés 
 | ID | Titre | Statut | Résolu dans | Priorité |
 | :--- | :--- | :--- | :--- | :--- |
 | **ISSUE-001** | Discordance de statut `/api/health` (HTTP 503 permanent) | ✅ RESOLVED | **LOT-002** | P1 |
-| **ISSUE-002** | Taille excessive du bundle frontend initial (8.69 MB unminified) | ⏳ BACKLOG | Non planifié (Post LOT-003) | P2 |
+| **ISSUE-002** | Taille excessive du bundle frontend initial (8.69 MB unminified) | ⏳ BACKLOG | Non planifié (Post LOT-004) | P2 |
 | **ISSUE-003** | Absence de couverture de tests sur la couche HTTP / API Express | ✅ RESOLVED | **LOT-002** | P1 |
 | **ISSUE-004** | Absence de smoke test automatisé pour le démarrage du serveur | ✅ RESOLVED | **LOT-002** | P1 |
 | **ISSUE-005** | Présence conjointe de `bun.lock` et `package-lock.json` | ⏳ BACKLOG | Non planifié (Nettoyage) | P3 |
 | **ISSUE-006** | Composants orphelins / non référencés identifiés dans l'audit initial | ⏳ BACKLOG | Non planifié (Dead code) | P2 |
-| **ISSUE-007** | Absence de mock officiel ESI pour tests hors-ligne du proxy marché | ⏳ BACKLOG | LOT-003 (Hardening ESI) | P2 |
+| **ISSUE-007** | Absence de mock officiel ESI pour tests hors-ligne du proxy marché | ✅ RESOLVED | **LOT-003** | P2 |
+| **ISSUE-008** | Vulnérabilité potentielle XSS et rejeu de jeton OAuth dans `/auth/callback` et `/api/auth/token` | ✅ RESOLVED | **LOT-003** | P1 |
+| **ISSUE-009** | Absence de validation stricte sur les paramètres d'URL et limites de requêtes | ✅ RESOLVED | **LOT-003** | P1 |
+| **ISSUE-010** | Absence de détection du budget d'erreur ESI et de respect de `Retry-After` sur 429 | ✅ RESOLVED | **LOT-003** | P1 |
+| **ISSUE-011** | Divulgation d'informations serveur (`x-powered-by`, stack traces) et absence de headers de sécurité | ✅ RESOLVED | **LOT-003** | P2 |
 
 ---
 

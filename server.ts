@@ -37,7 +37,38 @@ export async function createServerApp(options: ServerAppOptions = {}): Promise<e
   const { includeVite = (process.env.NODE_ENV !== 'test') } = options;
   const app = express();
 
-  app.use(express.json());
+  // Disable identifying Express headers
+  app.disable('x-powered-by');
+
+  // Security headers & CORS middleware
+  app.use((req, res, next) => {
+    // Standard defensive headers (safe in AI Studio iframe environment)
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-XSS-Protection', '0');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+    // CORS headers
+    const origin = req.headers.origin;
+    if (origin) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    }
+
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, HEAD');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, If-None-Match');
+    res.setHeader('Access-Control-Max-Age', '86400');
+
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(204);
+    }
+
+    next();
+  });
+
+  // Limit JSON payload size to prevent memory exhaustion
+  app.use(express.json({ limit: '1mb' }));
 
   // 1. Mount Modular API Routers
   app.use('/api', healthRouter);
@@ -79,6 +110,24 @@ export async function createServerApp(options: ServerAppOptions = {}): Promise<e
       });
     }
   }
+
+  // 4. Centralized Error Handler (Prevent Stack Leaks)
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    logEvent('ERROR', 'SERVER', `Unhandled server error on ${req.method} ${req.path}`, {
+      message: err?.message || String(err),
+      status: err?.status || 500,
+    });
+
+    if (res.headersSent) {
+      return next(err);
+    }
+
+    const statusCode = typeof err?.status === 'number' && err.status >= 400 && err.status < 600 ? err.status : 500;
+    res.status(statusCode).json({
+      error: err?.code || 'INTERNAL_SERVER_ERROR',
+      message: process.env.NODE_ENV === 'production' ? 'An internal server error occurred.' : (err?.message || 'Internal server error'),
+    });
+  });
 
   return app;
 }

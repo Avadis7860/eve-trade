@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { getGlobalEsiMock } from '../utils/esiClient';
 
 export const marketsRouter = Router();
 
@@ -11,6 +12,15 @@ interface ServerCacheItem {
 }
 
 const serverEsiCache = new Map<string, ServerCacheItem>();
+const MAX_CACHE_ENTRIES = 5000;
+
+function setServerCache(key: string, item: ServerCacheItem) {
+  if (serverEsiCache.size >= MAX_CACHE_ENTRIES) {
+    const oldestKey = serverEsiCache.keys().next().value;
+    if (oldestKey) serverEsiCache.delete(oldestKey);
+  }
+  serverEsiCache.set(key, item);
+}
 
 // Periodic garbage collection of expired items
 const cacheGcInterval = setInterval(() => {
@@ -28,11 +38,39 @@ if (cacheGcInterval && typeof cacheGcInterval.unref === 'function') {
 // 1. Market orders proxy endpoint with pagination & intelligent caching
 marketsRouter.get('/:regionId/orders', async (req: Request, res: Response) => {
   const { regionId } = req.params;
-  const typeId = req.query.type_id ? String(req.query.type_id) : undefined;
-  const page = req.query.page ? String(req.query.page) : '1';
-  const orderType = req.query.order_type ? String(req.query.order_type) : 'all';
+  const numRegionId = Number(regionId);
+  if (!Number.isInteger(numRegionId) || numRegionId <= 0) {
+    return res.status(400).json({ error: 'INVALID_REGION_ID', message: 'regionId must be a positive integer' });
+  }
 
-  let url = `https://esi.evetech.net/latest/markets/${regionId}/orders/?datasource=tranquility&order_type=${orderType}&page=${page}`;
+  let typeId: string | undefined = undefined;
+  if (req.query.type_id !== undefined) {
+    const numTypeId = Number(req.query.type_id);
+    if (!Number.isInteger(numTypeId) || numTypeId <= 0) {
+      return res.status(400).json({ error: 'INVALID_TYPE_ID', message: 'type_id must be a positive integer' });
+    }
+    typeId = String(numTypeId);
+  }
+
+  let page = '1';
+  if (req.query.page !== undefined) {
+    const numPage = Number(req.query.page);
+    if (!Number.isInteger(numPage) || numPage < 1 || numPage > 1000) {
+      return res.status(400).json({ error: 'INVALID_PAGE', message: 'page must be an integer between 1 and 1000' });
+    }
+    page = String(numPage);
+  }
+
+  let orderType = 'all';
+  if (req.query.order_type !== undefined) {
+    const ot = String(req.query.order_type).toLowerCase();
+    if (!['all', 'buy', 'sell'].includes(ot)) {
+      return res.status(400).json({ error: 'INVALID_ORDER_TYPE', message: 'order_type must be all, buy, or sell' });
+    }
+    orderType = ot;
+  }
+
+  let url = `https://esi.evetech.net/latest/markets/${numRegionId}/orders/?datasource=tranquility&order_type=${orderType}&page=${page}`;
   if (typeId) {
     url += `&type_id=${typeId}`;
   }
@@ -56,7 +94,8 @@ marketsRouter.get('/:regionId/orders', async (req: Request, res: Response) => {
       fetchHeaders['If-None-Match'] = cached.etag;
     }
 
-    const response = await fetch(url, { headers: fetchHeaders });
+    const activeFetch = getGlobalEsiMock() || fetch;
+    const response = await activeFetch(url, { headers: fetchHeaders });
 
     // If ESI returned 304 Not Modified, refresh TTL and return cached data
     if (response.status === 304 && cached) {
@@ -90,7 +129,7 @@ marketsRouter.get('/:regionId/orders', async (req: Request, res: Response) => {
     const data = await response.json();
 
     // Store in server cache with real CCP ESI expiration
-    serverEsiCache.set(url, {
+    setServerCache(url, {
       data,
       headers: fwdHeaders,
       expiresAt: Math.max(now + 60000, expiresAt),
@@ -107,13 +146,22 @@ marketsRouter.get('/:regionId/orders', async (req: Request, res: Response) => {
 // 2. Market history proxy endpoint with intelligent caching
 marketsRouter.get('/:regionId/history', async (req: Request, res: Response) => {
   const { regionId } = req.params;
-  const typeId = req.query.type_id ? String(req.query.type_id) : undefined;
+  const numRegionId = Number(regionId);
+  if (!Number.isInteger(numRegionId) || numRegionId <= 0) {
+    return res.status(400).json({ error: 'INVALID_REGION_ID', message: 'regionId must be a positive integer' });
+  }
 
+  const typeId = req.query.type_id ? String(req.query.type_id) : undefined;
   if (!typeId) {
     return res.status(400).json({ error: 'type_id is required' });
   }
 
-  const url = `https://esi.evetech.net/latest/markets/${regionId}/history/?datasource=tranquility&type_id=${typeId}`;
+  const numTypeId = Number(typeId);
+  if (!Number.isInteger(numTypeId) || numTypeId <= 0) {
+    return res.status(400).json({ error: 'INVALID_TYPE_ID', message: 'type_id must be a positive integer' });
+  }
+
+  const url = `https://esi.evetech.net/latest/markets/${numRegionId}/history/?datasource=tranquility&type_id=${numTypeId}`;
   const now = Date.now();
   const cached = serverEsiCache.get(url);
   if (cached && now < cached.expiresAt) {
@@ -122,7 +170,8 @@ marketsRouter.get('/:regionId/history', async (req: Request, res: Response) => {
   }
 
   try {
-    const response = await fetch(url, {
+    const activeFetch = getGlobalEsiMock() || fetch;
+    const response = await activeFetch(url, {
       headers: {
         'Accept': 'application/json',
         'User-Agent': 'eve-trade-interregional/0.2 (+https://github.com/avadis/eve-trade)',
@@ -137,7 +186,7 @@ marketsRouter.get('/:regionId/history', async (req: Request, res: Response) => {
     const expiresHeader = response.headers.get('expires');
     const expiresAt = expiresHeader ? new Date(expiresHeader).getTime() : now + 1800000;
 
-    serverEsiCache.set(url, {
+    setServerCache(url, {
       data,
       headers: {},
       expiresAt: Math.max(now + 300000, expiresAt),

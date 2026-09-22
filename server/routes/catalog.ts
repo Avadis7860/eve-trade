@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { TypeCatalogService } from '../../src/services/typeCatalog';
 import { logEvent } from '../utils/logger';
 import { EveTypeDetail } from '../../src/types';
+import { getGlobalEsiMock } from '../utils/esiClient';
 
 export const catalogRouter = Router();
 
@@ -14,6 +15,10 @@ const getMarketTypes = () => TypeCatalogService.getTypes();
 catalogRouter.get('/lookup/:id', async (req: Request, res: Response) => {
   const { id } = req.params;
   const numId = Number(id);
+
+  if (!Number.isInteger(numId) || numId <= 0) {
+    return res.status(400).json({ error: 'INVALID_TYPE_ID', message: 'Type ID must be a positive integer' });
+  }
 
   // First check local canonical catalog
   const local = getMarketTypes().find((t) => t.type_id === numId);
@@ -36,8 +41,9 @@ catalogRouter.get('/lookup/:id', async (req: Request, res: Response) => {
   }
 
   try {
-    const response = await fetch(
-      `https://esi.evetech.net/latest/universe/types/${id}/?datasource=tranquility&language=en`,
+    const activeFetch = getGlobalEsiMock() || fetch;
+    const response = await activeFetch(
+      `https://esi.evetech.net/latest/universe/types/${numId}/?datasource=tranquility&language=en`,
       {
         headers: { 'User-Agent': 'eve-trade-interregional/0.2' },
       }
@@ -90,8 +96,17 @@ catalogRouter.get('/all', (req: Request, res: Response) => {
 
 // 4. Fast search across market types with live ESI fallback
 catalogRouter.get('/search', async (req: Request, res: Response) => {
-  const query = ((req.query.q as string) || '').trim().toLowerCase();
-  const limit = Math.min(Number(req.query.limit) || 100, 500);
+  const rawQ = req.query.q;
+  if (rawQ !== undefined && typeof rawQ !== 'string') {
+    return res.status(400).json({ error: 'INVALID_QUERY', message: 'Query parameter q must be a string' });
+  }
+  const query = ((rawQ as string) || '').trim().slice(0, 100).toLowerCase();
+
+  const rawLimit = req.query.limit !== undefined ? Number(req.query.limit) : 100;
+  if (isNaN(rawLimit) || rawLimit <= 0) {
+    return res.status(400).json({ error: 'INVALID_LIMIT', message: 'Limit must be a positive number' });
+  }
+  const limit = Math.min(Math.floor(rawLimit), 500);
   const types = getMarketTypes();
 
   if (!query) {
@@ -126,7 +141,8 @@ catalogRouter.get('/search', async (req: Request, res: Response) => {
   // Dynamic ESI universe resolution if local results are few and query length >= 3
   if (results.length < 5 && query.length >= 3) {
     try {
-      const esiRes = await fetch('https://esi.evetech.net/latest/universe/ids/?datasource=tranquility&language=en', {
+      const activeFetch = getGlobalEsiMock() || fetch;
+      const esiRes = await activeFetch('https://esi.evetech.net/latest/universe/ids/?datasource=tranquility&language=en', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -142,7 +158,7 @@ catalogRouter.get('/search', async (req: Request, res: Response) => {
           for (const item of idData.inventory_types) {
             if (!results.some((r) => r.type_id === item.id)) {
               try {
-                const typeRes = await fetch(
+                const typeRes = await activeFetch(
                   `https://esi.evetech.net/latest/universe/types/${item.id}/?datasource=tranquility&language=en`,
                   { headers: { 'User-Agent': 'eve-trade-interregional/0.2' } }
                 );

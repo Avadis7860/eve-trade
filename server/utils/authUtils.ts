@@ -19,33 +19,95 @@ export interface OAuthStateEntry {
 
 export const activeOAuthStates = new Map<string, OAuthStateEntry>();
 export const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+export const MAX_ACTIVE_STATES = 5000; // Limit memory consumption under high load
 
-export function generateOAuthState(redirectUri?: string): string {
+// Periodic cleanup of expired OAuth states
+const stateGcInterval = setInterval(() => {
   const now = Date.now();
   for (const [key, val] of activeOAuthStates.entries()) {
     if (now - val.createdAt > STATE_TTL_MS) {
       activeOAuthStates.delete(key);
     }
   }
+}, 60000);
+if (stateGcInterval && typeof stateGcInterval.unref === 'function') {
+  stateGcInterval.unref();
+}
+
+/**
+ * Escapes characters for safe HTML interpolation
+ */
+export function escapeHtml(str: string): string {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+export function generateOAuthState(redirectUri?: string): string {
+  const now = Date.now();
+
+  // Purge expired states
+  for (const [key, val] of activeOAuthStates.entries()) {
+    if (now - val.createdAt > STATE_TTL_MS) {
+      activeOAuthStates.delete(key);
+    }
+  }
+
+  // Enforce capacity bounds (evict oldest if full)
+  if (activeOAuthStates.size >= MAX_ACTIVE_STATES) {
+    const oldestKey = activeOAuthStates.keys().next().value;
+    if (oldestKey) {
+      activeOAuthStates.delete(oldestKey);
+    }
+  }
+
   const state = crypto.randomBytes(32).toString('hex');
   activeOAuthStates.set(state, { createdAt: now, redirectUri });
   return state;
 }
 
-export function validateAndConsumeOAuthState(state: string | undefined): { isValid: boolean; error?: string } {
-  if (!state) {
+export function validateAndConsumeOAuthState(
+  state: string | undefined,
+  expectedRedirectUri?: string
+): { isValid: boolean; error?: string; redirectUri?: string } {
+  if (!state || typeof state !== 'string') {
     return { isValid: false, error: 'MISSING_STATE' };
   }
-  const entry = activeOAuthStates.get(state);
+
+  const trimmedState = state.trim();
+
+  // Strict format validation: 64-character hex string
+  if (!/^[0-9a-fA-F]{64}$/.test(trimmedState)) {
+    return { isValid: false, error: 'INVALID_OR_EXPIRED_STATE' };
+  }
+
+  const entry = activeOAuthStates.get(trimmedState);
   if (!entry) {
     return { isValid: false, error: 'INVALID_OR_EXPIRED_STATE' };
   }
+
   if (Date.now() - entry.createdAt > STATE_TTL_MS) {
-    activeOAuthStates.delete(state);
+    activeOAuthStates.delete(trimmedState);
     return { isValid: false, error: 'EXPIRED_STATE' };
   }
-  activeOAuthStates.delete(state); // One-time token use
-  return { isValid: true };
+
+  // One-time consumption: delete state immediately to prevent replay
+  activeOAuthStates.delete(trimmedState);
+
+  // If redirectUri was bound at generation time, verify match if expectedRedirectUri is supplied
+  if (expectedRedirectUri && entry.redirectUri) {
+    const normalizedExpected = expectedRedirectUri.trim();
+    const normalizedStored = entry.redirectUri.trim();
+    if (normalizedExpected !== normalizedStored) {
+      return { isValid: false, error: 'REDIRECT_URI_MISMATCH', redirectUri: entry.redirectUri };
+    }
+  }
+
+  return { isValid: true, redirectUri: entry.redirectUri };
 }
 
 export function validateRedirectUri(candidate: string | undefined, req: express.Request): { isValid: boolean; uri: string } {
@@ -53,11 +115,16 @@ export function validateRedirectUri(candidate: string | undefined, req: express.
   const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
   const defaultUri = EVE_CALLBACK_URL || `${protocol}://${host}/auth/callback`;
 
-  if (!candidate || !candidate.trim()) {
+  if (!candidate || typeof candidate !== 'string' || !candidate.trim()) {
     return { isValid: true, uri: defaultUri };
   }
 
   const trimmed = candidate.trim();
+
+  // Prevent overly long or malicious URIs
+  if (trimmed.length > 2048) {
+    return { isValid: false, uri: defaultUri };
+  }
 
   // Whitelisted exact URIs
   const allowedExact = new Set<string>([
@@ -90,8 +157,11 @@ export function validateRedirectUri(candidate: string | undefined, req: express.
 }
 
 export function parseJwt(token: string): any {
+  if (!token || typeof token !== 'string') return null;
   try {
-    const base64Url = token.split('.')[1];
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const base64Url = parts[1];
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
     const jsonPayload = decodeURIComponent(
       Buffer.from(base64, 'base64')
@@ -107,6 +177,17 @@ export function parseJwt(token: string): any {
 }
 
 export function renderAuthErrorHtml(title: string, message: string, errorCode: string): string {
+  const safeTitle = escapeHtml(title);
+  const safeMessage = escapeHtml(message);
+  const safeCode = escapeHtml(errorCode);
+
+  const payloadJson = JSON.stringify({
+    type: 'OAUTH_AUTH_ERROR',
+    provider: 'eve_sso',
+    error: errorCode,
+    errorDescription: message,
+  });
+
   return `
     <!DOCTYPE html>
     <html>
@@ -165,21 +246,20 @@ export function renderAuthErrorHtml(title: string, message: string, errorCode: s
       <body>
         <div class="card">
           <div class="icon">✕</div>
-          <h2>${title}</h2>
-          <p>${message}</p>
-          <div class="code">CODE: ${errorCode}</div>
+          <h2>${safeTitle}</h2>
+          <p>${safeMessage}</p>
+          <div class="code">CODE: ${safeCode}</div>
           <div>
             <button onclick="window.close()">Fermer la fenêtre</button>
           </div>
         </div>
         <script>
           if (window.opener) {
-            window.opener.postMessage({
-              type: 'OAUTH_AUTH_ERROR',
-              provider: 'eve_sso',
-              error: '${errorCode}',
-              errorDescription: '${message.replace(/'/g, "\\'")}'
-            }, '*');
+            try {
+              window.opener.postMessage(${payloadJson}, window.location.origin);
+            } catch (e) {
+              window.opener.postMessage(${payloadJson}, '*');
+            }
           }
         </script>
       </body>

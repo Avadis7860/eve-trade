@@ -1,13 +1,19 @@
 /**
  * ESI Client - Centralized Server-Side Acquisition Layer for CCP EVE Swagger Interface
  * Implements exponential backoff with jitter, retry on transient 5xx errors,
- * rate limit inspection (x-esi-error-limit-remain), and strict timeout aborts.
+ * rate limit inspection (x-esi-error-limit-remain), Retry-After honoring,
+ * and deterministic mock injection for testing.
  */
+
+import { logEvent } from './logger';
+
+export type EsiFetchFn = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
 export interface EsiFetchOptions extends RequestInit {
   timeoutMs?: number;
   retries?: number;
   etag?: string;
+  customFetch?: EsiFetchFn;
 }
 
 export interface EsiFetchResult<T = unknown> {
@@ -26,6 +32,19 @@ const DEFAULT_USER_AGENT = 'eve-trade-interregional/0.3 (https://github.com/eve-
 const DEFAULT_TIMEOUT_MS = 12000;
 const MAX_RETRIES = 2;
 
+let globalMockFetch: EsiFetchFn | null = null;
+
+/**
+ * Configure a global mock fetch function for deterministic offline testing
+ */
+export function setGlobalEsiMock(mockFn: EsiFetchFn | null): void {
+  globalMockFetch = mockFn;
+}
+
+export function getGlobalEsiMock(): EsiFetchFn | null {
+  return globalMockFetch;
+}
+
 export async function fetchEsi<T = unknown>(
   endpoint: string,
   options: EsiFetchOptions = {}
@@ -34,9 +53,12 @@ export async function fetchEsi<T = unknown>(
     timeoutMs = DEFAULT_TIMEOUT_MS,
     retries = MAX_RETRIES,
     etag,
+    customFetch,
     headers = {},
     ...restOptions
   } = options;
+
+  const activeFetch: EsiFetchFn = customFetch || globalMockFetch || fetch;
 
   const url = endpoint.startsWith('http')
     ? endpoint
@@ -60,7 +82,7 @@ export async function fetchEsi<T = unknown>(
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const response = await fetch(url, {
+      const response = await activeFetch(url, {
         ...restOptions,
         headers: requestHeaders,
         signal: controller.signal,
@@ -90,6 +112,53 @@ export async function fetchEsi<T = unknown>(
           errorLimitReset,
           retryAfter,
         };
+      }
+
+      // ESI Error Limit Budget Enforcement:
+      // If error budget is exhausted (remain <= 0), NEVER retry to avoid IP bans / 420 lockouts
+      if (errorLimitRemain !== undefined && errorLimitRemain <= 0) {
+        logEvent('ERROR', 'ESI', 'ESI error limit exhausted (remain <= 0). Aborting retries immediately.', {
+          status: response.status,
+          resetSeconds: errorLimitReset,
+        });
+        const errText = await response.text().catch(() => 'ESI error limit exhausted');
+        return {
+          ok: false,
+          status: response.status,
+          data: null,
+          error: errText,
+          etag: responseEtag,
+          expires: responseExpires,
+          errorLimitRemain,
+          errorLimitReset,
+          retryAfter,
+        };
+      }
+
+      // Handle 429 Too Many Requests or 420 Enhance Your Calm
+      if ((response.status === 429 || response.status === 420) && attempt < retries) {
+        const backoffSeconds = Math.min(Math.max(retryAfter || 1, 1), 5);
+        if (retryAfter && retryAfter > 5) {
+          // If server requested delay > 5s, do not block backend process; return 429 to caller
+          logEvent('WARN', 'ESI', `ESI rate limited (429/420) with long Retry-After (${retryAfter}s). Returning to caller.`);
+          const errText = await response.text().catch(() => 'Rate limited');
+          return {
+            ok: false,
+            status: response.status,
+            data: null,
+            error: errText,
+            etag: responseEtag,
+            expires: responseExpires,
+            errorLimitRemain,
+            errorLimitReset,
+            retryAfter,
+          };
+        }
+
+        attempt++;
+        const jitter = Math.random() * 200;
+        await new Promise((r) => setTimeout(r, backoffSeconds * 1000 + jitter));
+        continue;
       }
 
       // Handle transient server errors (502 Bad Gateway, 503 Service Unavailable, 504 Gateway Timeout)
@@ -131,6 +200,13 @@ export async function fetchEsi<T = unknown>(
       clearTimeout(timer);
       lastError = err;
 
+      // Check if aborted due to timeout
+      const isAbort = err instanceof Error && (err.name === 'AbortError' || err.message.includes('aborted'));
+      if (isAbort) {
+        // Do not retry on explicit timeout
+        break;
+      }
+
       if (attempt < retries) {
         attempt++;
         const jitter = Math.random() * 200;
@@ -142,7 +218,7 @@ export async function fetchEsi<T = unknown>(
     }
   }
 
-  const isAbort = lastError instanceof Error && lastError.name === 'AbortError';
+  const isAbort = lastError instanceof Error && (lastError.name === 'AbortError' || lastError.message.includes('aborted'));
   return {
     ok: false,
     status: isAbort ? 504 : 500,

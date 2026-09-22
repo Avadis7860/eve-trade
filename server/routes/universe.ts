@@ -8,6 +8,10 @@ universeRouter.get('/location/:locationId', async (req: Request, res: Response) 
   const { locationId } = req.params;
   const locIdNum = Number(locationId);
 
+  if (!Number.isInteger(locIdNum) || locIdNum <= 0) {
+    return res.status(400).json({ error: 'INVALID_LOCATION_ID', message: 'locationId must be a positive integer' });
+  }
+
   // If it's a standard NPC station (ID usually between 60000000 and 64000000)
   if (locIdNum >= 60000000 && locIdNum < 64000000) {
     const result = await fetchEsi<{ name: string; system_id: number }>(

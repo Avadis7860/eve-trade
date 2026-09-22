@@ -44,5 +44,11 @@ jobs:
       - name: Server smoke test
         run: npm run test:smoke
 
+      - name: Security hardening tests
+        run: npm run test:security
+
+      - name: ESI hardening & mock tests
+        run: npm run test:esi
+
       - name: Production build
         run: npm run build

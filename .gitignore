@@ -1,3 +1,7 @@
+# Dependencies and build artifacts
+node_modules/
+dist/
+
 # Runtime data
 /data/
 *.db
@@ -6,6 +10,8 @@
 
 # Environment
 .env
+.env.local
+.env.*.local
 __pycache__/
 *.pyc
 

@@ -3,24 +3,31 @@ import { fetchEsi } from '../utils/esiClient';
 
 export const charactersRouter = Router();
 
-// Helper to validate auth header
-function getAuthHeader(req: Request, res: Response): string | null {
+// Helper to validate characterId and auth header
+function validateCharacterParams(req: Request, res: Response): { characterId: number; authHeader: string } | null {
+  const { characterId } = req.params;
+  const numId = Number(characterId);
+  if (!Number.isInteger(numId) || numId <= 0) {
+    res.status(400).json({ error: 'INVALID_CHARACTER_ID', message: 'characterId must be a positive integer' });
+    return null;
+  }
+
   const authHeader = req.headers.authorization;
-  if (!authHeader) {
+  if (!authHeader || typeof authHeader !== 'string' || !authHeader.trim()) {
     res.status(401).json({ error: 'Authorization header missing' });
     return null;
   }
-  return authHeader;
+
+  return { characterId: numId, authHeader: authHeader.trim() };
 }
 
 // 1. Proxy character orders (active)
 charactersRouter.get('/:characterId/orders', async (req: Request, res: Response) => {
-  const { characterId } = req.params;
-  const authHeader = getAuthHeader(req, res);
-  if (!authHeader) return;
+  const params = validateCharacterParams(req, res);
+  if (!params) return;
 
-  const result = await fetchEsi(`characters/${characterId}/orders/?datasource=tranquility`, {
-    headers: { Authorization: authHeader },
+  const result = await fetchEsi(`characters/${params.characterId}/orders/?datasource=tranquility`, {
+    headers: { Authorization: params.authHeader },
   });
 
   if (!result.ok) {
@@ -32,15 +39,22 @@ charactersRouter.get('/:characterId/orders', async (req: Request, res: Response)
 
 // 2. Proxy character order history (closed / fulfilled / expired / cancelled orders)
 charactersRouter.get('/:characterId/orders/history', async (req: Request, res: Response) => {
-  const { characterId } = req.params;
-  const authHeader = getAuthHeader(req, res);
-  if (!authHeader) return;
+  const params = validateCharacterParams(req, res);
+  if (!params) return;
 
-  const page = req.query.page || '1';
+  let page = '1';
+  if (req.query.page !== undefined) {
+    const numPage = Number(req.query.page);
+    if (!Number.isInteger(numPage) || numPage < 1 || numPage > 1000) {
+      return res.status(400).json({ error: 'INVALID_PAGE', message: 'page must be an integer between 1 and 1000' });
+    }
+    page = String(numPage);
+  }
+
   const result = await fetchEsi(
-    `characters/${characterId}/orders/history/?datasource=tranquility&page=${page}`,
+    `characters/${params.characterId}/orders/history/?datasource=tranquility&page=${page}`,
     {
-      headers: { Authorization: authHeader },
+      headers: { Authorization: params.authHeader },
     }
   );
 
@@ -53,12 +67,11 @@ charactersRouter.get('/:characterId/orders/history', async (req: Request, res: R
 
 // 3. Proxy character wallet
 charactersRouter.get('/:characterId/wallet', async (req: Request, res: Response) => {
-  const { characterId } = req.params;
-  const authHeader = getAuthHeader(req, res);
-  if (!authHeader) return;
+  const params = validateCharacterParams(req, res);
+  if (!params) return;
 
-  const result = await fetchEsi<number>(`characters/${characterId}/wallet/?datasource=tranquility`, {
-    headers: { Authorization: authHeader },
+  const result = await fetchEsi<number>(`characters/${params.characterId}/wallet/?datasource=tranquility`, {
+    headers: { Authorization: params.authHeader },
   });
 
   if (!result.ok) {
@@ -70,12 +83,11 @@ charactersRouter.get('/:characterId/wallet', async (req: Request, res: Response)
 
 // 4. Proxy character skills (for Accounting and Broker Relations)
 charactersRouter.get('/:characterId/skills', async (req: Request, res: Response) => {
-  const { characterId } = req.params;
-  const authHeader = getAuthHeader(req, res);
-  if (!authHeader) return;
+  const params = validateCharacterParams(req, res);
+  if (!params) return;
 
-  const result = await fetchEsi(`characters/${characterId}/skills/?datasource=tranquility`, {
-    headers: { Authorization: authHeader },
+  const result = await fetchEsi(`characters/${params.characterId}/skills/?datasource=tranquility`, {
+    headers: { Authorization: params.authHeader },
   });
 
   if (!result.ok) {
@@ -87,15 +99,22 @@ charactersRouter.get('/:characterId/skills', async (req: Request, res: Response)
 
 // 5. Proxy character wallet transactions (buy/sell history)
 charactersRouter.get('/:characterId/transactions', async (req: Request, res: Response) => {
-  const { characterId } = req.params;
-  const authHeader = getAuthHeader(req, res);
-  if (!authHeader) return;
+  const params = validateCharacterParams(req, res);
+  if (!params) return;
 
-  const fromIdParam = req.query.from_id ? `&from_id=${encodeURIComponent(String(req.query.from_id))}` : '';
+  let fromIdParam = '';
+  if (req.query.from_id !== undefined) {
+    const numFromId = Number(req.query.from_id);
+    if (!Number.isInteger(numFromId) || numFromId <= 0) {
+      return res.status(400).json({ error: 'INVALID_FROM_ID', message: 'from_id must be a positive integer' });
+    }
+    fromIdParam = `&from_id=${numFromId}`;
+  }
+
   const result = await fetchEsi(
-    `characters/${characterId}/wallet/transactions/?datasource=tranquility${fromIdParam}`,
+    `characters/${params.characterId}/wallet/transactions/?datasource=tranquility${fromIdParam}`,
     {
-      headers: { Authorization: authHeader },
+      headers: { Authorization: params.authHeader },
     }
   );
 
@@ -124,14 +143,13 @@ charactersRouter.get('/:characterId/transactions', async (req: Request, res: Res
 
 // 6. Proxy character wallet journal
 charactersRouter.get('/:characterId/journal', async (req: Request, res: Response) => {
-  const { characterId } = req.params;
-  const authHeader = getAuthHeader(req, res);
-  if (!authHeader) return;
+  const params = validateCharacterParams(req, res);
+  if (!params) return;
 
   const result = await fetchEsi(
-    `characters/${characterId}/wallet/journal/?datasource=tranquility`,
+    `characters/${params.characterId}/wallet/journal/?datasource=tranquility`,
     {
-      headers: { Authorization: authHeader },
+      headers: { Authorization: params.authHeader },
     }
   );
 

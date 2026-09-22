@@ -10,6 +10,7 @@ import {
   validateRedirectUri,
   parseJwt,
   renderAuthErrorHtml,
+  escapeHtml,
   activeOAuthStates,
 } from '../utils/authUtils';
 
@@ -70,9 +71,25 @@ authRouter.get('/url', (req: Request, res: Response) => {
 
 // 3. Exchange authorization code for tokens
 authRouter.post('/token', async (req: Request, res: Response) => {
+  if (!req.body || typeof req.body !== 'object') {
+    return res.status(400).json({ error: 'INVALID_PAYLOAD', message: 'Request body must be a JSON object' });
+  }
+
   let { code, redirect_uri, state } = req.body;
-  if (!code) {
-    return res.status(400).json({ error: 'MISSING_CODE', message: 'Missing code parameter' });
+  if (!code || typeof code !== 'string' || !code.trim()) {
+    return res.status(400).json({ error: 'MISSING_CODE', message: 'Missing or empty code parameter' });
+  }
+
+  if (code.length > 4096) {
+    return res.status(400).json({ error: 'CODE_TOO_LONG', message: 'Code parameter exceeds maximum allowed length' });
+  }
+
+  if (state !== undefined && (typeof state !== 'string' || state.length > 128)) {
+    return res.status(400).json({ error: 'INVALID_STATE', message: 'State parameter must be a string <= 128 characters' });
+  }
+
+  if (redirect_uri !== undefined && (typeof redirect_uri !== 'string' || redirect_uri.length > 2048)) {
+    return res.status(400).json({ error: 'INVALID_REDIRECT_URI', message: 'redirect_uri parameter must be a string <= 2048 characters' });
   }
 
   if (!EVE_CLIENT_ID || !EVE_CLIENT_SECRET) {
@@ -211,9 +228,17 @@ authRouter.post('/token', async (req: Request, res: Response) => {
 
 // 4. Refresh token
 authRouter.post('/refresh', async (req: Request, res: Response) => {
+  if (!req.body || typeof req.body !== 'object') {
+    return res.status(400).json({ error: 'INVALID_PAYLOAD', message: 'Request body must be a JSON object' });
+  }
+
   const { refresh_token } = req.body;
-  if (!refresh_token) {
-    return res.status(400).json({ error: 'MISSING_REFRESH_TOKEN', message: 'Missing refresh_token parameter' });
+  if (!refresh_token || typeof refresh_token !== 'string' || !refresh_token.trim()) {
+    return res.status(400).json({ error: 'MISSING_REFRESH_TOKEN', message: 'Missing or invalid refresh_token parameter' });
+  }
+
+  if (refresh_token.length > 4096) {
+    return res.status(400).json({ error: 'REFRESH_TOKEN_TOO_LONG', message: 'refresh_token parameter exceeds maximum allowed length' });
   }
 
   if (!EVE_CLIENT_ID || !EVE_CLIENT_SECRET) {
@@ -429,12 +454,12 @@ export const callbackHandler = async (req: Request, res: Response) => {
       </head>
       <body>
         <div class="card">
-          ${exchangedSession?.portrait_url ? `<img class="portrait" src="${exchangedSession.portrait_url}" alt="Portrait" />` : '<div class="spinner"></div>'}
-          <h2>${exchangedSession ? `Bienvenue, ${exchangedSession.character_name} !` : 'Connexion EVE Online SSO'}</h2>
+          ${exchangedSession?.portrait_url ? `<img class="portrait" src="${escapeHtml(exchangedSession.portrait_url)}" alt="Portrait" />` : '<div class="spinner"></div>'}
+          <h2>${exchangedSession ? `Bienvenue, ${escapeHtml(exchangedSession.character_name)} !` : 'Connexion EVE Online SSO'}</h2>
           <p id="status-text">${
             exchangedSession
               ? 'Session validée avec succès ! Synchronisation avec EVE Trade...'
-              : (error ? `Erreur SSO : ${errorDesc || error}` : 'Échange du jeton avec CCP EVE SSO...')
+              : (error ? `Erreur SSO : ${escapeHtml(errorDesc || error)}` : 'Échange du jeton avec CCP EVE SSO...')
           }</p>
         </div>
         <script>

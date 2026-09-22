@@ -55,7 +55,7 @@ assert.equal(artifact.nodes.length, 4);
 assert.equal(artifact.edges.length, 6);
 assert.deepEqual(
   artifact.nodes.map((node) => node.system_id),
-  [SCOPE_A, SCOPE_B, SCOPE_C, SCOPE_D],
+  [SCOPE_A, SCOPE_B, SCOPE_D, SCOPE_C],
 );
 assert.deepEqual(
   artifact.edges,
@@ -63,9 +63,9 @@ assert.deepEqual(
     { from_system_id: SCOPE_A, to_system_id: SCOPE_B },
     { from_system_id: SCOPE_B, to_system_id: SCOPE_A },
     { from_system_id: SCOPE_B, to_system_id: SCOPE_C },
+    { from_system_id: SCOPE_D, to_system_id: SCOPE_C },
     { from_system_id: SCOPE_C, to_system_id: SCOPE_B },
     { from_system_id: SCOPE_C, to_system_id: SCOPE_D },
-    { from_system_id: SCOPE_D, to_system_id: SCOPE_C },
   ],
 );
 

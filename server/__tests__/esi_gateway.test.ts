@@ -120,6 +120,29 @@ async function runTests(): Promise<void> {
     assert(calls === 1, 'Expected one underlying request, got ' + calls);
   });
 
+  await test('does not coalesce GET requests that carry different ETags', async () => {
+    let calls = 0;
+
+    const gateway = createEsiGateway(async (_endpoint, options) => {
+      calls++;
+      return {
+        ok: true,
+        status: 200,
+        data: { etag: options?.etag },
+        metadata: { cache: {}, rateLimit: {}, pagination: {} },
+      };
+    });
+
+    const context = { type: 'character' as const, id: 123, bearerCredential: 'credential-a' };
+
+    await Promise.all([
+      gateway.request({ path: '/characters/123/orders/', etag: '"etag-a"' }, context),
+      gateway.request({ path: '/characters/123/orders/', etag: '"etag-b"' }, context),
+    ]);
+
+    assert(calls === 2, 'Different ETags must not share a request, got ' + calls);
+  });
+
   await test('does not share private requests across different credentials', async () => {
     let calls = 0;
 

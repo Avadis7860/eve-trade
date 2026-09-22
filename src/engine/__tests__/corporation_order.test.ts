@@ -1,3 +1,4 @@
+import type { EveCharacterOrder } from '../../types';
 import {
   mergeCharacterAndCorporationOrders,
   mergeOrderObservations,
@@ -72,8 +73,9 @@ function run(): void {
     'Secondary Trade Corporation',
   );
   assert(observedByC !== null, 'Independent corporation observation must normalize');
+  const observedByCOrder = observedByC as NonNullable<typeof observedByC>;
   assert(
-    mergeOrderObservations(observedByA, observedByC) === null,
+    mergeOrderObservations(observedByA, observedByCOrder) === null,
     'Conflicting economic owners must fail closed instead of choosing a winner',
   );
 
@@ -136,7 +138,7 @@ function run(): void {
   };
 
   assert(
-    mergeOrderObservations(personal, legacyCorporate as typeof personal) === null,
+    mergeOrderObservations(personal as EveCharacterOrder, legacyCorporate as EveCharacterOrder) === null,
     'Legacy corporate observation must not merge into a personal owner',
   );
 

@@ -1,9 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { marketEsiGateway } from '../gateways/marketEsiGateway';
+import type { EsiResponseMetadata } from '../utils/esiTypes';
 
 export const marketsRouter = Router();
 
-function forwardMarketMetadata(res: Response, metadata: ReturnType<typeof marketEsiGateway['fetchOrders']> extends Promise<infer T> ? T extends { metadata: infer M } ? M : never : never) {
+function forwardMarketMetadata(res: Response, metadata: EsiResponseMetadata) {
   const pages = metadata.pagination.xPages;
   if (pages !== undefined) res.setHeader('X-Pages', String(pages));
 

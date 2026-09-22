@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { fetchEsi } from '../utils/esiClient';
 import { characterEsiGateway, setCharacterRetryAfter } from '../gateways/characterEsiGateway';
+import { corporationEsiGateway } from '../gateways/corporationEsiGateway';
 import type { EsiGatewayResponse, EsiResponseMetadata } from '../utils/esiTypes';
 
 export const charactersRouter = Router();
@@ -290,9 +290,8 @@ charactersRouter.get('/:characterId/corporation', async (req: Request, res: Resp
 
   const corporationId = charRes.data.corporation_id;
 
-  const corpRes = await fetchEsi<{ name?: string; ticker?: string; member_count?: number }>(
-    `corporations/${corporationId}/?datasource=tranquility`
-  );
+  const corpRes = await corporationEsiGateway.fetchProfile(corporationId);
+  sendCharacterMetadata(res, corpRes.metadata);
 
   return res.json({
     character_id: numId,
@@ -315,28 +314,21 @@ charactersRouter.get('/:characterId/corporation/wallets', async (req: Request, r
 
   const corporationId = charRes.data.corporation_id;
 
-  const walletRes = await fetchEsi<Array<{ division: number; balance: number }>>(
-    `corporations/${corporationId}/wallets/?datasource=tranquility`,
-    {
-      headers: { Authorization: `Bearer ${params.bearerCredential}` },
-    }
+  const walletRes = await corporationEsiGateway.fetchWallets(
+    corporationId,
+    params.characterId,
+    params.bearerCredential,
   );
 
   if (!walletRes.ok) {
-    return res.status(walletRes.status).json({
-      error: 'CORP_WALLET_ACCESS_DENIED',
-      message: 'Character does not have Director or Accountant role in Corporation or scope not granted.',
-      corporation_id: corporationId,
-      status: walletRes.status,
-      details: walletRes.error,
-    });
+    return sendCharacterError(res, walletRes, 'CORP_WALLET_ACCESS_DENIED');
   }
 
-  const divisionsRes = await fetchEsi<{
-    wallet?: Array<{ division: number; name: string }>;
-  }>(`corporations/${corporationId}/divisions/?datasource=tranquility`, {
-    headers: { Authorization: `Bearer ${params.bearerCredential}` },
-  });
+  const divisionsRes = await corporationEsiGateway.fetchDivisions(
+    corporationId,
+    params.characterId,
+    params.bearerCredential,
+  );
 
   const divisionNameMap = new Map<number, string>();
   if (divisionsRes.ok && divisionsRes.data?.wallet) {
@@ -353,7 +345,7 @@ charactersRouter.get('/:characterId/corporation/wallets', async (req: Request, r
     balance: w.balance,
   }));
 
-  return res.json({
+  return sendCharacterSuccess(res, walletRes, {
     corporation_id: corporationId,
     wallets,
   });

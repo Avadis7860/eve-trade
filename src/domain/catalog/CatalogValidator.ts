@@ -1,5 +1,6 @@
 import { EveTypeDetail, TypeCatalogStatus } from '../../types';
 import { CatalogHashing } from './CatalogHashing';
+import { CANONICAL_CATALOG_MANIFEST } from '../../data/catalogManifest';
 
 export interface CatalogValidationResult {
   isValid: boolean;
@@ -104,6 +105,85 @@ export class CatalogValidator {
   static validateCatalogCompleteness(
     items: EveTypeDetail[],
     optionsOrMinCount: CatalogCompletenessOptions | number = {},
+    legacyExpectedChecksum?: string,
+    legacyCurrentChecksum?: string
+  ): {
+    isReady: boolean;
+    isDegraded: boolean;
+    status: TypeCatalogStatus;
+    reason?: string;
+  } {
+    let options: CatalogCompletenessOptions;
+    if (typeof optionsOrMinCount === 'number') {
+      options = { expectedCount: optionsOrMinCount, expectedChecksum: legacyExpectedChecksum, currentChecksum: legacyCurrentChecksum };
+    } else {
+      options = optionsOrMinCount;
+    }
+
+    const expectedCount = CANONICAL_CATALOG_MANIFEST.expectedCount;
+    const expectedChecksum = CANONICAL_CATALOG_MANIFEST.checksum;
+    const currentChecksum = options.currentChecksum || (items.length > 0 ? this.computeCanonicalChecksum(items) : '');
+
+    if (!items || items.length === 0) {
+      return { isReady: false, isDegraded: true, status: 'CATALOG_EMPTY', reason: 'Catalog has 0 items' };
+    }
+
+    if (options.source === 'fallback_core' || options.source === 'filesystem_core') {
+      return {
+        isReady: false,
+        isDegraded: true,
+        status: 'CATALOG_FALLBACK_CORE',
+        reason: 'Catalog is operating on fallback core data; canonical universal completeness is not established.',
+      };
+    }
+
+    if (options.expectedCount !== undefined && options.expectedCount !== expectedCount) {
+      return {
+        isReady: false,
+        isDegraded: true,
+        status: 'CATALOG_CORRUPTED',
+        reason: `Catalog metadata expected_count (${options.expectedCount}) does not match canonical expected count (${expectedCount})`,
+      };
+    }
+
+    if (options.expectedChecksum !== undefined && options.expectedChecksum !== expectedChecksum) {
+      return {
+        isReady: false,
+        isDegraded: true,
+        status: 'CATALOG_CORRUPTED',
+        reason: `Catalog metadata checksum (${options.expectedChecksum}) does not match canonical checksum (${expectedChecksum})`,
+      };
+    }
+
+    if (items.length < expectedCount) {
+      return {
+        isReady: false,
+        isDegraded: true,
+        status: 'CATALOG_PARTIAL',
+        reason: `Catalog items count (${items.length}) is lower than canonical expected count (${expectedCount})`,
+      };
+    }
+
+    if (items.length > expectedCount) {
+      return {
+        isReady: false,
+        isDegraded: true,
+        status: 'CATALOG_CORRUPTED',
+        reason: `Catalog items count (${items.length}) exceeds canonical expected count (${expectedCount})`,
+      };
+    }
+
+    if (currentChecksum !== expectedChecksum) {
+      return {
+        isReady: false,
+        isDegraded: true,
+        status: 'CATALOG_CORRUPTED',
+        reason: `Checksum mismatch: expected canonical ${expectedChecksum}, got ${currentChecksum}`,
+      };
+    }
+
+    return { isReady: true, isDegraded: false, status: 'CATALOG_READY' };
+  },
     legacyExpectedChecksum?: string,
     legacyCurrentChecksum?: string
   ): {

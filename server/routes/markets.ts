@@ -18,6 +18,24 @@ const MAX_CACHE_ENTRIES = 5000;
 function applyCachedHeaders(res: Response, headers: Record<string, string>) {
   for (const [key, value] of Object.entries(headers)) res.setHeader(key, value);
 }
+
+export function mergeEsi304CacheEntry(
+  cached: ServerCacheItem,
+  result: Pick<EsiFetchResult, 'etag' | 'expires' | 'xPages' | 'errorLimitRemain' | 'errorLimitReset'>,
+  now: number
+): ServerCacheItem {
+  const expiresAt = result.expires ? new Date(result.expires).getTime() : now + 180000;
+  const headers = { ...cached.headers };
+  if (result.xPages) headers['X-Pages'] = result.xPages;
+  if (result.errorLimitRemain !== undefined) headers['X-ESI-Error-Limit-Remain'] = String(result.errorLimitRemain);
+  if (result.errorLimitReset !== undefined) headers['X-ESI-Error-Limit-Reset'] = String(result.errorLimitReset);
+  return {
+    ...cached,
+    headers,
+    expiresAt: Math.max(now + 60000, expiresAt),
+    etag: result.etag || cached.etag,
+  };
+}
 function setServerCache(key: string, item: ServerCacheItem) {
   if (serverEsiCache.size >= MAX_CACHE_ENTRIES) {
     const oldestKey = serverEsiCache.keys().next().value;

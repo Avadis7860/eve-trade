@@ -101,6 +101,85 @@ async function run() {
   assert(malformedJournal.state === 'ERROR', 'Malformed successful JSON must be ERROR');
   assert(malformedJournal.status === 500, 'Malformed backend JSON must surface controlled HTTP 500 semantics');
 
+  let corporationAuthHeaders: string[] = [];
+  setBackendApiFetchForTesting(async (input, init) => {
+    const url = String(input);
+    if (url.includes('/api/character/1001/corporation/orders/history')) {
+      corporationAuthHeaders.push(
+        (init?.headers as Record<string, string> | undefined)?.Authorization || '',
+      );
+      return new Response(JSON.stringify([{
+        order_id: '92002',
+        type_id: 34,
+        region_id: 10000002,
+        location_id: 60003760,
+        price: 7,
+        volume_remain: 20,
+        volume_total: 20,
+        is_buy_order: false,
+        issued: '2026-09-22T00:00:00Z',
+        duration: 90,
+        state: 'fulfilled',
+        completed_at: '2026-09-22T02:00:00Z',
+      }]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (url.includes('/api/character/1001/corporation/orders')) {
+      corporationAuthHeaders.push(
+        (init?.headers as Record<string, string> | undefined)?.Authorization || '',
+      );
+      return new Response(JSON.stringify([{
+        order_id: '92001',
+        type_id: 34,
+        region_id: 10000002,
+        location_id: 60003760,
+        price: 6.5,
+        volume_remain: 30,
+        volume_total: 30,
+        is_buy_order: true,
+        issued: '2026-09-22T00:00:00Z',
+        duration: 90,
+      }]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    throw new Error('Unexpected corporation ESI test request: ' + url);
+  });
+
+  const corpOrdersResult = await EsiService.fetchCharacterCorporationOrders(
+    1001,
+    'corp-token-a',
+    99001,
+    'Trade Operations Corporation',
+  );
+  assert(corpOrdersResult.state === 'AVAILABLE', 'Corporation orders must be AVAILABLE for a valid payload');
+  assert(corpOrdersResult.data.length === 1, 'Corporation order payload must have one row');
+  assert(corpOrdersResult.data[0].order_id === '92001', 'Corporation order ID must remain canonical');
+  assert(corpOrdersResult.data[0].is_corporation === true, 'Corporation order marker must be explicit');
+  assert(corpOrdersResult.data[0].character_id === undefined, 'Corporation order must not expose character ownership');
+  assert(corpOrdersResult.data[0].ownership?.owner_type === 'corporation', 'Corporation owner type must be explicit');
+  assert(corpOrdersResult.data[0].ownership?.owner_id === 99001, 'Corporation owner ID must be explicit');
+  assert(corpOrdersResult.data[0].ownership?.principal_character_id === 1001, 'Observing principal must be preserved');
+
+  const corpHistoryResult = await EsiService.fetchCharacterCorporationOrderHistory(
+    1001,
+    'corp-token-a',
+    99001,
+    'Trade Operations Corporation',
+    4,
+  );
+  assert(corpHistoryResult.state === 'AVAILABLE', 'Corporation order history must be AVAILABLE for a valid payload');
+  assert(corpHistoryResult.data[0].state === 'fulfilled', 'Corporation history state must be preserved');
+  assert(corpHistoryResult.data[0].ownership?.owner_type === 'corporation', 'History owner type must remain corporation');
+
+  assert(
+    corporationAuthHeaders.filter((value) => value === 'Bearer corp-token-a').length === 2,
+    'Both corporation requests must use the exact authenticated character credential',
+  );
+
   console.log('=== FRONTEND ESI / BACKEND TRANSPORT CONTRACT TESTS ===');
 
   let calls = 0;

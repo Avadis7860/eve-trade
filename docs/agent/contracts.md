@@ -321,3 +321,23 @@ The inter-regional opportunity path is split into an infrastructure resolution b
 - `src/engine/interRegional.ts` assembles the calculation result into Opportunity/Evidence and may retain infrastructure access for assembly-only concerns.
 - Unknown, dynamic/structure, unverified or inconsistent Catalog/Universe inputs are rejected before financial calculation.
 - Numeric order-range routing uses a resolver-produced route map so the pure core does not resolve Universe state itself.
+
+## Phase 4.6 — Corporation ESI contract
+
+`server/gateways/corporationEsiGateway.ts` is the single backend mapping boundary for the corporation ESI resources currently required by the application:
+
+- public corporation profile;
+- corporation wallets;
+- corporation wallet divisions.
+
+The gateway is intentionally domain-neutral. Trading treasury resolution happens in `TreasuryEngine`; future industry/corporation features should consume the same gateway rather than adding direct ESI acquisition to routes or UI services.
+
+### Corporation treasury source contract
+
+`FinancialConfig.corporation_wallet_source` is part of the financial boundary:
+
+- `esi`: value originated from a successful corporation wallet ESI read;
+- `manual`: value was explicitly configured by the user;
+- `unavailable`: no corporation capital is currently certified for trading.
+
+In corporation treasury mode, only `esi` or explicit `manual` corporation funding can produce spendable capital. Character wallets and the generic `available_capital` field are never implicit corporation fallbacks.

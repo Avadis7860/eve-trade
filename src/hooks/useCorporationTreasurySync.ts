@@ -31,6 +31,10 @@ export function useCorporationTreasurySync(): void {
       return;
     }
 
+    if (corporationWalletSource === 'unavailable') {
+      lastSyncedKeyRef.current = null;
+    }
+
     if (lastSyncedKeyRef.current === syncKey) return;
 
     lastSyncedKeyRef.current = syncKey;

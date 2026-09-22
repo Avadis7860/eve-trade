@@ -109,7 +109,7 @@ npm run build
 ### 4. Topologie Universe — état actuel
 * La résolution canonique régions/systèmes/stations est en place.
 * **Le socle de topologie 2.7B est implémenté** : `UniverseGraph`, BFS déterministe, certification de route, provenance et fail-closed des graphes partiels.
-* **L'intégration production reste volontairement en attente** : un artefact SDE réel doit être importé et validé avant de remplacer `KNOWN_ROUTES` dans le chemin financier.
+* **L'intégration production 2.7C est active** : le runtime charge un artefact SDE CCP réel, vérifie son identité et son checksum, et les routes financières proviennent exclusivement de ce graphe.
 * Une route `safe` exige `security_status >= 0.5` pour **chaque système traversé**, extrémités incluses.
 
 ### 5. Vérité canonique Catalog / Universe

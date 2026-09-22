@@ -108,8 +108,8 @@ npm run build
 
 ### 4. Topologie Universe — état actuel
 * La résolution canonique régions/systèmes/stations est en place.
-* **La topologie complète New Eden et le pathfinding ne sont pas encore implémentés.** `src/data/universe.ts` contient encore une table de routes limitée et ne doit pas être étendue arbitrairement.
-* Phase 2.7B devra construire le graphe depuis une source topologique canonique (SDE/stargates), conserver la liste des systèmes traversés et leur security status.
+* **Le socle de topologie 2.7B est implémenté** : `UniverseGraph`, BFS déterministe, certification de route, provenance et fail-closed des graphes partiels.
+* **L'intégration production reste volontairement en attente** : un artefact SDE réel doit être importé et validé avant de remplacer `KNOWN_ROUTES` dans le chemin financier.
 * Une route `safe` exige `security_status >= 0.5` pour **chaque système traversé**, extrémités incluses.
 
 ### 5. Vérité canonique Catalog / Universe

@@ -1,7 +1,7 @@
 # Completed
 
 Status: HISTORICAL SUMMARY
-Scope: completed major stabilization gates
+Scope: completed major stabilization and governance gates
 Source of truth: merged PR records
 
 | Work | Result |
@@ -12,5 +12,6 @@ Source of truth: merged PR records
 | PR #40 — explicit character ESI collection state | merged |
 | PR #41 — corporation order normalization/synchronization | merged |
 | PR #42 — multi-character provenance/private cache boundary | merged |
+| PR #43 — modular documentation architecture | merged |
 
 This is a summary only. Detailed historical audits are archived and are not current-state references.

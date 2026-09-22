@@ -1,25 +1,24 @@
 # Current Chunk
 
-Status: ACTIVE
-Scope: documentation truth and modularization mission
-Source of truth: this branch and its PR state
-Implementation: documentation files under `docs/` plus top-level guides
-Validation: documentation audit + standard CI
-CI gate: PR CI
+Status: IDLE
+Scope: active chantier bootstrap
+Source of truth: [master-plan.md](master-plan.md)
 
-## Current work
+## Current state
 
-Branch: `docs/documentation-truth-architecture`
-Current PR: not opened until the documentation tree is internally consistent.
-Objective: replace monolithic/overlapping active documentation with a modular architecture, revalidate current truth, and isolate history.
+No functional chantier is active.
 
-## Relevant documents
+The documentation reconstruction is complete and was merged as PR #43. Its post-merge CI completed successfully on `main`. The next chantier has not been started.
 
-- [state/current-state.md](../state/current-state.md)
-- [state/truth-matrix.md](../state/truth-matrix.md)
-- [documentation-guide.md](../documentation-guide.md)
-- [roadmap/master-plan.md](master-plan.md)
+## Re-entry
 
-## Completion gate
+When the next work begins, replace this file with:
+- current branch;
+- current PR;
+- current objective;
+- blockers/gates;
+- relevant source files;
+- relevant tests;
+- relevant documentation.
 
-No functional code changes. All active links resolve, old active documents are moved to archive, top-level guides are reduced to their intended roles, and standard typecheck/test/build/CI validation remains green.
+This file must remain small and disposable.

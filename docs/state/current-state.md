@@ -1,15 +1,15 @@
 # Current State
 
-Status: CURRENT BASELINE
-Scope: state captured for documentation reconstruction
-Source of truth: code, tests, CI and manifests at baseline SHA `6e2d4aea524e29ed35e0419ea5f5519dd50c613e`
+Status: CURRENT
+Scope: current `main`
+Source of truth: code, tests, CI and manifests
 Implementation: `src/`, `server/`, `.github/workflows/`
 Tests: [../validation/regression-matrix.md](../validation/regression-matrix.md)
 CI gate: [../validation/ci.md](../validation/ci.md)
 
-## Baseline
+## Current baseline
 
-`main` was at `6e2d4aea524e29ed35e0419ea5f5519dd50c613e` when this mission began. PRs #37–#42 were merged and no PR was open. The main validation check for that commit completed successfully.
+Current `main` is `3babb086dbca7e1b7b2096d703b71e06cfd2ad45`, the squash merge of documentation PR #43. PR #43 changed only documentation surfaces and archived legacy paths; it introduced no functional code changes.
 
 ## Stable foundations
 
@@ -23,15 +23,16 @@ CI gate: [../validation/ci.md](../validation/ci.md)
 - `RealizedFinancialOutcomeEngine` is the accounting source of truth.
 - IndexedDB version 5 with 11 object stores.
 - Market outcome scheduler is started by `App.tsx` and stopped on unmount.
+- Modular documentation architecture is now the active governance model.
 
 ## Incomplete / to monitor
 
 - `IndexedDbStore` remains a large monolithic service; structural decomposition is not implemented.
-- Several frontend components remain large and the browser E2E surface is not a reference CI gate.
-- Initial-load/runtime performance work is not a dedicated CI gate.
-- The corporation trading UI scope is not yet the primary documented product interaction.
+- Several frontend components remain large and browser E2E is not a reference CI gate.
+- Initial-load/runtime performance is not a dedicated CI gate.
+- Corporation trading UI scope is less mature than the underlying domain boundary.
 - The current IndexedDB `http_cache` has no active private-data business consumer.
 
 ## Reference paths
 
-[Architecture](../architecture/overview.md) · [Trading](../domains/trading/orders.md) · [Corporation](../domains/trading/corporation-trading.md) · [Financial Truth](../domains/finance/financial-truth.md) · [Persistence](../architecture/persistence.md) · [Master Plan](../roadmap/master-plan.md)
+[Documentation](../index.md) · [Architecture](../architecture/overview.md) · [Truth Matrix](truth-matrix.md) · [Stable Domains](stable-domains.md) · [Trading](../domains/trading/orders.md) · [Financial Truth](../domains/finance/financial-truth.md) · [Persistence](../architecture/persistence.md) · [Master Plan](../roadmap/master-plan.md)

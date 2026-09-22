@@ -41,3 +41,5 @@ Dependency installation uses `npm install --no-audit --no-fund` because the repo
 - `npm run build`: production frontend and backend build
 
 Agents must report the checks actually executed; documentation alone is never evidence of validation.
+
+- `src/engine/__tests__/catalog_universe_truth.test.ts` — canonical catalog/universe cardinality + checksum, truncation/corruption rejection, unknown route/location semantics.

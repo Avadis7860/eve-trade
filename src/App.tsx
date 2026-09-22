@@ -162,20 +162,31 @@ const AppShell: React.FC = () => {
     return Array.from(orderMap.values());
   }, [linkedCharacters, characterSession, characterOrders]);
 
+  const orderContextCharacters = useMemo(
+    () => (
+      linkedCharacters.length > 0
+        ? linkedCharacters
+        : characterSession
+          ? [characterSession]
+          : []
+    ),
+    [linkedCharacters, characterSession]
+  );
+
   const orderSelectionContext: OrderSelectionContext = useMemo(
     () => ({
       activeCharacterId: characterSession ? String(characterSession.character_id) : '',
-      fleetCharacterIds: linkedCharacters.map((c) => String(c.character_id)),
+      fleetCharacterIds: orderContextCharacters.map((c) => String(c.character_id)),
       corporationIds: Array.from(
         new Set(
-          linkedCharacters
+          orderContextCharacters
             .map((c) => c.corporation_id)
             .filter((id): id is number => Number.isInteger(id) && id > 0)
             .map((id) => String(id))
         )
       ),
     }),
-    [characterSession, linkedCharacters]
+    [characterSession, orderContextCharacters]
   );
 
   const scopedOrders = useMemo(() => {
@@ -203,7 +214,7 @@ const AppShell: React.FC = () => {
   const orderCorporationContexts = useMemo(() => {
     const byId = new Map<string, OrderCorporationContext>();
 
-    for (const char of linkedCharacters) {
+    for (const char of orderContextCharacters) {
       if (char.corporation_id && char.corporation_id > 0) {
         byId.set(String(char.corporation_id), {
           corporationId: String(char.corporation_id),
@@ -216,7 +227,7 @@ const AppShell: React.FC = () => {
       corporationId: entry.corporationId,
       corporationName: entry.corporationName,
     }));
-  }, [linkedCharacters]);
+  }, [orderContextCharacters]);
 
   const orderCollection: OrderCollection = useMemo(
     () => ({

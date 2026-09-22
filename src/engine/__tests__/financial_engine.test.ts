@@ -383,6 +383,7 @@ export function runFinancialEngineTests() {
   const corpConfig: Partial<FinancialConfig> = {
     ...baseConfig,
     treasury_source_mode: 'corporation',
+    corporation_wallet_source: 'manual',
     corporation_wallet_division: 1,
     corporation_name: 'Starlight Holdings Inc.',
     corporation_wallet_balance: 5_000_000_000,

@@ -218,11 +218,20 @@ La frontière inter-régionale est maintenant séparée en trois responsabilité
 
 Le noyau pur n'accède ni aux repositories, ni à ESI, ni à la persistance, ni à l'horloge. Les données UNKNOWN, dynamiques, inférées ou non vérifiées sont rejetées avant calcul.
 
-## Phase 2.7B — Prochaine frontière architecturale
+## Phase 2.7B — Universe Graph & Route Engine
 
-La topologie New Eden complète et le pathfinding ne sont **pas encore implémentés**. La table de routes actuelle reste une connaissance limitée et ne doit pas être étendue arbitrairement.
+La nouvelle frontière de topologie est maintenant structurée autour de quatre responsabilités :
 
-La Phase 2.7B devra construire un graphe canonique à partir des données topologiques SDE/stargates, calculer les systèmes effectivement traversés et produire une route vérifiable. Une route `safe` ne pourra utiliser **aucun système traversé dont `security_status < 0.5`**, y compris les systèmes intermédiaires. Le chemin ordonné devra rester disponible dans la preuve de route.
+1. `UniverseGraph` : représentation immuable de la topologie canonique New Eden et de la sécurité de chaque système ;
+2. `RouteEngine` : pathfinding BFS déterministe sur un graphe complet ;
+3. `RouteCertification` : certification fail-closed de la route, de sa sécurité et de sa provenance ;
+4. `UniverseGraphRepository` : frontière de chargement du graphe canonique.
+
+Le graphe de route est limité aux systèmes New Eden connus (`30,000,000..30,999,999`). Les graphes partiels sont non exploitables : toute résolution y devient `UNKNOWN` sans distance numérique.
+
+La route certifiée conserve le chemin ordonné, les security statuses traversés, le nombre de jumps et l'identité du dataset/graphe. `SAFE` exige `security_status >= 0.5` pour chaque système traversé, extrémités incluses.
+
+L'intégration avec `UniverseRepository`, le remplacement de `KNOWN_ROUTES` et le branchement de `InterRegionalResolver` restent volontairement bloqués jusqu'à l'import d'un artefact SDE réel et validé. Aucune topologie synthétique ne doit être introduite pour débloquer cette étape.
 
 ## OAuth / E2E — Gate préalable
 

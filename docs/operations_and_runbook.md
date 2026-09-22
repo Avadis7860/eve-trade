@@ -20,8 +20,8 @@ curl -s http://localhost:3000/api/health | jq .
 * `memory` : Empreinte mémoire Node.js (`heapUsed`, `heapTotal`, `rss`).
 * `catalog` :
   * `loaded` : `true`
-  * `totalTypes` : Nombre de types indexés ($\ge 53$).
-  * `source` : `"allMarketTypes.json"` ou `"allMarketTypesExtended.json"`.
+  * `totalTypes` : Nombre de types indexés ; vérifier la valeur retournée au lieu de supposer un seuil fixe.
+  * `source` : Source effective renvoyée par `/api/types/status`.
   * `state` : `"CATALOG_LOADED"` ou `"CATALOG_FALLBACK_CORE"`.
   * `checksum` : Empreinte SHA-256 déterministe.
 * `activeOAuthStates` : Nombre de flux d'authentification SSO en cours.
@@ -58,7 +58,7 @@ Ouvrir les outils de développement du navigateur (`F12` $\to$ Onglet *Applicati
   2. L'interface affiche un badge rouge "Session Expirée" invitant le joueur à cliquer sur "Reconnecter".
 
 ### 2.3 Incident Catalogue : État `CATALOG_CORRUPTED` ou Dégradation
-* **Symptôme :** L'en-tête de l'application affiche un badge d'alerte rouge `Catalogue Corrompu` ou `Mode Dégradé (53)`.
+* **Symptôme :** L'en-tête de l'application affiche un badge d'alerte rouge `Catalogue Corrompu` ou `état dégradé`.
 * **Procédure de Résolution :**
   1. Vérifier la validité syntaxique du fichier JSON du catalogue :
      ```bash

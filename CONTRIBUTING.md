@@ -24,7 +24,7 @@ Merci de votre intérêt pour le projet **EVE Trade** ! Ce document définit les
 ## 📜 Conventions de Code & Qualité
 
 ### 1. TypeScript & Typage Strict
-* **Zéro `any` non justifié :** Toutes les structures de données doivent être typées dans `src/types.ts`.
+* **Zéro `any` non justifié :** Toutes les structures de données doivent être typées dans le module approprié sous `src/types/` (`universe.ts`, `market.ts`, `financial.ts`, `character.ts`, `execution.ts`).
 * **Imports nommés :** Toujours utiliser des imports explicites en haut de fichier (`import { FeeEngine } from './engine/fee';`).
 * **Enums TypeScript :** Utiliser des `enum` standard (ou des unions de chaînes typées). Ne jamais utiliser `const enum`.
 
@@ -68,6 +68,10 @@ Nous suivons la convention [Conventional Commits](https://www.conventionalcommit
 * `refactor(advisor): streamline relocation gain evaluation`
 
 ---
+
+## 📚 Documentation et synchronisation
+
+Toute modification structurelle ou de contrat doit vérifier `docs/agent/repository_map.md`, `docs/agent/invariants.md` et les documents techniques concernés. `AGENTS.md` est la source de vérité des règles de travail agentiques ; `GEMINI.md` ne définit plus de règles concurrentes.
 
 ## 💬 Code de Conduite
 

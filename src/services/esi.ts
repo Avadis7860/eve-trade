@@ -127,10 +127,10 @@ export class EsiService {
       }
     };
     const fetchPage = async (page: number) => {
-      const { response, data } = await fetchBackendApi<any[]>(`/api/markets/${regionId}/orders?type_id=${typeId}&page=${page}`);
-      if (!response.ok) throw new Error(`Market API returned HTTP ${response.status}`);
-      const xPages = response.headers.get('x-pages'); const parsed = xPages ? Number.parseInt(xPages, 10) : 1;
-      return { data: Array.isArray(data) ? data : [], totalPages: Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 50) : 1 };
+      const result = await fetchBackendApi<any[]>(`/api/markets/${regionId}/orders?type_id=${typeId}&page=${page}`);
+      if (!result.ok && result.status !== 404) throw new Error(`Market API returned HTTP ${result.status}`);
+      const xPages = result.headers.get('x-pages'); const parsed = xPages ? Number.parseInt(xPages, 10) : 1;
+      return { data: Array.isArray(result.data) ? result.data : [], totalPages: Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 50) : 1 };
     };
     try {
       const first = await fetchPage(1); pagesFetched = 1; expectedPages = first.totalPages; processPage(first.data);
@@ -171,8 +171,9 @@ export class EsiService {
    */
   static async fetchMarketHistory(regionId: number, typeId: number): Promise<HistoricalStats | null> {
     try {
-      const { response, data } = await fetchBackendApi<DailyMarketHistory[]>(`/api/markets/${regionId}/history?type_id=${typeId}`);
-      if (!response.ok || !Array.isArray(data) || data.length === 0) return null;
+      const result = await fetchBackendApi<DailyMarketHistory[]>(`/api/markets/${regionId}/history?type_id=${typeId}`);
+      if (!result.ok || !Array.isArray(result.data) || result.data.length === 0) return null;
+      const data = result.data;
       const sorted=[...data].sort((a,b)=>b.date.localeCompare(a.date)), last7=sorted.slice(0,7), last30=sorted.slice(0,30);
       const median=(arr:number[])=>{if(!arr.length)return 0;const v=[...arr].sort((a,b)=>a-b),m=Math.floor(v.length/2);return v.length%2?v[m]:(v[m-1]+v[m])/2;};
       const vol7=last7.map(h=>h.volume), vol30=last30.map(h=>h.volume), prices30=last30.map(h=>h.average);
@@ -186,7 +187,7 @@ export class EsiService {
    */
   static async lookupTypeById(typeId: number) {
     if (!Number.isInteger(typeId) || typeId <= 0) return null;
-    try { const {response,data}=await fetchBackendApi<any>(`/api/types/lookup/${typeId}`); if(!response.ok)return null; return {type_id:data.type_id,group_id:data.group_id,name:data.name,volume:data.volume||data.packaged_volume||0.01,packaged_volume:data.packaged_volume,description:data.description?String(data.description).replace(/<[^>]*>?/gm,'').slice(0,140):''}; }
+    try { const {ok,data}=await fetchBackendApi<any>(`/api/types/lookup/${typeId}`); if(!ok || !data)return null; return {type_id:data.type_id,group_id:data.group_id,name:data.name,volume:data.volume||data.packaged_volume||0.01,packaged_volume:data.packaged_volume,description:data.description?String(data.description).replace(/<[^>]*>?/gm,'').slice(0,140):''}; }
     catch { return null; }
   }
 
@@ -195,7 +196,7 @@ export class EsiService {
    */
   static async searchTypesByName(query: string) {
     if (!query || query.length < 2) return [];
-    try { const {response,data}=await fetchBackendApi<any[]>(`/api/types/search?q=${encodeURIComponent(query)}&limit=5`); return response.ok&&Array.isArray(data)?data:[]; }
+    try { const {ok,data}=await fetchBackendApi<any[]>(`/api/types/search?q=${encodeURIComponent(query)}&limit=5`); return ok&&Array.isArray(data)?data:[]; }
     catch { return []; }
   }
 
@@ -233,42 +234,60 @@ export class EsiService {
     }
   }
 
-  /**
-   * Fetches active character orders using the character's OAuth token
-   */
+  /** Fetches active character orders using the character's OAuth token */
   static async fetchCharacterOrders(characterId: number, accessToken: string) {
-    const result=await this.executeWithAuthRefresh<any[]>(characterId,accessToken,async token=>{const response=await fetch(`/api/character/${characterId}/orders`,{headers:{Authorization:`Bearer ${token}`}});if(!response.ok)return {ok:false,status:response.status};return {ok:true,status:response.status,data:await response.json()};});return result||[];
+    const result = await this.executeWithAuthRefresh<any[]>(characterId, accessToken, async token => {
+      const response = await fetchBackendApi<any[]>(`/api/character/${characterId}/orders`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return { ok: response.ok, status: response.status, data: response.data ?? undefined };
+    });
+    return result || [];
   }
 
-  /**
-   * Fetches character wallet balance
-   */
+  /** Fetches character wallet balance */
   static async fetchCharacterWallet(characterId: number, accessToken: string): Promise<number | null> {
-    return await this.executeWithAuthRefresh<number>(characterId,accessToken,async token=>{const response=await fetch(`/api/character/${characterId}/wallet`,{headers:{Authorization:`Bearer ${token}`}});if(!response.ok)return {ok:false,status:response.status};const data=await response.json();return {ok:true,status:response.status,data:data.balance};});
+    return await this.executeWithAuthRefresh<number>(characterId, accessToken, async token => {
+      const response = await fetchBackendApi<{ balance: number }>(`/api/character/${characterId}/wallet`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return { ok: response.ok, status: response.status, data: response.data?.balance };
+    });
   }
 
-  /**
-   * Fetches character wallet transactions (real buy/sell market history)
-   */
+  /** Fetches character wallet transactions (real buy/sell market history) */
   static async fetchCharacterTransactions(characterId: number, accessToken: string, fromId?: number): Promise<EveCharacterTransaction[]> {
-    const query=fromId!==undefined?`?from_id=${encodeURIComponent(String(fromId))}`:'';
-    const result=await this.executeWithAuthRefresh<EveCharacterTransaction[]>(characterId,accessToken,async token=>{const response=await fetch(`/api/character/${characterId}/transactions${query}`,{headers:{Authorization:`Bearer ${token}`}});if(!response.ok)return {ok:false,status:response.status};return {ok:true,status:response.status,data:await response.json()};});return result||[];
+    const query = fromId !== undefined ? `?from_id=${encodeURIComponent(String(fromId))}` : '';
+    const result = await this.executeWithAuthRefresh<EveCharacterTransaction[]>(characterId, accessToken, async token => {
+      const response = await fetchBackendApi<EveCharacterTransaction[]>(`/api/character/${characterId}/transactions${query}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return { ok: response.ok, status: response.status, data: response.data ?? undefined };
+    });
+    return result || [];
   }
 
-  /**
-   * Fetches past closed/fulfilled/cancelled character orders (order history)
-   */
+  /** Fetches past closed/fulfilled/cancelled character orders (order history) */
   static async fetchCharacterOrderHistory(characterId: number, accessToken: string, page: number = 1): Promise<EveCharacterOrderHistory[]> {
-    const result=await this.executeWithAuthRefresh<EveCharacterOrderHistory[]>(characterId,accessToken,async token=>{const response=await fetch(`/api/character/${characterId}/orders/history?page=${page}`,{headers:{Authorization:`Bearer ${token}`}});if(!response.ok)return {ok:false,status:response.status};return {ok:true,status:response.status,data:await response.json()};});return result||[];
+    const result = await this.executeWithAuthRefresh<EveCharacterOrderHistory[]>(characterId, accessToken, async token => {
+      const response = await fetchBackendApi<EveCharacterOrderHistory[]>(`/api/character/${characterId}/orders/history?page=${page}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return { ok: response.ok, status: response.status, data: response.data ?? undefined };
+    });
+    return result || [];
   }
 
-  /**
-   * Fetches character wallet journal (taxes, fees, transfers, broker fees)
-   */
+  /** Fetches character wallet journal (taxes, fees, transfers, broker fees) */
   static async fetchCharacterJournal(characterId: number, accessToken: string) {
-    const result=await this.executeWithAuthRefresh<any[]>(characterId,accessToken,async token=>{const response=await fetch(`/api/character/${characterId}/journal`,{headers:{Authorization:`Bearer ${token}`}});if(!response.ok)return {ok:false,status:response.status};return {ok:true,status:response.status,data:await response.json()};});return result||[];
+    const result = await this.executeWithAuthRefresh<any[]>(characterId, accessToken, async token => {
+      const response = await fetchBackendApi<any[]>(`/api/character/${characterId}/journal`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return { ok: response.ok, status: response.status, data: response.data ?? undefined };
+    });
+    return result || [];
   }
-
   /**
    * Resolves any New Eden station or structure ID to a clean name via UniverseRepository
    */
@@ -302,23 +321,16 @@ export class EsiService {
     error?: string;
   }> {
     try {
-      const res = await fetch(`/api/character/${characterId}/corporation`, {
+      const res = await fetchBackendApi<any>(`/api/character/${characterId}/corporation`, {
         headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
       });
-      if (res.ok) {
-        const data = await res.json();
-        return { ok: true, data };
-      }
+      if (res.ok && res.data) return { ok: true, data: res.data };
       return { ok: false, error: `HTTP_${res.status}` };
     } catch (err) {
       return { ok: false, error: String(err) };
     }
   }
 
-  /**
-   * Fetches corporation wallet divisions and balances from ESI proxy.
-   * If character lacks Director/Accountant roles or scopes, returns structured error without crashing.
-   */
   static async fetchCorporationWallets(
     characterId: number,
     accessToken: string
@@ -334,46 +346,28 @@ export class EsiService {
     const resObj = await this.executeWithAuthRefresh<{
       corporation_id: number;
       wallets: Array<{ division: number; name: string; balance: number }>;
-    }>(characterId, accessToken, async (token: string) => {
+    }>(characterId, accessToken, async token => {
       try {
-        const res = await fetch(`/api/character/${characterId}/corporation/wallets`, {
+        const res = await fetchBackendApi<any>(`/api/character/${characterId}/corporation/wallets`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const data = await res.json();
-        if (res.ok) {
-          return { ok: true, status: res.status, data };
-        }
-        return {
-          ok: false,
-          status: res.status,
-          error: data.message || data.error || `HTTP_${res.status}`,
-        };
+        return { ok: res.ok, status: res.status, data: res.data ?? undefined };
       } catch (err) {
-        return { ok: false, status: 500, error: String(err) };
+        return { ok: false, status: 500 };
       }
     });
-
-    if (resObj) {
-      return { ok: true, data: resObj };
-    }
+    if (resObj) return { ok: true, data: resObj };
     return { ok: false, error: 'CORPORATION_WALLETS_UNAVAILABLE' };
   }
-
-  /**
-   * Fetches metadata status of the Type Catalog
-   */
+  /** Fetches metadata status of the Type Catalog */
   static async getTypeCatalogStatus(): Promise<TypeCatalogMetadata> {
-    const response = await fetch('/api/types/status');
-    if (!response.ok) {
-      throw new Error(`Catalog status endpoint returned HTTP ${response.status}`);
+    const result = await fetchBackendApi<TypeCatalogMetadata>('/api/types/status');
+    if (!result.ok || !result.data) {
+      throw new Error(`Catalog status endpoint returned HTTP ${result.status}`);
     }
-    return await response.json();
+    return result.data;
   }
 
-  /**
-   * Fetches all tradeable market types with real average and adjusted prices from Tranquility.
-   * Never silently swallows failures into empty arrays.
-   */
   static async fetchAllMarketTypes(): Promise<Array<{
     type_id: number;
     name: string;
@@ -383,31 +377,14 @@ export class EsiService {
     average_price?: number;
     adjusted_price?: number;
   }>> {
-    try {
-      const response = await fetch('/api/types/all');
-      if (!response.ok) {
-        let errDetails = `HTTP_${response.status}`;
-        try {
-          const errJson = await response.json();
-          errDetails = errJson.error || errJson.message || errDetails;
-        } catch {}
-        throw new Error(`Failed to load market types catalog: ${errDetails}`);
-      }
-      const data = await response.json();
-      if (!Array.isArray(data)) {
-        if (Array.isArray(data?.types)) return data.types;
-        throw new Error('CATALOG_DATA_FORMAT_INVALID');
-      }
-      return data;
-    } catch (err) {
-      console.error('EsiService.fetchAllMarketTypes error:', err);
-      throw err;
-    }
+    const result = await fetchBackendApi<any>('/api/types/all');
+    if (!result.ok || !result.data) throw new Error(`Failed to load market types catalog: HTTP_${result.status}`);
+    const data = result.data;
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data.types)) return data.types;
+    throw new Error('CATALOG_DATA_FORMAT_INVALID');
   }
 
-  /**
-   * Fast search across market types with live ESI fallback
-   */
   static async searchMarketTypes(query: string, limit = 50): Promise<Array<{
     type_id: number;
     name: string;
@@ -417,15 +394,8 @@ export class EsiService {
     average_price?: number;
     adjusted_price?: number;
   }>> {
-    try {
-      const response = await fetch(`/api/types/search?q=${encodeURIComponent(query)}&limit=${limit}`);
-      if (!response.ok) {
-        throw new Error(`Type search returned HTTP ${response.status}`);
-      }
-      return await response.json();
-    } catch (err) {
-      console.error('EsiService.searchMarketTypes error:', err);
-      throw err;
-    }
+    const result = await fetchBackendApi<any[]>(`/api/types/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+    if (!result.ok || !Array.isArray(result.data)) throw new Error(`Type search returned HTTP ${result.status}`);
+    return result.data;
   }
 }

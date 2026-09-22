@@ -23,7 +23,9 @@ export interface CharacterJournalEntry {
   readonly [key: string]: unknown;
 }
 
-const ANONYMOUS_PRINCIPAL: EsiPrincipalContext = { type: 'anonymous' };\n\nfunction characterContext(characterId: number, bearerCredential: string): EsiPrincipalContext {
+const ANONYMOUS_PRINCIPAL: EsiPrincipalContext = { type: 'anonymous' };
+
+function characterContext(characterId: number, bearerCredential: string): EsiPrincipalContext {
   return {
     type: 'character',
     id: characterId,
@@ -132,7 +134,9 @@ export class CharacterEsiGateway {
       method: 'GET',
       path: `/characters/${characterId}/`,
       query: { datasource: 'tranquility' },
-    });
+    },
+      ANONYMOUS_PRINCIPAL,
+    );
   }
 }
 

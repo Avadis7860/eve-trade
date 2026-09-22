@@ -443,9 +443,13 @@ export class InterRegionalFinancialEngine {
     expectedCapturableVolumePerDay: number;
     expectedDaysToSell: number;
   } {
-    const historical7d = destHistory?.daily_volume_7d_median || destHistory?.daily_volume_7d_avg || 100;
-    const historical30d = destHistory?.daily_volume_30d_median || destHistory?.daily_volume_30d_avg || historical7d;
+    const historical7d = destHistory?.daily_volume_7d_median || destHistory?.daily_volume_7d_avg || 0;
+    const historical30d = destHistory?.daily_volume_30d_median || destHistory?.daily_volume_30d_avg || 0;
     const trend = destHistory?.volume_trend || 'stable';
+
+    if (historical7d <= 0 || historical30d <= 0) {
+      throw new Error('Relist capturable volume requires positive destination market history');
+    }
 
     let currentLowestSell = 0.0;
     let suggestedRelistPrice = 0.0;
@@ -485,8 +489,8 @@ export class InterRegionalFinancialEngine {
     const boundedShare = Math.max(0.10, Math.min(0.90, competitionShare));
 
     // Capturable Volume per day
-    const baseDailyVolume = Math.max(1, historical7d);
-    const expectedCapturableVolumePerDay = Math.max(1, Math.round(baseDailyVolume * trendMultiplier * boundedShare));
+    const baseDailyVolume = historical7d;
+    const expectedCapturableVolumePerDay = Math.max(0, Math.round(baseDailyVolume * trendMultiplier * boundedShare));
 
     // Expected Days to Sell
     const timeToClearAhead = volumeAhead > 0 ? safeDiv(volumeAhead, baseDailyVolume, 0) : 0;
@@ -500,7 +504,7 @@ export class InterRegionalFinancialEngine {
     else if (ordersAhead >= 2) competitionDensity = 'moderate';
 
     const grossRevenue = roundIsk(suggestedRelistPrice * quantity);
-    const estimatedProfit = roundIsk(grossRevenue * 0.10); // temporary reference for context
+    const estimatedProfit = 0;
 
     const relistContext: RelistMarketContext = {
       is_estimated_execution: true,
@@ -863,6 +867,15 @@ export class InterRegionalFinancialEngine {
     let expectedDaysToSell = 0.1;
     let capturableDailyVolume = 0;
     const destHistory = historyStatsByRegion[sellHub.region_id];
+
+    if (
+      strategy === 'relist' &&
+      (!destHistory ||
+        ((destHistory.daily_volume_7d_median || destHistory.daily_volume_7d_avg || 0) <= 0) ||
+        ((destHistory.daily_volume_30d_median || destHistory.daily_volume_30d_avg || 0) <= 0))
+    ) {
+      return null;
+    }
 
     // 2. Build Destination Execution Ladder
     if (strategy === 'relist') {

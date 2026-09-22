@@ -17,6 +17,25 @@ export interface RouteEngineResult {
   readonly error?: string;
 }
 
+function unknownResult(
+  graph: UniverseGraph,
+  fromSystemId: number,
+  toSystemId: number,
+  error: string,
+): RouteEngineResult {
+  return {
+    status: 'UNKNOWN',
+    safety: 'UNKNOWN',
+    from_system_id: fromSystemId,
+    to_system_id: toSystemId,
+    systems: [],
+    security_statuses: {},
+    jumps: null,
+    graph_provenance: graph.provenance,
+    error,
+  };
+}
+
 function securityMap(graph: UniverseGraph, systems: readonly number[]): Readonly<Record<number, number | null>> {
   const result: Record<number, number | null> = {};
   for (const systemId of systems) {
@@ -39,17 +58,24 @@ export class RouteEngine {
 
   findRoute(fromSystemId: number, toSystemId: number): RouteEngineResult {
     if (!this.graph.has_system(fromSystemId) || !this.graph.has_system(toSystemId)) {
-      return {
-        status: 'UNKNOWN',
-        safety: 'UNKNOWN',
-        from_system_id: fromSystemId,
-        to_system_id: toSystemId,
-        systems: [],
-        security_statuses: {},
-        jumps: null,
-        graph_provenance: this.graph.provenance,
-        error: 'Source or destination system is not present in the canonical graph',
-      };
+      return unknownResult(
+        this.graph,
+        fromSystemId,
+        toSystemId,
+        'Source or destination system is not present in the canonical graph',
+      );
+    }
+
+    // A partial graph cannot prove reachability, shortestness, or absence of a
+    // shorter/safer path outside the observed subgraph. No route from it is
+    // therefore allowed to expose a usable distance.
+    if (this.graph.provenance.completeness !== 'complete') {
+      return unknownResult(
+        this.graph,
+        fromSystemId,
+        toSystemId,
+        'Route is UNKNOWN because the canonical universe graph is partial',
+      );
     }
 
     if (fromSystemId === toSystemId) {
@@ -95,20 +121,6 @@ export class RouteEngine {
           };
         }
       }
-    }
-
-    if (this.graph.provenance.completeness === 'partial') {
-      return {
-        status: 'UNKNOWN',
-        safety: 'UNKNOWN',
-        from_system_id: fromSystemId,
-        to_system_id: toSystemId,
-        systems: [],
-        security_statuses: {},
-        jumps: null,
-        graph_provenance: this.graph.provenance,
-        error: 'No route can be certified because the canonical graph is partial',
-      };
     }
 
     return {

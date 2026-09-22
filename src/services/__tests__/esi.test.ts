@@ -6,6 +6,101 @@ function assert(condition: boolean, message: string) {
 }
 
 async function run() {
+  const assertCollectionState = async (
+    label: string,
+    response: Response,
+    expectedState: import('../esi').EsiCollectionState,
+    expectedLength: number,
+  ) => {
+    setBackendApiFetchForTesting(async () => response);
+    const result = await EsiService.fetchCharacterOrders(1001, 'test-token');
+    assert(result.state === expectedState, `${label}: expected state ${expectedState}, got ${result.state}`);
+    assert(result.data.length === expectedLength, `${label}: expected ${expectedLength} rows, got ${result.data.length}`);
+    return result;
+  };
+
+  const emptyOrders = await assertCollectionState(
+    '200 empty collection',
+    new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    'EMPTY',
+    0,
+  );
+  assert(EsiService.requireUsableCollection(emptyOrders, 'orders').length === 0, 'EMPTY must remain usable as an empty collection');
+
+  await assertCollectionState(
+    '200 populated collection',
+    new Response(JSON.stringify([{ order_id: '90001' }]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    'AVAILABLE',
+    1,
+  );
+
+  await assertCollectionState(
+    '206 partial collection',
+    new Response(JSON.stringify([{ order_id: '90002' }]), { status: 206, headers: { 'Content-Type': 'application/json' } }),
+    'PARTIAL',
+    1,
+  );
+
+  const unavailable304 = await assertCollectionState(
+    '304 not modified',
+    new Response(null, { status: 304 }),
+    'UNAVAILABLE',
+    0,
+  );
+  let threw = false;
+  try {
+    EsiService.requireUsableCollection(unavailable304, 'orders');
+  } catch (error) {
+    threw = String(error).includes('[UNAVAILABLE]') && String(error).includes('HTTP_304');
+  }
+  assert(threw, 'UNAVAILABLE collections must not be silently consumed');
+
+  const error404 = await assertCollectionState(
+    '404 unavailable source',
+    new Response(JSON.stringify({ error: 'missing' }), { status: 404, headers: { 'Content-Type': 'application/json' } }),
+    'ERROR',
+    0,
+  );
+  threw = false;
+  try {
+    EsiService.requireUsableCollection(error404, 'orders');
+  } catch (error) {
+    threw = String(error).includes('[ERROR]') && String(error).includes('HTTP_404');
+  }
+  assert(threw, 'ERROR collections must not be silently consumed');
+
+  setBackendApiFetchForTesting(async () => new Response(JSON.stringify({ error: 'forbidden' }), {
+    status: 403,
+    headers: { 'Content-Type': 'application/json' },
+  }));
+  const transactionsError = await EsiService.fetchCharacterTransactions(1001, 'test-token');
+  assert(transactionsError.state === 'ERROR', '403 transactions must remain ERROR');
+  assert(transactionsError.data.length === 0, '403 transactions must not fabricate data');
+
+  setBackendApiFetchForTesting(async () => new Response(JSON.stringify([{ transaction_id: 1 }]), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  }));
+  const transactionsAvailable = await EsiService.fetchCharacterTransactions(1001, 'test-token');
+  assert(transactionsAvailable.state === 'AVAILABLE', 'Transactions payload must classify as AVAILABLE');
+
+  const missingToken = await EsiService.fetchCharacterJournal(1001, '');
+  assert(missingToken.state === 'UNAVAILABLE', 'Missing credential must be UNAVAILABLE');
+  assert(missingToken.status === 401, 'Missing credential must expose HTTP 401 semantics');
+
+  setBackendApiFetchForTesting(async () => new Response(null, { status: 204 }));
+  const historyNoContent = await EsiService.fetchCharacterOrderHistory(1001, 'test-token');
+  assert(historyNoContent.state === 'UNAVAILABLE', '204 history must not become EMPTY');
+  assert(historyNoContent.status === 204, '204 status must remain visible');
+
+  setBackendApiFetchForTesting(async () => new Response('{invalid-json', {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  }));
+  const malformedJournal = await EsiService.fetchCharacterJournal(1001, 'test-token');
+  assert(malformedJournal.state === 'ERROR', 'Malformed successful JSON must be ERROR');
+  assert(malformedJournal.status === 500, 'Malformed backend JSON must surface controlled HTTP 500 semantics');
+
   console.log('=== FRONTEND ESI / BACKEND TRANSPORT CONTRACT TESTS ===');
 
   let calls = 0;

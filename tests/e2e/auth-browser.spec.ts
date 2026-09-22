@@ -163,10 +163,10 @@ test.describe('E2E-001 — browser OAuth composition', () => {
       timeout: 15_000,
     });
 
-    await expect(page.getByText(/Sécurité CSRF : Jeton Invalide ou Expiré/)).toBeVisible({
+    await expect(popup.getByText(/Sécurité CSRF : Jeton Invalide ou Expiré/)).toBeVisible({
       timeout: 15_000,
     });
-    await expect(popup.getByText(/Jeton Invalide ou Expiré/)).toBeVisible();
+    await expect(page.getByText(ALPHA.name)).toHaveCount(0);
     expect(await emptyCharacterStore(page)).toBeTruthy();
   });
 

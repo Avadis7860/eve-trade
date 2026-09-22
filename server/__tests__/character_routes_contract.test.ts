@@ -13,6 +13,7 @@ import type { EsiGatewayResponse } from '../utils/esiTypes';
 import { startServer, RunningServer } from '../../server';
 import { setGlobalEsiMock } from '../utils/esiClient';
 import { characterEsiGateway } from '../gateways/characterEsiGateway';
+import { corporationEsiGateway } from '../gateways/corporationEsiGateway';
 
 const CHARACTER_A = 1001;
 const CHARACTER_B = 1002;
@@ -381,6 +382,57 @@ async function runTests(): Promise<void> {
       const identityCalls = observedRequests.slice(before).filter((r) => r.path === `/characters/${CHARACTER_A}/`);
       assert.strictEqual(identityCalls.length, 1);
       assert.strictEqual(identityCalls[0].authorization, undefined);
+    });
+
+    await test('corporation profile ESI errors are preserved and never degraded into fallback 200 data', async () => {
+      const original = corporationEsiGateway.fetchProfile;
+      try {
+        corporationEsiGateway.fetchProfile = async () => ({
+          ok: false,
+          status: 503,
+          data: null,
+          error: {
+            kind: 'TRANSIENT',
+            status: 503,
+            message: 'simulated-corporation-profile-outage',
+            retryable: true,
+          },
+          metadata: metadata(),
+        });
+
+        const response = await fetch(baseUrl + `/api/character/${CHARACTER_A}/corporation`, {
+          headers: { Authorization: `Bearer ${TOKEN_A}` },
+        });
+
+        assert.strictEqual(response.status, 503);
+        const body = await readJson(response);
+        assert.strictEqual(body.error, 'ESI corporation profile error');
+        assert.strictEqual(body.esi_error_kind, 'TRANSIENT');
+      } finally {
+        corporationEsiGateway.fetchProfile = original;
+      }
+    });
+
+    await test('corporation profile 2xx without payload fails closed', async () => {
+      const original = corporationEsiGateway.fetchProfile;
+      try {
+        corporationEsiGateway.fetchProfile = async () => ({
+          ok: true,
+          status: 200,
+          data: null,
+          metadata: metadata(),
+        });
+
+        const response = await fetch(baseUrl + `/api/character/${CHARACTER_A}/corporation`, {
+          headers: { Authorization: `Bearer ${TOKEN_A}` },
+        });
+
+        assert.strictEqual(response.status, 502);
+        const body = await readJson(response);
+        assert.strictEqual(body.error, 'INVALID_ESI_RESPONSE');
+      } finally {
+        corporationEsiGateway.fetchProfile = original;
+      }
     });
 
     await test('corporation wallet route uses the character identity resolver plus authenticated corporation gateway calls', async () => {

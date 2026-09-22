@@ -37,8 +37,8 @@ Le principe directeur est **NO DATA != ZERO DATA** : une absence de donnée, une
 | `skills` | Bearer | `characterId` | payload ESI | statut + classification |
 | `transactions` | Bearer | `from_id > 0` optionnel | tableau ESI | statut + classification |
 | `journal` | Bearer | `characterId` | tableau ESI | statut + classification |
-| `corporation` | non requis pour l'identité publique | `characterId` | profil corporation résolu | échec de résolution explicite |
-| `corporation/wallets` | Bearer | `characterId` | divisions + soldes ESI | accès refusé explicitement |
+| `corporation` | non requis pour l'identité publique | `characterId` | profil corporation résolu via `CorporationEsiGateway` | échec de résolution explicite |
+| `corporation/wallets` | Bearer du personnage | `characterId` | wallets + noms de divisions via `CorporationEsiGateway` | accès refusé explicitement |
 
 ## Invariants d'authentification
 

@@ -570,7 +570,7 @@ export class UniverseRepository {
     }
 
     const fallback: LocationResolutionResult = {
-      status: 'LOCATION_FALLBACK',
+      status: 'LOCATION_UNKNOWN',
       location_id: locationId,
       name: isStructure ? `Structure #${locationId}` : `Station #${locationId}`,
       is_structure: isStructure,

@@ -126,7 +126,7 @@ For transaction responses, ESI retry/rate-limit metadata is also surfaced throug
 - Requires a positive integer location ID.
 - Standard NPC stations are resolved without authentication.
 - Structures may be resolved when a valid authorization header is supplied.
-- Unknown/unresolved locations fall back to `{ location_id, name: "Location #..." }` rather than becoming a transport error.
+- Unknown/unresolved locations return HTTP 404 with error code `LOCATION_UNKNOWN`; they must not become a verified domain location.
 
 ### Health API
 
@@ -259,3 +259,12 @@ The canonical catalog is identified by a fixed manifest containing version, expe
 The bundled universe dataset is identified by fixed region/system/station counts and a structural SHA-256. The route table contains only canonical known routes; unknown system pairs return UNKNOWN with no usable jump count.
 
 The financial opportunity engine verifies catalog, location and route identity before quantity resolution, transport costing, scoring or prediction. Unknown, dynamic, inferred or unverified inputs are rejected before they can influence a financial result.
+
+
+## Phase 2.6 — Stabilized truth boundary
+
+The catalog boundary treats the bundled canonical dataset and its manifest as the trust anchor. Caller-supplied metadata is never sufficient to declare readiness. Dynamic ESI resolution remains useful for discovery/display but is excluded from canonical financial resolution.
+
+The universe boundary keeps canonical static locations separate from dynamic ESI/structure resolution. Unknown routes and locations fail closed and never receive synthetic numerical semantics.
+
+Relist demand estimation requires positive observed destination history. Missing history is unavailable data, not zero demand and not a synthetic default.

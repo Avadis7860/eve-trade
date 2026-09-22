@@ -73,9 +73,11 @@ assert.throws(
   () =>
     new UniverseGraphRepository({
       load: () => ({
+        // Keep the graph content aligned with the checksum so the assertion
+        // reaches the intended canonical-source validation.
         provenance: { ...provenance, source: 'unknown' as never },
-        nodes: [{ system_id: 1, security_status: 0.9 }],
-        edges: [],
+        nodes: repositoryNodes,
+        edges: repositoryEdges,
       }),
     }),
   /canonical SDE/,

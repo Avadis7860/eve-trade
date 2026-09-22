@@ -14,14 +14,14 @@ async function run() {
     const url = String(input);
     if (url.includes('/api/markets/10000002/orders') && url.includes('page=1')) {
       return new Response(JSON.stringify([{
-        order_id: 1, type_id: 34, price: 5, volume_remain: 100, volume_total: 100,
+        order_id: '1', type_id: 34, price: 5, volume_remain: 100, volume_total: 100,
         region_id: 10000002, system_id: 30000142, location_id: 60003760, is_buy_order: false,
         issued: '2026-09-22T00:00:00Z', duration: 90,
       }]), { status: 200, headers: { 'Content-Type': 'application/json', 'X-Pages': '2' } });
     }
     if (url.includes('/api/markets/10000002/orders') && url.includes('page=2')) {
       return new Response(JSON.stringify([{
-        order_id: 2, type_id: 34, price: 5.5, volume_remain: 50, volume_total: 50,
+        order_id: '2', type_id: 34, price: 5.5, volume_remain: 50, volume_total: 50,
         region_id: 10000002, system_id: 30000142, location_id: 60003760, is_buy_order: true,
         issued: '2026-09-22T00:00:00Z', duration: 90,
       }]), { status: 200, headers: { 'Content-Type': 'application/json', 'X-Pages': '2' } });

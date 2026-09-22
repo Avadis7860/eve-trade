@@ -4,6 +4,7 @@ import { RouteEngine } from '../../domain/universe/RouteEngine';
 import { certifyRoute } from '../../domain/universe/RouteCertification';
 import { UniverseGraphRepository } from '../../domain/universe/UniverseGraphRepository';
 import { calculateUniverseGraphChecksum } from '../../domain/universe/UniverseGraphHash';
+import { RouteIndex } from '../../domain/universe/RouteIndex';
 
 const repositoryNodes = [
   { system_id: 1, security_status: 0.9 },
@@ -110,6 +111,68 @@ assert.equal(safeRequired.status, 'REJECTED');
 const safeRoute = engine.findRoute(1, 2);
 assert.equal(safeRoute.safety, 'SAFE');
 assert.equal(certifyRoute(graph, safeRoute, { requireSafe: true }).status, 'CERTIFIED');
+
+
+const constrainedGraph = buildUniverseGraph({
+  provenance,
+  nodes: [
+    { system_id: 101, security_status: 0.9 },
+    { system_id: 102, security_status: 0.4 },
+    { system_id: 103, security_status: 0.9 },
+    { system_id: 104, security_status: 0.9 },
+    { system_id: 105, security_status: 0.9 },
+    { system_id: 106, security_status: 0.9 },
+    { system_id: 107, security_status: 0.9 },
+  ],
+  edges: [
+    { from_system_id: 101, to_system_id: 102 },
+    { from_system_id: 102, to_system_id: 101 },
+    { from_system_id: 102, to_system_id: 103 },
+    { from_system_id: 103, to_system_id: 102 },
+    { from_system_id: 103, to_system_id: 104 },
+    { from_system_id: 104, to_system_id: 103 },
+    { from_system_id: 101, to_system_id: 105 },
+    { from_system_id: 105, to_system_id: 101 },
+    { from_system_id: 105, to_system_id: 106 },
+    { from_system_id: 106, to_system_id: 105 },
+    { from_system_id: 106, to_system_id: 107 },
+    { from_system_id: 107, to_system_id: 106 },
+    { from_system_id: 107, to_system_id: 104 },
+    { from_system_id: 104, to_system_id: 107 },
+  ],
+});
+
+const constrainedEngine = new RouteEngine(constrainedGraph);
+const unrestricted = constrainedEngine.findRoute(101, 104);
+assert.equal(unrestricted.status, 'FOUND');
+assert.equal(unrestricted.jumps, 3);
+assert.deepEqual(unrestricted.systems, [101, 102, 103, 104]);
+assert.equal(unrestricted.safety, 'NON_SAFE');
+
+const shortestSafe = constrainedEngine.findSafeRoute(101, 104);
+assert.equal(shortestSafe.status, 'FOUND');
+assert.equal(shortestSafe.jumps, 4);
+assert.deepEqual(shortestSafe.systems, [101, 105, 106, 107, 104]);
+assert.equal(shortestSafe.safety, 'SAFE');
+assert.equal(certifyRoute(constrainedGraph, shortestSafe, { requireSafe: true }).status, 'CERTIFIED');
+
+const safeIndex = new RouteIndex(constrainedGraph, 104, 'SAFE');
+assert.equal(safeIndex.getDistance(101), 4);
+assert.equal(safeIndex.getRouteFrom(101).jumps, 4);
+assert.equal(safeIndex.getRouteFrom(101).safety, 'SAFE');
+assert.equal(safeIndex.getDistance(105), 3);
+assert.equal(safeIndex.build_count, 1);
+assert.equal(safeIndex.getDistance(101), 4);
+assert.equal(safeIndex.getDistance(106), 2);
+assert.equal(safeIndex.getDistance(107), 1);
+assert.equal(safeIndex.build_count, 1);
+
+const shortestIndex = new RouteIndex(constrainedGraph, 104, 'SHORTEST');
+assert.equal(shortestIndex.getDistance(101), 3);
+assert.equal(shortestIndex.getDistance(102), 2);
+assert.equal(shortestIndex.getDistance(103), 1);
+assert.equal(shortestIndex.getDistance(102), 2);
+assert.equal(shortestIndex.build_count, 1);
 
 const noRouteGraph = buildUniverseGraph({
   provenance,

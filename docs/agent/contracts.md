@@ -361,3 +361,14 @@ Legacy configuration migration is explicit: if a persisted corporation configura
 - The legacy `character_id` / `character_name` projection is valid only for character-owned orders and must be cleared for corporation-owned orders.
 - Character/fleet order scopes must not infer ownership from the observing character when `is_corporation=true`.
 - Legacy snapshots may temporarily omit `ownership`; corporation-marked legacy records remain unscopable until ownership is resolved.
+
+
+## Phase 4.7 — Canonical order identity
+
+`OrderId` is the canonical identifier type for all market/order references carried by the trading stack.
+
+- ESI order IDs are treated as identifiers, not arithmetic values.
+- Normalized order IDs are represented as strings across market, character, order-history, ladder audit metadata and execution references.
+- Numeric inputs are accepted only when they are safe positive integers; unsafe numeric inputs fail closed rather than being rounded.
+- Canonical sorting/comparison uses identifier-aware logic and never coerces the identifier through `Number()`.
+- De-duplication and in-memory collection keys use the canonical string identifier.

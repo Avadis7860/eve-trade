@@ -111,3 +111,11 @@ Changes to order identifiers additionally require the ladder, evidence, executio
 - `npm run test:corporation-boundary`: existing corporation treasury plus corporation order boundary coverage.
 
 Required scenarios include A -> corporation X, B -> corporation X with distinct credentials, C -> corporation Y, requested history page propagation, invalid page rejection, and ESI error propagation.
+
+
+## Phase 4.7 — Corporation order normalization validation
+
+- `src/engine/__tests__/corporation_order.test.ts`: pure normalization, owner/principal separation, exact OrderId preservation, rejection of malformed facts and deterministic duplicate precedence.
+- `src/services/__tests__/esi.test.ts`: frontend corporation acquisition and credential propagation.
+- `src/engine/__tests__/order_scoping_contracts.test.ts`: corporation scope selection independent from observing character.
+- Full CI: typecheck, corporation boundary, ESI, API, security, unit and production build gates.

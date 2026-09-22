@@ -341,3 +341,5 @@ The gateway is intentionally domain-neutral. Trading treasury resolution happens
 - `unavailable`: no corporation capital is currently certified for trading.
 
 In corporation treasury mode, only `esi` or explicit `manual` corporation funding can produce spendable capital. Character wallets and the generic `available_capital` field are never implicit corporation fallbacks.
+
+Legacy configuration migration is explicit: if a persisted corporation configuration has a wallet balance/divisions but no valid `corporation_wallet_source`, normalization assigns `unavailable`. The legacy raw balance remains readable/editable but is not trusted as spendable capital until a fresh ESI observation or explicit manual budget is established. Unknown source values also normalize to `unavailable`.

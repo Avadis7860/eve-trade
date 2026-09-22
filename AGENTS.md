@@ -20,7 +20,7 @@ Ce document constitue la **source de vérité absolue** pour tout agent d'intell
 * **Chaîne de Preuve & Certification 4 Piliers Immuable :** Chaque opportunité générée par `InterRegionalFinancialEngine` est accompagnée d'un instantané cryptographique `OpportunityEvidence` (`4-pillars-v1`).
   * Empreinte déterministe SHA-256 (`evidence_hash`) calculée par `OpportunityEvidenceEngine` via sérialisation canonique.
   * Auditabilité complète : vérification en temps réel des 4 piliers (`MarketData`, `Catalog`, `Universe`, `FinancialEngine`).
-* **Centralisation & Entrepôt Immuable :** Toutes les données de marché synchronisées sont stockées et notifiées via `src/services/marketDataStore.ts` et archivées de façon immuable dans `src/services/indexedDbStore.ts` (IndexedDB v3).
+* **Centralisation & Entrepôt Immuable :** Toutes les données de marché synchronisées sont stockées et notifiées via `src/services/marketDataStore.ts` et archivées de façon immuable dans `src/services/indexedDbStore.ts` (IndexedDB v5, 11 object stores).
 * **Sécurité des Tokens EVE SSO :**
   * Les tokens d'accès JWT expirent au bout de 20 minutes (1200 secondes).
   * Toujours vérifier `AuthService.isTokenExpiredOrExpiringSoon(session)` avant d'exécuter un appel nécessitant une authentification.
@@ -91,7 +91,7 @@ npm run build
 
 ## 🚫 Règles d'Or pour les Modifications de Code
 
-1. **Ne jamais altérer `types.ts` sans répercuter sur les moteurs :** Toute modification d'interface doit être synchrone dans `src/types.ts` et dans les moteurs mathématiques.
+1. **Respecter l'organisation des types par domaine :** Toute modification de contrat doit être effectuée dans le module `src/types/` concerné et vérifiée par les consommateurs et tests associés.
 2. **Ne jamais supprimer les gardes-fous division par zéro :** Toujours utiliser `safeDiv` ou des vérifications `if (denominator > 0)` pour éviter les `NaN` ou `Infinity`.
 3. **Respecter l'accessibilité des stations :** Ne jamais simplifier le filtrage spatial des ordres dans `interRegional.ts`. Un ordre d'achat ne peut être pris que dans la station où les marchandises sont situées ou selon son champ de validité (`order_range`).
 4. **Pas d'icônes SVG custom :** Utiliser exclusivement `lucide-react`.

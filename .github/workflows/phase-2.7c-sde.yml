@@ -67,7 +67,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if git diff --quiet -- src/data/universeGraph.json src/data/universeGraphManifest.ts; then
+          if test -z "$(git status --porcelain -- src/data/universeGraph.json src/data/universeGraphManifest.ts)"; then
             echo 'Canonical SDE graph artifact is already up to date.'
             exit 0
           fi

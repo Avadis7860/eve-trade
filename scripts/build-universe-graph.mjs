@@ -11,35 +11,45 @@ if (!sdeDir || !outputPath || !datasetVersion) {
   process.exit(1);
 }
 
-async function readJsonl(path) {
-  const content = await readFile(path, 'utf8');
-  return content
-    .split(/\\r?\\n/)
-    .filter(Boolean)
-    .map((line, index) => {
-      try {
-        return JSON.parse(line);
-      } catch (error) {
-        throw new Error(\`Invalid JSONL at \${path} line \${index + 1}: \${error.message}\`);
-      }
-    });
+function sha256(value) {
+  return createHash('sha256').update(value).digest('hex');
 }
 
-const systems = await readJsonl(join(sdeDir, 'mapSolarSystems.jsonl'));
-const stargates = await readJsonl(join(sdeDir, 'mapStargates.jsonl'));
+async function readJsonl(path) {
+  const content = await readFile(path, 'utf8');
+  return {
+    content,
+    rows: content
+      .split(/\\r?\\n/)
+      .filter(Boolean)
+      .map((line, index) => {
+        try {
+          return JSON.parse(line);
+        } catch (error) {
+          throw new Error(\`Invalid JSONL at \${path} line \${index + 1}: \${error.message}\`);
+        }
+      }),
+  };
+}
 
-const nodes = systems
+const systemsPath = join(sdeDir, 'mapSolarSystems.jsonl');
+const stargatesPath = join(sdeDir, 'mapStargates.jsonl');
+const systemsFile = await readJsonl(systemsPath);
+const stargatesFile = await readJsonl(stargatesPath);
+
+const nodes = systemsFile.rows
   .map((system) => ({
     system_id: Number(system._key),
     security_status: Number(system.securityStatus),
   }))
   .sort((a, b) => a.system_id - b.system_id);
 
+const securityBySystem = new Map(nodes.map((node) => [node.system_id, node.security_status]));
 const systemIds = new Set(nodes.map((node) => node.system_id));
 const edges = [];
 const edgeKeys = new Set();
 
-for (const gate of stargates) {
+for (const gate of stargatesFile.rows) {
   const from = Number(gate.solarSystemID);
   const to = Number(gate.destination?.solarSystemID);
 
@@ -49,11 +59,8 @@ for (const gate of stargates) {
   if (from === to) {
     throw new Error(\`Stargate \${gate._key} is a self-loop in system \${from}\`);
   }
-  if (!Number.isFinite(nodes.find((node) => node.system_id === from)?.security_status)) {
-    throw new Error(\`System \${from} has no finite canonical security status\`);
-  }
-  if (!Number.isFinite(nodes.find((node) => node.system_id === to)?.security_status)) {
-    throw new Error(\`System \${to} has no finite canonical security status\`);
+  if (!Number.isFinite(securityBySystem.get(from)) || !Number.isFinite(securityBySystem.get(to))) {
+    throw new Error(\`Stargate \${gate._key} references a system without finite canonical security status\`);
   }
 
   const key = \`\${from}:\${to}\`;
@@ -75,7 +82,13 @@ if (missingReverseEdges.length > 0) {
 }
 
 const canonicalPayload = JSON.stringify({ nodes, edges });
-const graphChecksum = createHash('sha256').update(canonicalPayload).digest('hex');
+const graphChecksum = sha256(canonicalPayload);
+const datasetChecksum = sha256(
+  JSON.stringify({
+    mapSolarSystems: sha256(systemsFile.content),
+    mapStargates: sha256(stargatesFile.content),
+  }),
+);
 
 const artifact = {
   schema_version: 1,
@@ -83,7 +96,7 @@ const artifact = {
   provenance: {
     source: 'sde_canonical',
     dataset_version: datasetVersion,
-    dataset_checksum: 'computed-from-canonical-graph-input',
+    dataset_checksum: datasetChecksum,
     graph_checksum: graphChecksum,
     graph_version: \`sde-\${datasetVersion}\`,
     completeness: 'complete',
@@ -98,6 +111,7 @@ console.log(
   JSON.stringify(
     {
       dataset_version: datasetVersion,
+      dataset_checksum: datasetChecksum,
       systems: nodes.length,
       directed_edges: edges.length,
       graph_checksum: graphChecksum,

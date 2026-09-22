@@ -223,6 +223,15 @@ export async function fetchEsi<T = unknown>(
             errorLimitReset,
             retryAfter,
             xPages,
+            lastModified,
+            cacheControl,
+            compatibilityDate: responseCompatibilityDate,
+            rateLimitGroup,
+            rateLimitLimit,
+            rateLimitRemaining,
+            rateLimitUsed,
+            retryAfterSeconds: retryAfter,
+            metadata,
           };
         }
 

@@ -23,7 +23,7 @@ export interface CharacterJournalEntry {
   readonly [key: string]: unknown;
 }
 
-function characterContext(characterId: number, bearerCredential: string): EsiPrincipalContext {
+const ANONYMOUS_PRINCIPAL: EsiPrincipalContext = { type: 'anonymous' };\n\nfunction characterContext(characterId: number, bearerCredential: string): EsiPrincipalContext {
   return {
     type: 'character',
     id: characterId,

@@ -60,3 +60,18 @@ Agents must report the checks actually executed; documentation alone is never ev
 2. Vérifier callback, session, refresh et accès authentifié.
 3. Seulement ensuite lancer l'E2E fonctionnel complet.
 4. Couvrir aussi UNKNOWN/PARTIAL/ERROR, pas seulement le chemin nominal.
+
+## Phase 4.6 — Corporation ESI validation
+
+The corporation boundary has a dedicated gateway contract suite and is included in the existing `test:esi` CI gate.
+
+Required regression surfaces:
+
+- gateway endpoint/path/query/principal mapping;
+- anonymous vs character credential isolation;
+- metadata propagation;
+- ESI error status preservation;
+- 304 and null-payload semantics;
+- negative/zero/decimal wallet fidelity;
+- real Express -> CharacterEsiGateway -> CorporationEsiGateway -> EsiGateway -> ESI mock traversal;
+- treasury source isolation for character-negative/corporation-positive and corporation-unavailable scenarios.

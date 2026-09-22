@@ -5,6 +5,8 @@ import { ProfitEngine } from '../profit';
 import { OpportunityScoringEngine } from '../scoring';
 import { InterRegionalFinancialEngine } from '../interRegional';
 import { RawMarketOrder, MarketHub, EveTypeDetail, FinancialConfig } from '../../types';
+import { CatalogRepository } from '../../domain/catalog/CatalogRepository';
+import { UniverseRepository } from '../../domain/universe/UniverseRepository';
 import { MAJOR_MARKET_HUBS, getJumpRoute } from '../../data/universe';
 import { getEveTickSize, roundToEveTick } from '../money';
 
@@ -208,6 +210,24 @@ function runAllTests() {
     corp_standing: 0,
     faction_standing: 0,
   };
+
+  // Explicit Phase 2.6 preconditions: the fixture must exercise a verified canonical path.
+  const catalogRepository = CatalogRepository.getInstance();
+  assert(catalogRepository.isReady(), `Catalog precondition failed: ${JSON.stringify(catalogRepository.getMetadata())}`);
+
+  const universeRepository = UniverseRepository.getInstance();
+  assert(universeRepository.getIntegrity().isReady, `Universe precondition failed: ${JSON.stringify(universeRepository.getIntegrity())}`);
+
+  const sourceResolution = universeRepository.resolveLocationSync(jitaHub.station_id);
+  const destinationResolution = universeRepository.resolveLocationSync(amarrHub.station_id);
+  assert(sourceResolution.is_verified, `Source location precondition failed: ${JSON.stringify(sourceResolution)}`);
+  assert(destinationResolution.is_verified, `Destination location precondition failed: ${JSON.stringify(destinationResolution)}`);
+
+  const fixtureRoute = universeRepository.getRoute(jitaHub.system_id, amarrHub.system_id);
+  assert(
+    fixtureRoute.status === 'KNOWN' && fixtureRoute.is_verified === true && fixtureRoute.jumps >= 0,
+    `Route precondition failed: ${JSON.stringify(fixtureRoute)}`
+  );
 
   const oppRelist = InterRegionalFinancialEngine.calculateOpportunity(
     testType,

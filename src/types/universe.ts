@@ -1,3 +1,5 @@
+import type { CatalogProvenance } from './market';
+
 export type TypeResolutionStatus = 'RESOLVED_CATALOG' | 'RESOLVED_DYNAMIC' | 'RESOLVED_ESI' | 'TYPE_UNKNOWN';
 
 export interface EveTypeDetail {
@@ -31,6 +33,29 @@ export interface TypeResolutionResult {
   is_verified: boolean;
   confidence: number;
   error?: string;
+  provenance?: CatalogProvenance;
+}
+
+export type UniverseProvenanceSource =
+  | 'static_dataset'
+  | 'static_route_table'
+  | 'esi'
+  | 'structure_cache'
+  | 'fallback'
+  | 'unknown';
+
+export type UniverseCompleteness = 'complete' | 'partial' | 'unknown';
+
+export interface UniverseProvenance {
+  source: UniverseProvenanceSource;
+  dataset_version?: string;
+  dataset_checksum?: string;
+  loaded_at: string;
+  verified: boolean;
+  confidence: number;
+  completeness: UniverseCompleteness;
+  scope?: string;
+  error?: string;
 }
 
 export type LocationResolutionStatus =
@@ -57,6 +82,7 @@ export interface LocationResolutionResult {
   is_verified: boolean;
   confidence: number;
   error?: string;
+  provenance?: UniverseProvenance;
 }
 
 export type SystemResolutionStatus = 'RESOLVED_SYSTEM' | 'SYSTEM_UNKNOWN';
@@ -72,6 +98,7 @@ export interface SystemResolutionResult {
   confidence: number;
   source: 'static_universe' | 'hub' | 'inferred' | 'fallback';
   error?: string;
+  provenance?: UniverseProvenance;
 }
 
 export type RegionResolutionStatus = 'RESOLVED_REGION' | 'REGION_UNKNOWN';
@@ -84,6 +111,7 @@ export interface RegionResolutionResult {
   confidence: number;
   source: 'static_universe' | 'hub' | 'fallback';
   error?: string;
+  provenance?: UniverseProvenance;
 }
 
 export interface MarketCategory {
@@ -121,6 +149,12 @@ export interface JumpRoute {
   is_highsec_only: boolean;
   chokepoints?: string[];
   gank_risk_level?: 'safe' | 'caution' | 'dangerous';
+  status?: 'KNOWN' | 'UNKNOWN';
+  source?: 'static_route_table' | 'same_system' | 'unknown';
+  is_verified?: boolean;
+  confidence?: number;
+  provenance?: UniverseProvenance;
+  error?: string;
 }
 
 export interface EveType {

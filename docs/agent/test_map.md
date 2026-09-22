@@ -30,7 +30,7 @@ A task is not complete until its affected validation surface is identified. This
 7. `npm run test:esi`
 8. `npm run build`
 
-Dependency installation uses `npm install --no-audit --no-fund` because the repository currently has no committed npm lockfile.
+Dependency installation uses `npm ci --no-audit --no-fund` with the committed `package-lock.json` for reproducible builds.
 
 ## Local validation commands
 
@@ -41,3 +41,10 @@ Dependency installation uses `npm install --no-audit --no-fund` because the repo
 - `npm run build`: production frontend and backend build
 
 Agents must report the checks actually executed; documentation alone is never evidence of validation.
+
+- `src/engine/__tests__/catalog_universe_truth.test.ts` — canonical catalog/universe cardinality + checksum, truncation/corruption rejection, unknown route/location semantics.
+
+
+## Truth gate validation
+- `npm run test:truth` — isolated Catalog & Universe canonical identity, truncation, provenance, route UNKNOWN and dynamic-cache boundary checks.
+- The truth gate runs before `npm test` in CI so regressions in canonical data contracts cannot be hidden behind unrelated unit-suite failures.

@@ -83,7 +83,13 @@ export class InterRegionalFinancialEngine {
         const numericRange = parseInt(range, 10);
         if (!isNaN(numericRange) && numericRange >= 0) {
           const route = UniverseRepository.getInstance().getRoute(order.system_id, hub.system_id);
-          return route.jumps <= numericRange;
+          return (
+            route.status === 'KNOWN' &&
+            route.is_verified === true &&
+            Number.isFinite(route.jumps) &&
+            route.jumps >= 0 &&
+            route.jumps <= numericRange
+          );
         }
         return false;
       }
@@ -223,6 +229,24 @@ export class InterRegionalFinancialEngine {
   ): T {
     if (!opp) return opp;
 
+    if (
+      opp.strategy === 'relist' &&
+      (!opp.relist_context ||
+        opp.relist_context.historical_daily_volume <= 0 ||
+        opp.relist_context.expected_capturable_volume_per_day <= 0)
+    ) {
+      return {
+        ...opp,
+        is_viable: false,
+        rejection_reasons: Array.from(
+          new Set([
+            ...opp.rejection_reasons,
+            'Données historiques de demande insuffisantes pour recalculer un relist de façon fiable.',
+          ])
+        ),
+      };
+    }
+
     const unitVolume =
       opp.unit_volume && opp.unit_volume > 0
         ? opp.unit_volume
@@ -234,12 +258,12 @@ export class InterRegionalFinancialEngine {
     const sourceDepth =
       opp.liquidity?.buy_hub_depth_volume && opp.liquidity.buy_hub_depth_volume > 0
         ? opp.liquidity.buy_hub_depth_volume
-        : Math.max(opp.quantity_tradable || 1, 100);
+        : Math.max(0, opp.quantity_tradable || 0);
 
     let destDepth =
       opp.liquidity?.sell_hub_depth_volume && opp.liquidity.sell_hub_depth_volume > 0
         ? opp.liquidity.sell_hub_depth_volume
-        : Math.max(opp.quantity_tradable || 1, 100);
+        : Math.max(0, opp.quantity_tradable || 0);
 
     if (opp.strategy === 'relist' && opp.relist_context?.expected_capturable_volume_per_day) {
       destDepth = Math.max(
@@ -298,8 +322,8 @@ export class InterRegionalFinancialEngine {
 
     if (opp.strategy === 'relist' && relistContext) {
       const volumeAhead = relistContext.volume_ahead || 0;
-      const baseDailyVol = Math.max(1, relistContext.historical_daily_volume || 100);
-      const capturablePerDay = Math.max(1, relistContext.expected_capturable_volume_per_day || 1);
+      const baseDailyVol = relistContext.historical_daily_volume;
+      const capturablePerDay = relistContext.expected_capturable_volume_per_day;
       const timeToClearAhead = volumeAhead > 0 ? volumeAhead / baseDailyVol : 0;
       const timeToClearOurQty = actualQuantity / capturablePerDay;
       expectedDaysToSell = Math.max(0.1, roundIsk(timeToClearAhead + timeToClearOurQty));
@@ -353,7 +377,7 @@ export class InterRegionalFinancialEngine {
       updatedLiquidity.daily_volume_dest,
       relistContext?.orders_ahead || 0,
       relistContext?.volume_ahead || 0,
-      (opp as any).confidence ?? 1.0,
+      (opp as any).confidence ?? 0.0,
       opp.data_quality?.buy_hub_quality,
       opp.data_quality?.sell_hub_quality,
       opp.jita_price_benchmark?.is_jita_verified ?? false,
@@ -437,9 +461,13 @@ export class InterRegionalFinancialEngine {
     expectedCapturableVolumePerDay: number;
     expectedDaysToSell: number;
   } {
-    const historical7d = destHistory?.daily_volume_7d_median || destHistory?.daily_volume_7d_avg || 100;
-    const historical30d = destHistory?.daily_volume_30d_median || destHistory?.daily_volume_30d_avg || historical7d;
+    const historical7d = destHistory?.daily_volume_7d_median || destHistory?.daily_volume_7d_avg || 0;
+    const historical30d = destHistory?.daily_volume_30d_median || destHistory?.daily_volume_30d_avg || 0;
     const trend = destHistory?.volume_trend || 'stable';
+
+    if (historical7d <= 0 || historical30d <= 0) {
+      throw new Error('Relist capturable volume requires positive destination market history');
+    }
 
     let currentLowestSell = 0.0;
     let suggestedRelistPrice = 0.0;
@@ -479,8 +507,8 @@ export class InterRegionalFinancialEngine {
     const boundedShare = Math.max(0.10, Math.min(0.90, competitionShare));
 
     // Capturable Volume per day
-    const baseDailyVolume = Math.max(1, historical7d);
-    const expectedCapturableVolumePerDay = Math.max(1, Math.round(baseDailyVolume * trendMultiplier * boundedShare));
+    const baseDailyVolume = historical7d;
+    const expectedCapturableVolumePerDay = Math.max(0, Math.round(baseDailyVolume * trendMultiplier * boundedShare));
 
     // Expected Days to Sell
     const timeToClearAhead = volumeAhead > 0 ? safeDiv(volumeAhead, baseDailyVolume, 0) : 0;
@@ -494,7 +522,6 @@ export class InterRegionalFinancialEngine {
     else if (ordersAhead >= 2) competitionDensity = 'moderate';
 
     const grossRevenue = roundIsk(suggestedRelistPrice * quantity);
-    const estimatedProfit = roundIsk(grossRevenue * 0.10); // temporary reference for context
 
     const relistContext: RelistMarketContext = {
       is_estimated_execution: true,
@@ -508,8 +535,6 @@ export class InterRegionalFinancialEngine {
       volume_trend: trend,
       expected_capturable_volume_per_day: expectedCapturableVolumePerDay,
       expected_days_to_sell: expectedDaysToSell,
-      expected_revenue: grossRevenue,
-      expected_profit: estimatedProfit,
       competition_density: competitionDensity,
     };
 
@@ -809,6 +834,37 @@ export class InterRegionalFinancialEngine {
   ): InterRegionalOpportunity | null {
     if (buyHub.id === sellHub.id) return null;
 
+    const catalogRepository = CatalogRepository.getInstance();
+    const universeRepository = UniverseRepository.getInstance();
+    const typeResolution = catalogRepository.resolveType(item.type_id);
+
+    // Financial calculations may only consume canonical, verified catalog data.
+    if (
+      !catalogRepository.isReady() ||
+      typeResolution.status !== 'RESOLVED_CATALOG' ||
+      !typeResolution.type ||
+      !typeResolution.is_verified
+    ) return null;
+
+    const sourceLocRes = universeRepository.resolveLocationSync(buyHub.station_id);
+    const destLocRes = universeRepository.resolveLocationSync(sellHub.station_id);
+
+    // Financial calculations may only consume verified hub locations.
+    if (
+      !sourceLocRes.is_verified ||
+      !destLocRes.is_verified ||
+      sourceLocRes.status === 'LOCATION_UNKNOWN' ||
+      destLocRes.status === 'LOCATION_UNKNOWN' ||
+      !sourceLocRes.system_id ||
+      !destLocRes.system_id
+    ) return null;
+
+    const route = universeRepository.getRoute(buyHub.system_id, sellHub.system_id);
+
+    // Unknown routes have no financial semantics and must be rejected before quantity/cost/scoring.
+    if (route.status !== 'KNOWN' || route.is_verified !== true || route.jumps < 0) return null;
+
+    const calculationItem = typeResolution.type;
     const buyQuality = qualitiesByRegion[buyHub.region_id];
     const sellQuality = qualitiesByRegion[sellHub.region_id];
     const jitaQuality = qualitiesByRegion[10000002];
@@ -826,6 +882,15 @@ export class InterRegionalFinancialEngine {
     let expectedDaysToSell = 0.1;
     let capturableDailyVolume = 0;
     const destHistory = historyStatsByRegion[sellHub.region_id];
+
+    if (
+      strategy === 'relist' &&
+      (!destHistory ||
+        ((destHistory.daily_volume_7d_median || destHistory.daily_volume_7d_avg || 0) <= 0) ||
+        ((destHistory.daily_volume_30d_median || destHistory.daily_volume_30d_avg || 0) <= 0))
+    ) {
+      return null;
+    }
 
     // 2. Build Destination Execution Ladder
     if (strategy === 'relist') {
@@ -871,12 +936,12 @@ export class InterRegionalFinancialEngine {
     if (bestDestSellTargetPrice <= bestSourceSellPrice) return null;
 
     const totalDestVolume = destLadders.reduce((acc, l) => acc + l.volume, 0);
-    const route = UniverseRepository.getInstance().getRoute(buyHub.system_id, sellHub.system_id);
+    // Verified route declared at the financial boundary above and reused here.
 
     // 3. Multi-constraint tradable quantity resolution
     const tradableDetails = this.determineTradableQuantity(
       bestSourceSellPrice,
-      item.volume,
+      calculationItem.volume,
       totalSourceVolume,
       totalDestVolume,
       route,
@@ -898,7 +963,7 @@ export class InterRegionalFinancialEngine {
       buyFill,
       sellFill,
       actualQuantity,
-      item.volume,
+      calculationItem.volume,
       route,
       strategy,
       config,
@@ -971,13 +1036,13 @@ export class InterRegionalFinancialEngine {
     );
 
     // Overall Data Quality Confidence
-    const buyConf = buyQuality?.confidence ?? 1.0;
-    const sellConf = sellQuality?.confidence ?? 1.0;
+    const buyConf = buyQuality?.confidence ?? 0.0;
+    const sellConf = sellQuality?.confidence ?? 0.0;
     const overallConfidence = roundIsk(Math.min(buyConf, sellConf) * (jitaBenchmark.is_jita_verified ? 1.0 : 0.9));
 
     // 10. Audit & Explicability Rationale Generation
     const explanation = this.generateExplanation(
-      item,
+      calculationItem,
       buyHub,
       sellHub,
       strategy,
@@ -1003,8 +1068,8 @@ export class InterRegionalFinancialEngine {
       hardRejection.rejection_reasons
     );
 
-    const group = CatalogRepository.getInstance().getGroup(item.group_id);
-    const category = CatalogRepository.getInstance().getCategory(item.category_id);
+    const group = catalogRepository.getGroup(calculationItem.group_id);
+    const category = catalogRepository.getCategory(calculationItem.category_id);
 
     const isAnomalous = hardRejection.is_anomalous || scoringEvaluation.isAnomalous;
     const spreadPctVal = bestSourceSellPrice > 0 ? (bestDestSellTargetPrice - bestSourceSellPrice) / bestSourceSellPrice : 0;
@@ -1060,36 +1125,21 @@ export class InterRegionalFinancialEngine {
     }
 
     // Pillar 2: Catalog Evaluation
-    const typeResolution = CatalogRepository.getInstance().resolveType(item.type_id);
-    let catalogPillarStatus: 'PASS' | 'DEGRADED' | 'FAIL' = 'PASS';
-    let catalogDetail = `Type ${item.name} (#${item.type_id}) certifié au catalogue officiel.`;
-    if (typeResolution.status === 'TYPE_UNKNOWN' || !typeResolution.type) {
+    // typeResolution was verified before financial calculation.
+    let catalogPillarStatus: 'PASS' | 'FAIL' = 'PASS';
+    let catalogDetail = `Type ${calculationItem.name} (#${calculationItem.type_id}) certifié au catalogue officiel.`;
+    if (typeResolution.status !== 'RESOLVED_CATALOG' || !typeResolution.is_verified || !catalogRepository.isReady()) {
       catalogPillarStatus = 'FAIL';
-      catalogDetail = `Type inconnu (#${item.type_id}) dans le référentiel de catalogue.`;
-    } else if (typeResolution.status === 'RESOLVED_DYNAMIC' || typeResolution.status === 'RESOLVED_ESI') {
-      catalogPillarStatus = 'DEGRADED';
-      catalogDetail = `Type ${item.name} (#${item.type_id}) issu d'une résolution dynamique non canonique.`;
+      catalogDetail = `Type ${calculationItem.name} (#${calculationItem.type_id}) non certifié par le catalogue canonique.`;
     }
 
     // Pillar 3: Universe Evaluation
-    const sourceLocRes = UniverseRepository.getInstance().resolveLocationSync(buyHub.station_id);
-    const destLocRes = UniverseRepository.getInstance().resolveLocationSync(sellHub.station_id);
+    // sourceLocRes and destLocRes were verified before financial calculation.
     let universePillarStatus: 'PASS' | 'DEGRADED' | 'FAIL' = 'PASS';
     let universeDetail = `Stations et route Highsec validées (${route.jumps} sauts).`;
-    if (sourceLocRes.status === 'LOCATION_UNKNOWN' || destLocRes.status === 'LOCATION_UNKNOWN' || route.jumps < 0) {
-      universePillarStatus = 'FAIL';
-      universeDetail = 'Localisation introuvable ou route impossible entre les hubs.';
-    } else if (
-      !route.is_highsec_only ||
-      sourceLocRes.is_structure ||
-      destLocRes.is_structure ||
-      sourceLocRes.status === 'LOCATION_FALLBACK' ||
-      destLocRes.status === 'LOCATION_FALLBACK' ||
-      sourceLocRes.status === 'RESOLVED_ESI' ||
-      destLocRes.status === 'RESOLVED_ESI'
-    ) {
+    if (!route.is_highsec_only || sourceLocRes.is_structure || destLocRes.is_structure) {
       universePillarStatus = 'DEGRADED';
-      universeDetail = `Route passant par des systèmes non sécurisés (${route.jumps} sauts, Highsec: ${route.is_highsec_only ? 'oui' : 'non'}) ou structure privée.`;
+      universeDetail = `Route ou localisation non conforme au profil Highsec (${route.jumps} sauts, Highsec: ${route.is_highsec_only ? 'oui' : 'non'}).`;
     }
 
     // Pillar 4: Financial Engine Evaluation
@@ -1116,14 +1166,12 @@ export class InterRegionalFinancialEngine {
     if (
       marketDataPillarStatus === 'FAIL' ||
       catalogPillarStatus === 'FAIL' ||
-      universePillarStatus === 'FAIL' ||
       financialPillarStatus === 'FAIL'
     ) {
       certificationStatus = 'REJECTED';
       isActionable = false;
     } else if (
       marketDataPillarStatus === 'DEGRADED' ||
-      catalogPillarStatus === 'DEGRADED' ||
       universePillarStatus === 'DEGRADED' ||
       financialPillarStatus === 'DEGRADED'
     ) {
@@ -1137,7 +1185,6 @@ export class InterRegionalFinancialEngine {
         ...scoringEvaluation.rejectionReasons,
         ...(marketDataPillarStatus === 'FAIL' ? [marketDataDetail] : []),
         ...(catalogPillarStatus === 'FAIL' ? [catalogDetail] : []),
-        ...(universePillarStatus === 'FAIL' ? [universeDetail] : []),
         ...(financialPillarStatus === 'FAIL' ? [financialDetail] : []),
       ])
     );
@@ -1147,7 +1194,6 @@ export class InterRegionalFinancialEngine {
         ...hardRejection.anomaly_reasons,
         ...scoringEvaluation.anomalyReasons,
         ...(marketDataPillarStatus === 'DEGRADED' ? [marketDataDetail] : []),
-        ...(catalogPillarStatus === 'DEGRADED' ? [catalogDetail] : []),
         ...(universePillarStatus === 'DEGRADED' ? [universeDetail] : []),
         ...(financialPillarStatus === 'DEGRADED' ? [financialDetail] : []),
       ])
@@ -1165,7 +1211,7 @@ export class InterRegionalFinancialEngine {
       },
       catalog: {
         status: catalogPillarStatus,
-        type_id: item.type_id,
+        type_id: calculationItem.type_id,
         status_code: typeResolution.status,
         detail: catalogDetail,
       },
@@ -1255,10 +1301,10 @@ export class InterRegionalFinancialEngine {
         health_status: healthSource,
         data_state: buyDataState,
         market_hash: sourceSnapshotHash,
-        source: buyQuality?.source || 'esi',
-        freshness: buyQuality?.freshness || 'fresh',
-        completeness: buyQuality?.completeness || 'complete',
-        confidence: buyQuality?.confidence ?? 1.0,
+        source: buyQuality?.source || 'unavailable',
+        freshness: buyQuality?.freshness || 'unknown',
+        completeness: buyQuality?.completeness || 'unknown',
+        confidence: buyQuality?.confidence ?? 0.0,
         age_seconds: buyQuality?.age_seconds ?? 0,
       },
       dest_market: {
@@ -1269,10 +1315,10 @@ export class InterRegionalFinancialEngine {
         health_status: healthDest,
         data_state: sellDataState,
         market_hash: destSnapshotHash,
-        source: sellQuality?.source || 'esi',
-        freshness: sellQuality?.freshness || 'fresh',
-        completeness: sellQuality?.completeness || 'complete',
-        confidence: sellQuality?.confidence ?? 1.0,
+        source: sellQuality?.source || 'unavailable',
+        freshness: sellQuality?.freshness || 'unknown',
+        completeness: sellQuality?.completeness || 'unknown',
+        confidence: sellQuality?.confidence ?? 0.0,
         age_seconds: sellQuality?.age_seconds ?? 0,
       },
       source_market_provenance: sourceProvenance,

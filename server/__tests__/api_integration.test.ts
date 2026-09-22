@@ -164,6 +164,31 @@ async function runApiIntegrationTests() {
       assert.strictEqual(data.length, 20526);
     });
 
+    await test('GET /api/types/all rejects non-ready canonical catalog state', async () => {
+      const originalGetMetadata = TypeCatalogService.getMetadata;
+      const originalGetTypes = TypeCatalogService.getTypes;
+      try {
+        const nominalMeta = originalGetMetadata.call(TypeCatalogService);
+        TypeCatalogService.getMetadata = () => ({
+          ...nominalMeta,
+          status: 'CATALOG_PARTIAL',
+          item_count: 20000,
+          is_degraded: true,
+        });
+        TypeCatalogService.getTypes = () => new Array(20000).fill(null);
+
+        const res = await fetch(`${baseUrl}/api/types/all`);
+        assert.strictEqual(res.status, 503, `Expected HTTP 503 for partial catalog, got ${res.status}`);
+
+        const data = await res.json() as any;
+        assert.strictEqual(data.error, 'CATALOG_NOT_READY');
+        assert.deepStrictEqual(data.types, []);
+      } finally {
+        TypeCatalogService.getMetadata = originalGetMetadata;
+        TypeCatalogService.getTypes = originalGetTypes;
+      }
+    });
+
     await test('GET /api/types/lookup/:id resolves canonical type (Tritanium #34)', async () => {
       const res = await fetch(`${baseUrl}/api/types/lookup/34`);
       assert.strictEqual(res.status, 200, `Expected HTTP 200, got ${res.status}`);
@@ -260,13 +285,13 @@ async function runApiIntegrationTests() {
     // -----------------------------------------------------------------
     console.log('\n--- 6. ROUTE /api/universe ---');
 
-    await test('GET /api/universe/location/:id returns deterministic fallback for unauthenticated structures', async () => {
+    await test('GET /api/universe/location/:id rejects unknown locations explicitly', async () => {
       const res = await fetch(`${baseUrl}/api/universe/location/999999999`);
-      assert.strictEqual(res.status, 200, `Expected HTTP 200, got ${res.status}`);
+      assert.strictEqual(res.status, 404, `Expected HTTP 404 for unknown location, got ${res.status}`);
 
       const data = await res.json() as any;
+      assert.strictEqual(data.error, 'LOCATION_UNKNOWN');
       assert.strictEqual(data.location_id, 999999999);
-      assert.strictEqual(data.name, 'Location #999999999');
     });
 
     console.log('\n===============================================================');

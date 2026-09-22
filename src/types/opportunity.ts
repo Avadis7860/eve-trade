@@ -170,8 +170,8 @@ export interface RelistMarketContext {
   volume_trend?: 'increasing' | 'stable' | 'decreasing';
   expected_capturable_volume_per_day: number;
   expected_days_to_sell: number;
-  expected_revenue: number;
-  expected_profit: number;
+  expected_revenue?: number;
+  expected_profit?: number;
   competition_density?: 'low' | 'moderate' | 'high' | 'intense';
 }
 
@@ -335,8 +335,8 @@ export interface InterRegionalOpportunity {
     buy_hub_quality?: MarketDataQuality;
     sell_hub_quality?: MarketDataQuality;
     overall_confidence: number;
-    overall_freshness: 'fresh' | 'recent' | 'stale' | 'expired';
-    overall_completeness: 'complete' | 'partial' | 'empty';
+    overall_freshness: 'fresh' | 'recent' | 'stale' | 'expired' | 'unknown';
+    overall_completeness: 'complete' | 'partial' | 'empty' | 'unknown';
     is_verified_esi: boolean;
     confidence_score: number;
     status_label?: string;

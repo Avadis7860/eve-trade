@@ -102,9 +102,9 @@ if (!amarrName.includes('Amarr VIII')) {
   throw new Error(`UniverseRepository failed to resolve Amarr VIII: ${amarrName}`);
 }
 
-const unknownName = universe.getStationNameSync(999999999);
-if (!unknownName.startsWith('Station #')) {
-  throw new Error('UniverseRepository failed fallback naming for unknown station');
+const unknownLocation = universe.resolveLocationSync(999999999);
+if (unknownLocation.status !== 'LOCATION_UNKNOWN' || unknownLocation.is_verified || !unknownLocation.name.startsWith('Station #')) {
+  throw new Error('UniverseRepository must classify unknown locations explicitly as UNKNOWN and unverified');
 }
 
 console.log('✅ UniverseRepository SSOT verified.');

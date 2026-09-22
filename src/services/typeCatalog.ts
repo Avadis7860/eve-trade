@@ -2,11 +2,12 @@ import { EveTypeDetail, TypeCatalogMetadata, TypeCatalogStatus } from '../types'
 import { EVE_TYPES_CATALOG } from '../data/universe';
 import { CatalogHashing } from '../domain/catalog/CatalogHashing';
 import { CatalogValidator } from '../domain/catalog/CatalogValidator';
+import { CANONICAL_CATALOG_MANIFEST } from '../data/catalogManifest';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-export const CATALOG_VERSION = '2026.09.20.1';
+export const CATALOG_VERSION = CANONICAL_CATALOG_MANIFEST.version;
 
 function getModuleDir(): string {
   try {
@@ -68,7 +69,7 @@ export class TypeCatalogService {
         version: CATALOG_VERSION,
         checksum: fallbackChecksum,
         item_count: EVE_TYPES_CATALOG.length,
-        expected_count: EVE_TYPES_CATALOG.length,
+        expected_count: CANONICAL_CATALOG_MANIFEST.expectedCount,
         status: 'CATALOG_FALLBACK_CORE',
         loaded_at: nowIso,
         source: 'fallback_core',
@@ -88,7 +89,7 @@ export class TypeCatalogService {
         version: CATALOG_VERSION,
         checksum: this.computeChecksum(EVE_TYPES_CATALOG),
         item_count: EVE_TYPES_CATALOG.length,
-        expected_count: EVE_TYPES_CATALOG.length,
+        expected_count: CANONICAL_CATALOG_MANIFEST.expectedCount,
         status: 'CATALOG_CORRUPTED',
         loaded_at: nowIso,
         source: 'fallback_core',
@@ -108,7 +109,7 @@ export class TypeCatalogService {
         version: CATALOG_VERSION,
         checksum: this.computeChecksum(EVE_TYPES_CATALOG),
         item_count: EVE_TYPES_CATALOG.length,
-        expected_count: EVE_TYPES_CATALOG.length,
+        expected_count: CANONICAL_CATALOG_MANIFEST.expectedCount,
         status: 'CATALOG_CORRUPTED',
         loaded_at: nowIso,
         source: 'fallback_core',
@@ -125,7 +126,7 @@ export class TypeCatalogService {
         version: CATALOG_VERSION,
         checksum: this.computeChecksum(EVE_TYPES_CATALOG),
         item_count: EVE_TYPES_CATALOG.length,
-        expected_count: EVE_TYPES_CATALOG.length,
+        expected_count: CANONICAL_CATALOG_MANIFEST.expectedCount,
         status: 'CATALOG_CORRUPTED',
         loaded_at: nowIso,
         source: 'fallback_core',
@@ -142,7 +143,7 @@ export class TypeCatalogService {
         version: CATALOG_VERSION,
         checksum: CatalogHashing.computeCatalogChecksum([]),
         item_count: 0,
-        expected_count: 0,
+        expected_count: CANONICAL_CATALOG_MANIFEST.expectedCount,
         status: 'CATALOG_EMPTY',
         loaded_at: nowIso,
         source: 'filesystem',
@@ -154,38 +155,32 @@ export class TypeCatalogService {
       return { metadata, types: [] };
     }
 
-    // 3. Validate every item using domain validator
+    // 3. Validate every item using the canonical manifest.
     const { validTypes, errors } = CatalogValidator.validateCollection(parsed);
-
-    const isCorrupted = errors.length > 0 && validTypes.length === 0;
     const checksum = CatalogHashing.computeCatalogChecksum(validTypes);
+    const completeness = CatalogValidator.validateCatalogCompleteness(validTypes, {
+      expectedCount: CANONICAL_CATALOG_MANIFEST.expectedCount,
+      expectedChecksum: CANONICAL_CATALOG_MANIFEST.checksum,
+      currentChecksum: checksum,
+      source: 'canonical_asset',
+    });
 
-    // INVARIANT: Baseline of <= 100 types represents the core fallback catalog (53 types).
-    // When the full universal SDE dataset (> 1000 items) is present, it is CATALOG_READY.
-    const isFullUniverse = validTypes.length > 500;
-    const status: TypeCatalogStatus = isCorrupted
-      ? 'CATALOG_CORRUPTED'
-      : validTypes.length === 0
-      ? 'CATALOG_EMPTY'
-      : isFullUniverse
-      ? 'CATALOG_READY'
-      : 'CATALOG_FALLBACK_CORE';
-
-    const source = isFullUniverse ? 'server' : 'fallback_core';
-    const is_degraded = !isFullUniverse;
+    const status: TypeCatalogStatus = errors.length > 0 ? 'CATALOG_CORRUPTED' : completeness.status;
+    const source = status === 'CATALOG_READY' ? 'canonical_asset' : 'filesystem';
+    const is_degraded = status !== 'CATALOG_READY';
 
     const metadata: TypeCatalogMetadata = {
       version: CATALOG_VERSION,
       checksum,
       item_count: validTypes.length,
-      expected_count: validTypes.length,
+      expected_count: CANONICAL_CATALOG_MANIFEST.expectedCount,
       status,
       loaded_at: nowIso,
       source,
       file_path: foundPath,
-      minimum_expected_count: validTypes.length,
+      minimum_expected_count: CANONICAL_CATALOG_MANIFEST.expectedCount,
       is_degraded,
-      error: errors.length > 0 ? `${errors.length} invalid items encountered` : undefined,
+      error: errors.length > 0 ? `${errors.length} invalid items encountered` : completeness.reason,
     };
 
     this.cachedMetadata = metadata;

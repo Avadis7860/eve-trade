@@ -1,4 +1,5 @@
 import { MarketHub, JumpRoute, MarketCategory, MarketGroup, EveTypeDetail } from '../types';
+import { CANONICAL_UNIVERSE_MANIFEST } from './universeManifest';
 
 export const MAJOR_MARKET_HUBS: MarketHub[] = [
   {
@@ -109,33 +110,42 @@ const KNOWN_ROUTES: Record<string, JumpRoute> = {
   '30002053-30002510': { from_system_id: 30002053, to_system_id: 30002510, jumps: 9, min_security: 0.5, is_highsec_only: true, gank_risk_level: 'safe' },
 };
 
+function routeProvenance(source: 'static_route_table' | 'same_system' | 'unknown', verified: boolean, confidence: number, scope: string) {
+  return {
+    source: source === 'unknown' ? 'unknown' : 'static_route_table',
+    dataset_version: CANONICAL_UNIVERSE_MANIFEST.version,
+    dataset_checksum: CANONICAL_UNIVERSE_MANIFEST.checksum,
+    loaded_at: new Date().toISOString(),
+    verified,
+    confidence,
+    completeness: verified ? 'complete' : 'unknown',
+    scope,
+  } as const;
+}
+
 export function getJumpRoute(fromSystemId: number, toSystemId: number): JumpRoute {
   if (fromSystemId === toSystemId) {
     return {
-      from_system_id: fromSystemId,
-      to_system_id: toSystemId,
-      jumps: 0,
-      min_security: 1.0,
-      is_highsec_only: true,
-      gank_risk_level: 'safe',
+      from_system_id: fromSystemId, to_system_id: toSystemId, jumps: 0, min_security: 1.0,
+      is_highsec_only: true, gank_risk_level: 'safe', status: 'KNOWN', source: 'same_system',
+      is_verified: true, confidence: 1.0, provenance: routeProvenance('same_system', true, 1.0, 'same_system'),
     };
   }
 
   const key = `${fromSystemId}-${toSystemId}`;
-  if (KNOWN_ROUTES[key]) {
-    return KNOWN_ROUTES[key];
+  const known = KNOWN_ROUTES[key];
+  if (known) {
+    return {
+      ...known, status: 'KNOWN', source: 'static_route_table', is_verified: true, confidence: 1.0,
+      provenance: routeProvenance('static_route_table', true, 1.0, 'major_market_hub_pairs'),
+    };
   }
 
-  // Deterministic fallback route
-  const hash = Math.abs(fromSystemId * 31 + toSystemId);
-  const jumps = (hash % 16) + 4;
   return {
-    from_system_id: fromSystemId,
-    to_system_id: toSystemId,
-    jumps,
-    min_security: 0.6,
-    is_highsec_only: true,
-    gank_risk_level: 'safe',
+    from_system_id: fromSystemId, to_system_id: toSystemId, jumps: -1, min_security: -1,
+    is_highsec_only: false, gank_risk_level: 'dangerous', status: 'UNKNOWN', source: 'unknown',
+    is_verified: false, confidence: 0, provenance: routeProvenance('unknown', false, 0, 'unresolved_route'),
+    error: `No canonical route is known for system pair ${fromSystemId} -> ${toSystemId}`,
   };
 }
 

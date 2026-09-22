@@ -1,6 +1,6 @@
 # 🚀 EVE Trade — Inter-Regional Arbitrage & Market Intelligence Platform
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
+[![CI](https://github.com/Avadis7860/eve-trade/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Avadis7860/eve-trade/actions/workflows/ci.yml)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)]()
 [![React](https://img.shields.io/badge/React-18.3-61dafb.svg)]()
 [![Vite](https://img.shields.io/badge/Vite-6.0-646CFF.svg)]()
@@ -138,8 +138,8 @@
                    │                                 │
                    ▼                                 ▼
 ┌──────────────────────────────────────┐ ┌───────────────────────────────┐
-│        3. MOTEURS FINANCIERS         │ │     4. BACKEND EXPRESS API    │
-│    PUR ET SANS EFFETS DE BORD        │ │           (server.ts)         │
+│   3. MOTEURS FINANCIERS & ORCHESTRATION│ │   4. BACKEND EXPRESS API      │
+│   Core pur + frontière vérité dédiée │ │           (server.ts)         │
 │  - FeeEngine (Taxes & Courtage)      │ │  - /api/health (Santé & Stats)│
 │  - PriceLadderEngine (Profondeur)    │ │  - /api/types/status          │
 │  - TradableQuantityEngine (Goulots)  │ │  - /api/types/all ({meta,tx}) │
@@ -187,7 +187,7 @@
 │   │   └── TraderPerformanceModal.tsx     # Métriques de performance et statistiques FIFO
 │   ├── data/
 │   │   ├── universe.ts                    # Hubs, régions, systèmes, routes & catalogue
-│   │   ├── allMarketTypes.json            # 53 types noyau validés (CATALOG_FALLBACK_CORE)
+│   │   ├── allMarketTypes.json            # Catalogue canonique EVE (20 526 types), vérifié par manifest SHA-256
 │   │   └── mockData.ts                    # Données de secours réalistes
 │   ├── domain/                            # 🏛️ Modèles de domaine & référentiels
 │   │   ├── catalog/                       # Gestion du catalogue de types et validation
@@ -209,7 +209,7 @@
 │   │   ├── profit.ts                      # Moteur de rentabilité et décomposition
 │   │   ├── quantity.ts                    # Moteur de calcul de quantité maximale
 │   │   ├── scoring.ts                     # Moteur de notation multicritère (0-100)
-│   │   └── __tests__/                     # Suites complètes de tests unitaires (100% verts)
+│   │   └── __tests__/                     # Suites de régression et de contrats
 │   ├── services/                          # 🌐 Services asynchrones & intégrations
 │   │   ├── authService.ts                 # Gestion des sessions et tokens SSO
 │   │   ├── characterTransactionSyncService.ts # Ingestion ESI des transactions de portefeuille

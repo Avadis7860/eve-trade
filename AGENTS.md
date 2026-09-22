@@ -7,7 +7,8 @@ Ce document constitue la **source de vérité absolue** pour tout agent d'intell
 ## 🎯 Principes Directeurs & Invariants Majeurs
 
 ### 1. Invariants Mathématiques des Moteurs de Trading (`/src/engine/*`)
-* **Aucun effet de bord dans les moteurs :** Tous les fichiers dans `/src/engine/` (`fee.ts`, `ladder.ts`, `money.ts`, `profit.ts`, `quantity.ts`, `scoring.ts`, `features.ts`, `prediction.ts`, `interRegional.ts`, `portfolio.ts`) sont des modules mathématiques purs. Ils ne doivent jamais contenir d'appels réseau, d'accès direct au `localStorage`, ou de hooks React.
+* **Moteurs mathématiques purs :** `fee.ts`, `ladder.ts`, `money.ts`, `profit.ts`, `quantity.ts`, `scoring.ts`, `features.ts`, `prediction.ts` et `portfolio.ts` restent déterministes et sans effets de bord.
+* **Frontière d'orchestration actuelle :** `interRegional.ts` assure encore la résolution Catalog/Universe autour du calcul d'opportunité. La cible Phase 2.7 est d'extraire cette résolution afin que le noyau financier consomme exclusivement des entrées certifiées.
 * **Respect strict des formules officielles CCP Games :**
   * *Sales Tax* : Décroissance de 11% par niveau de compétence *Accounting* ($8.0\% \to 3.6\%$).
   * *NPC Broker Fee* : Décroissance via *Broker Relations*, faction standing et corp standing ($3.0\% \to 1.0\%$).
@@ -59,7 +60,7 @@ npm run build
 ├── server.ts                 # Backend Express (Endpoints API, Proxy ESI, Échange SSO)
 ├── src/
 │   ├── types.ts              # Types TypeScript unifiés (Point central de typage)
-│   ├── engine/               # Moteurs de calcul déterministes (PURS, SANS EFFETS DE BORD)
+│   ├── engine/               # Moteurs de calcul déterministes et contrats de calcul
 │   │   ├── fee.ts            # Calculateur de taxes, courtage et fret
 │   │   ├── ladder.ts         # Agrégation de carnet, profondeur et slippage
 │   │   ├── quantity.ts       # Résolution multi-contraintes (capital, cargo, carnet)
@@ -75,7 +76,7 @@ npm run build
 │   ├── services/             # Couche d'intégration & services d'orchestration
 │   │   ├── authService.ts    # Gestion multi-personnages EVE SSO et tokens
 │   │   ├── esi.ts            # Client HTTP CCP ESI avec retry et gestion d'erreurs
-│   │   ├── indexedDbStore.ts # Stockage persistant IndexedDB v2 (8 object stores)
+│   │   ├── indexedDbStore.ts # Stockage persistant IndexedDB v5 (11 object stores)
 │   │   ├── marketDataStore.ts# Cache central d'ordres et statistiques
 │   │   ├── scanner.ts        # Scanner d'opportunités inter-hubs
 │   │   ├── orderAdvisor.ts   # Moteur de recommandations d'ajustement d'ordres
@@ -96,3 +97,16 @@ npm run build
 3. **Respecter l'accessibilité des stations :** Ne jamais simplifier le filtrage spatial des ordres dans `interRegional.ts`. Un ordre d'achat ne peut être pris que dans la station où les marchandises sont situées ou selon son champ de validité (`order_range`).
 4. **Pas d'icônes SVG custom :** Utiliser exclusivement `lucide-react`.
 5. **Préserver le mode multi-comptes :** Toute fonctionnalité relative aux personnages doit être compatible avec la liste `EveCharacterSession[]` gérée par `AuthService`.
+
+
+### 3. Vérité canonique Catalog / Universe
+* Un dataset canonique est identifié par sa version, sa cardinalité attendue, son checksum déterministe et son état de validation.
+* Les métadonnées fournies par un appelant ne constituent jamais une preuve de validité.
+* Les résolutions dynamiques ESI, structures et fallbacks restent hors du périmètre canonique financier.
+* Une route inconnue ne possède aucune distance exploitable : UNKNOWN et jumps < 0 doivent être rejetés avant toute comparaison de portée.
+* Une absence d'historique de demande ne doit jamais être transformée en volume journalier synthétique dans une estimation de relist.
+
+### 4. Validation et CI
+* Le dépôt doit conserver un package-lock.json cohérent avec package.json et la CI doit utiliser npm ci.
+* Les workflows de validation des branches de fonctionnalité passent par les pull requests vers main afin d'éviter les doubles exécutions push + pull_request.
+* Les suites de contrats Catalog/Universe sont exécutées avant la régression générale afin qu'une rupture de vérité des données soit diagnostiquée indépendamment des autres tests.

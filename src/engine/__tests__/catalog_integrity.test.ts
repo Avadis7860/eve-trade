@@ -2,6 +2,8 @@ import { CatalogHashing } from '../../domain/catalog/CatalogHashing';
 import { CatalogValidator } from '../../domain/catalog/CatalogValidator';
 import { CatalogRepository } from '../../domain/catalog/CatalogRepository';
 import { EveTypeDetail, TypeCatalogMetadata } from '../../types';
+import { EVE_TYPES_CATALOG } from '../../data/universe';
+import { CANONICAL_CATALOG_MANIFEST } from '../../data/catalogManifest';
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
@@ -71,11 +73,12 @@ async function runCatalogIntegrityTests() {
 
   // Test 5: Checksum Mismatch Detection
   console.log('5. Testing checksum mismatch detection...');
-  const mismatchCheck = CatalogValidator.validateCatalogCompleteness(fallbackItems, {
-    expectedCount: 2,
+  const canonicalChecksum = CatalogHashing.computeCatalogChecksum(EVE_TYPES_CATALOG);
+  const mismatchCheck = CatalogValidator.validateCatalogCompleteness(EVE_TYPES_CATALOG, {
+    expectedCount: CANONICAL_CATALOG_MANIFEST.expectedCount,
     expectedChecksum: '0000000000000000000000000000000000000000000000000000000000000000',
-    currentChecksum: fallbackChecksum,
-    source: 'canonical_server',
+    currentChecksum: canonicalChecksum,
+    source: 'canonical_asset',
   });
   assert(
     mismatchCheck.status === 'CATALOG_CORRUPTED',
@@ -89,9 +92,10 @@ async function runCatalogIntegrityTests() {
   CatalogRepository.resetInstance();
   const repo = CatalogRepository.getInstance();
 
-  assert(!repo.isReady(), 'Initial repository must not be isReady() because it runs on fallback core');
-  assert(repo.isDegraded(), 'Initial repository must be degraded');
-  assert(repo.getMetadata().status === 'CATALOG_FALLBACK_CORE', 'Status must be CATALOG_FALLBACK_CORE');
+  assert(repo.isReady(), 'Bundled canonical repository must start READY');
+  assert(!repo.isDegraded(), 'Canonical repository must not be degraded');
+  assert(repo.getMetadata().status === 'CATALOG_READY', 'Status must be CATALOG_READY');
+  assert(repo.getMetadata().item_count === CANONICAL_CATALOG_MANIFEST.expectedCount, 'Canonical repository count must match manifest');
 
   // Verify O(1) lookups
   const tri = repo.getTypeById(34);
@@ -99,10 +103,10 @@ async function runCatalogIntegrityTests() {
   assert(repo.getTypeName(34) === 'Tritanium', 'getTypeName(34) must return "Tritanium"');
   assert(repo.getTypeName(99999999) === 'Type #99999999', 'Unknown ID returns formatted placeholder');
 
-  // Test 7: Transition to CATALOG_READY upon loading authoritative universal catalog
-  console.log('7. Testing CatalogRepository transition to ready...');
-  const readyMeta: TypeCatalogMetadata = {
-    version: '2026.09.20.1',
+  // Test 7: A caller cannot self-declare a truncated dataset as READY.
+  console.log('7. Testing canonical readiness cannot be forced by caller metadata...');
+  const fakeMeta: TypeCatalogMetadata = {
+    version: CANONICAL_CATALOG_MANIFEST.version,
     checksum: fallbackChecksum,
     item_count: 2,
     expected_count: 2,
@@ -111,9 +115,22 @@ async function runCatalogIntegrityTests() {
     source: 'server',
     is_degraded: false,
   };
-  repo.loadExplicitDataset(fallbackItems, readyMeta);
-  assert(repo.isReady(), 'Repository with verified canonical dataset must be isReady() === true');
-  assert(!repo.isDegraded(), 'Ready repository must not be degraded');
+  repo.loadExplicitDataset(fallbackItems, fakeMeta);
+  assert(!repo.isReady(), 'A two-item dataset must never become CATALOG_READY');
+  assert(repo.getMetadata().status === 'CATALOG_PARTIAL', 'Truncated self-declared dataset must be PARTIAL');
+
+  repo.loadExplicitDataset(EVE_TYPES_CATALOG, {
+    version: CANONICAL_CATALOG_MANIFEST.version,
+    checksum: CANONICAL_CATALOG_MANIFEST.checksum,
+    item_count: CANONICAL_CATALOG_MANIFEST.expectedCount,
+    expected_count: CANONICAL_CATALOG_MANIFEST.expectedCount,
+    status: 'CATALOG_READY',
+    loaded_at: new Date().toISOString(),
+    source: 'canonical_asset',
+    is_degraded: false,
+  });
+  assert(repo.isReady(), 'Exact canonical dataset must become READY');
+  assert(!repo.isDegraded(), 'Exact canonical dataset must not be degraded');
   assert(repo.getMetadata().status === 'CATALOG_READY', 'Status must be CATALOG_READY');
 
   console.log('🎉 ALL CATALOG INTEGRITY DOMAIN TESTS PASSED WITH 100% SUCCESS!');

@@ -30,7 +30,11 @@ export interface OAuthStateEntry {
 }
 
 export const activeOAuthStates = new Map<string, OAuthStateEntry>();
-export const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const DEFAULT_STATE_TTL_MS = 10 * 60 * 1000;
+export const STATE_TTL_MS = Math.max(
+  1000,
+  Number(process.env.E2E_OAUTH_STATE_TTL_MS || DEFAULT_STATE_TTL_MS),
+); // 10 minutes in production; shortened only by deterministic E2E harness
 export const MAX_ACTIVE_STATES = 5000; // Limit memory consumption under high load
 
 // Periodic cleanup of expired OAuth states

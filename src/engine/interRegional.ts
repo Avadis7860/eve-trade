@@ -229,6 +229,24 @@ export class InterRegionalFinancialEngine {
   ): T {
     if (!opp) return opp;
 
+    if (
+      opp.strategy === 'relist' &&
+      (!opp.relist_context ||
+        opp.relist_context.historical_daily_volume <= 0 ||
+        opp.relist_context.expected_capturable_volume_per_day <= 0)
+    ) {
+      return {
+        ...opp,
+        is_viable: false,
+        rejection_reasons: Array.from(
+          new Set([
+            ...opp.rejection_reasons,
+            'Données historiques de demande insuffisantes pour recalculer un relist de façon fiable.',
+          ])
+        ),
+      };
+    }
+
     const unitVolume =
       opp.unit_volume && opp.unit_volume > 0
         ? opp.unit_volume
@@ -240,12 +258,12 @@ export class InterRegionalFinancialEngine {
     const sourceDepth =
       opp.liquidity?.buy_hub_depth_volume && opp.liquidity.buy_hub_depth_volume > 0
         ? opp.liquidity.buy_hub_depth_volume
-        : Math.max(opp.quantity_tradable || 1, 100);
+        : Math.max(0, opp.quantity_tradable || 0);
 
     let destDepth =
       opp.liquidity?.sell_hub_depth_volume && opp.liquidity.sell_hub_depth_volume > 0
         ? opp.liquidity.sell_hub_depth_volume
-        : Math.max(opp.quantity_tradable || 1, 100);
+        : Math.max(0, opp.quantity_tradable || 0);
 
     if (opp.strategy === 'relist' && opp.relist_context?.expected_capturable_volume_per_day) {
       destDepth = Math.max(
@@ -304,8 +322,8 @@ export class InterRegionalFinancialEngine {
 
     if (opp.strategy === 'relist' && relistContext) {
       const volumeAhead = relistContext.volume_ahead || 0;
-      const baseDailyVol = Math.max(1, relistContext.historical_daily_volume || 100);
-      const capturablePerDay = Math.max(1, relistContext.expected_capturable_volume_per_day || 1);
+      const baseDailyVol = relistContext.historical_daily_volume;
+      const capturablePerDay = relistContext.expected_capturable_volume_per_day;
       const timeToClearAhead = volumeAhead > 0 ? volumeAhead / baseDailyVol : 0;
       const timeToClearOurQty = actualQuantity / capturablePerDay;
       expectedDaysToSell = Math.max(0.1, roundIsk(timeToClearAhead + timeToClearOurQty));

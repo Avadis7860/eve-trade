@@ -75,6 +75,24 @@ async function runTests(): Promise<void> {
     assert(result.effective_capital === 0, 'Active-character spendable capital must be zero');
   });
 
+  await test('legacy corporation config without wallet provenance fails closed despite a positive stored balance', () => {
+    const result = TreasuryEngine.resolveEffectiveCapital(
+      {
+        treasury_source_mode: 'corporation',
+        corporation_wallet_division: 1,
+        corporation_wallet_balance: 5_000_000_000,
+        corporation_divisions: [
+          { division: 1, name: 'Legacy', balance: 5_000_000_000 },
+        ],
+        available_capital: 2_000_000_000,
+      },
+      [],
+    );
+
+    assert(result.effective_capital === 0, 'Missing corporation provenance must not certify legacy capital');
+    assert(result.capital_status === 'unavailable', 'Missing provenance must remain unavailable');
+  });
+
   await test('corporation treasury uses observed corporation balance even when the character wallet is negative', () => {
     const result = TreasuryEngine.resolveEffectiveCapital(
       {

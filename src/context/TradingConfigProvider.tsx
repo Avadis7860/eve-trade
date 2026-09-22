@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { FinancialConfig, TradeStrategy, MarketHub } from '../types';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
-import { loadPersistedFinancialConfig } from '../engine/financialConfig';
+import { loadPersistedFinancialConfig, normalizeFinancialConfig } from '../engine/financialConfig';
 
 interface TradingConfigContextType {
   config: FinancialConfig;
@@ -58,7 +58,7 @@ export const TradingConfigProvider: React.FC<{ children: React.ReactNode }> = ({
           typeof update === 'function'
             ? update(previous)
             : update;
-        return loadPersistedFinancialConfig(JSON.stringify(next), DEFAULT_CONFIG);
+        return normalizeFinancialConfig(next) as FinancialConfig;
       });
     },
     [],

@@ -20,6 +20,7 @@ function buildOwnership(
 ): OrderOwnership {
   return {
     principal_character_id: principalCharacterId,
+    observed_by_character_ids: [principalCharacterId],
     owner_type: 'corporation',
     owner_id: corporationId,
     ...(corporationName ? { owner_name: corporationName } : {}),
@@ -225,4 +226,66 @@ export function mergeCharacterAndCorporationOrders(
   }
 
   return Array.from(byId.values());
+}
+
+/**
+ * Merges two observations of the same economic order without losing the
+ * independent characters that observed it.
+ *
+ * Owner identity must be identical. A conflicting owner is treated as an
+ * integrity violation and returns null rather than choosing a winner silently.
+ */
+export function mergeOrderObservations(
+  existing: EveCharacterOrder,
+  incoming: EveCharacterOrder,
+): EveCharacterOrder | null {
+  if (existing.order_id !== incoming.order_id) return null;
+
+  const existingOwner = existing.ownership;
+  const incomingOwner = incoming.ownership;
+
+  if (
+    existingOwner &&
+    incomingOwner &&
+    (
+      existingOwner.owner_type !== incomingOwner.owner_type ||
+      existingOwner.owner_id !== incomingOwner.owner_id
+    )
+  ) {
+    return null;
+  }
+
+  const owner = existingOwner ?? incomingOwner;
+  if (!owner) {
+    return existing;
+  }
+
+  const observers = new Set<number>();
+  for (const id of existingOwner?.observed_by_character_ids ?? [existingOwner.principal_character_id]) {
+    if (Number.isInteger(id) && id > 0) observers.add(id);
+  }
+  for (const id of incomingOwner?.observed_by_character_ids ?? [incomingOwner.principal_character_id]) {
+    if (Number.isInteger(id) && id > 0) observers.add(id);
+  }
+
+  const sortedObservers = Array.from(observers).sort((a, b) => a - b);
+  const primaryPrincipal = sortedObservers[0] ?? owner.principal_character_id;
+
+  return {
+    ...existing,
+    ...incoming,
+    ownership: {
+      ...owner,
+      principal_character_id: primaryPrincipal,
+      observed_by_character_ids: sortedObservers,
+    },
+    character_id:
+      owner.owner_type === 'character'
+        ? (owner.owner_id)
+        : undefined,
+    character_name:
+      owner.owner_type === 'character'
+        ? (owner.owner_name ?? incoming.character_name ?? existing.character_name)
+        : undefined,
+  };
 }

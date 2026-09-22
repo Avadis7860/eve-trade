@@ -98,37 +98,69 @@ export class UniverseRepository {
       }
     }
 
-    // 4. Seed Hubs (Overriding / prioritizing hub references)
+    // 4. Register hubs as business metadata without overriding canonical universe facts.
     for (const hub of MAJOR_MARKET_HUBS) {
       this.hubMap.set(hub.id, hub);
       this.stationToHubMap.set(hub.station_id, hub);
       this.systemToHubMap.set(hub.system_id, hub);
-      this.locationCache.set(hub.station_id, {
-        status: 'RESOLVED_HUB',
-        location_id: hub.station_id,
-        name: hub.station,
-        system_id: hub.system_id,
-        system_name: hub.solar_system,
-        region_id: hub.region_id,
-        region_name: hub.region,
-        security_status: hub.security_status,
-        is_structure: hub.hub_type === 'citadel',
-        is_hub: true,
-        hub_id: hub.id,
-        source: 'hub',
-        is_verified: this.integrity.isReady,
-        confidence: this.integrity.isReady ? 1.0 : 0,
-        provenance: {
-          source: 'static_dataset',
-          dataset_version: CANONICAL_UNIVERSE_MANIFEST.version,
-          dataset_checksum: CANONICAL_UNIVERSE_MANIFEST.checksum,
-          loaded_at: new Date().toISOString(),
-          verified: this.integrity.isReady,
-          confidence: this.integrity.isReady ? 1.0 : 0,
-          completeness: this.integrity.isReady ? 'complete' : 'partial',
-          scope: 'major_market_hub',
-        },
-      });
+
+      const canonicalStation = this.stationMap.get(hub.station_id);
+      const canonicalSystem = this.systemMap.get(hub.system_id);
+      const canonicalRegionName = this.regionMap.get(hub.region_id);
+      const idsConsistent =
+        canonicalStation?.system_id === hub.system_id &&
+        canonicalSystem?.region_id === hub.region_id &&
+        canonicalRegionName !== undefined;
+
+      if (canonicalStation && canonicalSystem && idsConsistent) {
+        const existing = this.locationCache.get(hub.station_id);
+        if (existing) {
+          existing.is_hub = true;
+          existing.hub_id = hub.id;
+          existing.status = 'RESOLVED_HUB';
+          existing.source = 'static_npc';
+          existing.is_verified = this.integrity.isReady;
+          existing.confidence = this.integrity.isReady ? 1.0 : 0;
+          existing.provenance = {
+            source: 'static_dataset',
+            dataset_version: CANONICAL_UNIVERSE_MANIFEST.version,
+            dataset_checksum: CANONICAL_UNIVERSE_MANIFEST.checksum,
+            loaded_at: new Date().toISOString(),
+            verified: this.integrity.isReady,
+            confidence: this.integrity.isReady ? 1.0 : 0,
+            completeness: this.integrity.isReady ? 'complete' : 'partial',
+            scope: 'major_market_hub',
+          };
+        }
+      } else {
+        this.locationCache.set(hub.station_id, {
+          status: 'LOCATION_UNKNOWN',
+          location_id: hub.station_id,
+          name: hub.station,
+          system_id: canonicalStation?.system_id,
+          system_name: canonicalSystem?.name,
+          region_id: canonicalSystem?.region_id,
+          region_name: canonicalRegionName,
+          security_status: canonicalSystem?.security,
+          is_structure: hub.hub_type === 'citadel',
+          is_hub: true,
+          hub_id: hub.id,
+          source: 'fallback',
+          is_verified: false,
+          confidence: 0,
+          error: 'Configured market hub is missing from or inconsistent with the canonical universe dataset',
+          provenance: {
+            source: 'unknown',
+            dataset_version: CANONICAL_UNIVERSE_MANIFEST.version,
+            dataset_checksum: CANONICAL_UNIVERSE_MANIFEST.checksum,
+            loaded_at: new Date().toISOString(),
+            verified: false,
+            confidence: 0,
+            completeness: 'unknown',
+            scope: 'major_market_hub',
+          },
+        });
+      }
     }
 
     // 5. Known station names overlay
@@ -343,31 +375,8 @@ export class UniverseRepository {
    * Resolves solar system domain entity with canonical provenance.
    */
   resolveSystem(systemId: number): SystemResolutionResult {
-    const hub = this.systemToHubMap.get(systemId);
-    if (hub) {
-      return {
-        status: 'RESOLVED_SYSTEM',
-        system_id: hub.system_id,
-        name: hub.solar_system,
-        region_id: hub.region_id,
-        region_name: hub.region,
-        security_status: hub.security_status,
-        is_verified: this.integrity.isReady,
-        confidence: this.integrity.isReady ? 1.0 : 0,
-        source: 'hub',
-        provenance: {
-          source: 'static_dataset',
-          dataset_version: CANONICAL_UNIVERSE_MANIFEST.version,
-          dataset_checksum: CANONICAL_UNIVERSE_MANIFEST.checksum,
-          loaded_at: new Date().toISOString(),
-          verified: this.integrity.isReady,
-          confidence: this.integrity.isReady ? 1.0 : 0,
-          completeness: this.integrity.isReady ? 'complete' : 'partial',
-          scope: 'major_market_hub',
-        },
-      };
-    }
     const sys = this.systemMap.get(systemId);
+    const hub = this.systemToHubMap.get(systemId);
     if (sys) {
       return {
         status: 'RESOLVED_SYSTEM',
@@ -378,7 +387,7 @@ export class UniverseRepository {
         security_status: sys.security,
         is_verified: this.integrity.isReady,
         confidence: this.integrity.isReady ? 1.0 : 0,
-        source: 'static_universe',
+        source: hub ? 'hub' : 'static_universe',
         provenance: {
           source: 'static_dataset',
           dataset_version: CANONICAL_UNIVERSE_MANIFEST.version,

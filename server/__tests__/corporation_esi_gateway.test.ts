@@ -130,9 +130,9 @@ async function runTests(): Promise<void> {
     assert(calls[0].context.type === 'character', 'Divisions must use a character principal');
     assert(
       calls[0].context.type === 'character' &&
-        calls[0].id === undefined &&
-        calls[0].bearerCredential === undefined,
-      'Gateway calls must not leak request fields outside the principal object',
+        calls[0].context.id === 1001 &&
+        calls[0].context.bearerCredential === 'token-character-a',
+      'Divisions must retain the authenticated character principal',
     );
   });
 

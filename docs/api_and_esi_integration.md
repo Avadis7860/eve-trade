@@ -149,3 +149,5 @@ Cette frontière est volontairement neutre vis-à-vis du métier. Elle constitue
 Le mode `treasury_source_mode = corporation` sélectionne exclusivement une source corporation marquée `esi` ou `manual`. Une donnée de wallet personnage, même négative, ne peut pas réduire ni remplacer le capital corporation.
 
 Une source ESI indisponible est représentée distinctement et ne provoque pas la réutilisation silencieuse d'un ancien `available_capital`.
+
+Une ancienne configuration persistée sans `corporation_wallet_source`, ou avec une valeur inconnue, est normalisée vers `unavailable`. Le solde numérique hérité reste consultable, mais n'est pas certifié comme capital ESI ou budget manuel tant qu'il n'a pas été explicitement requalifié.

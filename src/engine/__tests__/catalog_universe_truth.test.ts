@@ -6,6 +6,7 @@ import { InterRegionalFinancialEngine } from '../interRegional';
 import { EVE_TYPES_CATALOG, MAJOR_MARKET_HUBS } from '../../data/universe';
 import { CANONICAL_CATALOG_MANIFEST } from '../../data/catalogManifest';
 import { CANONICAL_UNIVERSE_MANIFEST } from '../../data/universeManifest';
+import { CANONICAL_UNIVERSE_GRAPH_MANIFEST } from '../../data/universeGraphManifest';
 import universeDataRaw from '../../data/universeData.json';
 import { EveTypeDetail, MarketHub, RawMarketOrder, TypeCatalogMetadata } from '../../types';
 
@@ -14,6 +15,12 @@ function assert(condition: boolean, message: string) {
 }
 
 console.log('=== RUNNING CATALOG & UNIVERSE TRUTH TESTS ===');
+
+assert(CANONICAL_UNIVERSE_GRAPH_MANIFEST.sdeBuild === '3503375', 'Runtime graph must be pinned to the validated CCP SDE build');
+assert(CANONICAL_UNIVERSE_GRAPH_MANIFEST.systemsCount === 5485, 'Runtime graph system count mismatch');
+assert(CANONICAL_UNIVERSE_GRAPH_MANIFEST.directedEdgesCount === 13978, 'Runtime graph edge count mismatch');
+assert(CANONICAL_UNIVERSE_GRAPH_MANIFEST.graphChecksum === '5465da368fa3b6bf03d610554de453af1c54182199d325fe318d431d29225b3c', 'Runtime graph checksum mismatch');
+
 
 const canonicalCatalogChecksum = CatalogValidator.computeCanonicalChecksum(EVE_TYPES_CATALOG);
 assert(EVE_TYPES_CATALOG.length === CANONICAL_CATALOG_MANIFEST.expectedCount, 'Bundled catalog cardinality must match manifest');

@@ -80,11 +80,12 @@ const partialGraph = buildUniverseGraph({
     { system_id: 10, security_status: 0.9 },
     { system_id: 20, security_status: 0.9 },
   ],
-  edges: [],
+  edges: [{ from_system_id: 10, to_system_id: 20 }],
 });
 const unknown = new RouteEngine(partialGraph).findRoute(10, 20);
 assert.equal(unknown.status, 'UNKNOWN');
 assert.equal(unknown.jumps, null);
+assert.equal(certifyRoute(partialGraph, unknown).status, 'REJECTED');
 
 const unknownSecurityGraph = buildUniverseGraph({
   provenance,
@@ -98,6 +99,35 @@ const unknownSecurityRoute = new RouteEngine(unknownSecurityGraph).findRoute(100
 assert.equal(unknownSecurityRoute.status, 'FOUND');
 assert.equal(unknownSecurityRoute.safety, 'UNKNOWN');
 assert.equal(certifyRoute(unknownSecurityGraph, unknownSecurityRoute).status, 'REJECTED');
+
+const tamperedProvenance = {
+  ...multiHop,
+  graph_provenance: { ...multiHop.graph_provenance, graph_checksum: 'tampered' },
+};
+assert.equal(certifyRoute(graph, tamperedProvenance).status, 'REJECTED');
+
+assert.throws(
+  () =>
+    buildUniverseGraph({
+      provenance,
+      nodes: [
+        { system_id: 1, security_status: 0.9 },
+        { system_id: 1, security_status: 0.8 },
+      ],
+      edges: [],
+    }),
+  /Duplicate universe graph node/,
+);
+
+assert.throws(
+  () =>
+    buildUniverseGraph({
+      provenance,
+      nodes: [{ system_id: 1, security_status: 0.9 }],
+      edges: [{ from_system_id: 1, to_system_id: 2 }],
+    }),
+  /unknown system/,
+);
 
 const deterministicA = engine.findRoute(1, 4);
 const deterministicB = engine.findRoute(1, 4);

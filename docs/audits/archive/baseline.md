@@ -1,3 +1,8 @@
+> **Historical**
+> Date archived: 2026-09-23
+> Superseded by: Baseline history; current state lives in docs/state/current-state.md.
+> Relevant only for: development history and migration traceability.
+>
 # EVE Trade — Baseline Audit & Traçabilité (LOT-001)
 
 Document de référence établi dans le cadre de la mission **LOT-001 — Baseline & CI Foundation** du master-plan de stabilisation du projet EVE Trade.

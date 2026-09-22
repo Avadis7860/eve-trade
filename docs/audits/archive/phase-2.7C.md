@@ -1,3 +1,8 @@
+> **Historical**
+> Date archived: 2026-09-23
+> Superseded by: Historical Phase 2.7C plan/report; current Universe truth is docs/domains/universe.md.
+> Relevant only for: development history and migration traceability.
+>
 # Phase 2.7C — Real SDE Canonical Universe Integration
 
 ## Mission

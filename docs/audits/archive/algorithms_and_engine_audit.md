@@ -1,3 +1,8 @@
+> **Historical**
+> Date archived: 2026-09-23
+> Superseded by: Replaced by modular domain, contract, invariant and validation documents.
+> Relevant only for: development history and migration traceability.
+>
 # 🔬 Audit Complet et Traçabilité Algorithmique des Moteurs EVE Trade
 
 Ce document fournit un audit mathématique et fonctionnel exhaustif de tous les moteurs de calcul, algorithmes financiers, modèles prédictifs et services analytiques intégrés dans **EVE Trade**.

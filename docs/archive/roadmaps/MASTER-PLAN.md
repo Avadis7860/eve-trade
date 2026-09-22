@@ -1,3 +1,8 @@
+> **Historical**
+> Date archived: 2026-09-23
+> Superseded by: Replaced by docs/roadmap/master-plan.md.
+> Relevant only for: historical roadmap context.
+>
 # MASTER-PLAN — EVE TRADE
 
 ## Stabilisation, fiabilisation, architecture et qualité UI/UX

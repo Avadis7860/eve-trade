@@ -1,3 +1,8 @@
+> **Historical**
+> Date archived: 2026-09-23
+> Superseded by: Replaced by docs/roadmap/backlog.md and docs/state/technical-debt.md.
+> Relevant only for: historical roadmap context.
+>
 # EVE Trade — Backlog des Problèmes Découverts
 
 Ce backlog répertorie les défauts, anomalies et dettes techniques documentés au fil des missions d'audit et de stabilisation.

@@ -1,3 +1,8 @@
+> **Historical**
+> Date archived: 2026-09-23
+> Superseded by: Replaced by architecture/esi-boundary.md, contracts/esi.md and validation/esi-tests.md.
+> Relevant only for: development history and migration traceability.
+>
 # 🌐 Intégration API EVE Online (ESI & SSO v2)
 
 Ce document décrit en détail les points de terminaison (endpoints) CCP Games ESI utilisés par **EVE Trade**, la gestion du proxy backend, la gestion des limites de requêtes (*rate-limiting*), les routes de l'API locale Express et le cycle de vie des jetons d'authentification.

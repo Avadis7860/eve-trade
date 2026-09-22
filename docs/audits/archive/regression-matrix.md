@@ -1,3 +1,8 @@
+> **Historical**
+> Date archived: 2026-09-23
+> Superseded by: Historical matrix; current matrix is docs/validation/regression-matrix.md.
+> Relevant only for: development history and migration traceability.
+>
 # EVE Trade — Matrice de Couverture et Non-Régression
 
 Cette matrice documente les mécanismes de protection actuels et dans le pipeline CI à l'issue de **LOT-003 & LOT-003.1** (Security & ESI Hardening).

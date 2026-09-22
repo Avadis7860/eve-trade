@@ -17,6 +17,10 @@ function runTests(): void {
     new URL('../../src/hooks/useCorporationTreasurySync.ts', import.meta.url),
     'utf-8',
   );
+  const corporationTreasuryServiceSource = readFileSync(
+    new URL('../../src/services/corporationTreasurySync.ts', import.meta.url),
+    'utf-8',
+  );
   const appSource = readFileSync(
     new URL('../../src/App.tsx', import.meta.url),
     'utf-8',
@@ -40,9 +44,15 @@ function runTests(): void {
     'Character synchronization must not own corporation treasury acquisition',
   );
   assert(
-    corporationTreasurySyncSource.includes('fetchCorporationInfo') &&
-      corporationTreasurySyncSource.includes('fetchCorporationWallets'),
-    'Corporation treasury acquisition must live in its dedicated lifecycle hook',
+    corporationTreasuryServiceSource.includes('fetchCorporationInfo') &&
+      corporationTreasuryServiceSource.includes('fetchCorporationWallets'),
+    'Corporation treasury acquisition must live in the shared treasury sync service',
+  );
+  assert(
+    !corporationTreasurySyncSource.includes('fetchCorporationInfo') &&
+      !corporationTreasurySyncSource.includes('fetchCorporationWallets') &&
+      corporationTreasurySyncSource.includes("from '../services/corporationTreasurySync'"),
+    'The lifecycle hook must delegate corporation treasury acquisition to the shared service',
   );
   assert(
     appSource.includes("useCorporationTreasurySync"),

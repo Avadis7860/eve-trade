@@ -31,10 +31,10 @@ async function runTests(): Promise<void> {
     assert(TreasuryEngine.normalizeWalletTradingCapital(0) === 0, 'Zero wallet must remain zero capital');
   });
 
-  await test('positive wallet balance is preserved with ISK rounding policy', () => {
+  await test('positive wallet balance is preserved with the canonical money rounding policy', () => {
     assert(
-      TreasuryEngine.normalizeWalletTradingCapital(1234.56) === 1235,
-      'Wallet capital must use canonical ISK rounding',
+      TreasuryEngine.normalizeWalletTradingCapital(1234.56) === 1234.56,
+      'Wallet capital must use the canonical two-decimal ISK rounding',
     );
   });
 

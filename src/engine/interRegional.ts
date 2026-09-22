@@ -809,6 +809,37 @@ export class InterRegionalFinancialEngine {
   ): InterRegionalOpportunity | null {
     if (buyHub.id === sellHub.id) return null;
 
+    const catalogRepository = CatalogRepository.getInstance();
+    const universeRepository = UniverseRepository.getInstance();
+    const typeResolution = catalogRepository.resolveType(item.type_id);
+
+    // Financial calculations may only consume canonical, verified catalog data.
+    if (
+      !catalogRepository.isReady() ||
+      typeResolution.status !== 'RESOLVED_CATALOG' ||
+      !typeResolution.type ||
+      !typeResolution.is_verified
+    ) return null;
+
+    const sourceLocRes = universeRepository.resolveLocationSync(buyHub.station_id);
+    const destLocRes = universeRepository.resolveLocationSync(sellHub.station_id);
+
+    // Financial calculations may only consume verified hub locations.
+    if (
+      !sourceLocRes.is_verified ||
+      !destLocRes.is_verified ||
+      sourceLocRes.status === 'LOCATION_UNKNOWN' ||
+      destLocRes.status === 'LOCATION_UNKNOWN' ||
+      !sourceLocRes.system_id ||
+      !destLocRes.system_id
+    ) return null;
+
+    const route = universeRepository.getRoute(buyHub.system_id, sellHub.system_id);
+
+    // Unknown routes have no financial semantics and must be rejected before quantity/cost/scoring.
+    if (route.status !== 'KNOWN' || route.is_verified !== true || route.jumps < 0) return null;
+
+    const calculationItem = typeResolution.type;
     const buyQuality = qualitiesByRegion[buyHub.region_id];
     const sellQuality = qualitiesByRegion[sellHub.region_id];
     const jitaQuality = qualitiesByRegion[10000002];
@@ -871,12 +902,12 @@ export class InterRegionalFinancialEngine {
     if (bestDestSellTargetPrice <= bestSourceSellPrice) return null;
 
     const totalDestVolume = destLadders.reduce((acc, l) => acc + l.volume, 0);
-    const route = UniverseRepository.getInstance().getRoute(buyHub.system_id, sellHub.system_id);
+    // Verified route declared at the financial boundary above and reused here.
 
     // 3. Multi-constraint tradable quantity resolution
     const tradableDetails = this.determineTradableQuantity(
       bestSourceSellPrice,
-      item.volume,
+      calculationItem.volume,
       totalSourceVolume,
       totalDestVolume,
       route,
@@ -977,7 +1008,7 @@ export class InterRegionalFinancialEngine {
 
     // 10. Audit & Explicability Rationale Generation
     const explanation = this.generateExplanation(
-      item,
+      calculationItem,
       buyHub,
       sellHub,
       strategy,
@@ -1060,36 +1091,32 @@ export class InterRegionalFinancialEngine {
     }
 
     // Pillar 2: Catalog Evaluation
-    const typeResolution = CatalogRepository.getInstance().resolveType(item.type_id);
+    // typeResolution was verified before financial calculation.
     let catalogPillarStatus: 'PASS' | 'DEGRADED' | 'FAIL' = 'PASS';
     let catalogDetail = `Type ${item.name} (#${item.type_id}) certifié au catalogue officiel.`;
-    if (typeResolution.status === 'TYPE_UNKNOWN' || !typeResolution.type) {
+    if (typeResolution.status !== 'RESOLVED_CATALOG' || !typeResolution.is_verified || !catalogRepository.isReady()) {
       catalogPillarStatus = 'FAIL';
-      catalogDetail = `Type inconnu (#${item.type_id}) dans le référentiel de catalogue.`;
-    } else if (typeResolution.status === 'RESOLVED_DYNAMIC' || typeResolution.status === 'RESOLVED_ESI') {
-      catalogPillarStatus = 'DEGRADED';
-      catalogDetail = `Type ${item.name} (#${item.type_id}) issu d'une résolution dynamique non canonique.`;
+      catalogDetail = `Type ${calculationItem.name} (#${calculationItem.type_id}) non certifié par le catalogue canonique.`;
     }
 
     // Pillar 3: Universe Evaluation
-    const sourceLocRes = UniverseRepository.getInstance().resolveLocationSync(buyHub.station_id);
-    const destLocRes = UniverseRepository.getInstance().resolveLocationSync(sellHub.station_id);
+    // sourceLocRes and destLocRes were verified before financial calculation.
     let universePillarStatus: 'PASS' | 'DEGRADED' | 'FAIL' = 'PASS';
     let universeDetail = `Stations et route Highsec validées (${route.jumps} sauts).`;
-    if (sourceLocRes.status === 'LOCATION_UNKNOWN' || destLocRes.status === 'LOCATION_UNKNOWN' || route.jumps < 0) {
-      universePillarStatus = 'FAIL';
-      universeDetail = 'Localisation introuvable ou route impossible entre les hubs.';
-    } else if (
-      !route.is_highsec_only ||
-      sourceLocRes.is_structure ||
-      destLocRes.is_structure ||
-      sourceLocRes.status === 'LOCATION_FALLBACK' ||
-      destLocRes.status === 'LOCATION_FALLBACK' ||
-      sourceLocRes.status === 'RESOLVED_ESI' ||
-      destLocRes.status === 'RESOLVED_ESI'
+    if (
+      !sourceLocRes.is_verified ||
+      !destLocRes.is_verified ||
+      sourceLocRes.status === 'LOCATION_UNKNOWN' ||
+      destLocRes.status === 'LOCATION_UNKNOWN' ||
+      route.status !== 'KNOWN' ||
+      route.is_verified !== true ||
+      route.jumps < 0
     ) {
+      universePillarStatus = 'FAIL';
+      universeDetail = 'Localisation ou route non prouvée par le référentiel canonique.';
+    } else if (!route.is_highsec_only || sourceLocRes.is_structure || destLocRes.is_structure) {
       universePillarStatus = 'DEGRADED';
-      universeDetail = `Route passant par des systèmes non sécurisés (${route.jumps} sauts, Highsec: ${route.is_highsec_only ? 'oui' : 'non'}) ou structure privée.`;
+      universeDetail = `Route ou localisation non conforme au profil Highsec (${route.jumps} sauts, Highsec: ${route.is_highsec_only ? 'oui' : 'non'}).`;
     }
 
     // Pillar 4: Financial Engine Evaluation

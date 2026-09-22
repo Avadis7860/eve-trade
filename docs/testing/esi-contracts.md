@@ -154,3 +154,15 @@ Le wallet observé reste factuel, y compris s'il est négatif. Le capital dépen
 La synchronisation automatique de l'actif character peut rafraîchir cette source ESI lorsque le mode corporation est sélectionné. Un budget corporation explicitement manuel n'est pas écrasé automatiquement.
 
 Les configurations persistées constituent également une frontière testée : une source corporation absente ou inconnue est convertie en `unavailable`, même si un ancien solde positif subsiste. La synchronisation automatique de la trésorerie est séparée du chargement des données personnage afin d'éviter qu'une mise à jour de portefeuille corporation ne relance implicitement tout le cycle character.
+
+
+## Phase 4.7 — Corporation trading order ESI contracts
+
+- Corporation active orders use `GET /corporations/{corporation_id}/orders/` with `esi-markets.read_corporation_orders.v1`.
+- Corporation order history uses `GET /corporations/{corporation_id}/orders/history/` with the same scope and preserves the requested `page`.
+- The corporation ID is resolved from the public identity of the route character.
+- The ESI credential is always the authenticated character credential; there is no synthetic corporation credential.
+- Two characters in the same corporation remain distinct ESI principals and must never share authenticated in-flight requests.
+- A character belonging to another corporation must resolve and query only that other corporation.
+- 401/403/404/420/429/502/503/504 statuses remain observable at the gateway/HTTP boundary.
+- 304 and successful null-payload semantics remain transport results; HTTP consumers fail closed when a business payload is required.

@@ -28,7 +28,16 @@ export function certifyRoute(
   options: { requireSafe?: boolean } = {},
 ): RouteCertificationResult {
   if (result.status !== 'FOUND') {
-    return { status: 'REJECTED', error: \`Route is not certifiable: \${result.status}\` };
+    return { status: 'REJECTED', error: `Route is not certifiable: ${result.status}` };
+  }
+  if (graph.provenance.completeness !== 'complete') {
+    return { status: 'REJECTED', error: 'Partial canonical graph cannot produce a certified route' };
+  }
+  if (result.graph_provenance.graph_version !== graph.provenance.graph_version ||
+      result.graph_provenance.graph_checksum !== graph.provenance.graph_checksum ||
+      result.graph_provenance.dataset_version !== graph.provenance.dataset_version ||
+      result.graph_provenance.dataset_checksum !== graph.provenance.dataset_checksum) {
+    return { status: 'REJECTED', error: 'Route provenance does not match the canonical graph identity' };
   }
   if (result.systems.length === 0 || result.systems[0] !== result.from_system_id) {
     return { status: 'REJECTED', error: 'Route path does not start at the requested source system' };
@@ -45,16 +54,16 @@ export function certifyRoute(
     const systemId = result.systems[index];
     const node = graph.get_node(systemId);
     if (!node) {
-      return { status: 'REJECTED', error: \`Route references unknown system \${systemId}\` };
+      return { status: 'REJECTED', error: `Route references unknown system ${systemId}` };
     }
     if (index > 0 && !graph.has_edge(result.systems[index - 1], systemId)) {
       return {
         status: 'REJECTED',
-        error: \`Route contains a non-existent stargate edge at \${result.systems[index - 1]} -> \${systemId}\`,
+        error: `Route contains a non-existent stargate edge at ${result.systems[index - 1]} -> ${systemId}`,
       };
     }
     if (node.security_status === null) {
-      return { status: 'REJECTED', error: \`Route security is UNKNOWN for system \${systemId}\` };
+      return { status: 'REJECTED', error: `Route security is UNKNOWN for system ${systemId}` };
     }
     securityStatuses[systemId] = node.security_status;
   }
@@ -77,7 +86,7 @@ export function certifyRoute(
     route: Object.freeze({
       from_system_id: result.from_system_id,
       to_system_id: result.to_system_id,
-      jumps: result.jumps!,
+      jumps: result.jumps,
       systems: Object.freeze([...result.systems]),
       security_statuses: Object.freeze({ ...securityStatuses }),
       safety: recomputedSafety,

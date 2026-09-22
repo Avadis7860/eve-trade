@@ -170,8 +170,8 @@ export interface RelistMarketContext {
   volume_trend?: 'increasing' | 'stable' | 'decreasing';
   expected_capturable_volume_per_day: number;
   expected_days_to_sell: number;
-  expected_revenue: number;
-  expected_profit: number;
+  expected_revenue?: number;
+  expected_profit?: number;
   competition_density?: 'low' | 'moderate' | 'high' | 'intense';
 }
 

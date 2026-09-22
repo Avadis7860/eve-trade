@@ -504,7 +504,6 @@ export class InterRegionalFinancialEngine {
     else if (ordersAhead >= 2) competitionDensity = 'moderate';
 
     const grossRevenue = roundIsk(suggestedRelistPrice * quantity);
-    const estimatedProfit = 0;
 
     const relistContext: RelistMarketContext = {
       is_estimated_execution: true,
@@ -518,8 +517,6 @@ export class InterRegionalFinancialEngine {
       volume_trend: trend,
       expected_capturable_volume_per_day: expectedCapturableVolumePerDay,
       expected_days_to_sell: expectedDaysToSell,
-      expected_revenue: grossRevenue,
-      expected_profit: estimatedProfit,
       competition_density: competitionDensity,
     };
 

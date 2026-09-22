@@ -1,0 +1,127 @@
+import { CatalogRepository } from '../../domain/catalog/CatalogRepository';
+import { CatalogValidator } from '../../domain/catalog/CatalogValidator';
+import { UniverseRepository } from '../../domain/universe/UniverseRepository';
+import { UniverseValidator } from '../../domain/universe/UniverseValidator';
+import { InterRegionalFinancialEngine } from '../interRegional';
+import { EVE_TYPES_CATALOG } from '../../data/universe';
+import { CANONICAL_CATALOG_MANIFEST } from '../../data/catalogManifest';
+import { CANONICAL_UNIVERSE_MANIFEST } from '../../data/universeManifest';
+import universeDataRaw from '../../data/universeData.json';
+import { EveTypeDetail, MarketHub, RawMarketOrder, TypeCatalogMetadata } from '../../types';
+
+function assert(condition: boolean, message: string) {
+  if (!condition) throw new Error(`Assertion Failed: ${message}`);
+}
+
+console.log('=== RUNNING CATALOG & UNIVERSE TRUTH TESTS ===');
+
+const canonicalCatalogChecksum = CatalogValidator.computeCanonicalChecksum(EVE_TYPES_CATALOG);
+assert(EVE_TYPES_CATALOG.length === CANONICAL_CATALOG_MANIFEST.expectedCount, 'Bundled catalog cardinality must match manifest');
+assert(canonicalCatalogChecksum === CANONICAL_CATALOG_MANIFEST.checksum, 'Bundled catalog checksum must match manifest');
+
+const truncatedCatalog = EVE_TYPES_CATALOG.slice(0, -1);
+const truncated = CatalogValidator.validateCatalogCompleteness(truncatedCatalog, {
+  expectedCount: CANONICAL_CATALOG_MANIFEST.expectedCount,
+  expectedChecksum: CANONICAL_CATALOG_MANIFEST.checksum,
+  currentChecksum: CatalogValidator.computeCanonicalChecksum(truncatedCatalog),
+  source: 'canonical_asset',
+});
+assert(truncated.status === 'CATALOG_PARTIAL', 'Truncated catalog must be PARTIAL');
+assert(!truncated.isReady, 'Truncated catalog must never be READY');
+
+const mismatch = CatalogValidator.validateCatalogCompleteness(EVE_TYPES_CATALOG, {
+  expectedCount: CANONICAL_CATALOG_MANIFEST.expectedCount,
+  expectedChecksum: '0'.repeat(64),
+  currentChecksum: canonicalCatalogChecksum,
+  source: 'server',
+});
+assert(mismatch.status === 'CATALOG_CORRUPTED', 'Checksum mismatch must be CORRUPTED');
+
+CatalogRepository.resetInstance();
+const catalog = CatalogRepository.getInstance();
+assert(catalog.isReady(), 'Bundled canonical catalog must start READY');
+assert(catalog.getMetadata().item_count === CANONICAL_CATALOG_MANIFEST.expectedCount, 'Canonical repository count mismatch');
+
+const fakeItems: EveTypeDetail[] = EVE_TYPES_CATALOG.slice(0, 2);
+const fakeMeta: TypeCatalogMetadata = {
+  version: CANONICAL_CATALOG_MANIFEST.version,
+  checksum: CatalogValidator.computeCanonicalChecksum(fakeItems),
+  item_count: fakeItems.length,
+  expected_count: fakeItems.length,
+  status: 'CATALOG_READY',
+  loaded_at: new Date().toISOString(),
+  source: 'server',
+  is_degraded: false,
+};
+catalog.loadExplicitDataset(fakeItems, fakeMeta);
+assert(!catalog.isReady(), 'A caller cannot force READY with a self-declared two-item catalog');
+assert(catalog.getMetadata().status === 'CATALOG_PARTIAL', 'Self-declared truncated catalog must become PARTIAL');
+
+const dynamic = catalog.resolveType(987654321, { type_id: 987654321, name: 'Synthetic Type', volume: 1 });
+assert(!dynamic.is_verified && dynamic.confidence === 0, 'Dynamic fallback resolution must remain unverified');
+
+const universeIntegrity = UniverseValidator.validate(universeDataRaw);
+assert(universeIntegrity.isReady, 'Bundled universe dataset must pass its canonical integrity manifest');
+assert(universeIntegrity.regionsCount === CANONICAL_UNIVERSE_MANIFEST.regionsCount, 'Region count mismatch');
+assert(universeIntegrity.systemsCount === CANONICAL_UNIVERSE_MANIFEST.systemsCount, 'System count mismatch');
+assert(universeIntegrity.stationsCount === CANONICAL_UNIVERSE_MANIFEST.stationsCount, 'Station count mismatch');
+assert(universeIntegrity.checksum === CANONICAL_UNIVERSE_MANIFEST.checksum, 'Universe checksum mismatch');
+
+const truncatedUniverse = {
+  ...universeDataRaw,
+  systems: Object.fromEntries(Object.entries(universeDataRaw.systems).slice(0, -1)),
+};
+const partialUniverse = UniverseValidator.validate(truncatedUniverse);
+assert(partialUniverse.status === 'PARTIAL' && !partialUniverse.isReady, 'Truncated universe must be PARTIAL');
+
+UniverseRepository.resetInstance();
+const universe = UniverseRepository.getInstance();
+assert(universe.getIntegrity().isReady, 'UniverseRepository must expose READY integrity for bundled dataset');
+
+const knownRoute = universe.getRoute(30000142, 30002187);
+assert(knownRoute.status === 'KNOWN' && knownRoute.is_verified === true && knownRoute.jumps === 9, 'Known hub route must be verified');
+
+const unknownRoute = universe.getRoute(30000142, 999999999);
+assert(unknownRoute.status === 'UNKNOWN' && unknownRoute.is_verified === false && unknownRoute.jumps === -1, 'Unknown route must never receive synthetic values');
+
+const unknownLocation = universe.resolveLocationSync(999999999);
+assert(unknownLocation.status === 'LOCATION_UNKNOWN' && unknownLocation.is_verified === false, 'Unknown location must remain UNKNOWN');
+
+const amarrHub: MarketHub = {
+  id: 'amarr-test',
+  name: 'Amarr',
+  region: 'Domain',
+  region_id: 10000043,
+  solar_system: 'Amarr',
+  system_id: 30002187,
+  station: 'Amarr VIII (Oris) - Emperor Family Academy',
+  station_id: 60008494,
+  security_status: 1.0,
+  priority: 1,
+  active: true,
+  hub_type: 'npc_major',
+};
+const unknownRangeOrder: RawMarketOrder = {
+  order_id: 9991,
+  type_id: 34,
+  region_id: 10000043,
+  system_id: 999999999,
+  location_id: 61000000,
+  price: 10,
+  volume_remain: 100,
+  volume_total: 100,
+  min_volume: 1,
+  is_buy_order: true,
+  order_range: '40',
+  issued: new Date().toISOString(),
+  duration: 90,
+};
+const accessible = InterRegionalFinancialEngine.filterAccessibleOrdersForHub(
+  [unknownRangeOrder],
+  amarrHub,
+  false,
+  true
+);
+assert(accessible.length === 0, 'Numeric market range must reject orders whose route is unknown');
+
+console.log('🎉 CATALOG & UNIVERSE TRUTH TESTS PASSED.');

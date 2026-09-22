@@ -248,6 +248,34 @@ async function runTests(): Promise<void> {
     assert(response.error?.retryAfterSeconds === 30, 'Expected reset value');
   });
 
+  await test('accepts canonical character ESI paths containing ordinary r and n letters', async () => {
+    const observedPaths: string[] = [];
+    const gateway = createEsiGateway(async (endpoint) => {
+      observedPaths.push(endpoint);
+      return successfulResult({ ok: true });
+    });
+
+    const validPaths = [
+      '/characters/1001/',
+      '/characters/1001/orders/',
+      '/characters/1001/orders/history/',
+      '/characters/1001/wallet/',
+      '/characters/1001/wallet/transactions/',
+      '/characters/1001/wallet/journal/',
+      '/characters/1001/skills/',
+    ];
+
+    for (const path of validPaths) {
+      const response = await gateway.request({ path });
+      assert(response.ok === true, `Canonical character path must be accepted: ${path}`);
+    }
+
+    assert(
+      observedPaths.length === validPaths.length,
+      'Every canonical character path must reach the transport exactly once',
+    );
+  });
+
   await test('rejects malformed relative paths and control characters before transport', async () => {
     let calls = 0;
     const gateway = createEsiGateway(async () => {

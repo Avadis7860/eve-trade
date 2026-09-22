@@ -56,7 +56,7 @@ export function parseJsonl(content, sourceLabel) {
       throw new Error(`Invalid JSONL record at ${sourceLabel} line ${index + 1}: expected an object`);
     }
 
-    rows.push(parsed as Record<string, unknown>);
+    rows.push(parsed);
   }
 
   return rows;
@@ -70,7 +70,7 @@ function getObject(value, label) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error(`Invalid ${label}: expected an object`);
   }
-  return value as Record<string, unknown>;
+  return value;
 }
 
 function readIntegerArray(value, label) {

@@ -180,6 +180,7 @@ export type TypeCatalogStatus =
   | 'CATALOG_UNAVAILABLE'
   | 'CATALOG_LOADING'
   | 'CATALOG_DEGRADED'
+  | 'CATALOG_PARTIAL'
   | 'CATALOG_READY'
   | 'CATALOG_CORRUPTED'
   | 'CATALOG_EMPTY'
@@ -192,7 +193,7 @@ export interface TypeCatalogMetadata {
   item_count: number;
   status: TypeCatalogStatus;
   loaded_at: string;
-  source: 'filesystem' | 'fallback_core' | 'esi_synced' | 'indexeddb' | 'server' | 'uninitialized';
+  source: 'filesystem' | 'canonical_asset' | 'fallback_core' | 'esi_synced' | 'indexeddb' | 'server' | 'uninitialized';
   error?: string;
   file_path?: string;
   minimum_expected_count?: number;

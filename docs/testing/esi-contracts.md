@@ -126,3 +126,29 @@ Une modification de contrat ESI doit être accompagnée dans le même changement
 4. la validation CI complète.
 
 Une modification ne doit pas être acceptée uniquement parce qu'elle corrige un symptôme observé : le cas de régression doit devenir un invariant automatisé.
+
+## Phase 4.6 — Corporation ESI boundary
+
+Les endpoints corporation sont maintenant encapsulés par `server/gateways/corporationEsiGateway.ts`.
+
+| Méthode du gateway | Endpoint CCP | Principal |
+|---|---|---|
+| `fetchProfile(corporationId)` | `GET /corporations/{id}/` | anonymous |
+| `fetchWallets(corporationId, characterId, credential)` | `GET /corporations/{id}/wallets/` | character |
+| `fetchDivisions(corporationId, characterId, credential)` | `GET /corporations/{id}/divisions/` | character |
+
+Il n'existe volontairement aucun principal corporation artificiel : l'autorisation ESI appartient au personnage authentifié qui appelle la corporation.
+
+### Treasury boundary
+
+`FinancialConfig.corporation_wallet_source` distingue explicitement :
+
+- `esi` : solde corporation observé depuis CCP ESI;
+- `manual` : budget corporation saisi explicitement par l'utilisateur;
+- `unavailable` : aucune donnée corporation exploitable actuellement.
+
+Lorsque `treasury_source_mode = corporation`, `TreasuryEngine` n'utilise jamais `available_capital` ou le wallet d'un personnage comme fallback implicite.
+
+Le wallet observé reste factuel, y compris s'il est négatif. Le capital dépensable est dérivé séparément et ne peut jamais être négatif. En cas de source corporation indisponible, la résolution échoue fermement vers un capital dépensable nul avec un statut `unavailable`, au lieu de réutiliser un ancien capital personnage.
+
+La synchronisation automatique de l'actif character peut rafraîchir cette source ESI lorsque le mode corporation est sélectionné. Un budget corporation explicitement manuel n'est pas écrasé automatiquement.

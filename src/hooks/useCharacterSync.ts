@@ -9,6 +9,7 @@ import { UniverseRepository } from '../domain/universe/UniverseRepository';
 import { useAuth } from '../context/AuthProvider';
 import { useTradingConfig } from '../context/TradingConfigProvider';
 import { TreasuryEngine } from '../engine/treasury';
+import { mergeCharacterAndCorporationOrders } from '../engine/corporationOrder';
 
 export function useCharacterSync(
   orderBooks: Record<number, any[]>,
@@ -41,7 +42,43 @@ export function useCharacterSync(
         const ordersResult = await EsiService.fetchCharacterOrders(charId, token);
         const rawOrders = EsiService.requireUsableCollection(ordersResult, 'character orders');
 
-        const orderTypeIds = Array.from(new Set(rawOrders.map((o) => o.type_id)));
+        let corporationOrders: EveCharacterOrder[] = [];
+        let corporationInfo: Awaited<ReturnType<typeof EsiService.fetchCorporationInfo>> | undefined;
+
+        try {
+          corporationInfo = await EsiService.fetchCorporationInfo(charId);
+          if (corporationInfo.ok && corporationInfo.data?.corporation_id) {
+            const corporationOrdersResult = await EsiService.fetchCharacterCorporationOrders(
+              charId,
+              token,
+              corporationInfo.data.corporation_id,
+              corporationInfo.data.corporation_name,
+            );
+
+            if (
+              corporationOrdersResult.state === 'AVAILABLE' ||
+              corporationOrdersResult.state === 'EMPTY'
+            ) {
+              corporationOrders = corporationOrdersResult.data;
+            } else {
+              console.warn(
+                `[useCharacterSync] Corporation orders unavailable for #${charId}: ${corporationOrdersResult.state}`,
+              );
+            }
+          }
+        } catch (corporationError) {
+          console.warn(
+            `[useCharacterSync] Corporation order sync notice for #${charId}:`,
+            corporationError,
+          );
+        }
+
+        const effectiveOrders = mergeCharacterAndCorporationOrders(
+          rawOrders,
+          corporationOrders,
+        );
+
+        const orderTypeIds = Array.from(new Set(effectiveOrders.map((o) => o.type_id)));
         if (orderTypeIds.length > 0) {
           MarketDataStore.syncCharacterOrdersMarketData(orderTypeIds, hubs).catch((err) => {
             console.warn('[useCharacterSync] syncCharacterOrdersMarketData failed:', err);
@@ -49,7 +86,7 @@ export function useCharacterSync(
         }
 
         const enrichedOrders: EveCharacterOrder[] = [];
-        for (const o of rawOrders) {
+        for (const o of effectiveOrders) {
           const typeName = CatalogRepository.getInstance().getTypeName(o.type_id);
           const loc = UniverseRepository.getInstance().resolveLocationSync(o.location_id);
           const locName = loc.name;
@@ -136,6 +173,15 @@ export function useCharacterSync(
           ...(existingSession || {}),
           character_id: charId,
           character_name: charName,
+          ...(corporationInfo?.ok && corporationInfo.data?.corporation_id
+            ? {
+                corporation_id: corporationInfo.data.corporation_id,
+                corporation_name: corporationInfo.data.corporation_name,
+                ...(corporationInfo.data.ticker
+                  ? { corporation_ticker: corporationInfo.data.ticker }
+                  : {}),
+              }
+            : {}),
           access_token: token,
           portrait_url: `https://images.evetech.net/characters/${charId}/portrait?size=128`,
           wallet_balance: balance !== null ? balance : existingSession?.wallet_balance,

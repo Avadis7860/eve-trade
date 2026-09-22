@@ -1,3 +1,5 @@
+import { normalizeOrderId } from './orderIdentity';
+
 import {
   OpportunityObservation,
   ExecutionTransactionRef,
@@ -450,10 +452,13 @@ export function evaluateCandidate(
   }
 
   // 8. Order ID Corroboration (Optional evidence)
-  if (transaction.order_id && transaction.order_id > 0) {
+  const transactionOrderId = normalizeOrderId(transaction.order_id);
+  if (transactionOrderId) {
     let orderMatchedInEvidence = false;
     if (evidenceOrders) {
-      orderMatchedInEvidence = evidenceOrders.some((o: any) => Number(o.order_id) === Number(transaction.order_id));
+      orderMatchedInEvidence = evidenceOrders.some(
+        (o: any) => normalizeOrderId(o?.order_id) === transactionOrderId
+      );
     }
     const orderReason = orderMatchedInEvidence
       ? `Transaction order_id ${transaction.order_id} corroborated by observation evidence snapshot.`

@@ -126,6 +126,7 @@ export function useCharacterSync(
                   owner_type: 'character' as const,
                   owner_id: charId,
                   owner_name: charName,
+                  observed_by_character_ids: [charId],
                 }
           );
 

@@ -102,3 +102,12 @@ The focused identity gate is `src/engine/__tests__/order_identity.test.ts`.
 It verifies exact string preservation, safe-number compatibility, rejection of unsafe numeric values, canonical normalization and BigInt-safe comparison. The ESI validation path also uses the same canonicalizer before accepting market orders.
 
 Changes to order identifiers additionally require the ladder, evidence, execution-correlation, execution-outcome and order-scoping regression surfaces plus frontend typecheck and production build.
+
+
+## Phase 4.7 — Corporation trading order validation
+
+- `npm run test:esi`: corporation gateway path/principal/error/metadata contract coverage.
+- `npm run test:api`: real Express -> character identity -> corporation order route coverage.
+- `npm run test:corporation-boundary`: existing corporation treasury plus corporation order boundary coverage.
+
+Required scenarios include A -> corporation X, B -> corporation X with distinct credentials, C -> corporation Y, requested history page propagation, invalid page rejection, and ESI error propagation.

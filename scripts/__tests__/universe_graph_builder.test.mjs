@@ -195,6 +195,12 @@ expectFailure(
   'missing reciprocal stargate record',
   (input) => ({
     ...input,
+    mapSolarSystemsContent: [
+      system(SCOPE_A, 0.95, [50000001]),
+      system(SCOPE_B, 0.90, [50000002]),
+      system(SCOPE_C, 0.75, [50000004, 50000005]),
+      system(SCOPE_D, 0.55, [50000006]),
+    ].join('\n'),
     mapStargatesContent: [
       gate(50000001, SCOPE_A, SCOPE_B, 50000002),
       gate(50000002, SCOPE_B, SCOPE_A, 59999999),

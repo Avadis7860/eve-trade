@@ -508,6 +508,14 @@ export class CatalogRepository {
   }
 
   /**
+   * Returns only records from the canonical catalog dataset.
+   * Dynamic/ESI resolutions are intentionally excluded from financial scanning.
+   */
+  getCanonicalTypes(): EveTypeDetail[] {
+    return Array.from(this.typeMap.values());
+  }
+
+  /**
    * Returns types specifically eligible for trade/scanning.
    */
   getTradableTypes(): EveTypeDetail[] {

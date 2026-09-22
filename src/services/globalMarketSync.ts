@@ -216,7 +216,7 @@ export class GlobalMarketSyncService {
       }
     }
 
-    let targetItems: EveTypeDetail[] = catalogRepo.getAllTypes();
+    let targetItems: EveTypeDetail[] = catalogRepo.getCanonicalTypes();
     const marketGroupRepo = MarketGroupRepository.getInstance();
 
     // 1. Direct market group ID filter

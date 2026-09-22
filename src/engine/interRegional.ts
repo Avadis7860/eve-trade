@@ -359,7 +359,7 @@ export class InterRegionalFinancialEngine {
       updatedLiquidity.daily_volume_dest,
       relistContext?.orders_ahead || 0,
       relistContext?.volume_ahead || 0,
-      (opp as any).confidence ?? 1.0,
+      (opp as any).confidence ?? 0.0,
       opp.data_quality?.buy_hub_quality,
       opp.data_quality?.sell_hub_quality,
       opp.jita_price_benchmark?.is_jita_verified ?? false,
@@ -1018,8 +1018,8 @@ export class InterRegionalFinancialEngine {
     );
 
     // Overall Data Quality Confidence
-    const buyConf = buyQuality?.confidence ?? 1.0;
-    const sellConf = sellQuality?.confidence ?? 1.0;
+    const buyConf = buyQuality?.confidence ?? 0.0;
+    const sellConf = sellQuality?.confidence ?? 0.0;
     const overallConfidence = roundIsk(Math.min(buyConf, sellConf) * (jitaBenchmark.is_jita_verified ? 1.0 : 0.9));
 
     // 10. Audit & Explicability Rationale Generation
@@ -1283,10 +1283,10 @@ export class InterRegionalFinancialEngine {
         health_status: healthSource,
         data_state: buyDataState,
         market_hash: sourceSnapshotHash,
-        source: buyQuality?.source || 'esi',
-        freshness: buyQuality?.freshness || 'fresh',
-        completeness: buyQuality?.completeness || 'complete',
-        confidence: buyQuality?.confidence ?? 1.0,
+        source: buyQuality?.source || 'unavailable',
+        freshness: buyQuality?.freshness || 'unknown',
+        completeness: buyQuality?.completeness || 'unknown',
+        confidence: buyQuality?.confidence ?? 0.0,
         age_seconds: buyQuality?.age_seconds ?? 0,
       },
       dest_market: {
@@ -1297,10 +1297,10 @@ export class InterRegionalFinancialEngine {
         health_status: healthDest,
         data_state: sellDataState,
         market_hash: destSnapshotHash,
-        source: sellQuality?.source || 'esi',
-        freshness: sellQuality?.freshness || 'fresh',
-        completeness: sellQuality?.completeness || 'complete',
-        confidence: sellQuality?.confidence ?? 1.0,
+        source: sellQuality?.source || 'unavailable',
+        freshness: sellQuality?.freshness || 'unknown',
+        completeness: sellQuality?.completeness || 'unknown',
+        confidence: sellQuality?.confidence ?? 0.0,
         age_seconds: sellQuality?.age_seconds ?? 0,
       },
       source_market_provenance: sourceProvenance,

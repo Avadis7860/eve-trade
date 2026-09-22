@@ -335,8 +335,8 @@ export interface InterRegionalOpportunity {
     buy_hub_quality?: MarketDataQuality;
     sell_hub_quality?: MarketDataQuality;
     overall_confidence: number;
-    overall_freshness: 'fresh' | 'recent' | 'stale' | 'expired';
-    overall_completeness: 'complete' | 'partial' | 'empty';
+    overall_freshness: 'fresh' | 'recent' | 'stale' | 'expired' | 'unknown';
+    overall_completeness: 'complete' | 'partial' | 'empty' | 'unknown';
     is_verified_esi: boolean;
     confidence_score: number;
     status_label?: string;

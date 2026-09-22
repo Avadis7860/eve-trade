@@ -29,7 +29,7 @@ function validateCharacterParams(req: Request, res: Response): CharacterAuthPara
     return null;
   }
 
-  const match = authHeader.trim().match(/^Bearer\\s+(.+)$/i);
+  const match = authHeader.trim().match(/^Bearer\s+(.+)$/i);
   if (!match || !match[1].trim()) {
     res.status(401).json({
       error: 'INVALID_AUTHORIZATION',

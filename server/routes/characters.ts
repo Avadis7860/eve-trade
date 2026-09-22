@@ -27,15 +27,8 @@ function validateCharacterId(req: Request, res: Response): number | null {
 }
 
 function validateCharacterParams(req: Request, res: Response): CharacterAuthParams | null {
-  const rawId = req.params.characterId;
   const numId = validateCharacterId(req, res);
   if (numId === null) return null;
-    res.status(400).json({
-      error: 'INVALID_CHARACTER_ID',
-      message: 'characterId must be a positive integer',
-    });
-    return null;
-  }
 
   const authHeader = req.headers.authorization;
   if (!authHeader || typeof authHeader !== 'string' || !authHeader.trim()) {

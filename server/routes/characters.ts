@@ -271,35 +271,35 @@ charactersRouter.get('/:characterId/journal', async (req: Request, res: Response
 
 // 7. Proxy character corporation profile
 charactersRouter.get('/:characterId/corporation', async (req: Request, res: Response) => {
-  const numId = Number(req.params.characterId);
-  if (!Number.isInteger(numId) || numId <= 0 || String(numId) !== String(req.params.characterId).trim()) {
-    return res.status(400).json({
-      error: 'INVALID_CHARACTER_ID',
-      message: 'characterId must be a positive integer',
+  const params = validateCharacterParams(req, res);
+  if (!params) return;
+
+  try {
+    const charRes = await characterEsiGateway.fetchPublicIdentity(params.characterId);
+    if (!charRes.ok || !charRes.data?.corporation_id) {
+      return sendCharacterError(res, charRes, 'FAILED_TO_RESOLVE_CORPORATION');
+    }
+
+    const corporationId = charRes.data.corporation_id;
+    const corpRes = await corporationEsiGateway.fetchProfile(corporationId);
+
+    if (!corpRes.ok) {
+      return sendCharacterError(res, corpRes, 'ESI corporation profile error');
+    }
+
+    return sendCharacterSuccess(res, corpRes, {
+      character_id: params.characterId,
+      corporation_id: corporationId,
+      corporation_name: corpRes.data?.name,
+      ticker: corpRes.data?.ticker,
+      member_count: corpRes.data?.member_count,
+    });
+  } catch (err: unknown) {
+    return res.status(500).json({
+      error: 'ESI corporation profile gateway error',
+      message: String(err),
     });
   }
-
-  const charRes = await characterEsiGateway.fetchPublicIdentity(numId);
-  if (!charRes.ok || !charRes.data?.corporation_id) {
-    return res.status(charRes.status || 500).json({
-      error: 'FAILED_TO_RESOLVE_CORPORATION',
-      details: charRes.error?.message,
-      esi_error_kind: charRes.error?.kind,
-    });
-  }
-
-  const corporationId = charRes.data.corporation_id;
-
-  const corpRes = await corporationEsiGateway.fetchProfile(corporationId);
-  sendCharacterMetadata(res, corpRes.metadata);
-
-  return res.json({
-    character_id: numId,
-    corporation_id: corporationId,
-    corporation_name: corpRes.ok && corpRes.data?.name ? corpRes.data.name : `Corporation #${corporationId}`,
-    ticker: corpRes.ok && corpRes.data?.ticker ? corpRes.data.ticker : undefined,
-    member_count: corpRes.ok ? corpRes.data?.member_count : undefined,
-  });
 });
 
 // 8. Proxy corporation wallet divisions and balances

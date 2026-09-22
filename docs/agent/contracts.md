@@ -372,3 +372,14 @@ Legacy configuration migration is explicit: if a persisted corporation configura
 - Numeric inputs are accepted only when they are safe positive integers; unsafe numeric inputs fail closed rather than being rounded.
 - Canonical sorting/comparison uses identifier-aware logic and never coerces the identifier through `Number()`.
 - De-duplication and in-memory collection keys use the canonical string identifier.
+
+
+## Phase 4.7 — Corporation trading orders
+
+`CorporationEsiGateway` now owns active and historical corporation market-order acquisition.
+
+- `fetchOrders(corporationId, characterId, bearerCredential)` maps `GET /corporations/{corporation_id}/orders/`.
+- `fetchOrderHistory(corporationId, characterId, bearerCredential, page)` maps `GET /corporations/{corporation_id}/orders/history/`.
+- Both authenticated methods use the character principal provided by the route caller.
+- Character routes resolve the corporation from public character identity; callers never choose an arbitrary corporation ID.
+- Gateway payloads remain transport/domain-neutral. Ownership normalization occurs downstream and is not fabricated by this gateway.

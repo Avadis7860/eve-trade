@@ -556,3 +556,29 @@ Base:
 `main` at merge commit `52222919194fae5f08abeae13b4b4997605b0ef3`
 
 No production route behavior is changed by this planning commit.
+
+
+---
+
+## Implementation status — 2026-09-22
+
+Phase 2.7C has now reached real-data runtime integration.
+
+Validated CCP SDE build: `3503375`.
+
+Generated canonical graph:
+- 5,485 New Eden solar systems;
+- 13,978 directed stargate edges;
+- graph checksum `5465da368fa3b6bf03d610554de453af1c54182199d325fe318d431d29225b3c`.
+
+The runtime verifies the committed artifact against the pinned SDE build in CI and independently recomputes the graph checksum.
+
+The SDE-backed route engine now exposes two explicit policies:
+- `SHORTEST`: deterministic shortest jump path, used for EVE numeric `order_range` accessibility;
+- `SAFE`: deterministic shortest path constrained to systems with security `>= 0.5`, used for High-Sec trade transport.
+
+Observed real-data consequence for the five configured major hubs: Jita -> Amarr is 11 jumps on the unrestricted shortest path, but that path crosses a 0.420520 security system. The shortest strictly High-Sec path is 39 jumps. This is why the previous hub-pair table must not be preserved as a source of truth.
+
+`KNOWN_ROUTES` no longer has route-resolution authority and has been removed from `src/data/universe.ts`.
+
+The remaining completion condition is a fully green CI run after this final cleanup; no financial formula change is part of this phase.

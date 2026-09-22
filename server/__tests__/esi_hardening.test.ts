@@ -288,6 +288,35 @@ async function runTests() {
       assert(cachedRes.headers.get('x-cache-status') === 'HIT', 'Expected HIT on second call');
     });
 
+    await test('server /api/markets/:regionId/orders preserves pagination metadata across ESI 304 revalidation', async () => {
+      let calls = 0;
+      setGlobalEsiMock(async (url, init) => {
+        calls++;
+        const headers = init?.headers as Record<string, string> | undefined;
+        if (calls === 1) {
+          assert(!headers?.['If-None-Match'], 'First request must not send an ETag');
+          return new Response(JSON.stringify([{ order_id: 1, type_id: 35, price: 10, volume_remain: 100 }]), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json', 'X-Pages': '3', etag: '"orders-etag"', expires: new Date(Date.now() + 60000).toUTCString() },
+          });
+        }
+        assert(headers?.['If-None-Match'] === '"orders-etag"', 'Revalidation must send the cached ETag');
+        return new Response(null, {
+          status: 304,
+          headers: { etag: '"orders-etag"', 'X-Pages': '3' },
+        });
+      });
+
+      const first = await fetch(`http://127.0.0.1:${testPort}/api/markets/10000003/orders?type_id=35`);
+      assert(first.status === 200, `Expected first request 200, got ${first.status}`);
+      assert(first.headers.get('x-pages') === '3', 'First response must expose X-Pages=3');
+
+      const second = await fetch(`http://127.0.0.1:${testPort}/api/markets/10000003/orders?type_id=35`);
+      assert(second.status === 200, `Expected revalidated request 200, got ${second.status}`);
+      assert(second.headers.get('x-pages') === '3', 'Revalidated response must preserve cached X-Pages=3');
+      assert(second.headers.get('x-cache-status') === 'REVALIDATED', 'Expected REVALIDATED cache status');
+      assert(calls === 2, `Expected one initial request and one revalidation, got ${calls}`);
+    });
     await test('server /api/markets/:regionId/history proxies via global mock ESI', async () => {
       setGlobalEsiMock(async (url) => {
         const urlStr = String(url);

@@ -228,8 +228,8 @@ if (oppRejectedMarket.certification.pillar_evaluations?.market_data.status !== '
 }
 console.log('✅ Scenario 3 (MarketData ERROR -> REJECTED) verified.');
 
-// 4. Scenario: Catalog Pillar DEGRADED (RESOLVED_DYNAMIC) -> DEGRADED
-console.log('4. Testing Catalog Pillar DEGRADED (RESOLVED_DYNAMIC)...');
+// 4. Scenario: Dynamic catalog type is rejected before financial calculation.
+console.log('4. Testing Dynamic Catalog Type -> fail closed...');
 catalog.registerCustomType({
   type_id: 99123,
   name: 'Experimental Field Generator',
@@ -276,14 +276,10 @@ const oppDynamicCatalog = InterRegionalFinancialEngine.calculateOpportunity(
   dynamicSellOrders
 );
 
-if (!oppDynamicCatalog || !oppDynamicCatalog.certification) throw new Error('oppDynamicCatalog is null or missing certification');
-if (oppDynamicCatalog.certification.status !== 'DEGRADED') {
-  throw new Error(`Expected DEGRADED for dynamic type, got ${oppDynamicCatalog.certification.status}`);
+if (oppDynamicCatalog !== null) {
+  throw new Error('Dynamic catalog input must be rejected before financial calculation');
 }
-if (oppDynamicCatalog.certification.pillar_evaluations?.catalog.status !== 'DEGRADED') {
-  throw new Error('Catalog pillar must be DEGRADED');
-}
-console.log('✅ Scenario 4 (Catalog Dynamic -> DEGRADED) verified.');
+console.log('✅ Scenario 4 (Dynamic catalog -> rejected) verified.');
 
 // 5. Scenario: Universe Pillar DEGRADED (Lowsec / nullsec route)
 console.log('5. Testing Universe Pillar DEGRADED (Lowsec Hub)...');
@@ -323,11 +319,10 @@ const oppNullsecUniverse = InterRegionalFinancialEngine.calculateOpportunity(
   jitaSellOrders
 );
 
-if (!oppNullsecUniverse || !oppNullsecUniverse.certification) throw new Error('oppNullsecUniverse is null or missing certification');
-if (oppNullsecUniverse.certification.status !== 'DEGRADED') {
-  throw new Error(`Expected DEGRADED for lowsec route/structure, got ${oppNullsecUniverse.certification.status}`);
+if (oppNullsecUniverse !== null) {
+  throw new Error('Non-canonical/non-Highsec universe input must be rejected before financial calculation');
 }
-if (oppNullsecUniverse.certification.pillar_evaluations?.universe.status !== 'DEGRADED') {
+console.log('✅ Scenario 5 (Non-Highsec universe -> rejected) verified.');
   throw new Error('Universe pillar must be DEGRADED');
 }
 console.log('✅ Scenario 5 (Universe Structure/Lowsec -> DEGRADED) verified.');

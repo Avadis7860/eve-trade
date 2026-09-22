@@ -17,7 +17,9 @@ export interface CharacterSnapshot {
   character_id: number;
   wallet_balance: number | null;
   skills: CharacterTradingSkills;
+  /** Active personal and corporation orders; ownership.ownership_type is authoritative. */
   active_orders: EveCharacterOrder[];
+  /** Character-scoped history currently retained by the snapshot pipeline. */
   order_history: EveCharacterOrder[];
   transactions: EveCharacterTransaction[];
   journal: EveCharacterJournalEntry[];

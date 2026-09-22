@@ -129,8 +129,31 @@ export interface EveCharacterSession {
   auth_error?: string;
 }
 
+export type OrderOwnerType = 'character' | 'corporation';
+
+export interface OrderOwnership {
+  /** Character whose OAuth credential observed/acquired this order. */
+  principal_character_id: number;
+  /** Economic/legal owner represented by the order payload. */
+  owner_type: OrderOwnerType;
+  /** EVE entity ID matching owner_type: character_id or corporation_id. */
+  owner_id: number;
+  owner_name?: string;
+  corporation_id?: number;
+  corporation_name?: string;
+  /** Character who issued the order when ESI exposes issuer provenance. */
+  issuer_character_id?: number;
+  issuer_character_name?: string;
+  /** Corporation wallet division funding this order, when applicable. */
+  wallet_division?: number;
+}
+
 export interface EveCharacterOrder {
   order_id: number;
+  /**
+   * Backward-compatible character-owner projection.
+   * Must be undefined for corporation-owned orders; use ownership as authority.
+   */
   character_id?: number;
   character_name?: string;
   type_id: number;
@@ -146,6 +169,9 @@ export interface EveCharacterOrder {
   issued: string;
   duration: number;
   escrow?: number;
+  /** Canonical ownership/provenance; legacy snapshots may omit this during migration. */
+  ownership?: OrderOwnership;
+  /** @deprecated Use ownership.owner_type === 'corporation'. */
   is_corporation?: boolean;
   market_competition?: {
     highest_buy?: number;
@@ -207,6 +233,9 @@ export interface EveCharacterTransaction {
 
 export interface EveCharacterOrderHistory {
   order_id: number;
+  /** Canonical ownership/provenance; legacy snapshots may omit this during migration. */
+  ownership?: OrderOwnership;
+  /** Backward-compatible character-owner projection; undefined for corporation-owned orders. */
   character_id?: number;
   character_name?: string;
   type_id: number;

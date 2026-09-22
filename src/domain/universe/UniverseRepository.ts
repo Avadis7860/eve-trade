@@ -228,8 +228,18 @@ export class UniverseRepository {
         is_structure: false,
         is_hub: false,
         source: 'static_npc',
-        is_verified: true,
-        confidence: 1.0,
+        is_verified: this.integrity.isReady,
+        confidence: this.integrity.isReady ? 1.0 : 0,
+        provenance: {
+          source: 'static_dataset',
+          dataset_version: CANONICAL_UNIVERSE_MANIFEST.version,
+          dataset_checksum: CANONICAL_UNIVERSE_MANIFEST.checksum,
+          loaded_at: new Date().toISOString(),
+          verified: this.integrity.isReady,
+          confidence: this.integrity.isReady ? 1.0 : 0,
+          completeness: this.integrity.isReady ? 'complete' : 'partial',
+          scope: 'npc_station',
+        },
       };
       this.locationCache.set(locationId, res);
       return res;
@@ -331,8 +341,8 @@ export class UniverseRepository {
         region_id: hub.region_id,
         region_name: hub.region,
         security_status: hub.security_status,
-        is_verified: true,
-        confidence: 1.0,
+        is_verified: this.integrity.isReady,
+        confidence: this.integrity.isReady ? 1.0 : 0,
         source: 'hub',
         provenance: {
           source: 'static_dataset',
@@ -355,8 +365,8 @@ export class UniverseRepository {
         region_id: sys.region_id,
         region_name: this.regionMap.get(sys.region_id),
         security_status: sys.security,
-        is_verified: true,
-        confidence: 1.0,
+        is_verified: this.integrity.isReady,
+        confidence: this.integrity.isReady ? 1.0 : 0,
         source: 'static_universe',
         provenance: {
           source: 'static_dataset',
@@ -448,8 +458,8 @@ export class UniverseRepository {
         status: 'RESOLVED_REGION',
         region_id: regionId,
         name,
-        is_verified: true,
-        confidence: 1.0,
+        is_verified: this.integrity.isReady,
+        confidence: this.integrity.isReady ? 1.0 : 0,
         source: 'static_universe',
         provenance: {
           source: 'static_dataset',

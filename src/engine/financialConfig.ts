@@ -77,8 +77,14 @@ export function selectCorporationWalletDivision(
     const observedDivision = config.corporation_divisions?.find(
       (entry) => entry.division === selectedDivision,
     );
+
     if (observedDivision && Number.isFinite(observedDivision.balance)) {
       next.corporation_wallet_balance = observedDivision.balance;
+    } else {
+      // Never retain the previous division's observed balance under a new
+      // division identity. The caller must establish a fresh ESI observation.
+      next.corporation_wallet_balance = undefined;
+      next.corporation_wallet_source = 'unavailable';
     }
   }
 

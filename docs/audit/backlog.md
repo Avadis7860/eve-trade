@@ -70,10 +70,14 @@ Ce backlog répertorie les défauts, anomalies et dettes techniques documentés 
 
 ---
 
-### ISSUE-005 : Présence conjointe de `bun.lock` et `package-lock.json`
+### ISSUE-005 : Présence conjointe de `bun.lock` et `package-lock.json` (Résolu lors du CI Regression Fix)
 * **ID** : `ISSUE-005`
-* **Statut** : ⏳ **BACKLOG** (Hors périmètre LOT-002)
-* **Description** : Présence résiduelle de `bun.lock`.
+* **Statut** : ✅ **RÉSOLU** (CI Regression Fix post LOT-003.1)
+* **Correction appliquée** :
+  * Suppression définitive du fichier concurrent `bun.lock`.
+  * Restauration et régénération stricte du lockfile canonique `package-lock.json` (lockfileVersion 3) basée sur l'arbre de dépendances installé et figé.
+  * Validation stricte par `npm ci --dry-run` et `npm ci` (262 packages installés de manière déterministe).
+  * Vérification qu'aucun lockfile concurrent (`bun.lock`, `bun.lockb`) ne subsiste dans le dépôt.
 * **Priorité** : P3 (Faible)
 
 ---

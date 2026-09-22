@@ -9,6 +9,7 @@ Elle distingue rigoureusement ce qui est formellement vérifié par des tests ou
 
 | Composant / Surface | Current Protection (Local) | CI Protection (GitHub Actions) | Status | Notes |
 | :--- | :--- | :--- | :--- | :--- |
+| **Dépendances & Installation Déterministe** | `npm ci` (`package-lock.json` v3) | Étape `Install dependencies (clean install)` dans `.github/workflows/ci.yml` | ✅ COUVERT (Local) / ⏳ BLOCKED (CI Réel externe) | `package-lock.json` restauré et validé par `npm ci` en local. Suppression de `bun.lock`. CI configurée (`npm ci`) mais exécution GitHub Actions bloquée depuis le conteneur sandbox. |
 | **Frontend TypeScript** | `npm run typecheck` (`tsc --noEmit`) | Étape `Frontend typecheck` dans `.github/workflows/ci.yml` | ✅ COUVERT | Couvre l'intégralité de `src/**` avec vérification stricte (`strict: true`, React JSX). |
 | **Backend TypeScript** | `npm run typecheck:server` (`tsc -p tsconfig.server.json --noEmit`) | Étape `Backend typecheck` dans `.github/workflows/ci.yml` | ✅ COUVERT | Couvre `server.ts`, `server/routes/*.ts`, `server/utils/*.ts` et `server/__tests__/*.ts` avec vérification stricte. |
 | **Unit tests (Moteurs financiers)** | `npm test` (22 suites tsx) | Étape `Unit tests` dans `.github/workflows/ci.yml` | ✅ COUVERT | Couvre 22 suites unitaires (`src/engine/__tests__/*`) : taxes, carnet, FIFO, scoring, certification 4 piliers. |

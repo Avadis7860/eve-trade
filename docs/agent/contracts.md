@@ -400,3 +400,15 @@ Legacy configuration migration is explicit: if a persisted corporation configura
 `requireUsableCollection()` is the explicit release gate for business consumers. It returns only `AVAILABLE` or `EMPTY`; `PARTIAL`, `UNAVAILABLE` and `ERROR` raise a controlled error so callers can retain cached state or expose degraded health without inventing a zero dataset.
 
 `304 Not Modified` and `204 No Content` are not treated as `EMPTY`, because neither contains a fresh business collection. HTTP failures remain visible through `status` and `error`.
+
+
+## Phase 4.7 — Corporation order normalization
+
+`src/engine/corporationOrder.ts` is the pure normalization boundary between corporation ESI payloads and the ownership-aware trading order model.
+
+- Active corporation orders normalize into `EveCharacterOrder` with `is_corporation=true` and canonical corporation ownership.
+- Historical corporation orders normalize into `EveCharacterOrderHistory` with the same corporation ownership contract.
+- The observing character remains `ownership.principal_character_id`; `character_id` is not populated for corporation ownership.
+- `issuer_character_id` and `wallet_division` remain absent when the source payload does not expose those facts.
+- `mergeCharacterAndCorporationOrders()` deduplicates by canonical `OrderId` and gives the corporation feed precedence over a character-feed corporate observation.
+- The frontend synchronization path may persist these ownership-aware orders in the character snapshot, but personal character scoping must exclude corporate-owned records.

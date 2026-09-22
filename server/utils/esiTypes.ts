@@ -83,6 +83,7 @@ export type EsiErrorKind =
   | 'TIMEOUT'
   | 'NETWORK'
   | 'INVALID_RESPONSE'
+  | 'INVALID_REQUEST'
   | 'UNKNOWN';
 
 export interface EsiError {

@@ -18,6 +18,7 @@ export interface EsiRequest {
   readonly timeoutMs?: number;
   readonly retries?: number;
   readonly etag?: string;
+  readonly dedupe?: boolean;
 }
 
 export interface EsiRetryPolicy {

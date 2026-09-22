@@ -84,7 +84,7 @@ export class InterRegionalFinancialEngine {
 
         const numericRange = parseInt(range, 10);
         if (!isNaN(numericRange) && numericRange >= 0) {
-          const route = UniverseRepository.getInstance().getRoute(order.system_id, hub.system_id);
+          const route = UniverseRepository.getInstance().getRoute(order.system_id, hub.system_id, 'SHORTEST');
           return (
             route.status === 'KNOWN' &&
             route.is_verified === true &&

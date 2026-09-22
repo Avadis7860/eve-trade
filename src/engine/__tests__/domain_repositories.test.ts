@@ -160,7 +160,7 @@ charRepo.saveSnapshot(54321, {
   skills: { accounting: 5, broker_relations: 5 },
   active_orders: [
     {
-      order_id: 1001,
+      order_id: '1001',
       type_id: 34,
       region_id: 10000002,
       location_id: 60003760,

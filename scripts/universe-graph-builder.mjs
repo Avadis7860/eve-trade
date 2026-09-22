@@ -43,7 +43,7 @@ export function parseJsonl(content, sourceLabel) {
   for (const [index, line] of content.split(/\r?\n/).entries()) {
     if (!line.trim()) continue;
 
-    let parsed: unknown;
+    let parsed;
     try {
       parsed = JSON.parse(line);
     } catch (error) {

@@ -171,3 +171,13 @@ Validation: `interregional_purity.test.ts`, typecheck, full engine regression an
 - Rule: when a corporation order appears in both the character and corporation feeds, the corporation feed is authoritative for ownership and replaces the duplicate by canonical `order_id`.
 - Rule: if corporation acquisition is unavailable, legacy corporate observations remain unscopable rather than being converted to personal orders.
 - Validation: `src/engine/__tests__/corporation_order.test.ts`, `src/services/__tests__/esi.test.ts`, order-scoping contracts and full CI.
+
+
+## TRADING-DATA-PROVENANCE-001 — Multi-character observations are additive
+
+- Scope: aggregated order views and ownership-aware trading orders.
+- Rule: one economic order may be observed independently by multiple linked characters; aggregation must retain all observing character IDs.
+- Rule: `principal_character_id` is the deterministic primary observer for an aggregate and must not be interpreted as proof that other observers did not see the order.
+- Rule: compatible observations of the same economic owner are merged by canonical `OrderId` and observer provenance is unioned.
+- Rule: conflicting economic owners for the same `OrderId` fail closed rather than choosing a winner silently.
+- Validation: `src/engine/__tests__/corporation_order.test.ts` and application aggregation path.

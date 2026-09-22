@@ -222,6 +222,26 @@ async function runTests(): Promise<void> {
     assert(result.data === null, '304 must have no payload');
   });
 
+  await test('invalid corporation inputs fail before transport with an explicit request error', async () => {
+    calls.length = 0;
+
+    const invalidProfile = await gateway.fetchProfile(0);
+    assert(!invalidProfile.ok, 'Invalid corporation profile id must fail');
+    assert(invalidProfile.status === 400, 'Invalid corporation profile id must be HTTP 400');
+    assert(invalidProfile.error?.kind === 'INVALID_REQUEST', 'Invalid profile id must use INVALID_REQUEST');
+    assert(calls.length === 0, 'Invalid profile id must not call the transport');
+
+    const invalidWalletCharacter = await gateway.fetchWallets(99001, 0, 'token-character-a');
+    assert(!invalidWalletCharacter.ok, 'Invalid character id must fail');
+    assert(invalidWalletCharacter.error?.kind === 'INVALID_REQUEST', 'Invalid character id must use INVALID_REQUEST');
+    assert(calls.length === 0, 'Invalid character id must not call the transport');
+
+    const invalidCredential = await gateway.fetchDivisions(99001, 1001, '   ');
+    assert(!invalidCredential.ok, 'Blank credential must fail');
+    assert(invalidCredential.error?.kind === 'INVALID_REQUEST', 'Blank credential must use INVALID_REQUEST');
+    assert(calls.length === 0, 'Blank credential must not call the transport');
+  });
+
   await test('corporation requests cover representative ESI failure statuses without remapping', async () => {
     for (const status of [401, 403, 404, 420, 429, 502, 503, 504]) {
       const response: EsiGatewayResponse<unknown> = {

@@ -77,10 +77,11 @@ async function runTests(): Promise<void> {
 
   setGlobalEsiMock(async (url, init) => {
     const parsed = new URL(String(url));
+    const esiPath = esiPath.replace(/^\/latest(?=\/)/, '');
     const authorization = (init?.headers as Record<string, string> | undefined)?.Authorization;
-    observedRequests.push({ url: parsed.pathname + parsed.search, authorization });
+    observedRequests.push({ url: esiPath + parsed.search, authorization });
 
-    if (parsed.pathname === `/characters/${CHARACTER_A}/orders/`) {
+    if (esiPath === `/characters/${CHARACTER_A}/orders/`) {
       if (authorization !== `Bearer ${TOKEN_A}`) return new Response('Unauthorized', { status: 401 });
       return new Response(JSON.stringify([{ order_id: 501, type_id: 34, volume_remain: 10 }]), {
         status: 200,
@@ -102,7 +103,7 @@ async function runTests(): Promise<void> {
       });
     }
 
-    if (parsed.pathname === `/characters/${CHARACTER_A}/orders/history/`) {
+    if (esiPath === `/characters/${CHARACTER_A}/orders/history/`) {
       if (authorization !== `Bearer ${TOKEN_A}`) return new Response('Unauthorized', { status: 401 });
       if (parsed.searchParams.get('page') !== '3') return new Response('Wrong page', { status: 400 });
       return new Response(JSON.stringify([{ order_id: 502, status: 'expired' }]), {
@@ -111,7 +112,7 @@ async function runTests(): Promise<void> {
       });
     }
 
-    if (parsed.pathname === `/characters/${CHARACTER_A}/wallet/`) {
+    if (esiPath === `/characters/${CHARACTER_A}/wallet/`) {
       if (authorization !== `Bearer ${TOKEN_A}`) return new Response('Unauthorized', { status: 401 });
       return new Response(JSON.stringify(-12500000.5), {
         status: 200,
@@ -119,7 +120,7 @@ async function runTests(): Promise<void> {
       });
     }
 
-    if (parsed.pathname === `/characters/${CHARACTER_A}/skills/`) {
+    if (esiPath === `/characters/${CHARACTER_A}/skills/`) {
       if (authorization !== `Bearer ${TOKEN_A}`) return new Response('Unauthorized', { status: 401 });
       return new Response(JSON.stringify({
         skills: [{ skill_id: 3300, trained_skill_level: 5 }],
@@ -130,7 +131,7 @@ async function runTests(): Promise<void> {
       });
     }
 
-    if (parsed.pathname === `/characters/${CHARACTER_A}/wallet/transactions/`) {
+    if (esiPath === `/characters/${CHARACTER_A}/wallet/transactions/`) {
       if (authorization !== `Bearer ${TOKEN_A}`) return new Response('Unauthorized', { status: 401 });
       if (parsed.searchParams.get('from_id') !== '900') return new Response('Wrong from_id', { status: 400 });
       return new Response(JSON.stringify([{ transaction_id: 900, is_buy: true, quantity: 5 }]), {
@@ -139,7 +140,7 @@ async function runTests(): Promise<void> {
       });
     }
 
-    if (parsed.pathname === `/characters/${CHARACTER_A}/wallet/journal/`) {
+    if (esiPath === `/characters/${CHARACTER_A}/wallet/journal/`) {
       if (authorization !== `Bearer ${TOKEN_A}`) return new Response('Unauthorized', { status: 401 });
       return new Response(JSON.stringify([{ id: 700, amount: -42.5 }]), {
         status: 200,
@@ -147,7 +148,7 @@ async function runTests(): Promise<void> {
       });
     }
 
-    if (parsed.pathname === `/characters/${CHARACTER_A}/`) {
+    if (esiPath === `/characters/${CHARACTER_A}/`) {
       if (authorization !== undefined) return new Response('Public route received credentials', { status: 500 });
       return new Response(JSON.stringify({
         character_id: CHARACTER_A,
@@ -159,7 +160,7 @@ async function runTests(): Promise<void> {
       });
     }
 
-    if (parsed.pathname === `/characters/${CHARACTER_B}/orders/`) {
+    if (esiPath === `/characters/${CHARACTER_B}/orders/`) {
       if (authorization !== `Bearer ${TOKEN_B}`) return new Response('Credential isolation failure', { status: 403 });
       return new Response(JSON.stringify([{ order_id: 601 }]), {
         status: 200,
@@ -167,7 +168,7 @@ async function runTests(): Promise<void> {
       });
     }
 
-    if (parsed.pathname === `/corporations/${CORPORATION_ID}/`) {
+    if (esiPath === `/corporations/${CORPORATION_ID}/`) {
       return new Response(JSON.stringify({
         name: 'Trade Operations Corporation',
         ticker: 'TOC',
@@ -178,7 +179,7 @@ async function runTests(): Promise<void> {
       });
     }
 
-    if (parsed.pathname === `/corporations/${CORPORATION_ID}/wallets/`) {
+    if (esiPath === `/corporations/${CORPORATION_ID}/wallets/`) {
       if (authorization !== `Bearer ${TOKEN_A}`) return new Response('Corp authorization failure', { status: 403 });
       return new Response(JSON.stringify([
         { division: 1, balance: -2500000 },
@@ -189,7 +190,7 @@ async function runTests(): Promise<void> {
       });
     }
 
-    if (parsed.pathname === `/corporations/${CORPORATION_ID}/divisions/`) {
+    if (esiPath === `/corporations/${CORPORATION_ID}/divisions/`) {
       if (authorization !== `Bearer ${TOKEN_A}`) return new Response('Corp authorization failure', { status: 403 });
       return new Response(JSON.stringify({
         wallet: [

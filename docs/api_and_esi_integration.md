@@ -172,3 +172,14 @@ Both routes preserve ESI payloads and transport metadata and use the authenticat
 Character collection methods in `EsiService` no longer expose failure as a plain empty array. The frontend service returns an explicit data-state contract so consumers can distinguish a genuinely empty character dataset from unavailable/error data.
 
 Business consumers must pass collection results through `EsiService.requireUsableCollection()`. Only `AVAILABLE` and `EMPTY` are released to calculations; `PARTIAL`, `UNAVAILABLE` and `ERROR` propagate into degraded-data handling.
+
+
+## Phase 4.7 — Corporation order normalization flow
+
+The corporation trading flow is:
+
+`Character OAuth -> corporation identity resolution -> authenticated corporation orders -> pure ownership normalization -> character snapshot`.
+
+The authenticated character remains the ESI principal throughout the flow. The corporation is represented only as the economic owner in the normalized order contract.
+
+When the same order is visible through both character and corporation feeds, the corporation feed is authoritative and the canonical OrderId prevents double representation.

@@ -275,7 +275,33 @@ export async function fetchEsi<T = unknown>(
         };
       }
 
-      const data = (await response.json()) as T;
+      let data: T;
+      try {
+        data = (await response.json()) as T;
+      } catch (_error: unknown) {
+        return {
+          ok: false,
+          status: 502,
+          data: null,
+          error: 'Invalid JSON response from ESI',
+          etag: responseEtag,
+          expires: responseExpires,
+          errorLimitRemain,
+          errorLimitReset,
+          retryAfter,
+          xPages,
+          lastModified,
+          cacheControl,
+          compatibilityDate: responseCompatibilityDate,
+          rateLimitGroup,
+          rateLimitLimit,
+          rateLimitRemaining,
+          rateLimitUsed,
+          retryAfterSeconds: retryAfter,
+          metadata,
+        };
+      }
+
       return {
         ok: true,
         status: response.status,

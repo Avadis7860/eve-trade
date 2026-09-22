@@ -13,6 +13,24 @@ import { roundIsk } from './money';
  */
 export class TreasuryEngine {
   /**
+   * Converts a factual wallet balance into capital that can be offered to a
+   * trading engine. The factual wallet balance itself must remain untouched.
+   *
+   * A negative wallet is a real observed liability, but it cannot become a
+   * negative spendable-capital amount. Returning 0 for that case is deliberate;
+   * callers must never retain a stale positive capital value instead.
+   */
+  static normalizeWalletTradingCapital(
+    walletBalance: number | null | undefined,
+  ): number | undefined {
+    if (typeof walletBalance !== 'number' || !Number.isFinite(walletBalance)) {
+      return undefined;
+    }
+
+    return Math.max(0, roundIsk(walletBalance));
+  }
+
+  /**
    * Standard default division labels in EVE Online.
    */
   static getDivisionDefaultName(division: number): string {
@@ -48,7 +66,7 @@ export class TreasuryEngine {
         balance = cfg.available_capital || 0;
       }
 
-      const effectiveCapital = Math.max(0, roundIsk(balance));
+      const effectiveCapital = this.normalizeWalletTradingCapital(balance) ?? 0;
 
       return {
         source_mode: 'corporation',
@@ -98,7 +116,7 @@ export class TreasuryEngine {
         balance = cfg.available_capital || 0;
       }
 
-      const effectiveCapital = Math.max(0, roundIsk(balance));
+      const effectiveCapital = this.normalizeWalletTradingCapital(balance) ?? 0;
       const name = activeChar?.character_name || 'Pilote Actif';
 
       return {
@@ -110,7 +128,7 @@ export class TreasuryEngine {
     }
 
     // Default: 'manual_budget'
-    const manualCapital = Math.max(0, roundIsk(cfg.available_capital || 0));
+    const manualCapital = this.normalizeWalletTradingCapital(cfg.available_capital) ?? 0;
     return {
       source_mode: 'manual_budget',
       effective_capital: manualCapital,

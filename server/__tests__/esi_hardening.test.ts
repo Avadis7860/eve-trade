@@ -252,6 +252,22 @@ async function runTests() {
     assert(callCount === 2, `Expected 2 calls, got ${callCount}`);
   });
 
+  await test('fetchEsi fails closed on malformed successful JSON payloads', async () => {
+    const res = await fetchEsi('/characters/1/wallet/', {
+      customFetch: async () =>
+        new Response('{not-valid-json', {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      retries: 0,
+    });
+
+    assert(res.ok === false, 'Malformed JSON must not be treated as successful data');
+    assert(res.status === 502, `Expected status 502 for malformed JSON, got ${res.status}`);
+    assert(res.error === 'Invalid JSON response from ESI', 'Expected explicit invalid-response error');
+    assert(res.data === null, 'Malformed JSON must never produce data');
+  });
+
   await test('fetchEsi handles timeout abort cleanly with status 504', async () => {
     const mockFetch = async (url: any, init: any) => {
       return new Promise<Response>((_, reject) => {

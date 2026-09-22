@@ -36,6 +36,9 @@ jobs:
       - name: Backend typecheck
         run: npm run typecheck:server
 
+      - name: CI workflow contract tests
+        run: npm run test:ci-config
+
       - name: Catalog & Universe truth tests
         run: npm run test:truth
 

@@ -31,6 +31,8 @@ import { FailureSemantics } from './failureSemantics';
 import { OpportunityEvidenceEngine, CURRENT_CERTIFICATION_VERSION } from './evidence';
 import { CatalogRepository } from '../domain/catalog/CatalogRepository';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
+import { InterRegionalResolver } from '../services/interRegionalResolver';
+import { InterRegionalCalculationEngine } from './interRegionalCalculation';
 import { TreasuryEngine } from './treasury';
 
 export class InterRegionalFinancialEngine {
@@ -821,283 +823,37 @@ export class InterRegionalFinancialEngine {
    * Fully deterministic execution simulation with order books, accessibility, logistics, and audit tracing.
    */
   static calculateOpportunity(
-    item: EveTypeDetail,
-    buyHub: MarketHub,
-    sellHub: MarketHub,
-    strategy: TradeStrategy,
-    config: FinancialConfig,
-    buyRegionOrders: RawMarketOrder[] = [],
-    sellRegionOrders: RawMarketOrder[] = [],
-    historyStatsByRegion: Record<number, HistoricalStats> = {},
-    qualitiesByRegion: Record<number, MarketDataQuality> = {},
-    jitaOrders: RawMarketOrder[] = []
+    item:EveTypeDetail,buyHub:MarketHub,sellHub:MarketHub,strategy:TradeStrategy,config:FinancialConfig,
+    buyRegionOrders:RawMarketOrder[]=[],sellRegionOrders:RawMarketOrder[]=[],
+    historyStatsByRegion:Record<number,HistoricalStats>={},qualitiesByRegion:Record<number,MarketDataQuality>={},jitaOrders:RawMarketOrder[]=[]
   ): InterRegionalOpportunity | null {
-    if (buyHub.id === sellHub.id) return null;
-
-    const catalogRepository = CatalogRepository.getInstance();
-    const universeRepository = UniverseRepository.getInstance();
-    const typeResolution = catalogRepository.resolveType(item.type_id);
-
-    // Financial calculations may only consume canonical, verified catalog data.
-    if (
-      !catalogRepository.isReady() ||
-      typeResolution.status !== 'RESOLVED_CATALOG' ||
-      !typeResolution.type ||
-      !typeResolution.is_verified
-    ) return null;
-
-    const sourceLocRes = universeRepository.resolveLocationSync(buyHub.station_id);
-    const destLocRes = universeRepository.resolveLocationSync(sellHub.station_id);
-
-    // Financial calculations may only consume verified hub locations.
-    if (
-      !sourceLocRes.is_verified ||
-      !destLocRes.is_verified ||
-      sourceLocRes.status === 'LOCATION_UNKNOWN' ||
-      destLocRes.status === 'LOCATION_UNKNOWN' ||
-      !sourceLocRes.system_id ||
-      !destLocRes.system_id
-    ) return null;
-
-    const route = universeRepository.getRoute(buyHub.system_id, sellHub.system_id);
-
-    // Unknown routes have no financial semantics and must be rejected before quantity/cost/scoring.
-    if (route.status !== 'KNOWN' || route.is_verified !== true || route.jumps < 0) return null;
-
-    const calculationItem = typeResolution.type;
-    const buyQuality = qualitiesByRegion[buyHub.region_id];
-    const sellQuality = qualitiesByRegion[sellHub.region_id];
-    const jitaQuality = qualitiesByRegion[10000002];
-
-    // 1. Filter source sell orders located physically AT buyHub station
-    const sourceSellOrders = this.filterAccessibleOrdersForHub(buyRegionOrders, buyHub, true, false);
-    const sourceLadders = PriceLadder.aggregate(sourceSellOrders, false); // Lowest sell price first
-    if (sourceLadders.length === 0) return null;
-
-    const totalSourceVolume = sourceLadders.reduce((acc, l) => acc + l.volume, 0);
-    const bestSourceSellPrice = sourceLadders[0].price;
-
-    let destLadders: PriceLevel[] = [];
-    let relistContext: RelistMarketContext | undefined;
-    let expectedDaysToSell = 0.1;
-    let capturableDailyVolume = 0;
-    const destHistory = historyStatsByRegion[sellHub.region_id];
-
-    if (
-      strategy === 'relist' &&
-      (!destHistory ||
-        ((destHistory.daily_volume_7d_median || destHistory.daily_volume_7d_avg || 0) <= 0) ||
-        ((destHistory.daily_volume_30d_median || destHistory.daily_volume_30d_avg || 0) <= 0))
-    ) {
-      return null;
-    }
-
-    // 2. Build Destination Execution Ladder
-    if (strategy === 'relist') {
-      const destSellOrders = this.filterAccessibleOrdersForHub(sellRegionOrders, sellHub, false, false);
-      const destSellLadders = PriceLadder.aggregate(destSellOrders, false);
-
-      const relistRes = this.computeCapturableVolumeAndRelistContext(
-        destSellLadders,
-        destHistory,
-        1, // Initial reference unit
-        bestSourceSellPrice,
-        config
-      );
-
-      relistContext = relistRes.relistContext;
-      const targetRelistPrice = relistRes.suggestedRelistPrice;
-      const virtualAbsorption = Math.max(1, relistRes.expectedCapturableVolumePerDay * Math.max(1, config.max_days_to_sell || 7));
-
-      destLadders = [
-        {
-          price: targetRelistPrice,
-          volume: virtualAbsorption,
-          orders: 1,
-          cumulative: virtualAbsorption,
-        },
-      ];
-      expectedDaysToSell = relistRes.expectedDaysToSell;
-      capturableDailyVolume = relistRes.expectedCapturableVolumePerDay;
-    } else {
-      // Immediate strategy (Taker Sell into existing accessible Buy Orders)
-      const destBuyOrders = this.filterAccessibleOrdersForHub(sellRegionOrders, sellHub, false, true);
-      destLadders = PriceLadder.aggregate(destBuyOrders, true); // Highest buy price first
-      if (destLadders.length === 0) return null;
-
-      expectedDaysToSell = 0.1; // Execution is immediate upon docking
-      capturableDailyVolume = destLadders.reduce((acc, l) => acc + l.volume, 0);
-    }
-
-    if (destLadders.length === 0) return null;
-    const bestDestSellTargetPrice = destLadders[0].price;
-
-    // Early gross spread check
-    if (bestDestSellTargetPrice <= bestSourceSellPrice) return null;
-
-    const totalDestVolume = destLadders.reduce((acc, l) => acc + l.volume, 0);
-    // Verified route declared at the financial boundary above and reused here.
-
-    // 3. Multi-constraint tradable quantity resolution
-    const tradableDetails = this.determineTradableQuantity(
-      bestSourceSellPrice,
-      calculationItem.volume,
-      totalSourceVolume,
-      totalDestVolume,
-      route,
-      config
+    const inputs=InterRegionalResolver.resolve(item,buyHub,sellHub,strategy,config,buyRegionOrders,sellRegionOrders,historyStatsByRegion,qualitiesByRegion,jitaOrders);
+    if(!inputs)return null;
+    const result=InterRegionalCalculationEngine.calculate(inputs);
+    if(!result)return null;
+    const {
+      calculationItem,typeResolution,sourceLocRes,destLocRes,route,
+      buyHub:resolvedBuyHub,sellHub:resolvedSellHub,
+      buyRegionOrders:resolvedBuyRegionOrders,sellRegionOrders:resolvedSellRegionOrders,
+      buyQuality,sellQuality,destHistory,sourceLadders,destLadders,tradableDetails,buyFill,sellFill,
+      actualQuantity,totalSourceVolume,totalDestVolume,bestSourceSellPrice,bestDestSellTargetPrice,costs,
+      relistContext,expectedDaysToSell,capturableDailyVolume,jitaBenchmark,hardRejection,liquidityMetrics,
+      scoringEvaluation,overallConfidence,isAnomalous,spreadPctVal,features,prediction
+    }=result;
+    const explanation=this.generateExplanation(
+      calculationItem,resolvedBuyHub,resolvedSellHub,strategy,actualQuantity,tradableDetails.bottleneck,tradableDetails,
+      buyFill,sellFill,costs,expectedDaysToSell,capturableDailyVolume,liquidityMetrics.daily_volume_dest,
+      relistContext?.orders_ahead||0,relistContext?.volume_ahead||0,overallConfidence,buyQuality,sellQuality,
+      jitaBenchmark.is_jita_verified,jitaBenchmark.buy_vs_jita_pct,isAnomalous,
+      Array.from(new Set([...hardRejection.anomaly_reasons,...scoringEvaluation.anomalyReasons])),
+      hardRejection.is_viable&&scoringEvaluation.isViable,
+      Array.from(new Set([...hardRejection.rejection_reasons,...scoringEvaluation.rejectionReasons]))
     );
+    const catalogRepository=CatalogRepository.getInstance();
+    const group=catalogRepository.getGroup(calculationItem.group_id);
+    const category=catalogRepository.getCategory(calculationItem.category_id);
 
-    const quantity = tradableDetails.quantity;
-    if (quantity <= 0) return null;
-
-    // 4. Exact Execution Fill Simulation on source and destination books
-    const buyFill = this.simulateFill(sourceLadders, quantity, false);
-    const sellFill = this.simulateFill(destLadders, quantity, true);
-
-    if (buyFill.filled_quantity <= 0 || sellFill.filled_quantity <= 0) return null;
-    const actualQuantity = Math.min(buyFill.filled_quantity, sellFill.filled_quantity);
-
-    // 5. Cost and Profit Calculation
-    const costs = this.computeCostsAndProfit(
-      buyFill,
-      sellFill,
-      actualQuantity,
-      calculationItem.volume,
-      route,
-      strategy,
-      config,
-      false
-    );
-
-    // Update relist context with actual final trade quantity
-    if (strategy === 'relist' && relistContext) {
-      const destSellOrders = this.filterAccessibleOrdersForHub(sellRegionOrders, sellHub, false, false);
-      const destSellLadders = PriceLadder.aggregate(destSellOrders, false);
-      const updatedRelist = this.computeCapturableVolumeAndRelistContext(
-        destSellLadders,
-        destHistory,
-        actualQuantity,
-        buyFill.effective_price,
-        config
-      );
-      relistContext = {
-        ...updatedRelist.relistContext,
-        expected_revenue: costs.gross_revenue,
-        expected_profit: costs.net_profit,
-      };
-      expectedDaysToSell = updatedRelist.expectedDaysToSell;
-      capturableDailyVolume = updatedRelist.expectedCapturableVolumePerDay;
-    }
-
-    // 6. Independent Jita Benchmark Evaluation
-    const jitaBenchmark = this.evaluateJitaBenchmark(
-      jitaOrders,
-      buyFill.effective_price,
-      sellFill.effective_price,
-      jitaQuality
-    );
-
-    // 7. Hard Rejection & Viability Evaluation
-    const hardRejection = this.evaluateHardRejection(
-      actualQuantity,
-      costs,
-      expectedDaysToSell,
-      config,
-      sourceLadders,
-      destLadders,
-      buyQuality,
-      sellQuality,
-      jitaBenchmark
-    );
-
-    // 8. Liquidity Metrics
-    const dailyDestVol = destHistory?.daily_volume_7d_median || (strategy === 'relist' ? capturableDailyVolume : totalDestVolume);
-    const liquidityMetrics = {
-      buy_hub_depth_volume: totalSourceVolume,
-      sell_hub_depth_volume: totalDestVolume,
-      daily_volume_source: historyStatsByRegion[buyHub.region_id]?.daily_volume_7d_median || totalSourceVolume,
-      daily_volume_dest: dailyDestVol,
-      turnover_ratio: dailyDestVol > 0 ? actualQuantity / dailyDestVol : 1,
-      expected_days_to_sell: expectedDaysToSell,
-      volume_exhaustion_pct: totalSourceVolume > 0 ? (actualQuantity / totalSourceVolume) * 100 : 100,
-    };
-
-    // 9. Transparent Factor Scoring
-    const scoringEvaluation = OpportunityScoringEngine.evaluate(
-      costs,
-      liquidityMetrics,
-      destHistory,
-      route.jumps,
-      route.is_highsec_only,
-      config,
-      buyFill.effective_price,
-      actualQuantity
-    );
-
-    // Overall Data Quality Confidence
-    const buyConf = buyQuality?.confidence ?? 0.0;
-    const sellConf = sellQuality?.confidence ?? 0.0;
-    const overallConfidence = roundIsk(Math.min(buyConf, sellConf) * (jitaBenchmark.is_jita_verified ? 1.0 : 0.9));
-
-    // 10. Audit & Explicability Rationale Generation
-    const explanation = this.generateExplanation(
-      calculationItem,
-      buyHub,
-      sellHub,
-      strategy,
-      actualQuantity,
-      tradableDetails.bottleneck,
-      tradableDetails,
-      buyFill,
-      sellFill,
-      costs,
-      expectedDaysToSell,
-      capturableDailyVolume,
-      dailyDestVol,
-      relistContext?.orders_ahead || 0,
-      relistContext?.volume_ahead || 0,
-      overallConfidence,
-      buyQuality,
-      sellQuality,
-      jitaBenchmark.is_jita_verified,
-      jitaBenchmark.buy_vs_jita_pct,
-      hardRejection.is_anomalous,
-      hardRejection.anomaly_reasons,
-      hardRejection.is_viable,
-      hardRejection.rejection_reasons
-    );
-
-    const group = catalogRepository.getGroup(calculationItem.group_id);
-    const category = catalogRepository.getCategory(calculationItem.category_id);
-
-    const isAnomalous = hardRejection.is_anomalous || scoringEvaluation.isAnomalous;
-    const spreadPctVal = bestSourceSellPrice > 0 ? (bestDestSellTargetPrice - bestSourceSellPrice) / bestSourceSellPrice : 0;
-
-    // Deterministic feature engineering & predictive forecast
-    const features = MarketFeatureEngine.extractFeatures(
-      [],
-      destHistory,
-      spreadPctVal * 100,
-      relistContext?.orders_ahead || 0
-    );
-
-    const prediction = PredictionEngine.forecast({
-      strategy,
-      costs,
-      capturableProfit: scoringEvaluation.capturableProfit,
-      expectedDaysToSell,
-      liquidity: liquidityMetrics,
-      features,
-      history: destHistory,
-      dataConfidence: overallConfidence,
-      isJitaVerified: jitaBenchmark.is_jita_verified,
-      routeJumps: route.jumps,
-      isHighSecOnly: route.is_highsec_only,
-      isAnomalous,
-    });
-
-    // --- PHASE 2C: FOUR-PILLARS OPPORTUNITY CERTIFICATION ---
+// --- PHASE 2C: FOUR-PILLARS OPPORTUNITY CERTIFICATION ---
     // Pillar 1: MarketData Evaluation (via FailureSemantics)
     const healthSource: DataHealthStatus = buyQuality?.health_status || (buyQuality ? FailureSemantics.evaluateHealth(buyQuality) : 'UNKNOWN');
     const healthDest: DataHealthStatus = sellQuality?.health_status || (sellQuality ? FailureSemantics.evaluateHealth(sellQuality) : 'UNKNOWN');
@@ -1128,7 +884,7 @@ export class InterRegionalFinancialEngine {
     // typeResolution was verified before financial calculation.
     let catalogPillarStatus: 'PASS' | 'FAIL' = 'PASS';
     let catalogDetail = `Type ${calculationItem.name} (#${calculationItem.type_id}) certifié au catalogue officiel.`;
-    if (typeResolution.status !== 'RESOLVED_CATALOG' || !typeResolution.is_verified || !catalogRepository.isReady()) {
+    if (typeResolution.status !== 'RESOLVED_CATALOG' || !typeResolution.is_verified || !typeResolution.is_verified) {
       catalogPillarStatus = 'FAIL';
       catalogDetail = `Type ${calculationItem.name} (#${calculationItem.type_id}) non certifié par le catalogue canonique.`;
     }
@@ -1199,8 +955,8 @@ export class InterRegionalFinancialEngine {
       ])
     );
 
-    const sourceSnapshotHash = OpportunityEvidenceEngine.computeMarketSnapshotHash(buyRegionOrders);
-    const destSnapshotHash = OpportunityEvidenceEngine.computeMarketSnapshotHash(sellRegionOrders);
+    const sourceSnapshotHash = OpportunityEvidenceEngine.computeMarketSnapshotHash([...resolvedBuyRegionOrders]);
+    const destSnapshotHash = OpportunityEvidenceEngine.computeMarketSnapshotHash([...resolvedSellRegionOrders]);
 
     const pillarEvaluations = {
       market_data: {
@@ -1297,7 +1053,7 @@ export class InterRegionalFinancialEngine {
         type_id: item.type_id,
         region_id: buyHub.region_id,
         timestamp: buyQuality?.fetched_at ? new Date(buyQuality.fetched_at).getTime() : Date.now(),
-        orders_count: buyRegionOrders.length,
+        orders_count: resolvedBuyRegionOrders.length,
         health_status: healthSource,
         data_state: buyDataState,
         market_hash: sourceSnapshotHash,
@@ -1311,7 +1067,7 @@ export class InterRegionalFinancialEngine {
         type_id: item.type_id,
         region_id: sellHub.region_id,
         timestamp: sellQuality?.fetched_at ? new Date(sellQuality.fetched_at).getTime() : Date.now(),
-        orders_count: sellRegionOrders.length,
+        orders_count: resolvedSellRegionOrders.length,
         health_status: healthDest,
         data_state: sellDataState,
         market_hash: destSnapshotHash,

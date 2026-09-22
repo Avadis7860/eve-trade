@@ -268,3 +268,14 @@ The catalog boundary treats the bundled canonical dataset and its manifest as th
 The universe boundary keeps canonical static locations separate from dynamic ESI/structure resolution. Unknown routes and locations fail closed and never receive synthetic numerical semantics.
 
 Relist demand estimation requires positive observed destination history. Missing history is unavailable data, not zero demand and not a synthetic default.
+
+
+## Phase 2.7A — Inter-regional financial purity
+
+The inter-regional opportunity path is split into an infrastructure resolution boundary and a pure calculation boundary:
+
+- `src/services/interRegionalResolver.ts` is the only Phase 2.7A resolver boundary for Catalog/Universe certification.
+- `src/engine/interRegionalCalculation.ts` consumes only `CertifiedInterRegionalInputs` and contains no CatalogRepository, UniverseRepository, ESI, persistence or wall-clock access.
+- `src/engine/interRegional.ts` assembles the calculation result into Opportunity/Evidence and may retain infrastructure access for assembly-only concerns.
+- Unknown, dynamic/structure, unverified or inconsistent Catalog/Universe inputs are rejected before financial calculation.
+- Numeric order-range routing uses a resolver-produced route map so the pure core does not resolve Universe state itself.

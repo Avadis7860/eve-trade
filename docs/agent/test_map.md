@@ -48,3 +48,6 @@ Agents must report the checks actually executed; documentation alone is never ev
 ## Truth gate validation
 - `npm run test:truth` — isolated Catalog & Universe canonical identity, truncation, provenance, route UNKNOWN and dynamic-cache boundary checks.
 - The truth gate runs before `npm test` in CI so regressions in canonical data contracts cannot be hidden behind unrelated unit-suite failures.
+
+
+- Inter-regional purity: `interregional_purity.test.ts` — deterministic core, repository isolation, UNKNOWN/dynamic rejection and architectural import/time guard.

@@ -135,3 +135,14 @@ Validation: `interregional_purity.test.ts`, typecheck, full engine regression an
 - Rule: canonical comparisons and deterministic sorting use identifier-aware logic and never coerce canonical IDs through `Number()`.
 - Rule: order de-duplication keys use the canonical identifier representation.
 - Validation: `src/engine/__tests__/order_identity.test.ts`, ESI and full regression suites.
+
+
+## CORPORATION-ORDERS-001 — Corporation trading orders keep principal and owner distinct
+
+- Scope: `CorporationEsiGateway`, corporation trading order routes.
+- Rule: the authenticated principal is always the character whose credential is used; the corporation is an economic owner/resource target, never an authentication principal.
+- Rule: routes resolve `corporation_id` from the route character's public identity instead of accepting an arbitrary corporation identifier from the caller.
+- Rule: Character A and Character B may observe the same corporation through distinct credentials without request coalescing across principals.
+- Rule: a character in corporation Y cannot be routed to corporation X orders by stale or caller-supplied ownership context.
+- Rule: corporation order payloads remain marked as corporation data and are not converted into character-owned order projections at this transport boundary.
+- Validation: `server/__tests__/corporation_esi_gateway.test.ts` and `server/__tests__/character_routes_contract.test.ts`.

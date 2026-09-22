@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { FinancialConfig, TradeStrategy, MarketHub } from '../types';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
+import { loadPersistedFinancialConfig } from '../engine/financialConfig';
 
 interface TradingConfigContextType {
   config: FinancialConfig;
@@ -47,12 +48,7 @@ const TradingConfigContext = createContext<TradingConfigContextType | undefined>
 export const TradingConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [config, setConfig] = useState<FinancialConfig>(() => {
     const saved = localStorage.getItem('eve_trade_config');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {}
-    }
-    return DEFAULT_CONFIG;
+    return loadPersistedFinancialConfig(saved, DEFAULT_CONFIG);
   });
 
   const [strategy, setStrategy] = useState<TradeStrategy>('relist');

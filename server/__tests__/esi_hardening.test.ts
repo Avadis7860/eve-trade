@@ -131,6 +131,45 @@ async function runTests() {
     assert(res.xPages === '5', 'Expected xPages preserved');
   });
 
+  await test('fetchEsi sends the centralized compatibility date and captures modern rate-limit/cache metadata', async () => {
+    const mockFetch = async (url: any, init: any) => {
+      assert((init?.headers as any)['X-Compatibility-Date'] === '2026-09-22', 'Expected centralized ESI compatibility date');
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Compatibility-Date': '2026-09-22',
+          'Last-Modified': 'Tue, 22 Sep 2026 12:00:00 GMT',
+          'Cache-Control': 'public, max-age=300',
+          'X-Ratelimit-Group': 'markets',
+          'X-Ratelimit-Limit': '150/15m',
+          'X-Ratelimit-Remaining': '148',
+          'X-Ratelimit-Used': '2',
+          'Retry-After': '3',
+          'X-Pages': '7',
+        },
+      });
+    };
+
+    const res = await fetchEsi<{ ok: boolean }>('/markets/10000002/orders/', {
+      customFetch: mockFetch,
+      retries: 0,
+    });
+
+    assert(res.ok === true, 'Expected successful response');
+    assert(res.compatibilityDate === '2026-09-22', 'Expected response compatibility date');
+    assert(res.lastModified === 'Tue, 22 Sep 2026 12:00:00 GMT', 'Expected Last-Modified metadata');
+    assert(res.cacheControl === 'public, max-age=300', 'Expected Cache-Control metadata');
+    assert(res.rateLimitGroup === 'markets', 'Expected rate-limit group');
+    assert(res.rateLimitLimit === '150/15m', 'Expected rate-limit limit');
+    assert(res.rateLimitRemaining === 148, 'Expected rate-limit remaining');
+    assert(res.rateLimitUsed === 2, 'Expected rate-limit used');
+    assert(res.retryAfterSeconds === 3, 'Expected Retry-After metadata');
+    assert(res.metadata.pagination.xPages === 7, 'Expected typed X-Pages metadata');
+    assert(res.metadata.rateLimit.rateLimitRemaining === 148, 'Expected typed rate-limit metadata');
+    assert(res.metadata.cache.cacheControl === 'public, max-age=300', 'Expected typed cache metadata');
+  });
+
   // --- 2. Rate Limiting and Error Limit Budget ---
   console.log('\n--- 2. RATE LIMITING & ERROR BUDGET ENFORCEMENT ---');
 

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { FinancialConfig, TradeStrategy, MarketHub } from '../types';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
 import { loadPersistedFinancialConfig } from '../engine/financialConfig';
@@ -46,10 +46,23 @@ const DEFAULT_CONFIG: FinancialConfig = {
 const TradingConfigContext = createContext<TradingConfigContextType | undefined>(undefined);
 
 export const TradingConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [config, setConfig] = useState<FinancialConfig>(() => {
+  const [config, setConfigState] = useState<FinancialConfig>(() => {
     const saved = localStorage.getItem('eve_trade_config');
     return loadPersistedFinancialConfig(saved, DEFAULT_CONFIG);
   });
+
+  const setConfig = useCallback<React.Dispatch<React.SetStateAction<FinancialConfig>>>(
+    (update) => {
+      setConfigState((previous) => {
+        const next =
+          typeof update === 'function'
+            ? update(previous)
+            : update;
+        return loadPersistedFinancialConfig(JSON.stringify(next), DEFAULT_CONFIG);
+      });
+    },
+    [],
+  );
 
   const [strategy, setStrategy] = useState<TradeStrategy>('relist');
   const [hubs, setHubs] = useState<MarketHub[]>(() => UniverseRepository.getInstance().getHubs());

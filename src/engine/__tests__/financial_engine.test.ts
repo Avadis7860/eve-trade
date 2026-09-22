@@ -2,6 +2,7 @@ import { FeeEngine } from '../fee';
 import { ProfitEngine } from '../profit';
 import { ExecutionScenario, FinancialConfig } from '../../types';
 import { roundIsk } from '../money';
+import { InterRegionalFinancialEngine } from '../interRegional';
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
@@ -327,6 +328,53 @@ export function runFinancialEngineTests() {
   });
   assertClose(microTrade.gross_purchase_cost, 120_000, 0.01, 'Micro-isk purchase calculation');
   assertClose(microTrade.gross_revenue, 180_000, 0.01, 'Micro-isk gross revenue');
+
+  // 8.6 Cargo capacity scaling & synchronization test
+  console.log('8.6 Testing Dynamic Cargo & Volume Synchronization...');
+  const smallCargoConfig: Partial<FinancialConfig> = {
+    ...baseConfig,
+    available_capital: 10_000_000_000,
+    max_cargo_m3: 1000, // 1,000 m³ (e.g. Frigate / Fast Transport)
+  };
+  const largeCargoConfig: Partial<FinancialConfig> = {
+    ...baseConfig,
+    available_capital: 10_000_000_000,
+    max_cargo_m3: 35000, // 35,000 m³ (e.g. Deep Space Transport)
+  };
+
+  const dummyRoute = {
+    source_system_id: 30000142,
+    dest_system_id: 30002187,
+    jumps: 9,
+    is_highsec_only: true,
+    min_security: 0.9,
+    chokepoints: [],
+  };
+
+  // Heavy commodity: 50 m³ per unit, 10,000 ISK buy price, 50,000 units available
+  const smallCargoRes = InterRegionalFinancialEngine.determineTradableQuantity(
+    10000,
+    50, // 50 m³ per unit
+    50000,
+    50000,
+    dummyRoute,
+    smallCargoConfig
+  );
+  assert(smallCargoRes.quantity === 20, `Small cargo capped at 20 units (1000m³ / 50m³ = 20), got ${smallCargoRes.quantity}`);
+  assert(smallCargoRes.bottleneck === 'cargo', `Bottleneck is cargo, got ${smallCargoRes.bottleneck}`);
+  assert(smallCargoRes.totalCargoVolume === 1000, `Cargo volume is 1000m³, got ${smallCargoRes.totalCargoVolume}`);
+
+  const largeCargoRes = InterRegionalFinancialEngine.determineTradableQuantity(
+    10000,
+    50, // 50 m³ per unit
+    50000,
+    50000,
+    dummyRoute,
+    largeCargoConfig
+  );
+  assert(largeCargoRes.quantity === 700, `Large cargo capped at 700 units (35000m³ / 50m³ = 700), got ${largeCargoRes.quantity}`);
+  assert(largeCargoRes.bottleneck === 'cargo', `Bottleneck is cargo, got ${largeCargoRes.bottleneck}`);
+  assert(largeCargoRes.totalCargoVolume === 35000, `Cargo volume is 35000m³, got ${largeCargoRes.totalCargoVolume}`);
 
   console.log('✅ All Boundary & Edge Cases passed.');
   console.log('🎉 ALL COMPREHENSIVE FINANCIAL ENGINE TESTS PASSED WITH 100% SUCCESS!');

@@ -401,12 +401,22 @@ export class GlobalMarketSyncService {
           // Evaluate Arbitrage Opportunities for this item
           if (Object.keys(itemOrderBooks).length > 1) {
             try {
+              let currentConfig = config;
+              try {
+                if (typeof window !== 'undefined' && window.localStorage) {
+                  const savedCfg = localStorage.getItem('eve_trade_config');
+                  if (savedCfg) {
+                    currentConfig = { ...config, ...JSON.parse(savedCfg) };
+                  }
+                }
+              } catch {}
+
               const characters = AuthService.getLinkedCharacters();
               const opps = InterRegionalScanner.scanItemAcrossHubs(
                 item,
                 activeHubs,
                 strategy,
-                config,
+                currentConfig,
                 itemOrderBooks,
                 itemHistoryCache,
                 itemQualities,

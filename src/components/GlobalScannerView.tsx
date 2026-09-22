@@ -6,6 +6,7 @@ import {
   FinancialConfig,
   TradeStrategy,
 } from '../types';
+import { InterRegionalFinancialEngine } from '../engine/interRegional';
 import {
   Globe,
   Filter,
@@ -22,6 +23,8 @@ import {
   Layers,
   ArrowRight,
   SlidersHorizontal,
+  Package,
+  Info,
 } from 'lucide-react';
 
 interface GlobalScannerViewProps {
@@ -52,11 +55,12 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
 
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [cargoFilter, setCargoFilter] = useState<'all' | '1000' | '5000' | '12000' | '35000' | '60000' | 'freighter'>('all');
   const [minProfitFilter, setMinProfitFilter] = useState<number>(0); // Default 0 to show all discovered opportunities
   const [minRoiFilter, setMinRoiFilter] = useState<number>(0); // Default 0 to show all positive ROIs
   const [maxJumpsFilter, setMaxJumpsFilter] = useState<number>(50); // Default 50 to cover all routes
   const [highSecOnly, setHighSecOnly] = useState<boolean>(false); // Default false to show all discovered routes
-  const [sortBy, setSortBy] = useState<'score' | 'profit' | 'roi' | 'turnover' | 'capital'>('score');
+  const [sortBy, setSortBy] = useState<'score' | 'profit' | 'roi' | 'turnover' | 'capital' | 'cargo'>('score');
 
   useEffect(() => {
     // 1. If memory has opportunities, set them
@@ -82,6 +86,7 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
   const handleResetFilters = () => {
     setSearchQuery('');
     setCategoryFilter('all');
+    setCargoFilter('all');
     setMinProfitFilter(0);
     setMinRoiFilter(0);
     setMaxJumpsFilter(50);
@@ -92,14 +97,26 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
   const isFiltered = Boolean(
     searchQuery.trim() ||
     categoryFilter !== 'all' ||
+    cargoFilter !== 'all' ||
     minProfitFilter > 0 ||
     minRoiFilter > 0 ||
     maxJumpsFilter < 50 ||
     highSecOnly
   );
 
+  // Synchronize all opportunities in real-time with current FinancialConfig (including max_cargo_m3, available_capital, broker fees, taxes, transport costs)
+  const liveOpportunities = useMemo(() => {
+    return opportunities.map((opp) => {
+      try {
+        return InterRegionalFinancialEngine.recalculateOpportunityWithConfig(opp, config);
+      } catch {
+        return opp;
+      }
+    });
+  }, [opportunities, config]);
+
   const filteredOpportunities = useMemo(() => {
-    return opportunities
+    return liveOpportunities
       .filter((opp) => {
         if (!opp) return false;
 
@@ -116,6 +133,15 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
         // ROI filter
         const roi = opp.costs?.roi ?? 0;
         if (roi < minRoiFilter) return false;
+
+        // Cargo volume filter
+        const cargoVol = opp.total_cargo_volume ?? 0;
+        if (cargoFilter === '1000' && cargoVol > 1000) return false;
+        if (cargoFilter === '5000' && cargoVol > 5000) return false;
+        if (cargoFilter === '12000' && cargoVol > 12000) return false;
+        if (cargoFilter === '35000' && cargoVol > 35000) return false;
+        if (cargoFilter === '60000' && cargoVol > 60000) return false;
+        if (cargoFilter === 'freighter' && cargoVol <= 60000) return false;
 
         // Chokepoints filter if avoid_chokepoints enabled in config
         if (config.avoid_chokepoints && opp.route?.chokepoints && opp.route.chokepoints.length > 0) {
@@ -147,9 +173,10 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
         if (sortBy === 'roi') return (b.costs?.roi ?? 0) - (a.costs?.roi ?? 0);
         if (sortBy === 'turnover') return (a.expected_days_to_sell ?? 0) - (b.expected_days_to_sell ?? 0);
         if (sortBy === 'capital') return (b.costs?.purchase_cost ?? 0) - (a.costs?.purchase_cost ?? 0);
+        if (sortBy === 'cargo') return (b.total_cargo_volume ?? 0) - (a.total_cargo_volume ?? 0);
         return 0;
       });
-  }, [opportunities, searchQuery, categoryFilter, minProfitFilter, minRoiFilter, maxJumpsFilter, highSecOnly, sortBy, config.avoid_chokepoints]);
+  }, [liveOpportunities, searchQuery, categoryFilter, cargoFilter, minProfitFilter, minRoiFilter, maxJumpsFilter, highSecOnly, sortBy, config.avoid_chokepoints]);
 
   // Unique categories for dropdown
   const availableCategories = useMemo(() => {
@@ -184,23 +211,41 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
               )}
             </h1>
             <p className="text-xs text-[#808495] mt-0.5">
-              Classement universel des meilleurs flux commerciaux inter-régionaux analysés en temps réel
+              Classement universel des meilleurs flux commerciaux inter-régionaux synchronisés en direct avec votre soute et capital
             </p>
           </div>
         </div>
 
-        <button
-          onClick={onOpenGlobalSyncModal}
-          className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-bold rounded-xl flex items-center gap-2 shadow-lg shadow-purple-900/30 transition-all text-xs"
-        >
-          <RefreshCw className="w-4 h-4" />
-          <span>Lancer une Synchronisation Globale ESI</span>
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Active Cargo & Capital Badge */}
+          <div className="hidden sm:flex items-center gap-2 bg-[#0e1117] border border-[#262730] px-3 py-1.5 rounded-xl text-[11px] font-mono">
+            <span className="text-[#808495] flex items-center gap-1">
+              <Package className="w-3.5 h-3.5 text-blue-400" />
+              Soute :
+            </span>
+            <span className="text-[#fafafa] font-bold">
+              {(config.max_cargo_m3 ?? 35000).toLocaleString('fr-FR')} m³
+            </span>
+            <span className="text-[#808495]">&bull;</span>
+            <span className="text-[#808495]">Capital :</span>
+            <span className="text-emerald-400 font-bold">
+              {((config.available_capital ?? 1000000000) / 1000000).toFixed(0)}M ISK
+            </span>
+          </div>
+
+          <button
+            onClick={onOpenGlobalSyncModal}
+            className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-bold rounded-xl flex items-center gap-2 shadow-lg shadow-purple-900/30 transition-all text-xs"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span>Lancer un Scan Global ESI</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter Toolbar */}
       <div className="bg-[#161821] border border-[#262730] p-4 rounded-xl space-y-3 text-xs">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           {/* Search */}
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-2.5 text-[#808495]" />
@@ -226,6 +271,23 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
                   {c}
                 </option>
               ))}
+            </select>
+          </div>
+
+          {/* Cargo Capacity Filter */}
+          <div>
+            <select
+              value={cargoFilter}
+              onChange={(e) => setCargoFilter(e.target.value as any)}
+              className="w-full bg-[#0e1117] border border-[#262730] text-[#fafafa] p-2 rounded-lg focus:border-purple-500 focus:outline-none"
+            >
+              <option value="all">Toutes tailles de cargaison</option>
+              <option value="1000">&le; 1 000 m³ (Frégate / Transport léger)</option>
+              <option value="5000">&le; 5 000 m³ (Transporteur rapide)</option>
+              <option value="12000">&le; 12 000 m³ (Blockade Runner)</option>
+              <option value="35000">&le; 35 000 m³ (Deep Space Transport)</option>
+              <option value="60000">&le; 60 000 m³ (Industriel standard)</option>
+              <option value="freighter">&gt; 60 000 m³ (Freighter / JF)</option>
             </select>
           </div>
 
@@ -257,6 +319,7 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
               <option value="score">Trier par : Score Global (Qualité/Risque)</option>
               <option value="profit">Trier par : Profit Net Total (ISK)</option>
               <option value="roi">Trier par : ROI (%)</option>
+              <option value="cargo">Trier par : Volume de cargo (m³)</option>
               <option value="turnover">Trier par : Rapidité de rotation</option>
               <option value="capital">Trier par : Capital engagé</option>
             </select>
@@ -265,7 +328,7 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
 
         {/* Secondary Filters Bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[#262730] text-[11px] text-[#808495]">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <label className="flex items-center gap-1.5 cursor-pointer text-[#cfd3dc] hover:text-white">
               <input
                 type="checkbox"
@@ -306,8 +369,14 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
             </div>
           </div>
 
-          <div>
-            Stratégie appliquée : <span className="text-[#fafafa] font-bold uppercase">{strategy}</span> &bull; Frais transport : <span className="text-emerald-400 font-bold">{config.enable_transport_costs ? 'Actifs' : '0 ISK (Désactivés)'}</span>
+          <div className="flex items-center gap-3 text-[11px]">
+            <span>
+              Stratégie : <span className="text-[#fafafa] font-bold uppercase">{strategy}</span>
+            </span>
+            <span>&bull;</span>
+            <span>
+              Transport : <span className="text-emerald-400 font-bold">{config.enable_transport_costs ? 'Actif' : '0 ISK (Désactivé)'}</span>
+            </span>
           </div>
         </div>
       </div>
@@ -322,7 +391,7 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
                 {opportunities.length} opportunité{opportunities.length > 1 ? 's' : ''} masquée{opportunities.length > 1 ? 's' : ''} par vos filtres actuels
               </h3>
               <p className="text-xs text-[#808495] max-w-md mx-auto">
-                Des opportunités existent en mémoire mais ne correspondent pas à vos critères (profit min, max sauts, high-sec, catégorie ou recherche).
+                Des opportunités existent en mémoire mais ne correspondent pas à vos critères (profit min, soute max, sauts, high-sec, catégorie ou recherche).
               </p>
               <button
                 onClick={handleResetFilters}
@@ -358,7 +427,7 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
                   <th className="p-3.5 font-bold">Item &amp; Catégorie</th>
                   <th className="p-3.5 font-bold">Route Commerciale</th>
                   <th className="p-3.5 font-bold text-right">Achat Source &rarr; Vente Cible</th>
-                  <th className="p-3.5 font-bold text-right">Volume &amp; Cargo</th>
+                  <th className="p-3.5 font-bold text-right">Volume &amp; Soute</th>
                   <th className="p-3.5 font-bold text-right">Profit Net</th>
                   <th className="p-3.5 font-bold text-right">ROI</th>
                   <th className="p-3.5 font-bold text-center">Action</th>
@@ -378,6 +447,11 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
                   const jumps = opp.route?.jumps ?? 0;
                   const isHighSec = Boolean(opp.route?.is_highsec_only);
                   const minSec = opp.route?.min_security ?? 1.0;
+
+                  const cargoCapacity = config.max_cargo_m3 ?? 35000;
+                  const totalCargo = opp.total_cargo_volume ?? 0;
+                  const cargoPercent = cargoCapacity > 0 ? Math.min(100, Math.round((totalCargo / cargoCapacity) * 100)) : 0;
+                  const bottleneck = opp.bottleneck || 'capital';
 
                   return (
                     <tr
@@ -470,13 +544,48 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
                         </div>
                       </td>
 
-                      {/* Quantity & Cargo */}
+                      {/* Quantity & Cargo Synchronized */}
                       <td className="p-3.5 text-right font-mono">
                         <div className="text-[#fafafa] font-bold">
                           {(opp.quantity_tradable ?? 0).toLocaleString('fr-FR')} u.
                         </div>
-                        <div className="text-[10px] text-[#808495]">
-                          {(opp.total_cargo_volume ?? 0).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} m³
+                        <div className="text-[10px] text-blue-300 flex items-center justify-end gap-1">
+                          <span>{totalCargo.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} m³</span>
+                          <span className="text-[#606475]">({cargoPercent}%)</span>
+                        </div>
+                        <div className="mt-1 flex justify-end">
+                          {bottleneck === 'cargo' && (
+                            <span
+                              className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                              title={`Volume limité à 100% par votre capacité de soute (${cargoCapacity.toLocaleString()} m³)`}
+                            >
+                              📦 Soute Pleine
+                            </span>
+                          )}
+                          {bottleneck === 'capital' && (
+                            <span
+                              className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                              title={`Quantité limitée par votre capital disponible (${((config.available_capital ?? 1000000000) / 1000000).toFixed(0)}M ISK)`}
+                            >
+                              💰 Plafond Capital
+                            </span>
+                          )}
+                          {bottleneck === 'source_market' && (
+                            <span
+                              className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                              title="Quantité limitée par la profondeur du stock vendeur au hub source"
+                            >
+                              🏪 Stock Source
+                            </span>
+                          )}
+                          {bottleneck === 'destination_market' && (
+                            <span
+                              className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+                              title="Quantité limitée par la capacité d'absorption au hub de destination"
+                            >
+                              🎯 Demande Cible
+                            </span>
+                          )}
                         </div>
                       </td>
 
@@ -521,3 +630,4 @@ export const GlobalScannerView: React.FC<GlobalScannerViewProps> = ({
     </div>
   );
 };
+

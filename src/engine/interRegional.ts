@@ -174,34 +174,248 @@ export class InterRegionalFinancialEngine {
     const availableCap = config.available_capital ?? 1000000000;
     const maxCapPerTrade = config.max_capital_per_trade ?? availableCap;
     const maxCapitalToUse = Math.min(availableCap, maxCapPerTrade);
+    const effectiveUnitVolume = unitVolume && unitVolume > 0 ? unitVolume : 0.01;
 
     const transportPerUnit =
       config.enable_transport_costs !== false
-        ? unitVolume * (config.transport_cost_per_m3 || 0) + (route.jumps * (config.transport_cost_per_jump || 0) * (unitVolume / Math.max(1, config.max_cargo_m3 || 5000)))
+        ? effectiveUnitVolume * (config.transport_cost_per_m3 || 0) + (route.jumps * (config.transport_cost_per_jump || 0) * (effectiveUnitVolume / Math.max(1, config.max_cargo_m3 || 5000)))
         : 0;
 
     const unitEstCost = unitBuyPrice + transportPerUnit;
     const capitalLimitedUnits = unitEstCost > 0 && maxCapitalToUse > 0 ? Math.floor(maxCapitalToUse / unitEstCost) : 0;
-    const cargoLimitedUnits = unitVolume > 0 && (config.max_cargo_m3 || 0) > 0 ? Math.floor(config.max_cargo_m3 / unitVolume) : 999999999;
+    const cargoCapacity = config.max_cargo_m3 !== undefined && config.max_cargo_m3 !== null ? config.max_cargo_m3 : 35000;
+    const cargoLimitedUnits = effectiveUnitVolume > 0 && cargoCapacity > 0 ? Math.floor(cargoCapacity / effectiveUnitVolume) : 999999999;
     const sourceAvailableUnits = Math.max(0, Math.floor(sourceAvailableVolume));
     const destAvailableUnits = Math.max(0, Math.floor(destinationAbsorptionVolume));
 
     const minQty = Math.max(0, Math.min(capitalLimitedUnits, cargoLimitedUnits, sourceAvailableUnits, destAvailableUnits));
 
-    let bottleneck: 'capital' | 'cargo' | 'source_market' | 'destination_market' = 'capital';
-    if (minQty === cargoLimitedUnits && cargoLimitedUnits < capitalLimitedUnits) bottleneck = 'cargo';
-    else if (minQty === sourceAvailableUnits && sourceAvailableUnits < capitalLimitedUnits) bottleneck = 'source_market';
-    else if (minQty === destAvailableUnits && destAvailableUnits < capitalLimitedUnits) bottleneck = 'destination_market';
-    else if (minQty === capitalLimitedUnits) bottleneck = 'capital';
+    const limits = [
+      { type: 'cargo' as const, limit: cargoLimitedUnits },
+      { type: 'capital' as const, limit: capitalLimitedUnits },
+      { type: 'source_market' as const, limit: sourceAvailableUnits },
+      { type: 'destination_market' as const, limit: destAvailableUnits },
+    ];
+    limits.sort((a, b) => a.limit - b.limit);
+    const bottleneck = limits[0].type;
 
     return {
       quantity: minQty,
       bottleneck,
-      totalCargoVolume: minQty * unitVolume,
+      totalCargoVolume: Math.round(minQty * effectiveUnitVolume * 10000) / 10000,
       capitalLimitedUnits,
       cargoLimitedUnits,
       sourceAvailableUnits,
       destAvailableUnits,
+    };
+  }
+
+  /**
+   * Recalculates an opportunity in a pure, deterministic manner given a new FinancialConfig.
+   * Dynamically synchronizes tradable quantity, cargo volume, transport costs, fees, taxes,
+   * net profit, ROI, liquidity, bottleneck, scoring, and explicability explanations.
+   */
+  static recalculateOpportunityWithConfig<T extends InterRegionalOpportunity>(
+    opp: T,
+    config: FinancialConfig
+  ): T {
+    if (!opp) return opp;
+
+    const unitVolume =
+      opp.unit_volume && opp.unit_volume > 0
+        ? opp.unit_volume
+        : CatalogRepository.getInstance().getTypeVolume(opp.type_id) || 0.01;
+
+    const bestBuyPrice = opp.effective_buy_price || opp.best_buy_order_price || 0;
+    const bestSellPrice = opp.effective_sell_price || opp.best_sell_order_price || 0;
+
+    const sourceDepth =
+      opp.liquidity?.buy_hub_depth_volume && opp.liquidity.buy_hub_depth_volume > 0
+        ? opp.liquidity.buy_hub_depth_volume
+        : Math.max(opp.quantity_tradable || 1, 100);
+
+    let destDepth =
+      opp.liquidity?.sell_hub_depth_volume && opp.liquidity.sell_hub_depth_volume > 0
+        ? opp.liquidity.sell_hub_depth_volume
+        : Math.max(opp.quantity_tradable || 1, 100);
+
+    if (opp.strategy === 'relist' && opp.relist_context?.expected_capturable_volume_per_day) {
+      destDepth = Math.max(
+        1,
+        opp.relist_context.expected_capturable_volume_per_day * Math.max(1, config.max_days_to_sell || 7)
+      );
+    }
+
+    const tradableDetails = this.determineTradableQuantity(
+      bestBuyPrice,
+      unitVolume,
+      sourceDepth,
+      destDepth,
+      opp.route,
+      config
+    );
+
+    const actualQuantity = tradableDetails.quantity;
+
+    const buyFill: ExecutionFill = {
+      requested_quantity: actualQuantity,
+      filled_quantity: actualQuantity,
+      effective_price: bestBuyPrice,
+      top_of_book_price: opp.top_of_book_buy_price || bestBuyPrice,
+      total_cost_or_revenue: roundIsk(bestBuyPrice * actualQuantity),
+      slippage_pct: 0,
+      levels_exhausted: 1,
+    };
+
+    const sellFill: ExecutionFill = {
+      requested_quantity: actualQuantity,
+      filled_quantity: actualQuantity,
+      effective_price: bestSellPrice,
+      top_of_book_price: opp.top_of_book_sell_price || bestSellPrice,
+      total_cost_or_revenue: roundIsk(bestSellPrice * actualQuantity),
+      slippage_pct: 0,
+      levels_exhausted: 1,
+    };
+
+    const costs = this.computeCostsAndProfit(
+      buyFill,
+      sellFill,
+      actualQuantity,
+      unitVolume,
+      opp.route,
+      opp.strategy,
+      config,
+      false
+    );
+
+    const totalCargoVolume = Math.round(actualQuantity * unitVolume * 10000) / 10000;
+
+    let expectedDaysToSell = opp.expected_days_to_sell ?? 0.1;
+    let capturableDailyVolume = opp.relist_context?.expected_capturable_volume_per_day ?? sourceDepth;
+    let relistContext = opp.relist_context;
+
+    if (opp.strategy === 'relist' && relistContext) {
+      const volumeAhead = relistContext.volume_ahead || 0;
+      const baseDailyVol = Math.max(1, relistContext.historical_daily_volume || 100);
+      const capturablePerDay = Math.max(1, relistContext.expected_capturable_volume_per_day || 1);
+      const timeToClearAhead = volumeAhead > 0 ? volumeAhead / baseDailyVol : 0;
+      const timeToClearOurQty = actualQuantity / capturablePerDay;
+      expectedDaysToSell = Math.max(0.1, roundIsk(timeToClearAhead + timeToClearOurQty));
+      relistContext = {
+        ...relistContext,
+        expected_days_to_sell: expectedDaysToSell,
+        expected_revenue: costs.gross_revenue,
+        expected_profit: costs.net_profit,
+      };
+    }
+
+    const updatedLiquidity = {
+      ...opp.liquidity,
+      turnover_ratio: opp.liquidity?.daily_volume_dest > 0 ? actualQuantity / opp.liquidity.daily_volume_dest : 1,
+      expected_days_to_sell: expectedDaysToSell,
+      volume_exhaustion_pct: opp.liquidity?.buy_hub_depth_volume > 0 ? (actualQuantity / opp.liquidity.buy_hub_depth_volume) * 100 : 100,
+    };
+
+    const scoringEvaluation = OpportunityScoringEngine.evaluate(
+      costs,
+      updatedLiquidity,
+      opp.history,
+      opp.route?.jumps ?? 0,
+      opp.route?.is_highsec_only ?? true,
+      config,
+      bestBuyPrice,
+      actualQuantity
+    );
+
+    const isViableFinal = scoringEvaluation.isViable && costs.net_profit > 0 && actualQuantity > 0;
+
+    const explanation = this.generateExplanation(
+      {
+        type_id: opp.type_id,
+        name: opp.type_name,
+        group_id: opp.group_id,
+        category_id: opp.category_id,
+        volume: unitVolume,
+      },
+      opp.buy_hub,
+      opp.sell_hub,
+      opp.strategy,
+      actualQuantity,
+      tradableDetails.bottleneck,
+      tradableDetails,
+      buyFill,
+      sellFill,
+      costs,
+      expectedDaysToSell,
+      capturableDailyVolume,
+      updatedLiquidity.daily_volume_dest,
+      relistContext?.orders_ahead || 0,
+      relistContext?.volume_ahead || 0,
+      (opp as any).confidence ?? 1.0,
+      opp.data_quality?.buy_hub_quality,
+      opp.data_quality?.sell_hub_quality,
+      opp.jita_price_benchmark?.is_jita_verified ?? false,
+      opp.jita_price_benchmark?.buy_vs_jita_pct ?? 0,
+      opp.is_anomalous,
+      opp.anomaly_reasons || [],
+      isViableFinal,
+      scoringEvaluation.rejectionReasons || []
+    );
+
+    return {
+      ...opp,
+      unit_volume: unitVolume,
+      quantity_tradable: actualQuantity,
+      bottleneck: tradableDetails.bottleneck,
+      total_cargo_volume: totalCargoVolume,
+      costs,
+      capturable_profit: scoringEvaluation.capturableProfit,
+      profit_per_day: scoringEvaluation.profitPerDay,
+      expected_days_to_sell: expectedDaysToSell,
+      liquidity: updatedLiquidity,
+      scores: scoringEvaluation.scores,
+      relist_context: relistContext,
+      explanation,
+      is_viable: isViableFinal,
+      financial_inputs: {
+        ...opp.evidence?.financial_inputs,
+        available_capital: config.available_capital,
+        max_cargo_m3: config.max_cargo_m3,
+        broker_fee: config.broker_fee,
+        sales_tax: config.sales_tax,
+        enable_transport_costs: Boolean(config.enable_transport_costs),
+        transport_cost_per_m3: config.transport_cost_per_m3 || 0,
+        transport_cost_per_jump: config.transport_cost_per_jump || 0,
+        min_roi: config.min_roi || 0.03,
+        min_net_profit: config.min_net_profit || 1000,
+        unit_volume: unitVolume,
+        strategy: opp.strategy,
+        accounting_level: config.accounting_level,
+        broker_relations_level: config.broker_relations_level,
+        advanced_broker_relations_level: config.advanced_broker_relations_level,
+      },
+      financial_outputs: {
+        ...opp.evidence?.financial_outputs,
+        quantity: actualQuantity,
+        effective_buy_price: bestBuyPrice,
+        effective_sell_price: bestSellPrice,
+        gross_purchase_cost: costs.purchase_cost,
+        buy_broker_fee_cost: costs.buy_broker_fee,
+        transport_cost: costs.transport_cost,
+        total_acquisition_cost: costs.total_acquisition_cost,
+        gross_revenue: costs.gross_revenue,
+        sales_tax_cost: costs.sales_tax,
+        sell_broker_fee_cost: costs.sell_broker_fee,
+        total_exit_fees: costs.total_exit_fees,
+        net_revenue: costs.net_revenue,
+        net_profit: costs.net_profit,
+        profit_per_unit: costs.profit_per_unit,
+        roi: costs.roi,
+        margin: costs.margin,
+        capital_locked: costs.capital_locked,
+        bottleneck: tradableDetails.bottleneck,
+        is_viable: isViableFinal,
+      },
     };
   }
 

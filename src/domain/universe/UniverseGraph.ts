@@ -48,10 +48,6 @@ function assertSecurityStatus(securityStatus: number | null): void {
   }
 }
 
-function canonicalEdgeKey(from: number, to: number): string {
-  return `${from}:${to}`;
-}
-
 export function buildUniverseGraph(input: UniverseGraphInput): UniverseGraph {
   const nodes = new Map<number, UniverseGraphNode>();
   const adjacency = new Map<number, Set<number>>();
@@ -66,7 +62,7 @@ export function buildUniverseGraph(input: UniverseGraphInput): UniverseGraph {
     adjacency.set(node.system_id, new Set());
   }
 
-  const edgeKeys = new Set<string>();
+  let edgeCount = 0;
 
   for (const edge of input.edges) {
     assertSystemId(edge.from_system_id, 'edge source');
@@ -81,10 +77,10 @@ export function buildUniverseGraph(input: UniverseGraphInput): UniverseGraph {
       );
     }
 
-    const key = canonicalEdgeKey(edge.from_system_id, edge.to_system_id);
-    if (edgeKeys.has(key)) continue;
-    edgeKeys.add(key);
-    adjacency.get(edge.from_system_id)!.add(edge.to_system_id);
+    const neighbors = adjacency.get(edge.from_system_id)!;
+    if (neighbors.has(edge.to_system_id)) continue;
+    neighbors.add(edge.to_system_id);
+    edgeCount += 1;
   }
 
   const frozenAdjacency = new Map<number, readonly number[]>();
@@ -95,7 +91,7 @@ export function buildUniverseGraph(input: UniverseGraphInput): UniverseGraph {
   return Object.freeze({
     provenance: Object.freeze({ ...input.provenance }),
     node_count: nodes.size,
-    edge_count: edgeKeys.size,
+    edge_count: edgeCount,
     has_system: (systemId: number) => nodes.has(systemId),
     get_node: (systemId: number) => nodes.get(systemId),
     neighbors: (systemId: number) => frozenAdjacency.get(systemId) ?? [],

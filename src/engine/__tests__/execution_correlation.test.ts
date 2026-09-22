@@ -400,7 +400,7 @@ function runAllExecutionCorrelationTests() {
 
     // 12a: An order_id alone CANNOT override a type mismatch
     const txWithOrderIdWrongType = createTx({
-      order_id: 888888,
+      order_id: '888888',
       type_id: 35, // wrong type
     });
     const res1 = correlateTransaction(txWithOrderIdWrongType, [obs]);
@@ -408,7 +408,7 @@ function runAllExecutionCorrelationTests() {
 
     // 12b: An unverified taker order_id does NOT create a DIRECT_MATCH
     const txWithTakerOrder = createTx({
-      order_id: 777777, // arbitrary taker order_id
+      order_id: '777777', // arbitrary taker order_id
       type_id: 34,
       location_id: 60003760,
       unit_price: 5.02,

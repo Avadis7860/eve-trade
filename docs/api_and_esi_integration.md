@@ -84,9 +84,6 @@ CCP ESI utilise un système d'**Error Budget** strict (100 erreurs autorisées p
 * **`ETag` / `304`** : `fetchEsi` supporte `If-None-Match` et représente explicitement `304 Not Modified`.
 * **Pagination** : l'en-tête `x-pages` est exposé sous forme `xPages`.
 * **User-Agent** : les appels backend passent par `server/utils/esiClient.ts`; vérifier cette implémentation avant de documenter une valeur statique.
-  ```http
-  User-Agent: eve-trade-interregional/0.2 (EVE Trade Analytics Platform)
-  ```
 
 ---
 

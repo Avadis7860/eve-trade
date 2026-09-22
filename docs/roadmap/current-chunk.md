@@ -8,7 +8,7 @@ Source of truth: [master-plan.md](master-plan.md)
 
 No functional chantier is active.
 
-The documentation reconstruction is complete and was merged as PR #43. The next chantier has not been started.
+The documentation reconstruction is complete and was merged as PR #43. Its post-merge CI completed successfully on `main`. The next chantier has not been started.
 
 ## Re-entry
 

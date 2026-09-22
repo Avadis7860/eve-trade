@@ -1,3 +1,5 @@
+import type { CatalogProvenance } from './market';
+
 export type TypeResolutionStatus = 'RESOLVED_CATALOG' | 'RESOLVED_DYNAMIC' | 'RESOLVED_ESI' | 'TYPE_UNKNOWN';
 
 export interface EveTypeDetail {
@@ -31,6 +33,7 @@ export interface TypeResolutionResult {
   is_verified: boolean;
   confidence: number;
   error?: string;
+  provenance?: CatalogProvenance;
 }
 
 export type UniverseProvenanceSource =

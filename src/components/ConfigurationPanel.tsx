@@ -50,7 +50,8 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
     ...config,
     treasury_source_mode: config.treasury_source_mode ?? 'corporation',
     corporation_wallet_division: config.corporation_wallet_division ?? 1,
-    corporation_wallet_balance: config.corporation_wallet_balance ?? 5000000000.0,
+    corporation_wallet_balance: config.corporation_wallet_balance,
+    corporation_wallet_source: config.corporation_wallet_source ?? 'unavailable',
     corporation_name: config.corporation_name ?? 'Ma Corporation',
     enable_transport_costs: config.enable_transport_costs ?? false,
     accounting_level: config.accounting_level ?? 5,
@@ -82,7 +83,12 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
     );
     const updatedForm: FinancialConfig = {
       ...form,
-      available_capital: resolved.effective_capital,
+      // Corporation capital is a distinct funding source and must not overwrite
+      // the manual/character-oriented available_capital field.
+      available_capital:
+        form.treasury_source_mode === 'corporation'
+          ? form.available_capital
+          : resolved.effective_capital,
     };
     onUpdateConfig(updatedForm);
     setSaved(true);
@@ -128,6 +134,7 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
           corporation_name: corpName,
           corporation_id: corpInfo.data?.corporation_id,
           corporation_wallet_balance: newBalance,
+          corporation_wallet_source: 'esi',
           corporation_divisions: divisionWallets,
         }));
 
@@ -142,6 +149,7 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
             ...prev,
             corporation_name: corpInfo.data!.corporation_name,
             corporation_id: corpInfo.data!.corporation_id,
+            corporation_wallet_source: 'unavailable',
           }));
           setCorpSyncStatus({
             success: true,
@@ -152,6 +160,10 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
             success: false,
             message: walletsRes.error || 'Impossible de lire les portefeuilles de corporation.',
           });
+          setForm((prev) => ({
+            ...prev,
+            corporation_wallet_source: 'unavailable',
+          }));
         }
       }
     } catch (err) {
@@ -475,7 +487,7 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
                         const newBal = divInfo ? divInfo.balance : form.corporation_wallet_balance;
                         setForm((prev) => ({
                           ...prev,
-                          corporation_wallet_division: divNum,
+                              corporation_wallet_division: divNum,
                           corporation_wallet_balance: newBal,
                         }));
                       }}
@@ -523,6 +535,7 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
                     setForm({
                       ...form,
                       corporation_wallet_balance: parseFloat(e.target.value) || 0,
+                      corporation_wallet_source: 'manual',
                     })
                   }
                   className="w-full bg-[#0e1117] border border-[#262730] text-[#fafafa] p-1.5 rounded font-mono text-xs"
@@ -549,6 +562,7 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
                     setForm((prev) => ({
                       ...prev,
                       corporation_wallet_balance: preset.val,
+                      corporation_wallet_source: 'manual',
                     }))
                   }
                   className="px-2 py-0.5 bg-[#0e1117] hover:bg-[#262730] border border-[#262730] rounded text-[10px] font-mono text-[#cfd3dc]"

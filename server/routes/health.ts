@@ -13,10 +13,10 @@ healthRouter.get('/health', (req: Request, res: Response) => {
   let healthStatus: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
   let httpCode = 200;
 
-  if (catalogMeta.status === 'CATALOG_LOADED') {
+  if (catalogMeta.status === 'CATALOG_READY' || catalogMeta.status === 'CATALOG_LOADED') {
     healthStatus = 'healthy';
     httpCode = 200;
-  } else if (catalogMeta.status === 'CATALOG_FALLBACK_CORE') {
+  } else if (catalogMeta.status === 'CATALOG_FALLBACK_CORE' || catalogMeta.status === 'CATALOG_DEGRADED') {
     healthStatus = 'degraded';
     httpCode = 200;
   } else {

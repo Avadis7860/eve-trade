@@ -1,81 +1,89 @@
-# EVE Trade — Backlog des Problèmes Découverts (Audit Hors Périmètre)
+# EVE Trade — Backlog des Problèmes Découverts
 
-Ce backlog répertorie les défauts, anomalies et dettes techniques découverts lors de la phase d'inspection et d'établissement de la baseline (**LOT-001**).
-Conformément aux directives de la mission, **aucun de ces éléments n'a été corrigé de façon opportune**, afin de préserver l'intégrité de la baseline et d'éviter tout effet de bord avant la mise en place des filets de sécurité.
+Ce backlog répertorie les défauts, anomalies et dettes techniques documentés au fil des missions d'audit et de stabilisation.
 
 ---
 
-## Liste des Problèmes Découverts
+## Statut des Anomalies
 
-### ISSUE-001 : Discordance de statut dans le router `/api/health` (HTTP 503 permanent)
+| ID | Titre | Statut | Résolu dans | Priorité |
+| :--- | :--- | :--- | :--- | :--- |
+| **ISSUE-001** | Discordance de statut `/api/health` (HTTP 503 permanent) | ✅ RESOLVED | **LOT-002** | P1 |
+| **ISSUE-002** | Taille excessive du bundle frontend initial (8.69 MB unminified) | ⏳ BACKLOG | Non planifié (Post LOT-003) | P2 |
+| **ISSUE-003** | Absence de couverture de tests sur la couche HTTP / API Express | ✅ RESOLVED | **LOT-002** | P1 |
+| **ISSUE-004** | Absence de smoke test automatisé pour le démarrage du serveur | ✅ RESOLVED | **LOT-002** | P1 |
+| **ISSUE-005** | Présence conjointe de `bun.lock` et `package-lock.json` | ⏳ BACKLOG | Non planifié (Nettoyage) | P3 |
+| **ISSUE-006** | Composants orphelins / non référencés identifiés dans l'audit initial | ⏳ BACKLOG | Non planifié (Dead code) | P2 |
+| **ISSUE-007** | Absence de mock officiel ESI pour tests hors-ligne du proxy marché | ⏳ BACKLOG | LOT-003 (Hardening ESI) | P2 |
+
+---
+
+## Détail des Problèmes et Résolutions
+
+### ISSUE-001 : Discordance de statut dans le router `/api/health` (Résolu dans LOT-002)
 * **ID** : `ISSUE-001`
-* **Description** : L'endpoint `/api/health` retourne systématiquement un code HTTP 503 (`status: "unhealthy"`). `TypeCatalogService.loadCatalog()` initialise le statut du catalogue à `'CATALOG_READY'`, tandis que la condition dans `server/routes/health.ts` teste explicitement `if (catalogMeta.status === 'CATALOG_LOADED')`. Par conséquent, le serveur est considéré comme défaillant par tout orchestrateur ou healthcheck externe malgré le chargement effectif des 20 526 items.
-* **Fichier(s)** :
-  * `server/routes/health.ts` (lignes 16-25)
-  * `src/services/typeCatalog.ts`
-* **Risque** : Faux positifs d'indisponibilité en production si un healthcheck HTTP surveille `/api/health`. Risque de redémarrages intempestifs de conteneurs.
-* **Priorité estimée** : P1 (Élevée)
-* **Phase recommandée** : LOT-002 (Hardening Serveur & Healthcheck)
+* **Statut** : ✅ **RÉSOLU** dans **LOT-002**
+* **Cause racine** : `server/routes/health.ts` testait strictement `catalogMeta.status === 'CATALOG_LOADED'`, alors que le contrat de domaine émis par `TypeCatalogService` et certifié par les tests d'intégrité est `'CATALOG_READY'`.
+* **Correction appliquée** :
+  * Mise à jour de `server/routes/health.ts` pour accepter à la fois `'CATALOG_READY'` et `'CATALOG_LOADED'` pour un état `healthy` (HTTP 200).
+  * Prise en compte de `'CATALOG_FALLBACK_CORE'` et `'CATALOG_DEGRADED'` pour un état `degraded` (HTTP 200).
+  * Traitement des états corrompus, indisponibles ou vides (`CATALOG_CORRUPTED`, `CATALOG_EMPTY`, `CATALOG_UNAVAILABLE`) avec bascule en `unhealthy` (HTTP 503).
+  * Validé par 3 tests d'intégration automatisés couvrant les trois branches dans `server/__tests__/api_integration.test.ts`.
 
 ---
 
 ### ISSUE-002 : Taille excessive du bundle frontend initial (8.69 MB unminified)
 * **ID** : `ISSUE-002`
-* **Description** : La compilation Vite émet un warning de dépassement de chunk (> 500 kB) pour `dist/assets/index-*.js` (8.69 MB non compressé, 1.05 MB gzippé). Cela s'explique par l'inclusion directe en synchrone de catalogues JSON volumineux (`allMarketTypes.json`, `universeData.json`, `marketGroups.json`) dans le chunk principal sans `dynamic import()` ni découpage par chunks (`rollupOptions.manualChunks`).
-* **Fichier(s)** :
-  * `vite.config.ts`
-  * `src/data/allMarketTypes.json`
-  * `src/data/universeData.json`
-* **Risque** : Temps de chargement initial élevé pour l'utilisateur sur connexions lentes ; surconsommation mémoire du navigateur.
-* **Priorité estimée** : P2 (Moyenne)
-* **Phase recommandée** : Phase d'optimisation / refactoring assets
+* **Statut** : ⏳ **BACKLOG** (Hors périmètre LOT-002)
+* **Description** : La compilation Vite émet un warning de dépassement de chunk (> 500 kB) pour `dist/assets/index-*.js` (8.69 MB non compressé, 1.05 MB gzippé) dû à l'import statique synchrone de catalogues JSON volumineux.
+* **Priorité** : P2 (Moyenne)
 
 ---
 
-### ISSUE-003 : Absence de couverture de tests sur la couche HTTP / API Express
+### ISSUE-003 : Absence de couverture de tests sur la couche HTTP / API Express (Résolu dans LOT-002)
 * **ID** : `ISSUE-003`
-* **Description** : La suite `npm test` existante ne comporte aucun test d'intégration pour les routes d'API Express (`server/routes/*`). Les 22 suites de test couvrent exclusivement `src/engine/__tests__/*` (calculs financiers et algorithmiques). Les mécanismes de proxy ESI, la validation des paramètres de requête, les codes de statut HTTP et la gestion des erreurs réseau ne sont pas testés automatiquement.
-* **Fichier(s)** :
-  * `server/routes/auth.ts`
-  * `server/routes/catalog.ts`
-  * `server/routes/markets.ts`
-  * `server/routes/characters.ts`
-  * `server/routes/universe.ts`
-  * `server/routes/health.ts`
-* **Risque** : Régressions silencieuses lors de futures modifications du backend ; rupture des contrats d'API avec le client frontend.
-* **Priorité estimée** : P1 (Élevée)
-* **Phase recommandée** : LOT-002 / Tests d'intégration API
+* **Statut** : ✅ **RÉSOLU** dans **LOT-002**
+* **Correction appliquée** :
+  * Création de la suite `server/__tests__/api_integration.test.ts`.
+  * Couverture de 15 assertions réelles sur serveur actif (port dynamique) :
+    1. `/api/health` (healthy, degraded, unhealthy, non-divulgation de secrets)
+    2. `/api/types/status`, `/api/types/all` (formats `{ metadata, types }` et flat, en-têtes canoniques), lookup type_id (34), recherche textuelle
+    3. `/api/markets/:regionId/history` (validation des paramètres obligatoires, HTTP 400)
+    4. `/api/auth/config`, `/api/auth/url` (génération CSRF 64 hex, blocage redirect_uri non whitelisté)
+    5. `/api/character/:id/orders`, `/api/character/:id/wallet` (contrôle obligatoire de l'en-tête Authorization, HTTP 401)
+    6. `/api/universe/location/:id` (fallback déterministe pour stations/structures)
+  * Intégré au script `npm run test:api` et à l'étape `API integration tests` dans GitHub Actions.
 
 ---
 
-### ISSUE-004 : Absence de smoke test automatisé pour le démarrage du serveur
+### ISSUE-004 : Absence de smoke test automatisé pour le démarrage du serveur (Résolu dans LOT-002)
 * **ID** : `ISSUE-004`
-* **Description** : Aucun test automatisé ne vérifie que `server.ts` ou `dist/server.cjs` peut démarrer sur un port éphémère, monter ses middlewares et s'arrêter proprement sans exception non gérée.
-* **Fichier(s)** :
-  * `server.ts`
-* **Risque** : Risque de régression au démarrage non détecté par la compilation statique (par exemple si une variable d'environnement ou une dépendance native CommonJS/ESM échoue à l'exécution).
-* **Priorité estimée** : P1 (Élevée)
-* **Phase recommandée** : LOT-002 (Server Startup Regression Test)
+* **Statut** : ✅ **RÉSOLU** dans **LOT-002**
+* **Correction appliquée** :
+  * Refactorisation modulaire de `server.ts` : export de `createServerApp()` et `startServer(port?, options?)` avec port dynamique et interface `RunningServer` (`app`, `server`, `port`, `close()`).
+  * Création de `server/__tests__/server_smoke.test.ts` testant le cycle de vie complet : démarrage sur port dynamique 0 -> écoute -> requête GET `/api/health` -> vérification de la réponse 200 OK -> arrêt gracieux du serveur -> vérification de la fermeture effective du port (connexion refusée).
+  * Intégré au script `npm run test:smoke` et à l'étape `Server smoke test` dans GitHub Actions.
 
 ---
 
 ### ISSUE-005 : Présence conjointe de `bun.lock` et `package-lock.json`
 * **ID** : `ISSUE-005`
-* **Description** : Le repository contenait originellement `bun.lock` alors que le projet est exécuté et déployé avec Node.js/npm. La génération de `package-lock.json` a été requise pour `npm ci`. La présence de `bun.lock` est redondante si Bun n'est pas le gestionnaire officiel.
-* **Fichier(s)** :
-  * `bun.lock`
-* **Risque** : Confusion sur le gestionnaire de paquets de référence ; dérive potentielle des dépendances si un développeur utilise Bun et un autre npm.
-* **Priorité estimée** : P3 (Faible)
-* **Phase recommandée** : Phase de gouvernance / nettoyage
+* **Statut** : ⏳ **BACKLOG** (Hors périmètre LOT-002)
+* **Description** : Présence résiduelle de `bun.lock`.
+* **Priorité** : P3 (Faible)
 
 ---
 
 ### ISSUE-006 : Composants orphelins / non référencés identifiés dans l'audit initial
 * **ID** : `ISSUE-006`
-* **Description** : D'après `MASTER-PLAN.md`, des composants comme `src/components/Sidebar.tsx` ou `src/components/CarnetChart.tsx` sont candidats au statut de code mort. Ils sont toujours présents dans le repository et doivent faire l'objet d'une analyse d'utilisation avant suppression.
-* **Fichier(s)** :
-  * `src/components/Sidebar.tsx`
-  * `src/components/CarnetChart.tsx`
-* **Risque** : Dette technique, surface de maintenance inutile.
-* **Priorité estimée** : P2 (Moyenne)
-* **Phase recommandée** : Phase Cleanup / Dead Code
+* **Statut** : ⏳ **BACKLOG** (Hors périmètre LOT-002)
+* **Description** : Composants orphelins (`Sidebar.tsx`, etc.) à auditer lors d'un lot dédié.
+* **Priorité** : P2 (Moyenne)
+
+---
+
+### ISSUE-007 : Absence de mock officiel ESI pour tests hors-ligne du proxy marché
+* **ID** : `ISSUE-007`
+* **Statut** : ⏳ **BACKLOG** (Prévu pour LOT-003 / ESI Hardening)
+* **Description** : Les tests d'intégration du proxy marché (`/api/markets/*`) testent actuellement la validation des paramètres mais pas l'interaction complète avec les upstream ESI afin de préserver l'indépendance réseau en CI.
+* **Priorité** : P2 (Moyenne)

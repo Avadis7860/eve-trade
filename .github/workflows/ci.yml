@@ -38,5 +38,11 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      - name: API integration tests
+        run: npm run test:api
+
+      - name: Server smoke test
+        run: npm run test:smoke
+
       - name: Production build
         run: npm run build

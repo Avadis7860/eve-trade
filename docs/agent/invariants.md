@@ -66,3 +66,9 @@ Unknown systems, locations and routes never receive synthetic numerical values. 
 
 ### PROVENANCE-001 — Resolution provenance is explicit
 Catalog, universe and route resolutions expose source, verification state, confidence and dataset identity. Dynamic, inferred and fallback resolutions are never silently promoted to canonical financial inputs.
+
+
+## INTERREGIONAL-PURITY-001 — Certified input boundary
+
+The pure inter-regional calculation core must not import or access CatalogRepository, UniverseRepository, ESI, persistence, DOM/React state or wall-clock time. It accepts only `CertifiedInterRegionalInputs` and rejects any input whose Catalog, location, structure or route provenance is not verified/canonical.
+Validation: `interregional_purity.test.ts`, typecheck, full engine regression and production build.

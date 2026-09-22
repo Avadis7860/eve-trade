@@ -18,7 +18,7 @@ universeRouter.get('/location/:locationId', async (req: Request, res: Response) 
       `universe/stations/${locIdNum}/?datasource=tranquility`
     );
     if (result.ok && result.data) {
-      return res.json({ location_id: locIdNum, name: result.data.name, system_id: result.data.system_id });
+      return res.json({ location_id: locIdNum, name: result.data.name, system_id: result.data.system_id, source: 'esi', verified: true });
     }
   }
 
@@ -36,9 +36,11 @@ universeRouter.get('/location/:locationId', async (req: Request, res: Response) 
         location_id: locIdNum,
         name: structResult.data.name,
         system_id: structResult.data.solar_system_id,
+        source: 'esi',
+        verified: true,
       });
     }
   }
 
-  res.json({ location_id: locIdNum, name: `Location #${locIdNum}` });
+  return res.status(404).json({ error: 'LOCATION_UNKNOWN', location_id: locIdNum, message: 'Location is not present in the canonical universe dataset and could not be resolved from ESI' });
 });

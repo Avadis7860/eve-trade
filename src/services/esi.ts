@@ -2,6 +2,7 @@ import {
   RawMarketOrder,
   DailyMarketHistory,
   HistoricalStats,
+  EveCharacterOrder,
   EveCharacterTransaction,
   EveCharacterOrderHistory,
   EveCharacterJournalEntry,
@@ -314,16 +315,16 @@ export class EsiService {
   static async fetchCharacterOrders(
     characterId: number,
     accessToken: string,
-  ): Promise<EsiCollectionResult<any>> {
+  ): Promise<EsiCollectionResult<EveCharacterOrder>> {
     if (!accessToken || !accessToken.trim()) {
       return unavailableCollection(401, 'MISSING_ACCESS_TOKEN');
     }
 
-    const result = await this.executeWithAuthRefreshResult<any[]>(
+    const result = await this.executeWithAuthRefreshResult<EveCharacterOrder[]>(
       characterId,
       accessToken,
       async token => {
-        const response = await fetchBackendApi<any[]>(`/api/character/${characterId}/orders`, {
+        const response = await fetchBackendApi<EveCharacterOrder[]>(`/api/character/${characterId}/orders`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         return {

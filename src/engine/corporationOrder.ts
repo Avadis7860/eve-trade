@@ -275,10 +275,17 @@ export function mergeOrderObservations(
   }
 
   const observers = new Set<number>();
-  for (const id of existingOwner?.observed_by_character_ids ?? [existingOwner.principal_character_id]) {
+  const existingObservers = existingOwner
+    ? (existingOwner.observed_by_character_ids ?? [existingOwner.principal_character_id])
+    : [];
+  const incomingObservers = incomingOwner
+    ? (incomingOwner.observed_by_character_ids ?? [incomingOwner.principal_character_id])
+    : [];
+
+  for (const id of existingObservers) {
     if (Number.isInteger(id) && id > 0) observers.add(id);
   }
-  for (const id of incomingOwner?.observed_by_character_ids ?? [incomingOwner.principal_character_id]) {
+  for (const id of incomingObservers) {
     if (Number.isInteger(id) && id > 0) observers.add(id);
   }
 

@@ -530,11 +530,18 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
                 <label className="block text-[#808495] text-[11px] mb-1">
                   Solde disponible Division {form.corporation_wallet_division || 1} (ISK) :
                 </label>
+                <div className="text-[10px] text-[#808495] mb-1">
+                  {form.corporation_wallet_source === 'esi'
+                    ? 'Source : solde observé via ESI'
+                    : form.corporation_wallet_source === 'manual'
+                      ? 'Source : budget corporation manuel'
+                      : 'Source : solde corporation ESI indisponible'}
+                </div>
                 <input
                   type="number"
                   min="0"
                   step="1000000"
-                  value={form.corporation_wallet_balance ?? 5000000000}
+                  value={form.corporation_wallet_balance ?? ''}
                   onChange={(e) =>
                     setForm({
                       ...form,

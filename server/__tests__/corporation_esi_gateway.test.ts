@@ -61,6 +61,18 @@ async function runTests(): Promise<void> {
     ): Promise<EsiGatewayResponse<T>> => {
       calls.push({ request, context });
 
+      if (request.path.includes('/orders/history/')) {
+        return okResult([
+          { order_id: '88002', type_id: 34, volume_remain: 25, is_corporation: true },
+        ]) as EsiGatewayResponse<T>;
+      }
+
+      if (request.path.includes('/orders/')) {
+        return okResult([
+          { order_id: '88001', type_id: 34, volume_remain: 50, is_corporation: true },
+        ]) as EsiGatewayResponse<T>;
+      }
+
       if (request.path.includes('/wallets/')) {
         return okResult([
           { division: 1, balance: -2_500_000 },
@@ -135,6 +147,82 @@ async function runTests(): Promise<void> {
         calls[0].context.bearerCredential === 'token-character-a',
       'Divisions must retain the authenticated character principal',
     );
+  });
+
+  await test('orders use the authenticated character principal and preserve payloads', async () => {
+    calls.length = 0;
+
+    const result = await gateway.fetchOrders(99001, 1001, 'token-character-a');
+
+    assert(result.ok, 'Corporation orders request should succeed');
+    assert(result.data?.[0]?.order_id === '88001', 'Order payload must preserve the canonical identifier');
+    assert(result.data?.[0]?.is_corporation === true, 'Corporation order marker must be preserved');
+    assert(calls.length === 1, 'Expected exactly one corporation orders request');
+    assert(calls[0].request.path === '/corporations/99001/orders/', 'Unexpected corporation orders path');
+    assert(calls[0].request.query?.datasource === 'tranquility', 'Orders datasource must be explicit');
+    assert(calls[0].context.type === 'character', 'Orders must use the authenticated character principal');
+    assert(
+      calls[0].context.type === 'character' &&
+        calls[0].context.id === 1001 &&
+        calls[0].context.bearerCredential === 'token-character-a',
+      'Orders principal must contain the exact character credential',
+    );
+  });
+
+  await test('order history preserves pagination and authenticated principal', async () => {
+    calls.length = 0;
+
+    const result = await gateway.fetchOrderHistory(99001, 1001, 'token-character-a', 7);
+
+    assert(result.ok, 'Corporation order history request should succeed');
+    assert(result.data?.[0]?.order_id === '88002', 'Order history payload must be preserved');
+    assert(calls.length === 1, 'Expected exactly one corporation order history request');
+    assert(calls[0].request.path === '/corporations/99001/orders/history/', 'Unexpected corporation order history path');
+    assert(calls[0].request.query?.datasource === 'tranquility', 'History datasource must be explicit');
+    assert(calls[0].request.query?.page === 7, 'History page must be forwarded exactly');
+    assert(calls[0].context.type === 'character', 'History must use the authenticated character principal');
+  });
+
+  await test('two characters observing the same corporation keep distinct order principals', async () => {
+    calls.length = 0;
+
+    await Promise.all([
+      gateway.fetchOrders(99001, 1001, 'token-A'),
+      gateway.fetchOrders(99001, 1002, 'token-B'),
+    ]);
+
+    assert(calls.length === 2, 'Distinct character principals must not coalesce corporation order reads');
+    assert(
+      calls.some(
+        (call) =>
+          call.request.path === '/corporations/99001/orders/' &&
+          call.context.type === 'character' &&
+          call.context.id === 1001 &&
+          call.context.bearerCredential === 'token-A',
+      ),
+      'Character A order principal must remain isolated',
+    );
+    assert(
+      calls.some(
+        (call) =>
+          call.request.path === '/corporations/99001/orders/' &&
+          call.context.type === 'character' &&
+          call.context.id === 1002 &&
+          call.context.bearerCredential === 'token-B',
+      ),
+      'Character B order principal must remain isolated',
+    );
+  });
+
+  await test('invalid corporation order history pages fail before transport', async () => {
+    calls.length = 0;
+
+    const low = await gateway.fetchOrderHistory(99001, 1001, 'token-character-a', 0);
+    const high = await gateway.fetchOrderHistory(99001, 1001, 'token-character-a', 1001);
+
+    assert(!low.ok && low.status === 400, 'Page 0 must fail with HTTP 400');
+    assert(!high.ok && high.status === 400, 'Page 1001 must fail with HTTP 400');
+    assert(calls.length === 0, 'Invalid pages must not reach transport');
   });
 
   await test('metadata and downstream errors are passed through unchanged', async () => {

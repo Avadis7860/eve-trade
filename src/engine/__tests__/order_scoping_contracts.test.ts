@@ -131,6 +131,7 @@ function runOrderScopingTests() {
   const context: OrderSelectionContext = {
     activeCharacterId: '1001',
     fleetCharacterIds: ['1001', '1002'],
+    corporationIds: ['9001'],
   };
 
   // 1. Test active_character
@@ -187,6 +188,7 @@ function runOrderScopingTests() {
   const switchedContext: OrderSelectionContext = {
     activeCharacterId: '1002',
     fleetCharacterIds: ['1001', '1002'],
+    corporationIds: ['9001'],
   };
   const switchedActiveOrders = selectOrdersByScope(allOrders, { type: 'active_character' }, switchedContext);
   assert(switchedActiveOrders.length === 1, `Expected 1 active order after switch, got ${switchedActiveOrders.length}`);
@@ -202,7 +204,11 @@ function runOrderScopingTests() {
   const emptyRes2 = selectOrdersByScope(allOrders, { type: 'character', characterId: 'unknown_char' }, context);
   assert(Array.isArray(emptyRes2) && emptyRes2.length === 0, 'Unknown characterId must return empty array');
 
-  const emptyRes3 = selectOrdersByScope(allOrders, { type: 'fleet' }, { activeCharacterId: '1001', fleetCharacterIds: [] });
+  const emptyRes3 = selectOrdersByScope(allOrders, { type: 'fleet' }, {
+    activeCharacterId: '1001',
+    fleetCharacterIds: [],
+    corporationIds: [],
+  });
   assert(Array.isArray(emptyRes3) && emptyRes3.length === 0, 'Empty fleetCharacterIds must return empty array');
   console.log('  [PASS] Test 7: Edge and empty cases handled cleanly without crashing.');
 
@@ -233,6 +239,24 @@ function runOrderScopingTests() {
 
   console.log('===============================================================');
   console.log('ALL PHASE 2 ORDER SCOPING & CONTRACT TESTS PASSED (100%)');
+  // 9. Test corporation scope
+  console.log('--- Test 9: Corporation owner scope ---');
+  const corpOrders = selectOrdersByScope(allOrders, { type: 'corporation', corporationId: '9001' }, context);
+  assert(corpOrders.length === 1, `Expected 1 canonical corporation order, got ${corpOrders.length}`);
+  assert(corpOrders[0] === corporateOrder, 'Corporation scope must return the canonical corporation order');
+  assert(corpOrders[0].ownership?.owner_type === 'corporation', 'Corporation scope must require corporation ownership');
+  assert(corpOrders[0].ownership?.owner_id === 9001, 'Corporation scope must use economic corporation id');
+  assert(corpOrders[0].ownership?.principal_character_id === 1001, 'Principal must remain the observing character');
+  assert(corpOrders[0].character_id === 1001, 'Fixture may retain legacy character projection before normalization');
+
+  const corpContextB: OrderSelectionContext = {
+    activeCharacterId: '1002',
+    fleetCharacterIds: ['1001', '1002'],
+    corporationIds: ['9001'],
+  };
+  const corpOrdersFromB = selectOrdersByScope(allOrders, { type: 'corporation', corporationId: '9001' }, corpContextB);
+  assert(corpOrdersFromB.length === 1, 'Corporation scope must not depend on observing character');
+
   console.log('===============================================================');
 }
 

@@ -1171,6 +1171,40 @@ export interface TradeCycleRecord {
   realized_profit_label?: string;
   fees_breakdown?: RealizedFeeBreakdown;
   unmatched_sell_quantity?: number;
+  character_id?: number;
+  character_name?: string;
+}
+
+/**
+ * Phase 3 — Multi-Character Performance & Fleet Financial Contracts
+ */
+export type PerformanceScope =
+  | {
+      type: 'active_character';
+    }
+  | {
+      type: 'character';
+      characterId: string;
+    }
+  | {
+      type: 'fleet';
+    };
+
+export interface CharacterFinancialResult {
+  characterId: string;
+  characterName: string;
+  metrics: TraderPerformanceMetrics;
+  dataHealth: 'fresh' | 'stale' | 'unavailable';
+  errorMessage?: string;
+}
+
+export interface FleetFinancialResult {
+  readonly scope: PerformanceScope;
+  readonly fleetMetrics: TraderPerformanceMetrics;
+  readonly characterResults: readonly CharacterFinancialResult[];
+  readonly hasUnavailableCharacters: boolean;
+  readonly unavailableCharacterNames: readonly string[];
+  readonly participatingCharacterCount: number;
 }
 
 export interface TraderPerformanceMetrics {

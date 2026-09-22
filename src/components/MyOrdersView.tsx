@@ -11,8 +11,11 @@ import {
   OrderAdvisorRecommendation,
   OrderCollection,
   OrderScope,
+  PerformanceScope,
+  CharacterFinancialResult,
 } from '../types';
 import { fmtIsk, fmtNumber } from '../engine/money';
+import { FleetFinancialEngine } from '../engine/fleetFinancial';
 import { EsiService } from '../services/esi';
 import { AuthService } from '../services/authService';
 import { TraderAnalyticsService } from '../services/traderAnalytics';
@@ -97,6 +100,8 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
 
   // Trader Performance & Analytics State
   const [traderMetrics, setTraderMetrics] = useState<TraderPerformanceMetrics | null>(null);
+  const [characterFinancialResults, setCharacterFinancialResults] = useState<CharacterFinancialResult[]>([]);
+  const [performanceScope, setPerformanceScope] = useState<PerformanceScope>({ type: 'active_character' });
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
   const [isMetricsModalOpen, setIsMetricsModalOpen] = useState(false);
 
@@ -104,49 +109,171 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
   const [selectedRecommendation, setSelectedRecommendation] = useState<OrderAdvisorRecommendation | null>(null);
   const [isAdvisorModalOpen, setIsAdvisorModalOpen] = useState(false);
 
-  // Load and compute Trader Performance Metrics when character session changes
+  // Load and compute Trader Performance Metrics for active and linked characters
   useEffect(() => {
     if (!session) {
       setTraderMetrics(null);
+      setCharacterFinancialResults([]);
       return;
     }
 
-    // Check localStorage cache first
-    const cached = TraderAnalyticsService.getCachedMetrics(session.character_id);
-    if (cached) {
-      setTraderMetrics(cached);
+    const allCharacters = AuthService.getLinkedCharacters();
+    const targetList: EveCharacterSession[] = allCharacters.length > 0 ? allCharacters : [session];
+
+    // Seed initial cached results
+    const initialResults: CharacterFinancialResult[] = targetList.map((char: EveCharacterSession) => {
+      const cached = TraderAnalyticsService.getCachedMetrics(char.character_id);
+      if (cached) {
+        return {
+          characterId: String(char.character_id),
+          characterName: char.character_name,
+          metrics: cached,
+          dataHealth: 'stale',
+        };
+      }
+      return {
+        characterId: String(char.character_id),
+        characterName: char.character_name,
+        metrics: {
+          character_id: char.character_id,
+          character_name: char.character_name,
+          last_calculated: new Date().toISOString(),
+          total_realized_profit: 0,
+          total_buy_volume: 0,
+          total_sell_volume: 0,
+          total_turnover: 0,
+          total_closed_trades: 0,
+          profitable_trades: 0,
+          unprofitable_trades: 0,
+          win_rate_pct: 100,
+          average_realized_roi: 0,
+          average_hold_days: 0,
+          total_broker_fees_paid: 0,
+          total_sales_tax_paid: 0,
+          top_profitable_items: [],
+          recent_trade_cycles: [],
+          activity_by_location: [],
+          category_success_rate: {},
+          trader_title: 'Synchronisation en cours...',
+          trader_badge_color: 'text-gray-400 bg-gray-500/10 border-gray-500/20',
+          calibration_weight: 0,
+          financial_completeness: 'ESTIMATED',
+          is_net_estimated: true,
+          realized_profit_label: 'Bénéfice Net Réalisé (Estimé)',
+        },
+        dataHealth: 'stale',
+      };
+    });
+
+    setCharacterFinancialResults(initialResults);
+    const activeCached = initialResults.find((r) => r.characterId === String(session.character_id));
+    if (activeCached?.metrics) {
+      setTraderMetrics(activeCached.metrics);
     }
 
-    // Fetch fresh transactions and orders history from ESI
+    // Fetch fresh transactions and orders history from ESI per character
     const fetchAnalytics = async () => {
       setIsLoadingAnalytics(true);
-      try {
-        const [txs, orderHistory, journal] = await Promise.all([
-          EsiService.fetchCharacterTransactions(session.character_id, session.access_token),
-          EsiService.fetchCharacterOrderHistory(session.character_id, session.access_token, 1),
-          EsiService.fetchCharacterJournal(session.character_id, session.access_token),
-        ]);
+      const updatedResults: CharacterFinancialResult[] = [];
 
-        const computed = TraderAnalyticsService.processTransactions(
-          session.character_id,
-          session.character_name,
-          txs,
-          orderHistory,
-          journal,
-          session.accounting_skill || 4,
-          session.broker_relations_skill || 4
-        );
+      for (const char of targetList) {
+        try {
+          const token = await AuthService.getFreshToken(char.character_id);
+          if (!token) {
+            throw new Error(`Jeton introuvable ou expiré pour ${char.character_name}`);
+          }
+          const [txs, orderHistory, journal] = await Promise.all([
+            EsiService.fetchCharacterTransactions(char.character_id, token),
+            EsiService.fetchCharacterOrderHistory(char.character_id, token, 1),
+            EsiService.fetchCharacterJournal(char.character_id, token),
+          ]);
 
-        setTraderMetrics(computed);
-      } catch (err) {
-        console.warn('Failed to compute trader analytics:', err);
-      } finally {
-        setIsLoadingAnalytics(false);
+          const computed = TraderAnalyticsService.processTransactions(
+            char.character_id,
+            char.character_name,
+            txs,
+            orderHistory,
+            journal,
+            char.accounting_skill || 4,
+            char.broker_relations_skill || 4
+          );
+
+          updatedResults.push({
+            characterId: String(char.character_id),
+            characterName: char.character_name,
+            metrics: computed,
+            dataHealth: 'fresh',
+          });
+
+          if (char.character_id === session.character_id) {
+            setTraderMetrics(computed);
+          }
+        } catch (err: any) {
+          console.warn(`[MyOrdersView] Failed to compute analytics for ${char.character_name}:`, err);
+          const cached = TraderAnalyticsService.getCachedMetrics(char.character_id);
+          if (cached) {
+            updatedResults.push({
+              characterId: String(char.character_id),
+              characterName: char.character_name,
+              metrics: cached,
+              dataHealth: 'stale',
+              errorMessage: err?.message || 'ESI fetch failed, using cached metrics',
+            });
+          } else {
+            updatedResults.push({
+              characterId: String(char.character_id),
+              characterName: char.character_name,
+              metrics: {
+                character_id: char.character_id,
+                character_name: char.character_name,
+                last_calculated: new Date().toISOString(),
+                total_realized_profit: 0,
+                total_buy_volume: 0,
+                total_sell_volume: 0,
+                total_turnover: 0,
+                total_closed_trades: 0,
+                profitable_trades: 0,
+                unprofitable_trades: 0,
+                win_rate_pct: 100,
+                average_realized_roi: 0,
+                average_hold_days: 0,
+                total_broker_fees_paid: 0,
+                total_sales_tax_paid: 0,
+                top_profitable_items: [],
+                recent_trade_cycles: [],
+                activity_by_location: [],
+                category_success_rate: {},
+                trader_title: 'Indisponible',
+                trader_badge_color: 'text-zinc-400 bg-zinc-500/10 border-zinc-500/20',
+                calibration_weight: 0,
+                financial_completeness: 'UNAVAILABLE',
+                is_net_estimated: true,
+                realized_profit_label: 'Profit Réalisé (Hors Frais)',
+              },
+              dataHealth: 'unavailable',
+              errorMessage: err?.message || 'Authentification ESI expirée ou erreur réseau',
+            });
+          }
+        }
       }
+
+      setCharacterFinancialResults(updatedResults);
+      setIsLoadingAnalytics(false);
     };
 
     fetchAnalytics();
   }, [session, session?.character_id]);
+
+  // Derive active display metrics using FleetFinancialEngine
+  const displayMetrics = useMemo(() => {
+    if (!session) return traderMetrics;
+    const selected = FleetFinancialEngine.selectPerformanceByScope(
+      characterFinancialResults,
+      performanceScope,
+      String(session.character_id)
+    );
+    return selected.selectedMetrics || traderMetrics;
+  }, [characterFinancialResults, performanceScope, session, traderMetrics]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -469,16 +596,16 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
 
           {/* Action Buttons & Performance Modal Trigger */}
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-            {traderMetrics && (
+            {displayMetrics && (
               <button
                 onClick={() => setIsMetricsModalOpen(true)}
                 className="flex items-center gap-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-bold px-3.5 py-2 rounded-lg transition-all shadow-sm"
               >
                 <Trophy className="w-3.5 h-3.5 text-amber-400" />
                 <span>Performances &amp; Historique Réel</span>
-                {traderMetrics.financial_completeness && (
+                {displayMetrics.financial_completeness && (
                   <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#0e1117]/80 text-amber-300 border border-amber-500/30">
-                    {traderMetrics.financial_completeness}
+                    {displayMetrics.financial_completeness}
                   </span>
                 )}
               </button>
@@ -918,8 +1045,12 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
       <TraderPerformanceModal
         isOpen={isMetricsModalOpen}
         onClose={() => setIsMetricsModalOpen(false)}
-        metrics={traderMetrics}
+        metrics={displayMetrics}
         onSelectTypeForArbitrage={onSelectTypeForArbitrage}
+        characterResults={characterFinancialResults}
+        activeCharacterId={session ? String(session.character_id) : ''}
+        scope={performanceScope}
+        onChangeScope={setPerformanceScope}
       />
     </div>
   );

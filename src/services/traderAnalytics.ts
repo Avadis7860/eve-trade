@@ -310,6 +310,8 @@ export class TraderAnalyticsService {
               notes: outcome.fees.notes,
             },
             unmatched_sell_quantity: unmatchedQty,
+            character_id: characterId,
+            character_name: characterName,
           };
 
           completedCycles.push(cycleRecord);
@@ -377,6 +379,8 @@ export class TraderAnalyticsService {
               ]),
             },
             unmatched_sell_quantity: sellTx.quantity,
+            character_id: characterId,
+            character_name: characterName,
           };
 
           completedCycles.push(cycleRecord);

@@ -97,4 +97,37 @@ const filteredAtEight = InterRegionalCalculationEngine.filterAccessibleOrdersFor
 );
 assert.equal(filteredAtEight.length, 0);
 
+assert.doesNotThrow(() =>
+  InterRegionalCalculationEngine.filterAccessibleOrdersForHub(
+    [destinationBuyOrder],
+    amarr,
+    false,
+    true,
+    {},
+  ),
+);
+assert.equal(
+  InterRegionalCalculationEngine.filterAccessibleOrdersForHub(
+    [destinationBuyOrder],
+    amarr,
+    false,
+    true,
+    {},
+  ).length,
+  0,
+);
+
+const malformedRange = { ...destinationBuyOrder, order_id: 880003, order_range: '9-jumps' };
+assert.equal(
+  InterRegionalCalculationEngine.filterAccessibleOrdersForHub(
+    [malformedRange],
+    amarr,
+    false,
+    true,
+    resolved.routeBySystemId,
+  ).length,
+  0,
+);
+
+
 console.log('interregional_route_resolution.test.ts: OK');

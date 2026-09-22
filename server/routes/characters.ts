@@ -320,7 +320,44 @@ charactersRouter.get('/:characterId/corporation/wallets', async (req: Request, r
 
   const corporationId = charRes.data.corporation_id;
 
-  // 9. Proxy active corporation orders using the authenticated character principal.
+  const walletRes = await corporationEsiGateway.fetchWallets(
+    corporationId,
+    params.characterId,
+    params.bearerCredential,
+  );
+
+  if (!walletRes.ok) {
+    return sendCharacterError(res, walletRes, 'CORP_WALLET_ACCESS_DENIED');
+  }
+
+  const divisionsRes = await corporationEsiGateway.fetchDivisions(
+    corporationId,
+    params.characterId,
+    params.bearerCredential,
+  );
+
+  const divisionNameMap = new Map<number, string>();
+  if (divisionsRes.ok && divisionsRes.data?.wallet) {
+    for (const d of divisionsRes.data.wallet) {
+      if (d.division && d.name) {
+        divisionNameMap.set(d.division, d.name);
+      }
+    }
+  }
+
+  const wallets = (walletRes.data || []).map((w) => ({
+    division: w.division,
+    name: divisionNameMap.get(w.division) || (w.division === 1 ? 'Master (Division 1)' : `Division ${w.division}`),
+    balance: w.balance,
+  }));
+
+  return sendCharacterSuccess(res, walletRes, {
+    corporation_id: corporationId,
+    wallets,
+  });
+});
+
+// 9. Proxy active corporation orders using the authenticated character principal.
 charactersRouter.get('/:characterId/corporation/orders', async (req: Request, res: Response) => {
   const params = validateCharacterParams(req, res);
   if (!params) return;
@@ -385,39 +422,3 @@ charactersRouter.get('/:characterId/corporation/orders/history', async (req: Req
   return sendCharacterSuccess(res, result);
 });
 
-const walletRes = await corporationEsiGateway.fetchWallets(
-    corporationId,
-    params.characterId,
-    params.bearerCredential,
-  );
-
-  if (!walletRes.ok) {
-    return sendCharacterError(res, walletRes, 'CORP_WALLET_ACCESS_DENIED');
-  }
-
-  const divisionsRes = await corporationEsiGateway.fetchDivisions(
-    corporationId,
-    params.characterId,
-    params.bearerCredential,
-  );
-
-  const divisionNameMap = new Map<number, string>();
-  if (divisionsRes.ok && divisionsRes.data?.wallet) {
-    for (const d of divisionsRes.data.wallet) {
-      if (d.division && d.name) {
-        divisionNameMap.set(d.division, d.name);
-      }
-    }
-  }
-
-  const wallets = (walletRes.data || []).map((w) => ({
-    division: w.division,
-    name: divisionNameMap.get(w.division) || (w.division === 1 ? 'Master (Division 1)' : `Division ${w.division}`),
-    balance: w.balance,
-  }));
-
-  return sendCharacterSuccess(res, walletRes, {
-    corporation_id: corporationId,
-    wallets,
-  });
-});

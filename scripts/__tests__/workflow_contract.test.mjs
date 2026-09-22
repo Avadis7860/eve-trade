@@ -1,1 +1,63 @@
-import fs from 'node:fs';\nimport assert from 'node:assert/strict';\n\nconst root = new URL('../../', import.meta.url);\nconst read = (relativePath) => fs.readFileSync(new URL(relativePath, root), 'utf8');\n\nconst ci = read('.github/workflows/ci.yml');\nconst sde = read('.github/workflows/phase-2.7c-sde.yml');\n\nconst requiredCiCommands = [\n  'npm ci --no-audit --no-fund',\n  'npm run typecheck',\n  'npm run typecheck:server',\n  'npm run test:truth',\n  'npm test',\n  'npm run test:api',\n  'npm run test:smoke',\n  'npm run test:security',\n  'npm run test:esi',\n  'npm run build',\n];\n\nfor (const command of requiredCiCommands) {\n  assert.ok(ci.includes(command), `CI gate lost required command: ${command}`);\n}\n\nassert.match(\n  ci,\n  /Install dependencies[\\s\\S]*Frontend typecheck[\\s\\S]*Backend typecheck/,\n  'CI validation order must keep dependency installation before typechecks',\n);\n\nassert.match(sde, /permissions:\\s*\\n\\s+contents:\\s+read/, 'SDE truth gate must remain read-only');\nassert.ok(sde.includes('fetch-depth: 0'), 'SDE detector must have local history for PR-base comparison');\nassert.ok(!sde.includes('git fetch origin'), 'SDE detector must not depend on unauthenticated remote fetches');\nassert.ok(!sde.includes('git push'), 'SDE truth gate must never push');\nassert.ok(!sde.includes('git commit'), 'SDE truth gate must never auto-commit');\nassert.ok(sde.includes("SDE_BUILD: '3503375'"), 'SDE build must remain explicitly pinned');\nassert.ok(sde.includes('git diff --quiet -- src/data/universeGraph.json src/data/universeGraphManifest.ts'), 'SDE gate must compare regenerated canonical artifacts');\nassert.ok(sde.includes('exit 1'), 'SDE gate must fail when committed canonical artifacts drift');\n\nconsole.log('Workflow contract checks passed.');\n
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+
+const root = new URL('../../', import.meta.url);
+const read = (relativePath) => fs.readFileSync(new URL(relativePath, root), 'utf8');
+
+const ci = read('.github/workflows/ci.yml');
+const sde = read('.github/workflows/phase-2.7c-sde.yml');
+
+const requiredCiCommands = [
+  'npm ci --no-audit --no-fund',
+  'npm run typecheck',
+  'npm run typecheck:server',
+  'npm run test:truth',
+  'npm test',
+  'npm run test:api',
+  'npm run test:smoke',
+  'npm run test:security',
+  'npm run test:esi',
+  'npm run build',
+];
+
+for (const command of requiredCiCommands) {
+  assert.ok(ci.includes(command), `CI gate lost required command: ${command}`);
+}
+
+assert.match(
+  ci,
+  /Install dependencies[\s\S]*Frontend typecheck[\s\S]*Backend typecheck/,
+  'CI validation order must keep dependency installation before typechecks',
+);
+
+assert.match(
+  sde,
+  /permissions:\s*\n\s+contents:\s+read/,
+  'SDE truth gate must remain read-only',
+);
+assert.ok(
+  sde.includes('fetch-depth: 0'),
+  'SDE detector must have local history for PR-base comparison',
+);
+assert.ok(
+  !sde.includes('git fetch origin'),
+  'SDE detector must not depend on unauthenticated remote fetches',
+);
+assert.ok(!sde.includes('git push'), 'SDE truth gate must never push');
+assert.ok(!sde.includes('git commit'), 'SDE truth gate must never auto-commit');
+assert.ok(
+  sde.includes("SDE_BUILD: '3503375'"),
+  'SDE build must remain explicitly pinned',
+);
+assert.ok(
+  sde.includes(
+    'git diff --quiet -- src/data/universeGraph.json src/data/universeGraphManifest.ts',
+  ),
+  'SDE gate must compare regenerated canonical artifacts',
+);
+assert.ok(
+  sde.includes('exit 1'),
+  'SDE gate must fail when committed canonical artifacts drift',
+);
+
+console.log('Workflow contract checks passed.');

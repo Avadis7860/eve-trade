@@ -41,6 +41,10 @@ function appendQuery(path: string, query: EsiRequest['query']): string {
   return path + (path.includes('?') ? '&' : '?') + encodedQuery;
 }
 
+function hasControlCharacters(value: string): boolean {
+  return /[\r\n]/.test(value);
+}
+
 function principalFingerprint(context: EsiPrincipalContext): string {
   if (context.type === 'anonymous') return 'anonymous';
   return context.type + ':' + context.id + ':' +
@@ -94,7 +98,7 @@ export class EsiGateway {
     if (
       !request.path ||
       !request.path.startsWith('/') ||
-      /[\\r\\n]/.test(request.path)
+      hasControlCharacters(request.path)
     ) {
       return {
         ok: false,
@@ -131,7 +135,7 @@ export class EsiGateway {
     const headers: Record<string, string> = { ...(request.headers || {}) };
 
     for (const [key, value] of Object.entries(headers)) {
-      if (/[\\r\\n]/.test(key) || /[\\r\\n]/.test(value)) {
+      if (hasControlCharacters(key) || hasControlCharacters(value)) {
         return {
           ok: false,
           status: 400,

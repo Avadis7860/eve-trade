@@ -37,6 +37,7 @@ const universeData = universeDataRaw as unknown as UniverseDataFormat;
 export class UniverseRepository {
   private static instance: UniverseRepository;
   private locationCache = new Map<number, LocationResolutionResult>();
+  private dynamicLocationCache = new Map<number, LocationResolutionResult>();
   private hubMap = new Map<string, MarketHub>();
   private stationToHubMap = new Map<number, MarketHub>();
   private systemToHubMap = new Map<number, MarketHub>();
@@ -320,7 +321,7 @@ export class UniverseRepository {
         scope: 'upwell_structure',
       },
     };
-    this.locationCache.set(structure.location_id, resolution);
+    this.dynamicLocationCache.set(structure.location_id, resolution);
     return resolution;
   }
 
@@ -537,9 +538,12 @@ export class UniverseRepository {
    * Resolves any New Eden station or Upwell structure asynchronously with strict provenance.
    */
   async resolveLocation(locationId: number, accessToken?: string): Promise<LocationResolutionResult> {
-    const cached = this.locationCache.get(locationId);
-    if (cached && cached.status !== 'LOCATION_FALLBACK' && cached.status !== 'LOCATION_UNKNOWN') {
-      return cached;
+    const canonical = this.locationCache.get(locationId);
+    if (canonical) return canonical;
+
+    const dynamic = this.dynamicLocationCache.get(locationId);
+    if (dynamic && dynamic.status !== 'LOCATION_FALLBACK' && dynamic.status !== 'LOCATION_UNKNOWN') {
+      return dynamic;
     }
 
     const isStructure = locationId > 100000000;
@@ -581,7 +585,7 @@ export class UniverseRepository {
               scope: isStructure ? 'upwell_structure' : 'esi_station',
             },
           };
-          this.locationCache.set(locationId, resolution);
+          this.dynamicLocationCache.set(locationId, resolution);
           return resolution;
         }
       }

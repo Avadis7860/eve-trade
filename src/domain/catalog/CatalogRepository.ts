@@ -304,27 +304,7 @@ export class CatalogRepository {
   resolveType(typeId: number, fallbackDetails?: Partial<EveTypeDetail>): TypeResolutionResult {
     const meta = this.getMetadata();
 
-    // 1. Custom dynamically registered type
-    const custom = this.customTypeMap.get(typeId);
-    if (custom) {
-      return {
-        status: 'RESOLVED_DYNAMIC',
-        type: custom,
-        type_id: custom.type_id,
-        name: custom.name,
-        volume: custom.volume,
-        group_id: custom.group_id,
-        category_id: custom.category_id,
-        source: 'custom_type',
-        catalog_version: meta.version,
-        catalog_checksum: meta.checksum,
-        is_verified: false,
-        confidence: 0.0,
-        provenance: catalogProvenance('dynamic', false, 'unknown', meta.checksum),
-      };
-    }
-
-    // 2. Canonical catalog type
+    // 1. Canonical catalog type always has precedence over dynamic registrations.
     const catalogItem = this.typeMap.get(typeId);
     if (catalogItem) {
       const isFallback = !this.isReady();
@@ -347,6 +327,26 @@ export class CatalogRepository {
           isFallback ? 'partial' : 'complete',
           meta.checksum
         ),
+      };
+    }
+
+    // 2. Custom dynamically registered type. Dynamic resolution is never canonical or verified.
+    const custom = this.customTypeMap.get(typeId);
+    if (custom) {
+      return {
+        status: 'RESOLVED_DYNAMIC',
+        type: custom,
+        type_id: custom.type_id,
+        name: custom.name,
+        volume: custom.volume,
+        group_id: custom.group_id,
+        category_id: custom.category_id,
+        source: 'custom_type',
+        catalog_version: meta.version,
+        catalog_checksum: meta.checksum,
+        is_verified: false,
+        confidence: 0.0,
+        provenance: catalogProvenance('dynamic', false, 'unknown', meta.checksum),
       };
     }
 
@@ -549,25 +549,34 @@ export class CatalogRepository {
     if (!res.isValid) {
       throw new Error(`Cannot register invalid custom type: ${res.error}`);
     }
+    if (this.typeMap.has(type.type_id)) {
+      return this.resolveType(type.type_id);
+    }
     this.customTypeMap.set(type.type_id, type);
     this.notify();
     return this.resolveType(type.type_id);
   }
 
   /**
-   * Explicitly sets catalog types and metadata (used for testing or explicit sync injection).
+   * Explicitly loads a dataset through the same canonical trust boundary as all other sources.
+   * Caller-provided metadata is descriptive only; readiness is always recomputed from the payload.
    */
   loadExplicitDataset(types: EveTypeDetail[], metadata: TypeCatalogMetadata): void {
-    const computedChecksum = CatalogValidator.computeCanonicalChecksum(types);
-    const integrity = CatalogValidator.validateCatalogCompleteness(types, {
-      expectedCount: metadata.expected_count,
-      expectedChecksum: metadata.checksum,
+    const { validTypes, errors } = CatalogValidator.validateCollection(types);
+    const computedChecksum = CatalogValidator.computeCanonicalChecksum(validTypes);
+    const integrity = CatalogValidator.validateCatalogCompleteness(validTypes, {
+      expectedCount: CANONICAL_CATALOG_MANIFEST.expectedCount,
+      expectedChecksum: CANONICAL_CATALOG_MANIFEST.checksum,
       currentChecksum: computedChecksum,
       source: metadata.source,
     });
 
+    const status: TypeCatalogStatus = errors.length > 0 ? 'CATALOG_CORRUPTED' : integrity.status;
+
     this.typeMap.clear();
-    for (const t of types) this.typeMap.set(t.type_id, t);
+    for (const t of validTypes) {
+      this.typeMap.set(t.type_id, t);
+    }
 
     this.metadata = {
       ...metadata,
@@ -575,9 +584,20 @@ export class CatalogRepository {
       checksum: computedChecksum,
       item_count: this.typeMap.size,
       expected_count: CANONICAL_CATALOG_MANIFEST.expectedCount,
-      status: integrity.status,
-      is_degraded: integrity.isDegraded,
-      error: integrity.isReady ? undefined : integrity.reason,
+      status,
+      is_degraded: status !== 'CATALOG_READY',
+      error: errors.length > 0 ? errors.join('; ') : integrity.reason,
+      provenance: {
+        source: status === 'CATALOG_READY' ? (metadata.source as any) : 'unknown',
+        loaded_at: new Date().toISOString(),
+        verified: status === 'CATALOG_READY',
+        confidence: status === 'CATALOG_READY' ? 1.0 : 0,
+        completeness: status === 'CATALOG_READY' ? 'complete' : 'partial',
+        version: CANONICAL_CATALOG_MANIFEST.version,
+        checksum: computedChecksum,
+        expected_count: CANONICAL_CATALOG_MANIFEST.expectedCount,
+        error: errors.length > 0 ? errors.join('; ') : integrity.reason,
+      },
     };
     this.notify();
   }

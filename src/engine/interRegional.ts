@@ -83,7 +83,13 @@ export class InterRegionalFinancialEngine {
         const numericRange = parseInt(range, 10);
         if (!isNaN(numericRange) && numericRange >= 0) {
           const route = UniverseRepository.getInstance().getRoute(order.system_id, hub.system_id);
-          return route.jumps <= numericRange;
+          return (
+            route.status === 'KNOWN' &&
+            route.is_verified === true &&
+            Number.isFinite(route.jumps) &&
+            route.jumps >= 0 &&
+            route.jumps <= numericRange
+          );
         }
         return false;
       }

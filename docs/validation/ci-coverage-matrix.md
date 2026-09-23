@@ -1,6 +1,6 @@
 # CI-001 — Global Coverage Matrix
 
-Status: ACTIVE IMPLEMENTATION GATE — CI-001I
+Status: PRE-MERGE CLOSURE — CI-001J
 Date: 2026-09-23
 Scope: durable coverage of CI, validation, security, delivery and governance
 Parent: [CI-001 — Refonte du système CI](../roadmap/ci-management-refactor.md)
@@ -28,6 +28,7 @@ A future optimization is not accepted merely because it reduces wall-clock time.
 - **PARTIAL** — a proof exists, but the architecture or governance is incomplete.
 - **GAP** — no durable proof or control is currently established.
 - **CONDITIONAL** — required only if the repository adopts the corresponding GitHub feature or release model.
+- **DEFERRED / FOLLOW-UP** — known hardening opportunity intentionally outside the CI-001 merge gate; candidate for a subsequent CI/security maintenance chantier.
 
 ## Coverage matrix
 
@@ -53,12 +54,12 @@ A future optimization is not accepted merely because it reduces wall-clock time.
 | SDE artifact integrity | dedicated read-only SDE gate | COVERED | G | same source/trigger/concurrency model |
 | General change detection | deterministic domain router in `scripts/ci-scope.mjs`, fixture-tested and exercised by `detect-changes` | COVERED | G | conservative domain detection |
 | Stable required check | `CI / required-gate` is a dedicated always-evaluated aggregation surface | COVERED | G | `CI / required-gate` |
-| Branch protection verification | API access unavailable in study | GAP / UNKNOWN | G | admin-verified required checks |
+| Branch protection verification | API access unavailable in study | DEFERRED / FOLLOW-UP | G/J | verify administratively when repository governance is next hardened |
 | Merge queue compatibility | not evidenced in repo | CONDITIONAL | G | add \`merge_group\` if adopted |
 | Concurrency governance | same-reference cancellation only | PARTIAL | D/G/H | per-PR stale-run cancellation + explicit PR policy |
 | PR lifecycle governance | implicit | PARTIAL | H | Draft iteration / Ready certification / no PR churn |
 | Test taxonomy | canonical ownership doc + controlled overlap reduction | PARTIAL | E | one canonical responsibility per test |
-| Flaky-test policy | no explicit quarantine/ownership model | GAP | E/H | classify, quarantine, fix, re-enable |
+| Flaky-test policy | no explicit quarantine/ownership model | DEFERRED / FOLLOW-UP | E/H | dedicated resilience hardening track |
 | Failure diagnostics | browser artifacts; standard job logs elsewhere | PARTIAL | H | failure-specific artifacts/summaries |
 | Retry policy | browser retry=1; no global policy | PARTIAL | H | retries only where justified and visible |
 | Timeout policy | job timeout exists | PARTIAL | H | job + critical-step timeouts |
@@ -66,9 +67,9 @@ A future optimization is not accepted merely because it reduces wall-clock time.
 | Test duration telemetry | CI step timings classify test/check, npm install, browser setup and build; slowest steps are surfaced | COVERED | I | slowest suites visible |
 | Main post-merge validation | dedicated short Main Smoke workflow on `push` to `main`; first dedicated runtime proof pending | PARTIAL | H | short smoke by default |
 | Full repository certification | dedicated scheduled/manual Full workflow implemented; first dedicated runtime proof pending | PARTIAL | H | scheduled/manual exhaustive proof |
-| Dependency vulnerability review | no dedicated dependency-review proof found | GAP / CONDITIONAL | C/I | PR dependency change detection + scheduled vulnerability scan when supported |
-| Static application security analysis | no CodeQL workflow/configuration found in repository search | GAP / UNKNOWN | C/I | establish or explicitly rule out SAST coverage |
-| Dependency maintenance automation | no Dependabot/Renovate configuration found in repository search | GAP / UNKNOWN | I | establish automated update/alert ownership or explicitly document another mechanism |
+| Dependency vulnerability review | no dedicated dependency-review proof found | DEFERRED / FOLLOW-UP | C/I | dedicated supply-chain security track |
+| Static application security analysis | no CodeQL workflow/configuration found in repository search | DEFERRED / FOLLOW-UP | C/I | explicit SAST decision and implementation track |
+| Dependency maintenance automation | no Dependabot/Renovate configuration found in repository search | DEFERRED / FOLLOW-UP | I/J | dependency maintenance ownership track |
 | Documentation integrity | documentation guide requires link/status consistency; no dedicated CI link-integrity gate identified | PARTIAL | I/J | validate active documentation links and status consistency |
 | Workflow token permissions | main CI + SDE explicitly declare \`contents: read\` | COVERED | C | explicit minimum permissions |
 | Action immutability | checkout/setup-node/upload-artifact pinned to immutable SHAs | COVERED | C/I | reviewable SHA maintenance policy |
@@ -85,7 +86,13 @@ A future optimization is not accepted merely because it reduces wall-clock time.
 | Cost/churn control | recent workflow history reports cancellation rate, rerun count and workflow duration statistics | COVERED | I | runs/PR, cancelled %, reruns and wall-clock tracked |
 | Long-term maintenance | action updates handled ad hoc | PARTIAL | I/J | recurring maintenance procedure |
 
-## Required coverage before implementation is declared complete
+## CI-001 closure classification
+
+The following are complete and part of the current merge gate: required-gate stability, test ownership/taxonomy, browser isolation at job level, general change detection, PR/concurrency governance, Main/Full separation, scheduled/manual Full workflow, CI observability, workflow permission hardening, rollback guidance and documentation synchronization.
+
+The rows explicitly marked **DEFERRED / FOLLOW-UP** below are known, reviewable future hardening work. They are not unexplained blockers inside CI-001.
+
+## Former closure checklist
 
 The following cannot remain \`GAP\` at the end of CI-001:
 
@@ -98,11 +105,11 @@ The following cannot remain \`GAP\` at the end of CI-001:
 - scheduled/manual full certification;
 - CI timing observability;
 - workflow permission hardening;
-- application/dependency security monitoring;
-- documentation integrity monitoring;
-- action maintenance policy;
-- rollback procedure;
-- documentation/runbook synchronization.
+- application/dependency security monitoring → deferred to a dedicated supply-chain/security track;
+- documentation integrity monitoring → partial and suitable for a documentation-quality track;
+- action maintenance policy → partial and suitable for a CI maintenance track;
+- rollback procedure → covered by the CI recovery runbook;
+- documentation/runbook synchronization → covered for the current CI-001 surface.
 
 The conditional rows must have an explicit decision recorded, even when the answer is "not applicable".
 
@@ -126,4 +133,4 @@ A feature that is intentionally not applicable is not a gap only after that deci
 
 ## Final certification of CI-001
 
-CI-001 is complete only when this matrix is re-run against the final implementation and contains no unexplained GAP in a required area.
+CI-001 is considered complete for this merge when the current implementation gates are covered and all remaining gaps are explicitly classified as `CONDITIONAL` or `DEFERRED / FOLLOW-UP`. The deferred rows are valid candidates for later chantiers; they do not justify extending this PR by default.

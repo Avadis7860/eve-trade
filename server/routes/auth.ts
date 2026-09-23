@@ -204,9 +204,6 @@ authRouter.post('/token', async (req: Request, res: Response) => {
       grant_type: 'authorization_code',
       code: code.trim(),
     });
-    if (redirect_uri) {
-      params.append('redirect_uri', redirect_uri.trim());
-    }
 
     const metadata = await getEveSsoMetadata();
     const response = await fetch(metadata.token_endpoint, {
@@ -440,7 +437,6 @@ export const callbackHandler = async (req: Request, res: Response) => {
     const params = new URLSearchParams({
       grant_type: 'authorization_code',
       code: code.trim(),
-      redirect_uri: redirectUri,
     });
 
     const metadata = await getEveSsoMetadata();

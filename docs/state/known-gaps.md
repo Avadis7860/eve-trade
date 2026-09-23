@@ -1,14 +1,14 @@
 # Known Gaps
 
 Status: CURRENT
-Scope: functional and operational gaps revalidated against baseline
+Scope: functional and operational gaps revalidated against baseline and active PR acceptance
 Source of truth: code, tests, CI and current state documents
 
 ## Functional gaps
 
 - UI de scope corporation remains less developed than the underlying ownership/ESI domain.
 - Assets, inventory and logistics corporation domains are not implemented.
-- Browser E2E is not a reference validation gate in the current pipeline.
+- Deterministic browser E2E is implemented and covered by CI on PR #46; the remaining gap is the target-PC smoke against real CCP SSO/ESI.
 - Prediction/calibration depends on accumulating valid historical observations.
 
 ## Structural / operational gaps
@@ -17,6 +17,7 @@ Source of truth: code, tests, CI and current state documents
 - Large UI components remain.
 - Performance is not yet protected by a dedicated measurement gate.
 - The active market outcome scheduler exists in `App.tsx`; remaining work is to validate its operational behavior through the appropriate future UI/E2E surface.
+- Real-PC acceptance has not yet been executed and therefore cannot yet prove the end-user installation plus live CCP SSO/ESI path.
 
 ## Historical reclassification
 

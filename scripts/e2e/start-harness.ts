@@ -1,6 +1,5 @@
 import http from 'node:http';
 import crypto from 'node:crypto';
-import { marketEsiGateway } from '../../server/gateways/marketEsiGateway';
 
 type CharacterKey = 'alpha' | 'beta';
 
@@ -32,6 +31,8 @@ interface MarketControl {
 
 let nextAuthControl: NextAuthControl = { character: 'alpha' };
 let marketControl: MarketControl = { mode: 'live', errorStatus: 401 };
+type MarketEsiGatewayInstance = typeof import('../../server/gateways/marketEsiGateway').marketEsiGateway;
+let marketEsiGatewayControl: MarketEsiGatewayInstance | null = null;
 
 const fixtures: Record<CharacterKey, CharacterFixture> = {
   alpha: {
@@ -182,7 +183,7 @@ async function handleMock(req: http.IncomingMessage, res: http.ServerResponse): 
   if (req.method === 'POST' && url.pathname === '/__control__/reset') {
     nextAuthControl = { character: 'alpha' };
     marketControl = { mode: 'live', errorStatus: 401 };
-    marketEsiGateway.clearCache();
+    marketEsiGatewayControl?.clearCache();
     return json(res, 200, { ok: true });
   }
 
@@ -536,6 +537,9 @@ process.env.E2E_OAUTH_STATE_TTL_MS = process.env.E2E_OAUTH_STATE_TTL_MS || '1000
 process.env.EVE_CLIENT_ID = process.env.EVE_CLIENT_ID || E2E_CLIENT_ID;
 process.env.EVE_CLIENT_SECRET = process.env.EVE_CLIENT_SECRET || 'e2e-deterministic-secret';
 process.env.EVE_CALLBACK_URL = process.env.EVE_CALLBACK_URL || `http://127.0.0.1:${APP_PORT}/auth/callback`;
+
+const { marketEsiGateway } = await import('../../server/gateways/marketEsiGateway');
+marketEsiGatewayControl = marketEsiGateway;
 
 const { startServer } = await import('../../server.ts');
 const appServer = await startServer(APP_PORT);

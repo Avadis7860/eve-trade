@@ -58,14 +58,12 @@ assert.deepEqual(
   'CI topology drifted: execution and compatibility job IDs must be reviewed explicitly',
 );
 
+const jobEntries = jobsSection.split(/\\n(?=  [A-Za-z0-9_-]+:[ \\t]*(?:\\n|$))/);
+
 const jobBlock = (jobId) => {
-  const escapedId = jobId.replace(/[.*+?^{}()|[\\]\\]/g, '\\$&');
-  const match = jobsSection.match(new RegExp(
-    `^  ${escapedId}:[ \\t]*\\n([\\s\\S]*?)(?=^  [A-Za-z0-9_-]+:[ \\t]*$|$)`,
-    'm',
-  ));
-  assert.ok(match, `CI job block missing: ${jobId}`);
-  return match[1];
+  const entry = jobEntries.find((candidate) => candidate.startsWith(`  ${jobId}:`));
+  assert.ok(entry, `CI job block missing: ${jobId}`);
+  return entry.slice(entry.indexOf('\\n') + 1);
 };
 
 for (const jobId of EXECUTION_JOB_IDS) {

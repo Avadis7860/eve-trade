@@ -63,14 +63,14 @@ These tracks can be prepared in documentation before they are made active. Their
 
 | ID | Status | Goal | Depends on | Priority |
 |---|---|---|---|---|
-| CI-001 | ACTIVE — CI-001A/B | Refonte du système CI, validation et gouvernance PR | current CI study | baseline/evidence gate | CI-001A/B then phased gates |
+| CI-001 | ACTIVE — CI-001I | Refonte du système CI, validation et gouvernance PR | current CI study | observability/performance gate | CI-001I then final certification |
 
 CI-001 is documented in:
 - [CI Management Audit](../audits/ci-management-audit-2026-09-23.md)
 - [CI-001 — Refonte du système CI](ci-management-refactor.md)
 - [CI Validation](../validation/ci.md) · [CI Baseline](../audits/ci-management-baseline-2026-09-23.md) · [CI Evidence Map](../validation/ci-evidence-map.md)
 
-The study found a combined topology, certification-taxonomy and PR-governance issue. CI-001 is now active; the current slice is CI-001A/B and does not yet alter workflow topology.
+The study found a combined topology, certification-taxonomy and PR-governance issue. CI-001 is now active; the current slice is CI-001I, building durable performance/churn evidence on top of the certified G topology and the implemented H Main/Full separation.
 
 ## UX program completion gate
 

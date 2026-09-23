@@ -92,7 +92,9 @@ Canonical owners are the dedicated server scripts executed by `server`:
 
 `src/services/__tests__/corporationTreasurySync.test.ts` is the only file currently unique to `test:corporation-boundary`.
 
-The remaining files invoked by `test:corporation-boundary` are known overlaps:
+This overlap has now been reduced safely. `test:corporation-boundary` is the canonical unique boundary trigger and runs only `corporationTreasurySync.test.ts`.
+
+The former six-command composition remains available as `test:corporation-boundary:full` for Full certification and recovery. The five formerly duplicated files retain their canonical owners:
 
 - `financial_config.test.ts` → canonical engine owner;
 - `treasury.test.ts` → canonical engine owner;
@@ -100,7 +102,7 @@ The remaining files invoked by `test:corporation-boundary` are known overlaps:
 - `character_routes_contract.test.ts` → canonical API owner;
 - `corporation_esi_architecture.test.ts` → canonical ESI owner.
 
-These are **not removed in CI-001E yet**. The next safe step is to introduce a unique boundary script/trigger for `corporationTreasurySync.test.ts`, prove the replacement on PR + Full, then remove only the redundant invocations.
+No test file was deleted or removed from its canonical certification lane.
 
 ## Demonstrated overlaps carried into E
 
@@ -138,6 +140,10 @@ Required classification:
 - genuine flake.
 
 A flaky test may be isolated only with an explicit owner, reason, diagnostic artifact and re-entry condition. Blanket retry is not an acceptable substitute for repair.
+
+## E current implementation evidence
+
+The corporation-boundary overlap was the first duplication closed under the safe protocol. The unique boundary proof remains executed by the `unit_domain` lane, while the five duplicated proofs remain covered by `npm test`, `test:api` and `test:esi` under their canonical owners. The full historical composition is retained as an explicit recovery/full script.
 
 ## E exit gate
 

@@ -6,6 +6,8 @@ const read = (relativePath) => fs.readFileSync(new URL(relativePath, root), 'utf
 
 const ci = read('.github/workflows/ci.yml');
 const sde = read('.github/workflows/phase-2.7c-sde.yml');
+const mainSmoke = read('.github/workflows/ci-main-smoke.yml');
+const fullCertification = read('.github/workflows/ci-full-certification.yml');
 
 const ACTION_PINS = {
   checkout: '3d3c42e5aac5ba805825da76410c181273ba90b1',
@@ -77,11 +79,10 @@ assert.ok(detectionBlock.includes('HEAD_SHA:'), 'Change detection must define an
 const scopeClassifier = read('scripts/ci-scope.mjs');
 assert.ok(scopeClassifier.includes('ambiguous = paths.length === 0'), 'Scope classifier must use a conservative ambiguity fallback');
 assert.ok(scopeClassifier.includes('const full_certification = ambiguous || ci || config || domain || server || sde || tests;'), 'Scope classifier must force full certification for high-impact or ambiguous scope');
-assert.ok(detectionBlock.includes('run_static: ${{ steps.scope.outputs.run_static }}'), 'Change detection must publish run_static selection');
-assert.ok(detectionBlock.includes('run_unit_domain: ${{ steps.scope.outputs.run_unit_domain }}'), 'Change detection must publish run_unit_domain selection');
-assert.ok(detectionBlock.includes('run_server: ${{ steps.scope.outputs.run_server }}'), 'Change detection must publish run_server selection');
-assert.ok(detectionBlock.includes('run_build: ${{ steps.scope.outputs.run_build }}'), 'Change detection must publish run_build selection');
-assert.ok(detectionBlock.includes('run_browser: ${{ steps.scope.outputs.run_browser }}'), 'Change detection must publish run_browser selection');
+for (const outputName of ['run_static', 'run_unit_domain', 'run_server', 'run_build', 'run_browser']) {
+  const expected = outputName + ': ${{ steps.scope.outputs.' + outputName + ' }}';
+  assert.ok(detectionBlock.includes(expected), `Change detection must publish ${outputName} selection`);
+}
 assert.ok(ci.includes('steps.scope.outputs.run_unit_domain'), 'CI must expose run_unit_domain output');
 assert.ok(ci.includes('steps.scope.outputs.run_server'), 'CI must expose run_server output');
 assert.ok(ci.includes('steps.scope.outputs.run_build'), 'CI must expose run_build output');
@@ -193,6 +194,53 @@ for (const [jobId, commands] of Object.entries(expectedJobCommands)) {
   }
 }
 assert.match(jobBlock('build'), /npm run build/, 'Build lane ownership drifted');
+assert.ok(ci.includes('pull_request:'), 'PR certification workflow trigger must remain active');
+assert.ok(!ci.includes('\n  push:\n'), 'PR certification workflow must not run the deep gate on main pushes');
+assert.ok(mainSmoke.includes('push:\n    branches: ["main"]'), 'Main smoke must own the main push trigger');
+assert.ok(mainSmoke.includes('name: CI / main-smoke'), 'Main smoke must expose a stable smoke job');
+assert.ok(mainSmoke.includes('timeout-minutes: 10'), 'Main smoke must have an explicit timeout');
+assert.ok(mainSmoke.includes('npm run test:smoke'), 'Main smoke must run server smoke proof');
+assert.ok(mainSmoke.includes('npm run build'), 'Main smoke must run the minimal production build proof');
+assert.ok(!mainSmoke.includes('npm test'), 'Main smoke must not rerun the full unit suite');
+assert.ok(!mainSmoke.includes('npm run test:e2e'), 'Main smoke must not rerun browser certification');
+assert.ok(mainSmoke.includes('persist-credentials: false'), 'Main smoke checkout must disable credential persistence');
+assert.ok(mainSmoke.includes('actions/checkout@' + ACTION_PINS.checkout), 'Main smoke checkout must be pinned');
+assert.ok(mainSmoke.includes('actions/setup-node@' + ACTION_PINS.setupNode), 'Main smoke setup-node must be pinned');
+assert.ok(mainSmoke.includes('test "$(node --version)" = "v22.23.2"'), 'Main smoke must verify Node');
+assert.ok(mainSmoke.includes('test "$(npm --version)" = "10.9.8"'), 'Main smoke must verify npm');
+assert.ok(mainSmoke.includes('permissions:\n  contents: read'), 'Main smoke must be read-only');
+
+assert.ok(fullCertification.includes('workflow_dispatch:'), 'Full certification must be manually triggerable');
+assert.ok(fullCertification.includes('schedule:'), 'Full certification must be scheduled');
+assert.ok(fullCertification.includes('- cron: "17 3 * * 1"'), 'Full certification schedule must remain explicit');
+assert.ok(fullCertification.includes('cancel-in-progress: false'), 'Full certification must not cancel an existing run');
+assert.ok(fullCertification.includes('permissions:\n  contents: read'), 'Full certification must be read-only');
+const fullJobsSection = fullCertification.match(/^jobs:[ \t]*\n([\s\S]*)$/m)?.[1];
+assert.ok(fullJobsSection, 'Full certification must declare jobs');
+const fullJobIds = [...fullJobsSection.matchAll(/^  ([A-Za-z0-9_-]+):[ \t]*$/gm)].map((match) => match[1]);
+assert.deepEqual(fullJobIds, ['static', 'unit_domain', 'server', 'build', 'browser-auth', 'browser-operations', 'sde-truth', 'full-gate'], 'Full certification topology drifted');
+for (const command of requiredCiCommands) assert.ok(fullCertification.includes(command), `Full certification lost required command: ${command}`);
+for (const jobId of ['static', 'unit_domain', 'server', 'build', 'browser-auth', 'browser-operations', 'sde-truth']) {
+  const block = fullJobsSection.split(/\n(?=  [A-Za-z0-9_-]+:[ \t]*(?:\n|$))/).find((candidate) => candidate.startsWith(`  ${jobId}:`));
+  assert.ok(block, `Full certification job block missing: ${jobId}`);
+  assert.ok(block.includes(`actions/checkout@${ACTION_PINS.checkout}`), `Full certification job ${jobId} must pin checkout`);
+  assert.ok(block.includes(`actions/setup-node@${ACTION_PINS.setupNode}`), `Full certification job ${jobId} must pin setup-node`);
+  assert.ok(block.includes('persist-credentials: false'), `Full certification job ${jobId} must disable checkout credential persistence`);
+  assert.ok(block.includes('node-version: 22.23.2'), `Full certification job ${jobId} must use pinned Node`);
+  assert.ok(block.includes('test "$(node --version)" = "v22.23.2"'), `Full certification job ${jobId} must verify Node`);
+  assert.ok(block.includes('test "$(npm --version)" = "10.9.8"'), `Full certification job ${jobId} must verify npm`);
+  assert.ok(block.includes('timeout-minutes:'), `Full certification job ${jobId} must have an explicit timeout`);
+}
+const fullGateBlock = fullJobsSection.split(/\n(?=  [A-Za-z0-9_-]+:[ \t]*(?:\n|$))/).find((candidate) => candidate.startsWith('  full-gate:'));
+assert.ok(fullGateBlock, 'Full certification gate block missing');
+assert.ok(fullGateBlock.includes('if: ${{ always() }}'), 'Full certification gate must always evaluate');
+assert.ok(fullGateBlock.includes('needs: [static, unit_domain, server, build, browser-auth, browser-operations, sde-truth]'), 'Full certification gate must aggregate every full lane');
+assert.ok(fullGateBlock.includes('github.sha'), 'Full certification gate must record the certified head');
+assert.ok(fullCertification.includes("SDE_BUILD: '3503375'"), 'Full certification SDE build must remain pinned');
+assert.ok(fullCertification.includes('git diff --quiet -- src/data/universeGraph.json src/data/universeGraphManifest.ts'), 'Full certification SDE gate must compare canonical artifacts');
+assert.ok(!fullCertification.includes('git push'), 'Full certification must never push');
+assert.ok(!fullCertification.includes('git commit'), 'Full certification must never auto-commit');
+assert.ok(mainSmoke.includes('timeout-minutes:'), 'Main smoke must have an explicit timeout');
 assert.ok(
   !ci.match(/uses: actions\/(?:checkout|setup-node|upload-artifact)@v\d/),
   'CI action references must use immutable SHAs, not moving version tags',

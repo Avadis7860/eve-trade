@@ -38,9 +38,9 @@ A dedicated study is recorded in [CI management audit](../audits/ci-management-a
 
 ### Current CI management decision
 
-CI-001 is **ACTIVE — CI-001F** and is now the project-wide CI priority.
+CI-001 is **ACTIVE — CI-001H** and remains the project-wide CI priority.
 
-CI-001A/B froze the baseline/evidence map; CI-001C hardened workflow security/reproducibility; CI-001D split the validation topology without changing required-check names or Playwright workers; CI-001E formalized canonical test ownership and controlled deduplication; CI-001F now isolates browser Auth/Operations jobs while keeping `workers: 1`.
+CI-001A/B froze the baseline/evidence map; CI-001C hardened workflow security/reproducibility; CI-001D split the validation topology; CI-001E formalized canonical test ownership; CI-001F isolated browser Auth/Operations jobs; CI-001G established and certified scope routing plus `CI / required-gate`; CI-001H now separates Main/Full and recovery.
 
 During CI-001E:
 
@@ -90,7 +90,7 @@ UX-02 is paused while CI-001 is the active infrastructure chantier.
 
 UX-01 is technically implemented and merged. Its target-PC market-order incident remains NOT ROOT-CAUSED pending capture of the required PC-side evidence.
 
-CI-001 is the active cross-cutting infrastructure chantier. CI-001A/B is baselined, CI-001C is completed, CI-001D is proven on two green runs, CI-001E is implemented in taxonomy/ownership, and CI-001F is the current execution slice: browser Auth/Operations job isolation. The active PR/branch remains the only CI-001 delivery surface.
+CI-001 is the active cross-cutting infrastructure chantier. CI-001A/B is baselined, CI-001C is completed, CI-001D is proven on two green runs, CI-001E/F are implemented, CI-001G is certified on head `bc2ff6c24a6b4b419311b287ddd0b206489093c3`, and CI-001H is the current execution slice: Main/Full separation and recovery. The active PR/branch remains the only CI-001 delivery surface.
 
 PST-001, UI-001, E2E-002, UI-002, PERF-001 and TYPE-001 remain deferred until the UX sequencing gate is passed unless their dependency is explicitly reclassified.
 

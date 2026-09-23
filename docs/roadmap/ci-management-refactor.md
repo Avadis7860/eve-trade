@@ -1,6 +1,6 @@
 # CI-001 — Refonte du système CI, validation et gouvernance
 
-Status: ACTIVE — CI-001F
+Status: ACTIVE — CI-001H
 Scope: GitHub Actions, test certification, browser E2E et gouvernance des PR
 Owner: project maintainers
 Baseline: main @ \`d7f245ec47a8746306792ce6017496f9123c23d6\`
@@ -42,9 +42,9 @@ CI-001 ne vise pas à :
 
 CI-001 is now the single active cross-cutting chantier and the absolute CI priority. The active branch is `ci/ci-001a-baseline`; there must be no second active PR for CI-001.
 
-CI-001A/B and CI-001C are completed. CI-001D has two complete green representative runs. CI-001E engaged canonical ownership and the first safe deduplication. CI-001F is now the active execution slice.
+CI-001A/B through CI-001G are implemented, with CI-001G certified on head `bc2ff6c24a6b4b419311b287ddd0b206489093c3`. CI-001H is now the active execution slice: separate main post-merge smoke, scheduled/manual Full Repository Certification, and explicit recovery guidance.
 
-CI-001A/B established the baseline/evidence map and CI-001C hardened workflow permissions, action immutability and runtime reproducibility. CI-001D is now the active topology increment. Required-check naming, branch protection and Playwright workers remain unchanged.
+CI-001A/B established the baseline/evidence map and CI-001C hardened workflow permissions, action immutability and runtime reproducibility. CI-001D is proven; CI-001G is certified; CI-001H now separates Main/Full/recovery. Required-check naming, branch protection and Playwright workers remain unchanged.
 
 ## État actuel de référence
 
@@ -458,6 +458,8 @@ Playwright recommande la stabilité/reproductibilité avec un seul worker en CI 
 
 ### CI-001G — Change detection et required-gate
 
+État : COMPLETED — certifié sur head `bc2ff6c24a6b4b419311b287ddd0b206489093c3`.
+
 Objectif : rendre les validations conditionnelles sûres.
 
 Travail :
@@ -474,6 +476,8 @@ Gate :
 > chaque PR obtient un signal de fusion stable et aucune validation requise ne peut rester silencieusement en attente.
 
 ### CI-001H — Cycle Main : post-merge, Full et récupération
+
+État : ACTIVE — workflows Main/Full et récupération implémentés sur la branche CI-001 unique; première certification d'exécution dédiée encore à obtenir.
 
 Objectif : séparer santé immédiate et certification exhaustive.
 
@@ -565,7 +569,7 @@ En particulier :
 
 ## Priorité
 
-État actuel : **ACTIVE — CI-001F**.
+État actuel : **ACTIVE — CI-001H**.
 
 CI-001 est désormais le chantier prioritaire unique pour la CI et la gouvernance de livraison. UX-02 reste suspendu pendant cette tranche d'infrastructure.
 

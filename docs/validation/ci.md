@@ -1,16 +1,16 @@
 # CI Validation
 
-Status: CURRENT — CI-001 ACTIVE / C + D IMPLEMENTED
+Status: CURRENT — CI-001H ACTIVE / G CERTIFIED
 Scope: GitHub Actions regression gate and certification model
 Source of truth: \`.github/workflows/ci.yml\` and \`.github/workflows/phase-2.7c-sde.yml\`
-Implementation: CI-001C hardened runtime/supply-chain controls; CI-001D splits the certification topology while retaining the historical `validate` check name
+Implementation: CI-001C/D/E/F/G harden security, topology, ownership, browser isolation and scope routing; CI-001H separates Main Smoke and Full Repository Certification
 Tests: \`npm run test:ci-config\` plus all validation and browser gates below
 
 Baseline: [CI-001A/B — Baseline](../audits/ci-management-baseline-2026-09-23.md)
 Evidence map: [CI-001B — Evidence Map](ci-evidence-map.md)
 Test taxonomy: [CI-001E — Test Taxonomy](ci-test-taxonomy.md)
 Browser model: Auth/Operations are isolated by job; `workers: 1` remains mandatory
-CI gate: current PR CI; stable aggregator remains a future CI-001G gate
+CI gate: `CI / required-gate` is the stable PR aggregation surface; Main and Full are separate certification workflows
 
 ## Current pipeline
 
@@ -113,13 +113,13 @@ PR #46 established the deterministic browser gate:
 
 The target-PC real-CCP smoke is recorded as PASS in [Browser E2E Validation](e2e.md).
 
-## Planned CI model
+## Current CI model
 
 CI-001 defines three functional levels:
 
-1. **PR Fast Gate** — short feedback during Draft/iteration;
-2. **PR Certification Gate** — complete proof for a Ready for Review PR;
-3. **Main / Full** — short post-merge smoke plus scheduled/manual exhaustive certification.
+1. **PR Fast Gate** — scope-aware short feedback during Draft/iteration;
+2. **PR Certification Gate** — complete conditional proof for the active PR;
+3. **Main / Full** — short post-merge smoke plus scheduled/manual exhaustive certification, now implemented as dedicated workflows.
 
 The final architecture also includes a stable \`CI / required-gate\` aggregator so conditional jobs do not become branch-protection hazards.
 
@@ -138,8 +138,6 @@ No check name should be changed during CI-001 until the effective protection con
 
 ## Completion status
 
-The existing CI remains the current certification mechanism.
-
-**CI-001A/B and CI-001C are baselined; CI-001D is proven on two representative runs; CI-001E/F are the active implementation slices.**
+**CI-001G is certified on head `bc2ff6c24a6b4b419311b287ddd0b206489093c3`; CI-001H is active.** Dedicated Main Smoke and Full Repository Certification workflows are implemented, but their dedicated runtime certification evidence is still pending.
 
 The topology change is additive in proof ownership: existing commands remain present, the historical `validate` check name remains available, and browser execution is no longer downstream of non-browser validation.

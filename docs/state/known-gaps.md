@@ -22,16 +22,16 @@ Source of truth: code, tests, CI and current state documents
 
 ## CI / delivery gaps
 
-- CI-001D is refactoring the CI topology: static, unit/domain, server and build lanes are now independent and browser no longer waits for the non-browser validation lanes. Representative green runs are still required before the phase can be declared complete.
-- The historical `validate` check is retained as a compatibility aggregator until branch protection is administratively verified and CI-001G introduces the final stable required gate.
+- CI-001D topology is proven; CI-001G scope routing and `CI / required-gate` are certified on head `bc2ff6c24a6b4b419311b287ddd0b206489093c3`.
+- The historical `validate` and `browser-e2e` checks remain as compatibility aggregators; `CI / required-gate` is now the stable PR aggregation surface. Branch protection remains administratively unverified.
 - Test taxonomy and canonical ownership are now documented; the first demonstrated duplicate invocation was removed while the underlying tests remain covered by their canonical owners and a retained Full/recovery composition.
 - Browser Auth and Operations are now isolated at the job level; multi-worker Playwright execution remains intentionally blocked until state isolation is proven.
 - \`npm test\` is a large sequential command manifest and specialized gates partially overlap it.
 - Current concurrency cancels obsolete runs on one PR/workflow reference but does not prevent several distinct PRs from representing the same human chantier.
-- The SDE gate is reliable and cheap but is not yet governed by the same future certification/concurrency model.
-- There is no stable conditional-check aggregator yet, so a future path-aware model must be introduced carefully.
+- The SDE gate remains authoritative for PR SDE-sensitive changes; Full certification also contains an explicit SDE regeneration proof.
+- Conditional execution is routed through `CI / Change Scope` with conservative full-certification fallback; no workflow-level path filter is used on the required PR surface.
 - Branch protection/ruleset configuration for \`main\` could not be verified with the available integration and must be checked before any required-check rename.
-- CI-001 is now ACTIVE. CI-001A/B froze the baseline and evidence map; CI-001C hardened permissions/action pinning/runtime reproducibility; CI-001D is proven on two green runs; CI-001E is implemented in taxonomy/ownership; CI-001F is the active browser-isolation slice. Required-gate/change-detection/branch-protection work remains gated by later phases.
+- CI-001 is now ACTIVE — CI-001H. G is certified on head `bc2ff6c24a6b4b419311b287ddd0b206489093c3`; H adds dedicated Main/Full workflows and the CI recovery runbook. Main/Full dedicated runtime proof remains open until those workflows have real execution evidence.
 
 See:
 - [CI Validation](../validation/ci.md)

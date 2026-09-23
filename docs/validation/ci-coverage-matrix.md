@@ -64,8 +64,8 @@ A future optimization is not accepted merely because it reduces wall-clock time.
 | Timeout policy | job timeout exists | PARTIAL | H | job + critical-step timeouts |
 | CI performance metrics | historical run analysis only | GAP | D/I | durable metrics and baseline |
 | Test duration telemetry | no canonical per-test timing report | GAP | A/E/I | slowest suites visible |
-| Main post-merge validation | full CI reruns on main push | PARTIAL | H | short smoke by default |
-| Full repository certification | no dedicated scheduled full gate | GAP | H | scheduled/manual exhaustive proof |
+| Main post-merge validation | dedicated short Main Smoke workflow on `push` to `main`; first dedicated runtime proof pending | PARTIAL | H | short smoke by default |
+| Full repository certification | dedicated scheduled/manual Full workflow implemented; first dedicated runtime proof pending | PARTIAL | H | scheduled/manual exhaustive proof |
 | Dependency vulnerability review | no dedicated dependency-review proof found | GAP / CONDITIONAL | C/I | PR dependency change detection + scheduled vulnerability scan when supported |
 | Static application security analysis | no CodeQL workflow/configuration found in repository search | GAP / UNKNOWN | C/I | establish or explicitly rule out SAST coverage |
 | Dependency maintenance automation | no Dependabot/Renovate configuration found in repository search | GAP / UNKNOWN | I | establish automated update/alert ownership or explicitly document another mechanism |
@@ -79,9 +79,9 @@ A future optimization is not accepted merely because it reduces wall-clock time.
 | Runner environment drift | \`ubuntu-latest\` | PARTIAL | I | intentional runner policy or periodic verification |
 | Artifact provenance | no release-attestation requirement | CONDITIONAL | C/I | assess only if release/distribution requires it |
 | CI documentation | current workflow/runbook exists | COVERED | J | active docs + phase evidence |
-| Rollback of CI refactor | not yet formalized | GAP | A/J | every phase reversible |
+| Rollback of CI refactor | explicit CI recovery runbook added in H; exercise and final validation remain | PARTIAL | H/J | every phase reversible |
 | CI self-validation | workflow contract tests exist | COVERED | D/E/G/J | meta-contract expanded with new topology and ownership script |
-| Human runbook | basic runbook exists | PARTIAL | H/J | incident/rerun/new-PR decision tree |
+| Human runbook | dedicated CI recovery runbook added for current-head evidence, reruns and rollback | COVERED | H/J | incident/rerun/new-PR decision tree |
 | Cost/churn control | historical evidence only | PARTIAL | A/I | runs/PR, cancelled %, reruns and wall-clock tracked |
 | Long-term maintenance | action updates handled ad hoc | PARTIAL | I/J | recurring maintenance procedure |
 

@@ -36,7 +36,7 @@ The [deterministic 429 proof](../validation/p0-b-429-retry-after.md) certified H
 
 P0-C is **ACTIVE** on branch `feat/p0-target-pc-evidence`, based on main at `c0ddc69ef424ed0cfd4de776758166c3ee8c1abe`.
 
-The target-PC evidence workflow now includes a browser-visible JSON export containing the market request template, per-hub HTTP/cache/pagination/ESI/Retry-After diagnostics, data-health state, timestamp and non-secret browser context. The exported bundle deliberately records the controlled comparison result as `not_recorded`; that field must be established from the affected PC and a controlled comparison environment.
+The target-PC evidence workflow now includes a browser-visible JSON export containing the market request template, per-hub HTTP/cache/pagination/ESI/Retry-After diagnostics, data-health state, timestamp and non-secret browser context. The exported bundle deliberately records the controlled comparison result as `not_recorded`; that field must be established from the affected PC and a controlled comparison environment. Validation: [P0-C target-PC evidence](../validation/p0-c-target-pc-evidence.md).
 
 ## Next increments
 

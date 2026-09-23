@@ -58,10 +58,6 @@ export function getOrderLockedValue(order: EveCharacterOrder): number {
 }
 
 /**
- * Compare an active order with the best competing same-side price in its type/region.
- * Null means the current observed order book contains no comparable competitor.
- */
-/**
  * Deterministically merges market-order sources by canonical OrderId.
  * Sources must be ordered from lowest to highest authority; later sources win.
  */
@@ -75,6 +71,10 @@ export function mergeMarketOrdersByCanonicalId(
   return Array.from(byOrderId.values());
 }
 
+/**
+ * Compare an active order with the best competing same-side price in its type/region.
+ * Null means the current observed order book contains no comparable competitor.
+ */
 export function getOrderMarketDistance(
   order: EveCharacterOrder,
   marketOrders: RawMarketOrder[],

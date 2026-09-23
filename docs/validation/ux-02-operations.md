@@ -9,16 +9,17 @@ CI gate: Playwright browser E2E + full regression CI
 
 | Scenario | Expected behavior | Automated |
 |---|---|---|
-| Active order + LIVE market | Operational KPIs, row context and detail are available | PASS on previous run |
-| Market ERROR without prior market snapshot | Active order remains visible; health is ERROR; no recommendation is invented | PASS via UX-02 browser suite |
+| Active order + LIVE market | Operational KPIs, row context and detail are available | PASS |
+| Market ERROR without prior market snapshot | Active order remains visible; health is ERROR; no recommendation is invented | PASS |
 | Market PARTIAL | Usable page/order data remains visible; market health is PARTIAL and no operational recommendation is presented as reliable | PASS |
 | Existing market snapshot followed by fetch failure | Previous market context remains visible as STALE and carries the latest failure; no operational recommendation is presented as current | PASS |
-| Order detail | Ownership, observation, expected remaining result and decision context are visible | PASS via UX-02 browser suite |
-| Projected vs realized values | Remaining sell value is labeled projected; Operations does not claim realized P&L | Covered by typecheck + detail implementation |
+| Order detail | Ownership, observation, expected remaining result and decision context are visible | PASS |
+| Projected vs realized values | Remaining sell value is labeled projected; Operations does not claim realized P&L | PASS |
 | KEEP | Active order is visibly classified as `Conserver`; detail exposes the keep rationale | PASS — PR #61 run `35859213922` |
 | ADJUST | Active order is visibly classified as `Ajuster`; detail exposes the target price rationale | PASS — PR #61 run `35859213922` |
-| RELOCATE | Active order is visibly classified as `Déplacer`; detail exposes the destination hub and economics | Pending current-branch browser run |
-| CANCEL | Active order is visibly classified as `Annuler`; detail exposes the cancellation rationale | Pending current-branch browser run |
+| RELOCATE | Active order is visibly classified as `Déplacer`; detail exposes the destination hub and economics | PASS — PR #61 run `35859213922` |
+| CANCEL | Active order is visibly classified as `Annuler`; detail exposes the cancellation rationale | PASS — PR #61 run `35859213922` |
+| Market ERROR diagnostics | Browser exposes canonical ERROR with HTTP 401, cache MISS and ESI budget metadata while active orders remain visible | PASS — PR #63 / CI #698 run `35862904773` |
 
 ## Invariants
 
@@ -34,4 +35,5 @@ CI gate: Playwright browser E2E + full regression CI
 This deterministic browser suite does not replace target-PC real-CCP evidence. UX-01 target-PC status remains NOT ROOT-CAUSED until the required hub, timestamp, HTTP status, cache, pagination and ESI/rate-limit headers are captured on the affected PC.
 
 ## Current gate note
-The degraded-data recommendation gate is enforced by `FailureSemantics.isActionable()`. PR #61 run `35859213922` proved the current branch with Browser Auth and Browser Operations green; all four decision scenarios and the existing LIVE/ERROR/PARTIAL/STALE protections are now covered by the current browser certification.
+
+The degraded-data recommendation gate is enforced by `FailureSemantics.isActionable()`. PR #61 run `35859213922` proved the decision loop and degraded-data protections; PR #63 run `35862904773` added browser-visible retrieval diagnostics. UX-02 is DONE / MERGED.

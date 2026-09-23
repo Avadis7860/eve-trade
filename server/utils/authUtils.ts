@@ -271,26 +271,6 @@ export function validateRedirectUri(candidate: string | undefined, req: express.
   return { isValid: false, uri: defaultUri };
 }
 
-export function parseJwt(token: string): any {
-  if (!token || typeof token !== 'string') return null;
-  try {
-    const parts = token.split('.');
-    if (parts.length < 2) return null;
-    const base64Url = parts[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      Buffer.from(base64, 'base64')
-        .toString('binary')
-        .split('')
-        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    );
-    return JSON.parse(jsonPayload);
-  } catch {
-    return null;
-  }
-}
-
 export function renderAuthErrorHtml(title: string, message: string, errorCode: string): string {
   const safeTitle = escapeHtml(title);
   const safeMessage = escapeHtml(message);

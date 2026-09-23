@@ -87,7 +87,7 @@ export function safeJsonStringify(val: any): string {
  * 1. Current request host origin (same-host origin, both http and https)
  * 2. Explicitly configured EVE_CALLBACK_URL origin
  * 3. Whitelisted environment origins (ALLOWED_ORIGINS or CORS_ORIGIN)
- * 4. Standard local development origins (localhost:3000, 127.0.0.1:3000, localhost:5173, localhost:8000)
+ * 4. Standard local development origins (localhost:3000, 127.0.0.1:3000, localhost:5173)
  */
 export function isAllowedOrigin(origin: string | undefined, req?: express.Request): boolean {
   if (!origin || typeof origin !== 'string') return false;
@@ -145,7 +145,6 @@ export function isAllowedOrigin(origin: string | undefined, req?: express.Reques
       'http://0.0.0.0:3000',
       'http://localhost:5173',
       'http://127.0.0.1:5173',
-      'http://localhost:8000',
       'http://127.0.0.1:8000',
     ]);
 
@@ -242,10 +241,6 @@ export function validateRedirectUri(candidate: string | undefined, req: express.
   const allowedExact = new Set<string>([
     defaultUri,
     `${protocol}://${host}/auth/callback`,
-    `${protocol}://${host}/callback`,
-    'http://localhost:8000/callback',
-    'http://localhost:3000/auth/callback',
-    'http://localhost:3000/callback',
   ]);
   if (EVE_CALLBACK_URL) {
     allowedExact.add(EVE_CALLBACK_URL);
@@ -260,7 +255,7 @@ export function validateRedirectUri(candidate: string | undefined, req: express.
     const parsed = new URL(trimmed);
     const parsedOrigin = `${parsed.protocol}//${parsed.host}`;
     const serverOrigin = `${protocol}://${host}`;
-    if (parsedOrigin === serverOrigin && (parsed.pathname === '/auth/callback' || parsed.pathname === '/callback')) {
+    if (parsedOrigin === serverOrigin && parsed.pathname === '/auth/callback') {
       return { isValid: true, uri: trimmed };
     }
   } catch {}

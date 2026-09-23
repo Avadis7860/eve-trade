@@ -1,5 +1,6 @@
 import { EsiService } from '../../services/esi';
 import { MarketDataStore } from '../../services/marketDataStore';
+import { setBackendApiFetchForTesting } from '../../services/backendApiClient';
 import { InterRegionalScanner } from '../../services/scanner';
 import { RawMarketOrder, MarketHub, EveTypeDetail, FinancialConfig, MarketDataQuality } from '../../types';
 

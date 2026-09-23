@@ -94,7 +94,7 @@ export async function createServerApp(options: ServerAppOptions = {}): Promise<e
   app.use('/api/universe', universeRouter);
 
   // OAuth callback documents carry validated bearer/refresh tokens and must never be cached.
-  app.use(['/auth/callback', '/auth/callback/', '/callback', '/callback/'], (_req, res, next) => {
+  app.use(['/auth/callback', '/auth/callback/'], (_req, res, next) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -104,8 +104,6 @@ export async function createServerApp(options: ServerAppOptions = {}): Promise<e
   // 2. Direct EVE SSO Callback Handlers
   app.get('/auth/callback', callbackHandler);
   app.get('/auth/callback/', callbackHandler);
-  app.get('/callback', callbackHandler);
-  app.get('/callback/', callbackHandler);
 
   // In-memory Market Types DB initialization
   const initialCatalog = TypeCatalogService.loadCatalog();

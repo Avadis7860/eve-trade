@@ -51,8 +51,8 @@ A future optimization is not accepted merely because it reduces wall-clock time.
 | Browser critical trading workflows | only Operations increment currently | PARTIAL | F + later E2E-002 | expand after UX contracts |
 | Browser parallel safety | Auth and Operations isolated by job; each job keeps `workers=1`; harness module state remains local to its job | PARTIAL | F | prove state isolation before workers>1 |
 | SDE artifact integrity | dedicated read-only SDE gate | COVERED | G | same source/trigger/concurrency model |
-| General change detection | SDE only today | GAP | G | conservative domain detection |
-| Stable required check | no dedicated aggregator | GAP | G | \`CI / required-gate\` |
+| General change detection | deterministic domain router in `scripts/ci-scope.mjs`, fixture-tested and exercised by `detect-changes` | COVERED | G | conservative domain detection |
+| Stable required check | `CI / required-gate` is a dedicated always-evaluated aggregation surface | COVERED | G | `CI / required-gate` |
 | Branch protection verification | API access unavailable in study | GAP / UNKNOWN | G | admin-verified required checks |
 | Merge queue compatibility | not evidenced in repo | CONDITIONAL | G | add \`merge_group\` if adopted |
 | Concurrency governance | same-reference cancellation only | PARTIAL | D/G/H | per-PR stale-run cancellation + explicit PR policy |

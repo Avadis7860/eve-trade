@@ -52,7 +52,7 @@ npm run build
 
 Ajouter les gates ciblées pour API, ESI, security, corporation ou persistance selon le changement.
 
-La CI actuelle reste le mécanisme de certification tant que [CI-001](docs/roadmap/ci-management-refactor.md) n'est pas implémenté.
+La CI actuelle est désormais le mécanisme de certification de référence. CI-001 est en clôture pré-merge ; aucune nouvelle PR ne doit être ouverte uniquement pour relancer la CI.
 
 ## Documentation
 
@@ -70,7 +70,7 @@ La situation actuelle de la CI est documentée dans :
 - [CI Management Audit](docs/audits/ci-management-audit-2026-09-23.md)
 - [CI-001 — Refonte du système CI](docs/roadmap/ci-management-refactor.md)
 
-CI-001 est désormais le chantier actif unique de CI. La tranche A/B fixe la baseline et les preuves avant toute refonte de topologie.
+CI-001 est le chantier CI unique jusqu'à sa fusion. Après fusion, les évolutions de durcissement encore identifiées doivent être traitées comme des chantiers distincts, sans rouvrir une seconde PR sur CI-001.
 
 ## Maintenance
 

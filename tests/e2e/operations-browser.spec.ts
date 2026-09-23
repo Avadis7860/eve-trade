@@ -96,6 +96,9 @@ async function prepareOperations(
 async function expectOperationsLoaded(page: Page): Promise<void> {
   await expect(page.getByText('Ordres actifs', { exact: true })).toBeVisible();
   await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
+  await expect(
+    page.getByRole('button', { name: 'Sync Marché des Ordres' }),
+  ).toBeEnabled({ timeout: 15_000 });
 }
 
 test.describe('UX-02 — Operations / Mes Ordres', () => {

@@ -6,7 +6,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -315,16 +314,14 @@ jobs:
 
           test "$detect_result" = "success"
 
-          case "$run_browser:$browser_auth_result:$browser_operations_result" in
-            true:success:success)
-              ;;
-            false:skipped:skipped)
-              ;;
-            *)
-              echo "::error::Unexpected browser lane composition: run_browser=$run_browser auth=$browser_auth_result operations=$browser_operations_result"
-              exit 1
-              ;;
-          esac
+          if [ "$run_browser" = "true" ]; then
+            test "$browser_auth_result" = "success"
+            test "$browser_operations_result" = "success"
+          else
+            test "$run_browser" = "false"
+            test "$browser_auth_result" = "skipped"
+            test "$browser_operations_result" = "skipped"
+          fi
   required-gate:
     name: CI / required-gate
     if: ${{ always() }}

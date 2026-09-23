@@ -187,15 +187,9 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
   });
 
   test('exposes CACHE as an actionable health state', async ({ page, request }) => {
-    await prepareOperations(page, request, 'error');
-    await blockMarketOrderRequests(page);
+    await prepareDegradedOperations(page, request);
     await launchSso(page);
     await expectOperationsLoaded(page);
-
-    await page.evaluate(async () => {
-      const { GlobalMarketSyncService } = await import('/src/services/globalMarketSync.ts');
-      GlobalMarketSyncService.stop();
-    });
 
     await page.evaluate(async () => {
       const { MarketDataStore } = await import('/src/services/marketDataStore.ts');
@@ -223,20 +217,14 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
 
     await firstRow.click();
     const detail = page.getByRole('dialog', { name: 'Détail opérationnel de l’ordre' });
-    await expect(detail.locator('span.inline-flex').filter({ hasText: 'CACHE' })).toBeVisible();
+    await expect(detail.getByText('CACHE', { exact: true }).first()).toBeVisible();
     await expect(detail.getByText(/Aucune recommandation fiable n’est produite/)).toHaveCount(0);
   });
 
   test('keeps an order UNKNOWN and non-actionable when market state is absent', async ({ page, request }) => {
-    await prepareOperations(page, request, 'error');
-    await blockMarketOrderRequests(page);
+    await prepareDegradedOperations(page, request);
     await launchSso(page);
     await expectOperationsLoaded(page);
-
-    await page.evaluate(async () => {
-      const { GlobalMarketSyncService } = await import('/src/services/globalMarketSync.ts');
-      GlobalMarketSyncService.stop();
-    });
 
     await page.evaluate(async () => {
       const { MarketDataStore } = await import('/src/services/marketDataStore.ts');
@@ -249,8 +237,34 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
 
     await firstRow.click();
     const detail = page.getByRole('dialog', { name: 'Détail opérationnel de l’ordre' });
-    await expect(detail.locator('span.inline-flex').filter({ hasText: 'UNKNOWN' })).toBeVisible();
+    await expect(detail.getByText('UNKNOWN', { exact: true }).first()).toBeVisible();
     await expect(detail.getByText(/Aucune recommandation fiable n’est produite/)).toBeVisible();
+  });
+
+  test('keeps row and detail values consistent for the same active order', async ({ page, request }) => {
+    await prepareOperations(page, request, 'live', 'adjust');
+    await launchSso(page);
+    await expectOperationsLoaded(page);
+
+    const firstRow = page.locator('tbody tr').first();
+    const cells = firstRow.getByRole('cell');
+    const owner = (await cells.nth(0).innerText()).split('\n')[0].trim();
+    const item = (await cells.nth(2).innerText()).split('\n')[0].trim();
+    const location = (await cells.nth(3).innerText()).split('\n')[0].trim();
+    const remaining = (await cells.nth(5).innerText()).split('\n')[0].trim();
+    const health = (await cells.nth(9).innerText()).split('\n')[0].trim();
+
+    await expect(firstRow.getByText(/Ajuster :/)).toBeVisible();
+    await firstRow.click();
+
+    const detail = page.getByRole('dialog', { name: 'Détail opérationnel de l’ordre' });
+    await expect(detail).toBeVisible();
+    await expect(detail.getByText(item, { exact: true })).toBeVisible();
+    await expect(detail.getByText(location, { exact: true })).toBeVisible();
+    await expect(detail.getByText(owner, { exact: true })).toBeVisible();
+    await expect(detail.getByText(health, { exact: true }).first()).toBeVisible();
+    await expect(detail.getByText(new RegExp('reliquat\\s+' + remaining + '\\b'))).toBeVisible();
+    await expect(detail.getByText(/Ajuster le Prix à/)).toBeVisible();
   });
 
   for (const scenario of [

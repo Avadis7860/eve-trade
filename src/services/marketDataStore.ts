@@ -629,6 +629,31 @@ export class MarketDataStore {
   }
 
   /**
+   * Force-refresh market context for all item types present in the active-order scope.
+   * This method is reserved for explicit user refresh actions; background synchronization
+   * continues to use the freshness-aware syncCharacterOrdersMarketData path.
+   */
+  static async refreshCharacterOrdersMarketData(
+    typeIds: number[],
+    hubs: MarketHub[]
+  ): Promise<void> {
+    const uniqueTypeIds = Array.from(new Set(typeIds)).filter((id) => id > 0);
+    const activeHubs = hubs.filter((h) => h.active);
+    if (uniqueTypeIds.length === 0 || activeHubs.length === 0) return;
+
+    const chunkSize = 4;
+    for (let i = 0; i < uniqueTypeIds.length; i += chunkSize) {
+      const chunk = uniqueTypeIds.slice(i, i + chunkSize);
+      await Promise.all(
+        chunk.map(async (typeId) => {
+          await this.fetchLiveItemData(typeId, activeHubs, true);
+        })
+      );
+    }
+    this.notifyListeners();
+  }
+
+  /**
    * Diagnostic summary of all loaded snapshots in store
    */
   static getStoreSummary() {

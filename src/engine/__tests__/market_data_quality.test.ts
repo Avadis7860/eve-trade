@@ -110,6 +110,72 @@ async function runQualityTests() {
   assert(expQuality !== null, 'Expired quality should exist');
   assert(expQuality!.freshness === 'expired', '1 hour old data must degrade to expired');
 
+  // A failed/partial snapshot must not become a five-minute "healthy" cache.
+  // Otherwise the UI can remain empty even after ESI becomes reachable again.
+  const recoveryHub: MarketHub = {
+    id: 'recovery-jita',
+    name: 'Recovery Jita',
+    region: 'The Forge',
+    region_id: 10000002,
+    solar_system: 'Jita',
+    system_id: 30000142,
+    station: 'Jita IV - Moon 4 - Assembly Plant',
+    station_id: 60003760,
+    security_status: 0.9,
+    priority: 1,
+    active: true,
+    hub_type: 'npc_major',
+  };
+  const failedQuality: MarketDataQuality = {
+    ...sampleQuality,
+    completeness: 'empty',
+    validation_status: 'invalid',
+    data_state: 'ERROR',
+    health_status: 'ERROR',
+    error_count: 1,
+    orders_fetched: 0,
+    orders_valid: 0,
+    fetched_at: new Date().toISOString(),
+    age_seconds: 0,
+    last_error: 'HTTP 503',
+  };
+  MarketDataStore.setOrders(37, recoveryHub.region_id, [], true, failedQuality);
+
+  let recoveryMarketCalls = 0;
+  setBackendApiFetchForTesting(async (input) => {
+    const url = String(input);
+    if (url.includes('/api/markets/' + recoveryHub.region_id + '/orders')) {
+      recoveryMarketCalls++;
+      return new Response(JSON.stringify([validOrder]), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Pages': '1',
+        },
+      });
+    }
+    if (url.includes('/api/markets/' + recoveryHub.region_id + '/history')) {
+      return new Response(JSON.stringify([{
+        date: '2026-09-22',
+        order_count: 10,
+        volume: 500,
+        average: 50,
+      }]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    throw new Error('Unexpected recovery request: ' + url);
+  });
+
+  const recovery = await MarketDataStore.fetchLiveItemData(37, [recoveryHub], false);
+  assert(recoveryMarketCalls === 1, 'An ERROR snapshot must not suppress a new market request');
+  assert(recovery.orderBooks[recoveryHub.region_id]?.length === 1, 'Recovered ESI orders must replace the failed empty state');
+  assert(recovery.qualities[recoveryHub.region_id]?.health_status === 'LIVE', 'Recovered complete ESI data must return to LIVE');
+
+  console.log('✅ Failed market snapshot recovery / cache gate passed.');
+  setBackendApiFetchForTesting(null);
+
   console.log('✅ MarketDataStore snapshot & cache degradation passed.');
 
   // 3. Test Scanner with Quality Metadata

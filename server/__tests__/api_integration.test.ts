@@ -5,8 +5,42 @@
  */
 
 import assert from 'assert';
-import { startServer, RunningServer } from '../../server';
-import { TypeCatalogService } from '../../src/services/typeCatalog';
+import http from 'node:http';
+
+process.env.EVE_CLIENT_ID = process.env.EVE_CLIENT_ID || 'e2e-api-test-client';
+process.env.EVE_CLIENT_SECRET = process.env.EVE_CLIENT_SECRET || 'e2e-api-test-secret';
+process.env.EVE_CALLBACK_URL = process.env.EVE_CALLBACK_URL || 'http://localhost:3000/auth/callback';
+
+const ssoFixture = http.createServer((req, res) => {
+  if (req.method === 'GET' && req.url === '/.well-known/oauth-authorization-server') {
+    const body = JSON.stringify({
+      issuer: 'https://login.eveonline.com/',
+      authorization_endpoint: 'http://127.0.0.1/oauth/authorize',
+      token_endpoint: 'http://127.0.0.1/oauth/token',
+      jwks_uri: 'http://127.0.0.1/oauth/jwks',
+    });
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(body);
+    return;
+  }
+
+  res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.end(JSON.stringify({ error: 'NOT_FOUND' }));
+});
+
+await new Promise((resolve, reject) => {
+  ssoFixture.once('error', reject);
+  ssoFixture.listen(0, '127.0.0.1', () => resolve());
+});
+
+const ssoFixtureAddress = ssoFixture.address();
+if (!ssoFixtureAddress || typeof ssoFixtureAddress === 'string') {
+  throw new Error('Unable to determine SSO fixture port');
+}
+process.env.EVE_SSO_METADATA_URL = 'http://127.0.0.1:' + ssoFixtureAddress.port + '/.well-known/oauth-authorization-server';
+
+const { startServer } = await import('../../server');
+const { TypeCatalogService } = await import('../../src/services/typeCatalog');
 
 async function runApiIntegrationTests() {
   console.log('===============================================================');
@@ -300,6 +334,7 @@ async function runApiIntegrationTests() {
   } finally {
     console.log('[TEST HARNESS] Shutting down test server...');
     await serverInstance.close();
+    await new Promise<void>(resolve => ssoFixture.close(() => resolve()));
     console.log('[TEST HARNESS] Server successfully closed.');
   }
 }

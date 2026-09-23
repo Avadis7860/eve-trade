@@ -103,6 +103,22 @@ async function prepareOperations(
   await openOrders(page);
 }
 
+async function prepareDegradedOperations(
+  page: Page,
+  request: APIRequestContext,
+): Promise<void> {
+  await setMarketMode(request, 'error');
+  await blockMarketOrderRequests(page);
+  await setOperationsScenario(request, 'default');
+  await page.goto('/');
+  await openOrders(page);
+
+  await page.evaluate(async () => {
+    const { GlobalMarketSyncService } = await import('/src/services/globalMarketSync.ts');
+    GlobalMarketSyncService.stop();
+  });
+}
+
 async function expectOperationsLoaded(page: Page): Promise<void> {
   await expect(page.getByText('Ordres actifs', { exact: true })).toBeVisible();
   await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });

@@ -259,24 +259,32 @@ export function useCharacterSync(
     ]
   );
 
-  // Handle SSO redirect in main window
+  // Consume the one-shot same-window callback bridge when popup creation is blocked.
   useEffect(() => {
-    const handleUrlCallback = async () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get('code') || urlParams.get('eve_sso_code');
-      const state = urlParams.get('state');
-      if (code) {
-        try {
-          window.history.replaceState({}, document.title, window.location.pathname);
-          const session = await AuthService.exchangeCodeForSession(code, undefined, state || undefined);
-          await loadCharacterData(session.access_token, session.character_id, session.character_name, session);
-          if (onLoginSuccess) onLoginSuccess();
-        } catch (err) {
-          console.error('Failed to exchange code from URL:', err);
-        }
-      }
+    let cancelled = false;
+
+    const consumePendingOAuth = async () => {
+      const pendingSession = AuthService.consumePendingBrowserOAuthResult();
+      if (!pendingSession || cancelled) return;
+
+      await loadCharacterData(
+        pendingSession.access_token,
+        pendingSession.character_id,
+        pendingSession.character_name,
+        pendingSession,
+        true,
+      );
+
+      if (!cancelled && onLoginSuccess) onLoginSuccess();
     };
-    handleUrlCallback();
+
+    void consumePendingOAuth().catch((err) => {
+      console.error('Failed to consume same-window OAuth result:', err);
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [loadCharacterData, onLoginSuccess]);
 
   // Handle postMessage from OAuth popup
@@ -287,41 +295,33 @@ export function useCharacterSync(
       if (!event.data || typeof event.data !== 'object') return;
 
       if (event.data.type === 'OAUTH_AUTH_SUCCESS') {
-        ssoPopupRef.current = null;
-        if (event.data?.session) {
-          const s = event.data.session as EveCharacterSession;
-          updateSession(s);
-          await loadCharacterData(s.access_token, s.character_id, s.character_name, s);
-          if (onLoginSuccess) onLoginSuccess();
-        } else if (event.data?.token) {
-          const { token, character_id, character_name, refresh_token, expires_in } = event.data;
-          const s: EveCharacterSession = {
-            character_id,
-            character_name,
-            access_token: token,
-            refresh_token,
-            expires_at: expires_in ? Date.now() + expires_in * 1000 : 0,
-            portrait_url: `https://images.evetech.net/characters/${character_id}/portrait?size=128`,
-            last_sync: new Date().toISOString(),
-            is_active: true,
-            session_version: 2,
-            auth_status: 'SESSION_VALID',
-            last_validated_at: new Date().toISOString(),
-          };
-          updateSession(s);
-          await loadCharacterData(token, character_id, character_name, s);
-          if (onLoginSuccess) onLoginSuccess();
-        } else if (event.data?.code) {
-          const session = await AuthService.exchangeCodeForSession(
-            event.data.code,
-            undefined,
-            event.data.state || undefined
-          );
-          await loadCharacterData(session.access_token, session.character_id, session.character_name, session);
-          if (onLoginSuccess) onLoginSuccess();
+        const rawSession = event.data.session;
+
+        if (!rawSession || typeof rawSession !== 'object') {
+          ssoPopupRef.current = null;
+          return;
         }
+
+        ssoPopupRef.current = null;
+        const session = AuthService.normalizeSession(rawSession);
+        updateSession(session);
+
+        await loadCharacterData(
+          session.access_token,
+          session.character_id,
+          session.character_name,
+          session,
+          true,
+        );
+
+        if (onLoginSuccess) onLoginSuccess();
       } else if (event.data?.type === 'OAUTH_AUTH_ERROR') {
-        console.error('SSO OAuth Error received from popup:', event.data.error, event.data.errorDescription);
+        ssoPopupRef.current = null;
+        console.warn(
+          'SSO OAuth Error received from popup:',
+          event.data.error,
+          event.data.errorDescription,
+        );
       }
     };
     window.addEventListener('message', handleMessage);
@@ -374,32 +374,43 @@ export function useCharacterSync(
   }, [loadCharacterData]);
 
   const handleConnectSSO = async (customRedirectUri?: string) => {
-    try {
-      const urlParam = customRedirectUri ? `?redirect_uri=${encodeURIComponent(customRedirectUri)}` : '';
-      const response = await fetch(`/api/auth/url${urlParam}`);
-      if (!response.ok) {
-        throw new Error('Failed to generate SSO authorization URL');
-      }
-      const data = await response.json();
-      const authUrl = data.url;
+    let popup: Window | null = null;
 
+    try {
       const width = 600;
       const height = 750;
       const left = window.screen.width / 2 - width / 2;
       const top = window.screen.height / 2 - height / 2;
-      const popup = window.open(
-        authUrl,
+
+      popup = window.open(
+        'about:blank',
         'eve_sso_login',
         `toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=yes, resizable=yes, copyhistory=no, width=${width}, height=${height}, top=${top}, left=${left}`
       );
 
-      if (!popup) {
+      if (popup) ssoPopupRef.current = popup;
+
+      const urlParam = customRedirectUri
+        ? `?redirect_uri=${encodeURIComponent(customRedirectUri)}`
+        : '';
+      const response = await fetch(`/api/auth/url${urlParam}`);
+
+      if (!response.ok) {
+        throw new Error('Failed to generate SSO authorization URL');
+      }
+
+      const data = await response.json();
+      const authUrl = data.url;
+
+      if (popup && !popup.closed) {
+        popup.location.href = authUrl;
+      } else {
         ssoPopupRef.current = null;
         window.location.href = authUrl;
-      } else {
-        ssoPopupRef.current = popup;
       }
     } catch (err) {
+      ssoPopupRef.current = null;
+      try { popup?.close(); } catch {}
       alert(`Erreur d initialisation SSO : ${err}`);
     }
   };
@@ -413,18 +424,22 @@ export function useCharacterSync(
     const claims = AuthService.parseJwtClaims(token.trim());
     const realExpiresAt = claims?.exp ? claims.exp * 1000 : 0;
 
-    const session: EveCharacterSession = {
-      character_id: characterId || (claims?.sub ? Number(claims.sub.split(':').pop()) || 0 : 0),
-      character_name: characterName || claims?.name || `Character #${characterId}`,
+    const resolvedCharacterId =
+      characterId || (claims?.sub ? Number(claims.sub.split(':').pop()) || 0 : 0);
+    if (!Number.isInteger(resolvedCharacterId) || resolvedCharacterId <= 0) {
+      throw new Error('Le jeton ne contient pas de Character ID exploitable.');
+    }
+
+    const session: EveCharacterSession = AuthService.normalizeSession({
+      character_id: resolvedCharacterId,
+      character_name: characterName || claims?.name || `Character #${resolvedCharacterId}`,
       access_token: token.trim(),
       expires_at: realExpiresAt,
-      portrait_url: characterId ? `https://images.evetech.net/characters/${characterId}/portrait?size=128` : '',
+      portrait_url: `https://images.evetech.net/characters/${resolvedCharacterId}/portrait?size=128`,
       last_sync: new Date().toISOString(),
       is_active: true,
-      session_version: 2,
-      auth_status: realExpiresAt && realExpiresAt > Date.now() ? 'SESSION_VALID' : 'SESSION_EXPIRED',
       last_validated_at: new Date().toISOString(),
-    };
+    });
     updateSession(session);
     await loadCharacterData(token, session.character_id, session.character_name, session);
   };

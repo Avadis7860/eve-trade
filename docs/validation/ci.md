@@ -148,7 +148,7 @@ The topology change is additive in proof ownership: existing commands remain pre
 
 ## Observed CI behavior after CI-001 merge
 
-The implementation currently uses a single `pull_request` trigger for the certification workflow. This means a Draft PR also enters the same certification topology rather than a distinct lightweight Fast Gate. The documented Draft-versus-Ready split is therefore a **known follow-up gap**, not current behavior. Do not treat this as a blocker for UX-02; track it as a separate CI hardening chantier.
+The implementation currently uses a single `pull_request` trigger for the certification workflow. This means a Draft PR also enters the same certification topology rather than a distinct lightweight Fast Gate. This is now directly observed on UX-02 PR #61: Draft run `35858589551` progressed from `CI / Change Scope` to Browser Auth, Static, Server, Build, Unit/Domain and Browser Operations. The documented Draft-versus-Ready split is therefore a **confirmed follow-up gap**, not current behavior. Do not treat this as a blocker for UX-02; track it as a separate CI hardening chantier.
 
 The post-merge `main` path remains separate via `CI Main Post-Merge Smoke`, while Full Repository Certification remains manual/scheduled.
 

@@ -24,7 +24,7 @@ Only the following may proceed in parallel:
 ## Workstream order
 
 ### UX-00 — Product model and information architecture
-Status: NEXT
+Status: DONE
 
 Define and approve the target model:
 - Discovery;
@@ -45,7 +45,7 @@ Gate:
 all six surface responsibilities documented without overlapping ownership.
 
 ### UX-01 — Market truth / retrieval observability
-Status: P0 / BLOCKING
+Status: P0 / IMPLEMENTED — OPERATIONAL VALIDATION OPEN
 
 Purpose:
 establish why market-order acquisition can fail and ensure the UI never converts technical failure into an empty market state.
@@ -59,20 +59,22 @@ Deliverables:
 - regression tests for ERROR/PARTIAL/STALE.
 
 Gate:
-a failed market fetch is diagnosable from the UI and testable without guessing.
+the implementation now exposes the required market-health evidence and recovery states; the target-PC market-order incident remains NOT ROOT-CAUSED until a target-PC capture contains the required hub, timestamp, HTTP/cache/ESI/rate-limit evidence.
 
 ### UX-02 — Operations / Mes Ordres
-Status: P1
+Status: ACTIVE — FIRST INCREMENT
 
 Deliverables:
 - operational KPI strip;
-- order-state filters;
+- order-state filters including ageing risk;
 - actionable order rows;
 - market-context details;
 - ageing/expiry/fill visibility;
-- advisor integration;
-- explicit ownership scope;
-- data-health indicators.
+- advisor integration with ERROR/UNKNOWN safety gating;
+- explicit economic ownership display;
+- per-order data-health indicators;
+- explicit active-order synchronization errors.
+
 
 Gate:
 a trader can inspect an active order and decide whether to keep, adjust, relocate or cancel without leaving the operations context for routine information.

@@ -211,6 +211,23 @@ async function runQualityTests() {
   assert(recovery.qualities[recoveryHub.region_id]?.cache_status === undefined, 'Mock response without cache header should not invent a cache state');
 
   console.log('✅ Failed market snapshot recovery / cache gate passed.');
+
+  // A transport/parse exception must degrade an older usable snapshot to explicit STALE cache.
+  MarketDataStore.setOrders(40, recoveryHub.region_id, [validOrder], true, {
+    ...sampleQuality,
+    fetched_at: new Date().toISOString(),
+    age_seconds: 0,
+    data_state: 'VALID',
+    health_status: 'LIVE',
+  });
+  setBackendApiFetchForTesting(async () => {
+    throw new Error('network unavailable');
+  });
+  const exceptionFallback = await MarketDataStore.fetchLiveItemData(40, [recoveryHub], true);
+  assert(exceptionFallback.orderBooks[recoveryHub.region_id]?.length === 1, 'Transport exception must preserve the previous usable order book');
+  assert(exceptionFallback.qualities[recoveryHub.region_id]?.source === 'cache', 'Transport exception fallback must identify cache source');
+  assert(exceptionFallback.qualities[recoveryHub.region_id]?.health_status === 'STALE', 'Transport exception fallback must be explicitly STALE');
+  assert(exceptionFallback.qualities[recoveryHub.region_id]?.data_state === 'STALE', 'Transport exception fallback must be explicitly STALE data');
   setBackendApiFetchForTesting(null);
 
   console.log('✅ MarketDataStore snapshot & cache degradation passed.');

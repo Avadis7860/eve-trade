@@ -1,5 +1,3 @@
-import type { IncomingHttpHeaders } from 'node:http';
-
 function readOptional(name: string): string {
   return process.env[name]?.trim() || '';
 }
@@ -64,10 +62,4 @@ export function assertOAuthRuntimeConfig(): void {
   if (missing.length > 0) {
     throw new Error(`SSO_NOT_CONFIGURED: missing required environment variables: ${missing.join(', ')}`);
   }
-}
-
-export function getForwardedProtocol(headers: IncomingHttpHeaders, fallback: string): 'http' | 'https' {
-  const forwarded = headers['x-forwarded-proto'];
-  const value = Array.isArray(forwarded) ? forwarded[0] : forwarded;
-  return value === 'https' || fallback === 'https' ? 'https' : 'http';
 }

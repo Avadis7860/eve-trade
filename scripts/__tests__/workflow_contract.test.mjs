@@ -14,7 +14,8 @@ const ACTION_PINS = {
 };
 
 const requiredCiCommands = [
-  'npm run test:e2e',
+  'npm run test:e2e:auth',
+  'npm run test:e2e:operations',
   'npm ci --no-audit --no-fund',
   'npm run typecheck',
   'npm run typecheck:server',
@@ -45,8 +46,8 @@ for (const [action, sha] of Object.entries(ACTION_PINS)) {
 }
 
 assert.match(ci, /permissions:\s*\n\s+contents:\s+read/, 'CI must declare read-only repository permissions');
-assert.equal((ci.match(/persist-credentials: false/g) || []).length, 5, 'All five execution jobs must disable checkout credential persistence');
-assert.equal((ci.match(/node-version: 22\.23\.2/g) || []).length, 5, 'All five execution jobs must use the pinned Node runtime');
+assert.equal((ci.match(/persist-credentials: false/g) || []).length, 6, 'All five execution jobs must disable checkout credential persistence');
+assert.equal((ci.match(/node-version: 22\.23\.2/g) || []).length, 6, 'All five execution jobs must use the pinned Node runtime');
 assert.equal((ci.match(/test "\$\(node --version\)" = "v22\.23\.2"/g) || []).length, 5, 'All five execution jobs must verify the selected Node runtime');
 assert.equal((ci.match(/test "\$\(npm --version\)" = "10\.9\.8"/g) || []).length, 5, 'All five execution jobs must verify the npm version bundled with the pinned Node release');
 
@@ -55,11 +56,11 @@ assert.match(
   /validate:\s*\n\s+name: Validation & Non-Regression Gate[\s\S]*if: \$\{\{ always\(\) \}\}[\s\S]*needs: \[static, unit_domain, server, build\]/,
   'The historical validate check must remain as an unconditional compatibility aggregator',
 );
-assert.doesNotMatch(
-  ci,
-  /browser-e2e:[\s\S]*needs:/,
-  'Browser E2E must not wait for the non-browser validation aggregator',
-);
+assert.match(ci,/browser-auth:[\s\S]*npm run test:e2e:auth/,'Browser Auth lane ownership drifted');
+assert.match(ci,/browser-operations:[\s\S]*npm run test:e2e:operations/,'Browser Operations lane ownership drifted');
+assert.doesNotMatch(ci,/browser-auth:[\s\S]*needs:/,'Browser Auth must remain independently runnable');
+assert.doesNotMatch(ci,/browser-operations:[\s\S]*needs:/,'Browser Operations must remain independently runnable');
+assert.match(ci,/browser-e2e:[\s\S]*if: \$\{\{ always\(\) \}\}[\s\S]*needs: \[browser-auth, browser-operations\]/,'Historical browser-e2e check must remain as compatibility aggregator');
 assert.match(
   ci,
   /static:[\s\S]*npm run typecheck[\s\S]*npm run typecheck:server[\s\S]*npm run test:ci-config[\s\S]*npm run test:config[\s\S]*npm run test:auth-token/,
@@ -76,11 +77,8 @@ assert.match(
   'Server lane ownership drifted',
 );
 assert.match(ci, /build:[\s\S]*npm run build/, 'Build lane ownership drifted');
-assert.match(
-  ci,
-  /browser-e2e:[\s\S]*npx playwright install --with-deps chromium[\s\S]*npm run test:e2e/,
-  'CI must execute the deterministic Playwright browser gate',
-);
+assert.match(ci,/browser-auth:[\s\S]*npx playwright install --with-deps chromium[\s\S]*npm run test:e2e:auth/,'Browser Auth lane must execute the deterministic Playwright gate');
+assert.match(ci,/browser-operations:[\s\S]*npx playwright install --with-deps chromium[\s\S]*npm run test:e2e:operations/,'Browser Operations lane must execute the deterministic Playwright gate');
 assert.ok(
   !ci.match(/uses: actions\/(?:checkout|setup-node|upload-artifact)@v\d/),
   'CI action references must use immutable SHAs, not moving version tags',

@@ -17,7 +17,7 @@ import {
 
 interface SsoConnectCardProps {
   onSessionReady?: (session: EveCharacterSession) => void | Promise<void>;
-  onConnectSSO?: (redirectUri: string) => void;
+  onConnectSSO: (redirectUri: string) => void;
   compact?: boolean;
   title?: string;
   subtitle?: string;
@@ -66,44 +66,10 @@ export const SsoConnectCard: React.FC<SsoConnectCardProps> = ({
     setTimeout(() => setCopiedUrl(null), 2000);
   };
 
-  const handleLaunchSSO = async () => {
+  const handleLaunchSSO = () => {
     setErrorMessage(null);
     setSuccessMessage(null);
-
-    if (onConnectSSO) {
-      onConnectSSO(activeRedirectUri);
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      const urlParam = `?redirect_uri=${encodeURIComponent(activeRedirectUri)}`;
-      const res = await fetch(`/api/auth/url${urlParam}`);
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.message || 'Impossible de générer l\'URL d\'authentification CCP SSO');
-      }
-      const data = await res.json();
-      const authUrl = data.url;
-
-      const width = 600;
-      const height = 750;
-      const left = window.screen.width / 2 - width / 2;
-      const top = window.screen.height / 2 - height / 2;
-      const popup = window.open(
-        authUrl,
-        'eve_sso_login',
-        `toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=yes, resizable=yes, copyhistory=no, width=${width}, height=${height}, top=${top}, left=${left}`
-      );
-
-      if (!popup) {
-        window.location.href = authUrl;
-      }
-    } catch (err) {
-      setErrorMessage(String(err));
-    } finally {
-      setIsLoading(false);
-    }
+    onConnectSSO(activeRedirectUri);
   };
 
   const handleManualCodeSubmit = async (e: React.FormEvent) => {

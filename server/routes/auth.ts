@@ -422,6 +422,13 @@ function renderAuthSuccessHtml(session: Record<string, unknown>): string {
   ].join('\n');
 }
 
+function getRequestCallbackUri(req: Request): string {
+  const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+  const host = req.get('host') || 'localhost:3000';
+  const pathname = req.path.replace(/\/+$/, '') || '/';
+  return `${protocol}://${host}${pathname}`;
+}
+
 export const callbackHandler = async (req: Request, res: Response) => {
   const code = req.query.code as string;
   const state = req.query.state as string;
@@ -438,16 +445,22 @@ export const callbackHandler = async (req: Request, res: Response) => {
     ));
   }
 
-  const stateCheck = validateAndConsumeOAuthState(state);
+  const callbackUri = getRequestCallbackUri(req);
+  const stateCheck = validateAndConsumeOAuthState(state, callbackUri);
   if (!stateCheck.isValid) {
     logEvent('ERROR', 'SSO', 'Callback received invalid or expired state - BLOCKED', {
       statePrefix: state.substring(0, 8),
+      callbackUri,
       error: stateCheck.error,
     });
     res.status(400).setHeader('Content-Type', 'text/html; charset=utf-8');
     return res.send(renderAuthErrorHtml(
-      'Sécurité CSRF : Jeton Invalide ou Expiré',
-      `Le jeton de sécurité de session est invalide ou a expiré (${stateCheck.error}). Veuillez relancer la connexion SSO.`,
+      stateCheck.error === 'REDIRECT_URI_MISMATCH'
+        ? 'Sécurité OAuth : URL de redirection incompatible'
+        : 'Sécurité CSRF : Jeton Invalide ou Expiré',
+      stateCheck.error === 'REDIRECT_URI_MISMATCH'
+        ? 'La requête de rappel ne correspond pas à l’URL de redirection enregistrée dans le state OAuth.'
+        : `Le jeton de sécurité de session est invalide ou a expiré (${stateCheck.error}). Veuillez relancer la connexion SSO.`,
       stateCheck.error || 'INVALID_STATE'
     ));
   }

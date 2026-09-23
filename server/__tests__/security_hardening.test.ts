@@ -240,12 +240,16 @@ async function runTests() {
     });
 
     await test('POST /api/auth/token rejects non-hex / arbitrary state tokens with HTTP 400 INVALID_OR_EXPIRED_STATE', async () => {
+      const maliciousState = 'malicious-forged-state';
       const res = await fetch(`${baseUrl}/api/auth/token`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: `eve_trade_oauth_state_v1=${maliciousState}`,
+        },
         body: JSON.stringify({
           code: 'valid-looking-code-12345',
-          state: 'malicious-forged-state',
+          state: maliciousState,
         }),
       });
       assert(res.status === 400, `Expected 400, got ${res.status}`);
@@ -263,7 +267,10 @@ async function runTests() {
 
       const res = await fetch(`${baseUrl}/api/auth/token`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: `eve_trade_oauth_state_v1=${expiredState}`,
+        },
         body: JSON.stringify({
           code: 'valid-looking-code-12345',
           state: expiredState,
@@ -282,7 +289,10 @@ async function runTests() {
       // but state MUST be consumed and purged from activeOAuthStates!
       const firstRes = await fetch(`${baseUrl}/api/auth/token`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: `eve_trade_oauth_state_v1=${state}`,
+        },
         body: JSON.stringify({
           code: 'test-code',
           state: state,
@@ -312,7 +322,10 @@ async function runTests() {
 
       const res = await fetch(`${baseUrl}/api/auth/token`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: `eve_trade_oauth_state_v1=${validState}`,
+        },
         body: JSON.stringify({
           code: fullUrl,
         }),

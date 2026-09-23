@@ -34,7 +34,7 @@ EsiGateway
 controlled ESI fixture
 ```
 
-The application continues to use CCP/ESI endpoints by default. The test harness changes those upstream URLs only through environment variables before the server module is loaded.
+The application uses CCP's documented Authorization Code endpoints and ESI compatibility-date model by default. The deterministic harness changes only external boundaries through environment variables before the server module is loaded.
 
 ## Deterministic browser command
 
@@ -68,7 +68,7 @@ The fixture provides two isolated characters:
 - Alpha: character `1001`, corporation `99001`
 - Beta: character `1002`, corporation `99002`
 
-The OAuth fixture issues deterministic authorization codes and access/refresh tokens. The ESI fixture rejects a credential when it is used for the wrong character or corporation context.
+The OAuth fixture issues deterministic authorization codes and access/refresh tokens. Access tokens are signed RS256 JWTs with EVE-compatible issuer, audience, expiration and character subject claims, and the fixture exposes the JWKS consumed by the production verifier. The ESI fixture requires the compatibility-date header and rejects a credential when it is used for the wrong character or corporation context.
 
 No CCP login, password, token, client secret or personal credential is used by this layer.
 

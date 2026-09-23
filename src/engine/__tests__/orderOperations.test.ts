@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import type { EveCharacterOrder } from '../../types';
+import type { EveCharacterOrder, RawMarketOrder } from '../../types';
 import {
   ORDER_AGEING_RISK_REMAINING_RATIO,
   getOrderLockedValue,
@@ -45,12 +45,60 @@ assert.equal(
 assert.equal(getOrderLockedValue({ ...base, is_buy_order: true, escrow: 12345 }), 12345);
 assert.equal(getOrderLockedValue(base), 6000);
 
-const market = [
-  { ...base, order_id: 'other-1', price: 9 },
-  { ...base, order_id: 'other-2', price: 10.5 },
-  { ...base, order_id: 'buy-1', is_buy_order: true, price: 8 },
-  { ...base, order_id: 'buy-2', is_buy_order: true, price: 8.5 },
-];
+const market: RawMarketOrder[] = [
+  {
+    order_id: 'other-1',
+    type_id: 34,
+    region_id: 10000002,
+    system_id: 30000142,
+    location_id: 60003760,
+    price: 9,
+    volume_remain: 100,
+    volume_total: 100,
+    is_buy_order: false,
+    issued: base.issued,
+    duration: 90,
+  },
+  {
+    order_id: 'other-2',
+    type_id: 34,
+    region_id: 10000002,
+    system_id: 30000142,
+    location_id: 60003760,
+    price: 10.5,
+    volume_remain: 100,
+    volume_total: 100,
+    is_buy_order: false,
+    issued: base.issued,
+    duration: 90,
+  },
+  {
+    order_id: 'buy-1',
+    type_id: 34,
+    region_id: 10000002,
+    system_id: 30000142,
+    location_id: 60003760,
+    price: 8,
+    volume_remain: 100,
+    volume_total: 100,
+    is_buy_order: true,
+    issued: base.issued,
+    duration: 90,
+  },
+  {
+    order_id: 'buy-2',
+    type_id: 34,
+    region_id: 10000002,
+    system_id: 30000142,
+    location_id: 60003760,
+    price: 8.5,
+    volume_remain: 100,
+    volume_total: 100,
+    is_buy_order: true,
+    issued: base.issued,
+    duration: 90,
+  },
+]
 
 const sellDistance = getOrderMarketDistance(base, market);
 assert.equal(sellDistance?.referencePrice, 9);

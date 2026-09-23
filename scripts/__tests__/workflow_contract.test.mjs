@@ -18,6 +18,9 @@ const requiredCiCommands = [
   'npm ci --no-audit --no-fund',
   'npm run typecheck',
   'npm run typecheck:server',
+  'npm run test:ci-config',
+  'npm run test:config',
+  'npm run test:auth-token',
   'npm run test:truth',
   'npm run test:corporation-boundary',
   'npm test',
@@ -38,41 +41,45 @@ for (const [action, sha] of Object.entries(ACTION_PINS)) {
     setupNode: 'actions/setup-node',
     uploadArtifact: 'actions/upload-artifact',
   };
-  assert.ok(
-    ci.includes(`${labels[action]}@${sha}`),
-    `CI must pin ${labels[action]} to an immutable SHA`,
-  );
+  assert.ok(ci.includes(`${labels[action]}@${sha}`), `CI must pin ${labels[action]} to an immutable SHA`);
 }
 
 assert.match(ci, /permissions:\s*\n\s+contents:\s+read/, 'CI must declare read-only repository permissions');
-assert.match(
-  ci,
-  /Checkout repository[\s\S]*persist-credentials: false/,
-  'CI checkout must not persist the GitHub token in the repository config',
-);
-assert.match(ci, /node-version: 22\.23\.2/, 'CI runtime must pin the Node 22 patch release');
-assert.ok(ci.includes('test "$(node --version)" = "v22.23.2"'), 'CI must verify the selected Node runtime');
-assert.ok(ci.includes('test "$(npm --version)" = "10.9.8"'), 'CI must verify the npm version bundled with the pinned Node release');
-assert.match(
-  ci,
-  /Setup Node\.js 22\.23\.2[\s\S]*setup-node@/,
-  'CI must make the pinned Node runtime explicit in the setup step',
-);
+assert.equal((ci.match(/persist-credentials: false/g) || []).length, 5, 'All five execution jobs must disable checkout credential persistence');
+assert.equal((ci.match(/node-version: 22\.23\.2/g) || []).length, 5, 'All five execution jobs must use the pinned Node runtime');
+assert.equal((ci.match(/test "\$\(node --version\)" = "v22\.23\.2"/g) || []).length, 5, 'All five execution jobs must verify the selected Node runtime');
+assert.equal((ci.match(/test "\$\(npm --version\)" = "10\.9\.8"/g) || []).length, 5, 'All five execution jobs must verify the npm version bundled with the pinned Node release');
 
 assert.match(
   ci,
-  /Install dependencies[\s\S]*Frontend typecheck[\s\S]*Backend typecheck/,
-  'CI validation order must keep dependency installation before typechecks',
+  /validate:\s*\n\s+name: Validation & Non-Regression Gate[\s\S]*if: \$\{\{ always\(\) \}\}[\s\S]*needs: \[static, unit_domain, server, build\]/,
+  'The historical validate check must remain as an unconditional compatibility aggregator',
 );
+assert.doesNotMatch(
+  ci,
+  /browser-e2e:[\s\S]*needs:/,
+  'Browser E2E must not wait for the non-browser validation aggregator',
+);
+assert.match(
+  ci,
+  /static:[\s\S]*npm run typecheck[\s\S]*npm run typecheck:server[\s\S]*npm run test:ci-config[\s\S]*npm run test:config[\s\S]*npm run test:auth-token/,
+  'Static lane ownership drifted',
+);
+assert.match(
+  ci,
+  /unit_domain:[\s\S]*npm run test:truth[\s\S]*npm run test:corporation-boundary[\s\S]*npm test/,
+  'Unit/domain lane ownership drifted',
+);
+assert.match(
+  ci,
+  /server:[\s\S]*npm run test:api[\s\S]*npm run test:smoke[\s\S]*npm run test:security[\s\S]*npm run test:esi/,
+  'Server lane ownership drifted',
+);
+assert.match(ci, /build:[\s\S]*npm run build/, 'Build lane ownership drifted');
 assert.match(
   ci,
   /browser-e2e:[\s\S]*npx playwright install --with-deps chromium[\s\S]*npm run test:e2e/,
   'CI must execute the deterministic Playwright browser gate',
-);
-assert.equal(
-  (ci.match(/persist-credentials: false/g) || []).length,
-  2,
-  'Both CI jobs must disable checkout credential persistence',
 );
 assert.ok(
   !ci.match(/uses: actions\/(?:checkout|setup-node|upload-artifact)@v\d/),
@@ -84,50 +91,19 @@ assert.match(
   /permissions:\s*\n\s+contents:\s+read/,
   'SDE truth gate must remain read-only',
 );
-assert.ok(
-  sde.includes(`actions/checkout@${ACTION_PINS.checkout}`),
-  'SDE checkout must remain pinned to an immutable SHA',
-);
-assert.ok(
-  sde.includes(`actions/setup-node@${ACTION_PINS.setupNode}`),
-  'SDE setup-node must remain pinned to an immutable SHA',
-);
+assert.ok(sde.includes(`actions/checkout@${ACTION_PINS.checkout}`), 'SDE checkout must remain pinned to an immutable SHA');
+assert.ok(sde.includes(`actions/setup-node@${ACTION_PINS.setupNode}`), 'SDE setup-node must remain pinned to an immutable SHA');
 assert.ok(sde.includes('node-version: 22.23.2'), 'SDE must use the pinned Node 22 patch release');
 assert.ok(sde.includes('test "$(node --version)" = "v22.23.2"'), 'SDE must verify the selected Node runtime');
-assert.ok(sde.includes('test "$(npm --version)" = "10.9.8"'), 'SDE must verify the npm version bundled with the pinned Node release');
-assert.equal(
-  (sde.match(/persist-credentials: false/g) || []).length,
-  2,
-  'Both SDE checkouts must disable credential persistence',
-);
-assert.ok(
-  !sde.match(/uses: actions\/(?:checkout|setup-node)@v\d/),
-  'SDE action references must use immutable SHAs, not moving version tags',
-);
-
-assert.ok(
-  sde.includes('fetch-depth: 0'),
-  'SDE detector must have local history for PR-base comparison',
-);
-assert.ok(
-  !sde.includes('git fetch origin'),
-  'SDE detector must not depend on unauthenticated remote fetches',
-);
+assert.ok(sde.includes('test "$(npm --version)" = "10.9.8"'), 'SDE must verify the bundled npm');
+assert.equal((sde.match(/persist-credentials: false/g) || []).length, 2, 'Both SDE checkouts must disable credential persistence');
+assert.ok(!sde.match(/uses: actions\/(?:checkout|setup-node)@v\d/), 'SDE action references must use immutable SHAs');
+assert.ok(sde.includes('fetch-depth: 0'), 'SDE detector must have local history for PR-base comparison');
+assert.ok(!sde.includes('git fetch origin'), 'SDE detector must not depend on unauthenticated remote fetches');
 assert.ok(!sde.includes('git push'), 'SDE truth gate must never push');
 assert.ok(!sde.includes('git commit'), 'SDE truth gate must never auto-commit');
-assert.ok(
-  sde.includes("SDE_BUILD: '3503375'"),
-  'SDE build must remain explicitly pinned',
-);
-assert.ok(
-  sde.includes(
-    'git diff --quiet -- src/data/universeGraph.json src/data/universeGraphManifest.ts',
-  ),
-  'SDE gate must compare regenerated canonical artifacts',
-);
-assert.ok(
-  sde.includes('exit 1'),
-  'SDE gate must fail when committed canonical artifacts drift',
-);
+assert.ok(sde.includes("SDE_BUILD: '3503375'"), 'SDE build must remain explicitly pinned');
+assert.ok(sde.includes('git diff --quiet -- src/data/universeGraph.json src/data/universeGraphManifest.ts'), 'SDE gate must compare canonical artifacts');
+assert.ok(sde.includes('exit 1'), 'SDE gate must fail on drift');
 
 console.log('Workflow contract checks passed.');

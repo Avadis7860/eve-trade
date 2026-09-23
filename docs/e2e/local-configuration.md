@@ -26,13 +26,10 @@ Copy `.env.example` to `.env` and provide:
 
 Optional boundary overrides exist for deterministic tests:
 
-- `EVE_SSO_AUTHORIZE_URL`
-- `EVE_SSO_TOKEN_URL`
-- `EVE_SSO_VERIFY_URL` (legacy compatibility override)
-- `EVE_SSO_METADATA_URL`
-- `ESI_BASE_URL`
+- `EVE_SSO_METADATA_URL`: optional only for deterministic or controlled SSO boundary tests; production should use CCP's default well-known URL.
+- `ESI_BASE_URL`: optional only for deterministic or controlled ESI boundary tests.
 
-Leaving these optional variables empty uses the official CCP/ESI production endpoints.
+The application discovers the SSO authorization, token and JWKS endpoints from the well-known metadata document, as documented by CCP.
 
 ## Runtime loading
 

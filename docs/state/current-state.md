@@ -82,7 +82,8 @@ The current engine/domain layers are ahead of the UI information architecture.
 
 - Target-PC public market-order retrieval failure is reported but not root-caused.
 - The P0-A audit found no concrete non-Operations production consumer that currently collapses a market acquisition failure into certifiable ordinary empty business state. The legacy `EsiService.fetchLiveOrders()` helper remains a latent quality-loss hazard with no production caller.
-- P0-B deterministic browser coverage now verifies HTTP 429, Retry-After and ESI budget diagnostics without collapsing the market into a false empty state.
+- P0-B deterministic browser coverage is certified on main: PR #66 merged at `c0ddc69ef424ed0cfd4de776758166c3ee8c1abe`; post-merge Main Smoke #7 is green. The proof verifies HTTP 429, Retry-After and ESI budget diagnostics without collapsing the market into a false empty state.
+P0-C is now the active increment: a browser-visible JSON evidence export is being added so the affected PC can capture the repository-side market diagnostics in one reproducible bundle without exporting authentication tokens.
 - Rate-limit-aware market scheduling is not yet exposed as a product-level operational signal.
 - No coherent Real Portfolio vs Proposed Allocation split exists yet.
 - No automatic ESI-derived performance history replaces the manual journal yet.
@@ -98,17 +99,17 @@ Completed and certified on main:
 - Browser Operations proof confirms active orders remain visible while a market `ERROR` is surfaced with HTTP 401 and ESI budget diagnostics.
 - CI run `35862904773` and SDE run `35862904812` are green; PR #63 merged into main at `72c049042a3e3bd735117bac43c3dfe71827f79d`.
 
-Remaining P0 closure work is limited to the real target-PC evidence bundle and formal incident classification as ROOT-CAUSED or EXTERNALLY BOUNDED. P0-A is audited and merged; P0-B deterministic 429 coverage is implemented on the active branch and pending PR certification/merge.
+Remaining P0 closure work is limited to the real target-PC evidence bundle and formal incident classification as ROOT-CAUSED or EXTERNALLY BOUNDED. P0-A is audited and merged; P0-B is certified and merged; P0-C is active on the current delivery branch.
 
 ## Current chantier / sequencing
 
 **Current product chantier: P0 market/ESI retrieval reliability closure.**
 
-The current technical branch `test/p0-market-429-retry-after` starts from `main` at `c1f38b889adea1b16ea98b280f13c8fc72cca750` and contains the deterministic P0-B browser coverage plus synchronized documentation. It must not be reused after merge.
+The P0-B branch `test/p0-market-429-retry-after` is historical and must not be reused. The current technical branch `feat/p0-target-pc-evidence` starts from `main` at `c0ddc69ef424ed0cfd4de776758166c3ee8c1abe` and contains the P0-C evidence export plus synchronized documentation.
 
 UX-02 is DONE / MERGED. CI-001 is DONE / MERGED. Historical delivery branches have been reconciled to the current main head and are not active work.
 
-P0-C (real target-PC evidence bundle) is the next technical increment after P0-B is certified and merged. UX-03 and all other deferred work remain blocked by the P0 closure gate.
+P0-C is the active technical increment. UX-03 and all other deferred work remain blocked by the P0 closure gate.
 
 ## Reference paths
 

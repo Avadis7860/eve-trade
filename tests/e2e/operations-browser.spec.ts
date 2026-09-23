@@ -142,6 +142,30 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
     ).toBeVisible();
   });
 
+  test('keeps active orders visible and exposes HTTP 429 Retry-After and ESI budget diagnostics', async ({ page, request }) => {
+    await prepareOperations(page, request, 'error');
+    await launchSso(page);
+    await expectOperationsLoaded(page);
+
+    const marketResponsePromise = page.waitForResponse(response =>
+      response.url().includes('/api/markets/10000002/orders') &&
+      response.request().method() === 'GET',
+    );
+    await page.getByRole('button', { name: 'Sync Marché des Ordres' }).click();
+
+    const marketResponse = await marketResponsePromise;
+    expect(marketResponse.status()).toBe(429);
+
+    await expect(page.getByText('ERROR', { exact: true }).first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Décision indisponible', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('HTTP 429', { exact: true }).first()).toBeVisible();
+    await expect(
+      page.getByLabel(/HTTP 429.*cache MISS.*budget ESI 91.*retry 7s/).first(),
+    ).toBeVisible();
+    await expect(page.getByText('Impossible de déterminer l’état actuel des ordres.', { exact: true })).toHaveCount(0);
+    await expect(page.locator('tbody tr').first()).toBeVisible();
+  });
+
   test('preserves usable rows and marks the market PARTIAL when a later page fails', async ({ page, request }) => {
     await prepareOperations(page, request, 'partial');
     await launchSso(page);

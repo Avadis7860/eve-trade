@@ -74,8 +74,9 @@ assert.ok(detectionBlock.includes('fetch-depth: 0'), 'Change detection must have
 assert.ok(detectionBlock.includes('persist-credentials: false'), 'Change detection must disable checkout credential persistence');
 assert.ok(detectionBlock.includes('BASE_SHA:'), 'Change detection must define an explicit base SHA');
 assert.ok(detectionBlock.includes('HEAD_SHA:'), 'Change detection must define an explicit head SHA');
-assert.ok(detectionBlock.includes('ambiguous=true'), 'Change detection must use a conservative ambiguity fallback');
-assert.ok(detectionBlock.includes('full_certification=true'), 'Change detection must fall back to full certification for high-impact or ambiguous scope');
+const scopeClassifier = read('scripts/ci-scope.mjs');
+assert.ok(scopeClassifier.includes('ambiguous = paths.length === 0'), 'Scope classifier must use a conservative ambiguity fallback');
+assert.ok(scopeClassifier.includes('const full_certification = ambiguous || ci || config || domain || server || sde || tests;'), 'Scope classifier must force full certification for high-impact or ambiguous scope');
 assert.ok(detectionBlock.includes('run_static='), 'Change detection must publish run_static selection');
 assert.ok(detectionBlock.includes('run_unit_domain='), 'Change detection must publish run_unit_domain selection');
 assert.ok(detectionBlock.includes('run_server='), 'Change detection must publish run_server selection');
@@ -85,11 +86,11 @@ assert.ok(ci.includes('steps.scope.outputs.run_unit_domain'), 'CI must expose ru
 assert.ok(ci.includes('steps.scope.outputs.run_server'), 'CI must expose run_server output');
 assert.ok(ci.includes('steps.scope.outputs.run_build'), 'CI must expose run_build output');
 assert.ok(ci.includes('steps.scope.outputs.run_browser'), 'CI must expose run_browser output');
-assert.ok(detectionBlock.includes('tests=true'), 'Test changes must force full certification');
-assert.ok(detectionBlock.includes('frontend=true'), 'Frontend changes must be detectable');
+assert.ok(scopeClassifier.includes('tests = true'), 'Scope classifier must detect test changes');
+assert.ok(scopeClassifier.includes('frontend = true'), 'Scope classifier must detect frontend changes');
 assert.ok(detectionBlock.includes('scripts/ci-scope.mjs'), 'Change detection must use the tested scope classifier');
 assert.ok(detectionBlock.includes('scripts/__tests__/ci_scope.test.mjs'), 'Change detection must execute the scope classifier tests');
-assert.ok(detectionBlock.includes('GITHUB_STEP_SUMMARY'), 'Change detection must publish an observable scope summary');
+assert.ok(scopeClassifier.includes('GITHUB_STEP_SUMMARY'), 'Change classifier must publish an observable scope summary');
 
 for (const jobId of EXECUTION_JOB_IDS) {
   const block = jobBlock(jobId);

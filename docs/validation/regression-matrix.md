@@ -15,8 +15,8 @@ Source of truth: current code/tests/CI
 | Execution | correlation/outcome/tracking | execution suites | unit |
 | Evidence | evidence/observation | proof/provenance suites | unit |
 | Persistence | IndexedDbStore | persistence/transaction | unit |
-| Security | auth/ESI boundaries | security | security + ESI |
+| Security | auth/ESI boundaries | security + EVE SSO JWT validation | security + EVE SSO JWT + ESI |
 | API | Express routes | API/smoke | API + smoke |
-| UI | React/hooks | typecheck/build; future browser E2E | typecheck + build |
+| UI | React/hooks | typecheck/build + browser E2E on E2E-001 | typecheck + build + browser gate |
 
 The matrix identifies the proof surface; it does not replace the detailed validation documents.

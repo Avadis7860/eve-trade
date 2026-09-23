@@ -112,7 +112,20 @@ async function runQualityTests() {
 
   // A failed/partial snapshot must not become a five-minute "healthy" cache.
   // Otherwise the UI can remain empty even after ESI becomes reachable again.
-  const recoveryHub: MarketHub = { ...testHubs[0] };
+  const recoveryHub: MarketHub = {
+    id: 'recovery-jita',
+    name: 'Recovery Jita',
+    region: 'The Forge',
+    region_id: 10000002,
+    solar_system: 'Jita',
+    system_id: 30000142,
+    station: 'Jita IV - Moon 4 - Assembly Plant',
+    station_id: 60003760,
+    security_status: 0.9,
+    priority: 1,
+    active: true,
+    hub_type: 'npc_major',
+  };
   const failedQuality: MarketDataQuality = {
     ...sampleQuality,
     completeness: 'empty',

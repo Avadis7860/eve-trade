@@ -1,10 +1,10 @@
 # Browser E2E Validation
 
-Status: IN PROGRESS
+Status: READY FOR LOCAL ACCEPTANCE
 Scope: end-to-end browser proof
 Source of truth: application browser wiring, `playwright.config.ts`, deterministic harness and CI workflow
 Implementation: Playwright deterministic browser gate on E2E-001 branch
-CI gate: pending branch validation
+CI gate: deterministic browser + full regression validated on PR #46; real-CCP acceptance remains separate
 
 ## Current proof model
 
@@ -90,20 +90,79 @@ The current suite covers:
 
 HTTP/security suites remain responsible for the exhaustive state TTL and lower-level protocol validation already present in the repository. The browser suite tests composition failures that those suites cannot observe.
 
-## Real CCP smoke test
+## Real PC installation and CCP smoke
 
-This is a separate local acceptance procedure and is never a CI prerequisite.
+This is the acceptance layer for the target PC. It is intentionally separate from CI because it requires a real CCP SSO login and manual consent.
 
-1. Copy `.env.example` to a local environment file and populate only local CCP application values.
-2. Register the exact callback URI with the CCP developer application and set the same value in `EVE_CALLBACK_URL`.
-3. Start the normal application with `npm run dev`.
-4. Open the Orders view, keep the SSO tab selected, and choose the callback option matching the registered CCP callback.
-5. Click the official EVE SSO button.
-6. Complete CCP login and consent manually in the official CCP page. Do not automate password entry and do not paste or record the password in the project.
-7. Verify that the browser returns to `/auth/callback`, the character appears authenticated, and authenticated ESI data loads.
-8. Perform the same check for a dedicated disposable test character when multi-character validation is required.
+### 1. Local prerequisites
 
-Real values remain outside Git and outside logs. The smoke test is expected to be run by the repository owner after installation on the target PC.
+Use Node.js 22 and npm.
+
+```bash
+npm ci
+```
+
+Create a local `.env` from `.env.example`. Set only the real CCP application values:
+
+```text
+EVE_CALLBACK_URL=http://localhost:3000/auth/callback
+EVE_CLIENT_ID=<your CCP application client id>
+EVE_CLIENT_SECRET=<your CCP application client secret>
+EVE_SSO_METADATA_URL=https://login.eveonline.com/.well-known/oauth-authorization-server
+ESI_BASE_URL=
+```
+
+Keep `.env` local; it is ignored by Git. Do not put the client secret, access token or refresh token in source files, screenshots, CI logs or issue comments.
+
+### 2. CCP developer application
+
+The exact callback URL used by the local browser must be registered in the CCP developer application. For the default local installation, register:
+
+```text
+http://localhost:3000/auth/callback
+```
+
+Do not add ad-hoc query parameters or a second callback URL for this smoke. The application now validates the callback against an exact local/configured allow-list.
+
+### 3. Production-like local run
+
+Before exercising real SSO, validate the real build and server:
+
+```bash
+npm run build
+npm start
+```
+
+In another terminal:
+
+```bash
+curl -fsS http://localhost:3000/api/health
+```
+
+Then open `http://localhost:3000` in a normal browser.
+
+### 4. Real CCP SSO path
+
+1. Open the Orders view and keep the SSO tab selected.
+2. Choose the callback option matching the registered CCP callback.
+3. Click the official EVE SSO button.
+4. Complete CCP login and consent only on the official CCP page. Never automate password entry.
+5. Verify that the browser returns to `/auth/callback`.
+6. Verify that the authenticated character is displayed and that authenticated ESI data loads.
+7. Verify logout returns to the unauthenticated SSO card.
+8. When multi-character validation is required, repeat with the dedicated disposable second character and confirm that the two character credentials remain isolated.
+
+The official EVE SSO flow uses a registered redirect URI, an authorization code, server-side token exchange and a validated JWT; CCP's documentation states that an unregistered redirect URL is rejected. citeturn713243search0
+
+### Acceptance result
+
+Record one of:
+
+- PASS — build starts, health is OK, CCP SSO returns to the registered callback, the expected character authenticates, and real ESI data loads;
+- BLOCKED — configuration, callback registration or external CCP service prevents the flow;
+- REGRESSION — the flow reaches eve-trade but the delivered behavior differs from the documented contract.
+
+A real-CCP failure must not be “fixed” by weakening the callback/state/JWT/ESI security checks.
 
 ## CI
 
@@ -124,4 +183,4 @@ The browser job has no CCP dependency and uploads Playwright diagnostics when av
 
 ## Completion gate
 
-E2E-001 is not complete until the browser job is green in CI on the branch/PR, the existing regression gates remain green, and the active documentation is synchronized with the delivered behavior.
+E2E-001 is complete only when the browser job is green in CI, the existing regression gates remain green, the active documentation is synchronized, and the target-PC real-CCP smoke has been executed and recorded.

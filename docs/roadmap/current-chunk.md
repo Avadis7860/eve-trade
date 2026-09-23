@@ -38,6 +38,18 @@ The [deterministic 429 proof](../validation/p0-b-429-retry-after.md) now asserts
 2. Execute/capture the real target-PC evidence bundle: affected hub, UTC timestamp, request/status, cache/pagination headers, ESI error-budget headers, Retry-After where present, and whether the same request succeeds from a controlled comparison environment.
 3. Close UX-01 as either **ROOT-CAUSED** (reproducible technical cause) or **EXTERNALLY BOUNDED** (code path certified; remaining evidence dependency explicitly outside the repository).
 
+## CI operator tooling — planned, not active
+
+Oclif is recorded as a future operator-layer track for repository/CI operations. It is **not part of P0-B** and must not become a new parallel chantier.
+
+Planned role:
+- GitHub Actions remains the authoritative CI/certification system;
+- GitHub CLI (gh) remains the low-level GitHub control surface;
+- an Oclif-based project CLI may later expose a small operator workflow such as `eve ci status`, `eve ci watch`, `eve ci rerun-failed` and `eve ci certify`;
+- project-specific rules stay in testable domain functions rather than being hidden inside the CLI.
+
+Activation gate: only after the P0 closure gate is complete, unless a separate CI-hardening decision explicitly justifies a narrow operator-tooling increment. Implementation must use a new branch/PR and must not be folded into the current P0-B certification.
+
 ## Scope discipline
 
 PST-001, UI-001, E2E-002, UI-002, PERF-001 and TYPE-001 remain deferred.

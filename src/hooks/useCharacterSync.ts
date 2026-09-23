@@ -221,6 +221,8 @@ export function useCharacterSync(
           broker_relations_skill: brokerRelLvl,
           last_sync: new Date().toISOString(),
           is_active: shouldApplyToActiveContext,
+          is_token_expired: false,
+          auth_error: undefined,
           session_version: 2,
           auth_status: 'SESSION_VALID',
         };

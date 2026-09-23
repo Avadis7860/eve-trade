@@ -2,7 +2,7 @@
 
 Status: ACTIVE / CLOSING
 Owner: UX-01 / market reliability
-Base: main `72c049042a3e3bd735117bac43c3dfe71827f79d`
+Base: main `18e1556a4b00331b1089b98a060bbdc2b78030ad`
 
 ## Objective
 
@@ -42,17 +42,17 @@ SDE Truth Gate #459 is also green.
 
 ### P0-A — Caller audit
 
-Inventory every public market-order consumer outside Operations.
+**Audit result: COMPLETE on `audit/p0-market-consumers`; documentation-only.**
 
-For each caller, prove that:
-- `ERROR` is not converted to `[]` or an ordinary empty state;
-- `PARTIAL` retains usable observations and a degraded state;
-- `STALE` retains the last valid snapshot when available;
-- `UNKNOWN` does not authorize a recommendation;
-- refresh retries are observable.
+Every production consumer of the public market-order route outside Operations was mapped in [P0-A caller matrix](../validation/p0-a-market-consumers.md).
 
-Output:
-a caller matrix with path, fallback behavior, test coverage and status.
+The audit found no concrete non-Operations production path that currently converts an HTTP/ESI market failure into a certifiable ordinary empty market. `ERROR`, `PARTIAL`, `STALE` and `UNKNOWN` remain explicit through the audited consumer chains.
+
+No production code correction is justified by P0-A alone.
+
+One latent API hazard remains: the legacy `EsiService.fetchLiveOrders()` helper returns only the order array and discards the quality envelope. No production caller was found; it must not be reused for business decisions without explicit failure semantics.
+
+The increment is considered complete only after this documentation is merged with the single P0-A PR and the required CI gate is green.
 
 ### P0-B — Rate-limit regression
 

@@ -9,7 +9,7 @@ CI gate: PR CI
 
 ## Current state
 
-The functional E2E-001 baseline is stable and merged. CI-001 is now the active cross-cutting infrastructure priority; UX-02 is paused while the CI foundation is rebuilt.
+The functional E2E-001 baseline is stable and merged. CI-001 is now merged and complete; UX-02 is the active product chantier.
 
 The application has mature market, ESI, finance, order, prediction and portfolio foundations, but the presentation layer does not yet expose them as a coherent trading workflow.
 
@@ -20,7 +20,7 @@ See:
 
 ## Mandatory sequencing gate
 
-No unrelated product chantier starts before the UX-first baseline/contract gate is completed. CI-001 is an explicit cross-cutting infrastructure exception and is the current active chantier.
+No unrelated product chantier starts before the UX-first baseline/contract gate is completed. CI-001 was the explicit cross-cutting infrastructure exception; it is now merged.
 
 Allowed before that gate:
 - P0 market/ESI reliability and observability required to establish data truth;
@@ -41,8 +41,8 @@ Deferred until the UX gate:
 | DOC-001 | DONE | Reconstruct modular documentation governance | current mission | stale truth if incomplete | docs/link audit + CI |
 | E2E-001 | DONE | Establish reproducible local OAuth/browser gate, deterministic CI E2E coverage, and real-CCP smoke | stable auth/ESI | environment-sensitive auth/callback integration | browser E2E + security/API + local CCP smoke |
 | UX-00 | DONE | Define and freeze product model, navigation, responsibilities and shared UX vocabulary | current audit | scope drift if implementation starts early | accepted UX contract |
-| UX-01 | P0 / IMPLEMENTED — VALIDATION OPEN | Establish market/ESI truth, retrieval observability and diagnose target-PC market-order incident | UX-00 vocabulary; existing ESI boundary | hidden empty/error states; ESI rate limits | target-PC smoke + ERROR/PARTIAL/STALE regression |
-| UX-02 | PAUSED — CI-001 priority | Rebuild Mes Ordres as the Operations console | UX-00, UX-01 | business state fragmentation | UI/browser acceptance |
+| UX-01 | P0 / IMPLEMENTED — OPERATIONAL VALIDATION OPEN | Establish market/ESI truth, retrieval observability and diagnose target-PC market-order incident | UX-00 vocabulary; existing ESI boundary | hidden empty/error states; ESI rate limits | target-PC evidence + ERROR/PARTIAL/STALE regression |
+| UX-02 | ACTIVE — CLOSE OPERATIONS GATE | Rebuild Mes Ordres as the Operations console | UX-00, UX-01, CI-001 merged | business state fragmentation; incomplete decision proof | UI/browser acceptance |
 | UX-03 | P1 | Rebuild Portefeuille as Real Portfolio + Proposed Allocation across multiple opportunities | UX-00, existing portfolio engine | misleading allocation / concentration | engine + UI + scenario tests |
 | UX-04 | P1 | Replace manual Journal with ESI-based automatic Performance & Historique | UX-00, financial truth, execution data | incorrect attribution | accounting + reconciliation + browser scenarios |
 | UX-05 | P1 | Rebuild Paramètres as business Control Center and remove/unwire fake controls | UX-00, engine consumer map | settings with no effect | consumer matrix + UI tests |
@@ -63,14 +63,14 @@ These tracks can be prepared in documentation before they are made active. Their
 
 | ID | Status | Goal | Depends on | Priority |
 |---|---|---|---|---|
-| CI-001 | PRE-MERGE CLOSURE — CI-001J | Refonte du système CI, validation et gouvernance PR | current CI study | closure/governance gate | review + branch protection verification |
+| CI-001 | DONE / MERGED | Refonte du système CI, validation et gouvernance PR | current CI study | maintenance only; follow-up hardening is separate |
 
 CI-001 is documented in:
 - [CI Management Audit](../audits/ci-management-audit-2026-09-23.md)
 - [CI-001 — Refonte du système CI](ci-management-refactor.md)
 - [CI Validation](../validation/ci.md) · [CI Baseline](../audits/ci-management-baseline-2026-09-23.md) · [CI Evidence Map](../validation/ci-evidence-map.md)
 
-The study found a combined topology, certification-taxonomy and PR-governance issue. CI-001 is now in pre-merge closure; CI-001I has produced durable performance/churn evidence on top of the certified G topology and implemented H Main/Full separation.
+The study found a combined topology, certification-taxonomy and PR-governance issue. CI-001 is now merged; the next product chantier is UX-02. Follow-up hardening remains separate.
 
 ## UX program completion gate
 

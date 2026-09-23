@@ -478,7 +478,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                 if (orders && orders.length > 0) {
                   const typeIds = orders.map((o) => o.type_id);
                   setIsSyncingOrderMarkets(true);
-                  MarketDataStore.syncCharacterOrdersMarketData(typeIds, hubs)
+                  MarketDataStore.refreshCharacterOrdersMarketData(typeIds, hubs)
                     .catch(() => {})
                     .finally(() => setIsSyncingOrderMarkets(false));
                 }

@@ -17,8 +17,8 @@ The current UX-first program is now in UX-02 Operations implementation. UX-01 is
 
 The current CI is **functionally valid but operationally inefficient**.
 
-Reference main studied:
-\`6e3f611f8bdce6ad42236f7082b3dc044582dbef\`
+Reference main:
+\`d7f245ec47a8746306792ce6017496f9123c23d6\`
 
 Reference successful CI run:
 \`35826687206\`
@@ -38,16 +38,16 @@ A dedicated study is recorded in [CI management audit](../audits/ci-management-a
 
 ### Current CI management decision
 
-CI-001 is **PLANNED / PRIORITY DECISION PENDING**.
+CI-001 is **ACTIVE — CI-001A/B** and is now the project-wide CI priority.
 
-No CI implementation has been changed as part of this documentation update.
+No workflow topology has been changed in CI-001A/B; this tranche is limited to baseline/evidence/documentation.
 
-Until a priority decision is made:
+During CI-001A/B:
 
 - the current \`ci.yml\` remains the certification mechanism;
 - the current SDE Truth Gate remains authoritative for SDE-sensitive changes;
 - no required check name should be changed without first verifying main branch protection;
-- a new PR must not be opened solely to obtain a new CI signal.
+- the single active branch/PR rule remains mandatory; a new PR must not be opened solely to obtain a new CI signal.
 
 ## Stable foundations
 
@@ -86,17 +86,19 @@ The current engine/domain layers are ahead of the UI information architecture.
 
 ## Current chantier / sequencing
 
-UX-02 is the active implementation chantier.
+UX-02 is paused while CI-001 is the active infrastructure chantier.
 
 UX-01 is technically implemented and merged. Its target-PC market-order incident remains NOT ROOT-CAUSED pending capture of the required PC-side evidence.
 
-CI-001 is a cross-cutting infrastructure candidate prepared by the 2026-09-23 CI study. It is documented and implementation-ready, but is not yet the active chantier.
+CI-001 is the active cross-cutting infrastructure chantier. CI-001A/B is the current execution slice; later topology changes remain gated by the baseline and evidence map.
 
 PST-001, UI-001, E2E-002, UI-002, PERF-001 and TYPE-001 remain deferred until the UX sequencing gate is passed unless their dependency is explicitly reclassified.
 
 ## Reference paths
 
 [CI Validation](../validation/ci.md) ·
+[CI Baseline](../audits/ci-management-baseline-2026-09-23.md) ·
+[CI Evidence Map](../validation/ci-evidence-map.md) ·
 [CI Management Audit](../audits/ci-management-audit-2026-09-23.md) ·
 [CI-001 Plan](../roadmap/ci-management-refactor.md) ·
 [UI/UX Product Audit](../audits/ui-ux-product-audit-2026-09-23.md) ·

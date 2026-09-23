@@ -1,6 +1,6 @@
 # CI-001 — Refonte du système CI, validation et gouvernance
 
-Status: ACTIVE — CI-001I
+Status: PRE-MERGE CLOSURE — CI-001J
 Scope: GitHub Actions, test certification, browser E2E et gouvernance des PR
 Owner: project maintainers
 Baseline: main @ \`d7f245ec47a8746306792ce6017496f9123c23d6\`
@@ -40,26 +40,33 @@ CI-001 ne vise pas à :
 
 ## Current execution state
 
-CI-001 is now the single active cross-cutting chantier and the absolute CI priority. The active branch is `ci/ci-001a-baseline`; there must be no second active PR for CI-001.
+CI-001 is implemented on the single active branch `ci/ci-001a-baseline` and is now in pre-merge closure; there must be no second active PR for CI-001.
 
-CI-001A/B through CI-001G are implemented, with CI-001G certified on head `bc2ff6c24a6b4b419311b287ddd0b206489093c3`. CI-001H is now the active execution slice: separate main post-merge smoke, scheduled/manual Full Repository Certification, and explicit recovery guidance.
+CI-001A/B through CI-001I are implemented, with CI-001G certified and CI-001I runtime-verified on PR run `35856208503`. CI-001H separates Main Smoke, Full Repository Certification and recovery guidance. The remaining items are closure/documentation decisions plus a small set of explicitly deferred security/maintenance hardening tracks.
 
-CI-001A/B established the baseline/evidence map and CI-001C hardened workflow permissions, action immutability and runtime reproducibility. CI-001D is proven; CI-001G is certified; CI-001H now separates Main/Full/recovery. Required-check naming, branch protection and Playwright workers remain unchanged.
+Required-check naming is unchanged. Branch-protection visibility remains an administrative unknown because the available integration cannot inspect the relevant settings. Playwright workers remain at 1 by design.
 
 ## État actuel de référence
 
 Le workflow principal est :
 
 \`\`\`
-pull_request/push main
+pull_request
         │
+        ├────────► Change Scope
         ├────────► static
         ├────────► unit-domain
         ├────────► server
         ├────────► build
-        └────────► browser-e2e
-                         │
-          validate ◄────┴─ compatibility aggregation
+        ├────────► browser-auth
+        └────────► browser-operations
+             │             │
+             └────► compatibility aggregators
+                            │
+                     CI / required-gate
+
+main push ─────────────► Main Smoke
+manual/schedule ───────► Full Certification
 \`\`\`
 
 Le job \`validate\` regroupe presque toutes les validations. Le browser E2E attend la totalité de ce job.
@@ -402,7 +409,7 @@ Gate :
 
 Objectif : supprimer les dépendances séquentielles sans modifier la couverture.
 
-État : ACTIVE — implémentation sur la branche CI-001 unique.
+État : COMPLETED — topologie indépendante implémentée et prouvée sur les runs de certification.
 
 Travail :
 
@@ -420,7 +427,7 @@ Gate :
 
 Objectif : rendre la certification intelligible et sans doublons injustifiés.
 
-État : ACTIVE — ownership canonique fixé et premier dédoublonnage appliqué.
+État : COMPLETED — ownership canonique fixé et doublon de certification éliminé avec preuve conservée.
 
 Travail :
 
@@ -439,7 +446,7 @@ Gate :
 
 Objectif : accélérer l'E2E sans introduire de flakiness.
 
-État : ACTIVE — Auth et Operations sont séparés en jobs indépendants.
+État : COMPLETED — Auth et Operations sont séparés en jobs indépendants ; `workers: 1` reste volontairement la limite sûre.
 
 Travail :
 
@@ -576,10 +583,10 @@ En particulier :
 
 CI-001 est désormais le chantier prioritaire unique pour la CI et la gouvernance de livraison. UX-02 reste suspendu pendant cette tranche d'infrastructure.
 
-CI-001D est désormais mesuré sur deux runs verts ; **CI-001E** a engagé l’ownership canonique ; **CI-001F** est la tranche active : isolation Auth/Operations et preuve de reproductibilité browser.
+CI-001D/E/F/G sont complétés et runtime-verified ; CI-001H/I sont implémentés et prouvés. Le chantier est désormais en clôture pré-merge.
 
-La protection de branche et les required checks restent inchangés jusqu'à vérification administrative explicite.
+La protection de branche reste administrativement inconnue avec l'intégration disponible ; aucun renommage de required-check n'a été effectué.
 
 ## Pre-merge closure
 
-Le chantier ne doit pas être modifié par de nouvelles optimisations avant merge. Les prérequis restants sont : validation humaine de la PR, vérification administrative de la branch protection/ruleset de `main`, et conservation du head vert. Le Main Smoke et le Full Certification restent des preuves séparées qui ne doivent pas être artificiellement produites comme prérequis de fusion.
+Le chantier ne doit pas être étendu par de nouvelles optimisations avant merge. La revue est effectuée par l'agent sur le head courant ; le merge repose sur cette revue et sur la certification CI disponible. La branch protection/ruleset de `main` reste un point d'administration GitHub non observable par l'intégration et ne fait pas partie d'un changement implicite de required-check. Le Main Smoke et le Full Certification restent des surfaces de santé séparées.

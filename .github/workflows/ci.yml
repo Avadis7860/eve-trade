@@ -39,6 +39,12 @@ jobs:
       - name: CI workflow contract tests
         run: npm run test:ci-config
 
+      - name: Runtime configuration tests
+        run: npm run test:config
+
+      - name: EVE SSO JWT validation tests
+        run: npm run test:auth-token
+
       - name: Catalog & Universe truth tests
         run: npm run test:truth
 

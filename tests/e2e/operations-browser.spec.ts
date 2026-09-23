@@ -190,7 +190,7 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
     await expect(detail).toBeVisible();
     await expect(detail.getByText(item, { exact: true })).toBeVisible();
     await expect(detail.getByText(location, { exact: true })).toBeVisible();
-    await expect(detail.getByText(owner, { exact: true })).toBeVisible();
+    await expect(detail.getByText(new RegExp(owner.replace(/[.*+?^${}()|[\]\\]/g, '\\    await expect(detail.getByText(owner, { exact: true })).toBeVisible();') + ' · '))).toBeVisible();
     await expect(detail.getByText(health, { exact: true }).first()).toBeVisible();
     await expect(detail.getByText(new RegExp('reliquat\\s+' + remaining + '\\b'))).toBeVisible();
     await expect(detail.getByText(/Ajuster le Prix à/)).toBeVisible();

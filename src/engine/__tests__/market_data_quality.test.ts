@@ -269,7 +269,7 @@ async function runQualityTests() {
   assert(emptyFallbackQuality?.health_status === 'STALE', 'Preserved empty observation must degrade to STALE');
   assert(emptyFallbackQuality?.data_state === 'STALE', 'Preserved empty observation must degrade to STALE data');
   assert(
-    emptyFallbackQuality?.last_error?.includes('network unavailable'),
+    Boolean(emptyFallbackQuality?.last_error?.includes('network unavailable')),
     'Preserved empty observation must carry the refresh failure',
   );
   setBackendApiFetchForTesting(null);

@@ -7,9 +7,10 @@ Scope: audit navigation
 
 Current project state is maintained in [state/current-state.md](../state/current-state.md), [state/truth-matrix.md](../state/truth-matrix.md), contracts, invariants and validation documents.
 
-## Active audit
+## Active audits
 
 - [UI/UX Product Audit — Trading Terminal](ui-ux-product-audit-2026-09-23.md) — current product/UX baseline and sequencing reference.
+- [CI Management Audit](ci-management-audit-2026-09-23.md) — deep CI topology, performance, coverage and governance study.
 
 ## Historical audits
 

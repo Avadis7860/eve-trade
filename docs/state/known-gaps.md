@@ -20,6 +20,23 @@ Source of truth: code, tests, CI and current state documents
 - Rate-limit/cache-aware scheduling for the public market-order group is not yet exposed as a product-level operational signal.
 - Market-data freshness/completeness/source remain inconsistent across the application; Operations now exposes per-order health and age using the UX-01 vocabulary.
 
+## CI / delivery gaps
+
+- The current CI is functionally valid but operationally inefficient: the browser gate waits for the monolithic validation job.
+- The main validation job contains several independent families that are still serialized.
+- \`npm test\` is a large sequential command manifest and specialized gates partially overlap it.
+- Current concurrency cancels obsolete runs on one PR/workflow reference but does not prevent several distinct PRs from representing the same human chantier.
+- The SDE gate is reliable and cheap but is not yet governed by the same future certification/concurrency model.
+- There is no stable conditional-check aggregator yet, so a future path-aware model must be introduced carefully.
+- Branch protection/ruleset configuration for \`main\` could not be verified with the available integration and must be checked before any required-check rename.
+- CI-001 is documented and implementation-ready, but remains PLANNED / PRIORITY DECISION PENDING.
+
+See:
+- [CI Validation](../validation/ci.md)
+- [CI Management Audit](../audits/ci-management-audit-2026-09-23.md)
+- [CI-001 — Refonte du système CI](../roadmap/ci-management-refactor.md)
+- [CI-001 Global Coverage Matrix](../validation/ci-coverage-matrix.md)
+
 ## Structural gaps
 
 - IndexedDbStore remains a large monolithic service; decomposition is explicitly DEFERRED by the UX-first sequencing gate.

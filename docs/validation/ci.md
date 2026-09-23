@@ -1,38 +1,133 @@
 # CI Validation
 
-Status: VALIDATED AND MERGED
-Scope: GitHub Actions regression gate
-Source of truth: `.github/workflows/ci.yml`
-Implementation: GitHub Actions workflow
-Tests: `npm run test:ci-config` plus all validation and browser gates below
-CI gate: this workflow
+Status: CURRENT — BASELINE MEASURED / REFACTOR PLANNED
+Scope: GitHub Actions regression gate and certification model
+Source of truth: \`.github/workflows/ci.yml\` and \`.github/workflows/phase-2.7c-sde.yml\`
+Implementation: current CI unchanged on main; CI-001 documents the planned refactor
+Tests: \`npm run test:ci-config\` plus all validation and browser gates below
+CI gate: current PR CI; future stable aggregator planned by CI-001
 
 ## Current pipeline
 
-The `validate` job runs Node.js 22 + `npm ci`, frontend typecheck, backend typecheck, CI workflow contract tests, runtime configuration tests, EVE SSO JWT validation tests, catalog/universe truth, corporation treasury/ESI boundary, full unit suite, API integration, server smoke, security hardening, ESI tests and production build.
+The \`validate\` job runs Node.js 22 + \`npm ci\`, frontend typecheck, backend typecheck, CI workflow contract tests, runtime configuration tests, EVE SSO JWT validation tests, catalog/universe truth, corporation treasury/ESI boundary, full unit suite, API integration, server smoke, security hardening, ESI tests and production build.
 
-The `browser-e2e` job runs after `validate`, installs Chromium through Playwright, and executes the deterministic browser OAuth/ESI composition gate. It does not require a CCP account or personal credentials and uploads Playwright diagnostics on completion.
+The \`browser-e2e\` job currently runs **after** \`validate\`, installs Chromium through Playwright, executes the deterministic browser OAuth/ESI composition gate and uploads diagnostics.
 
-## PR #46 evidence
+The current pipeline is functionally established, but its topology is now the subject of a dedicated study because validation families are unnecessarily serialized.
 
-Merged head validated: `1d56ace077d909dc544a641ed62d22ecae371bd3`; squash merge on `main`: `9438bbedb2d44cf3f5f371144bcf72094955cd46`.
+## Current measured baseline
 
-- CI Foundation & Regression Gate: run `35814072097` — success.
-- Validation & Non-Regression Gate: success.
-- Browser E2E — OAuth/ESI composition: success.
-- Browser E2E — deterministic OAuth/ESI: success.
-- Phase 2.7C SDE Truth Gate: run `35814072067` — success.
+Reference main:
+\`6e3f611f8bdce6ad42236f7082b3dc044582dbef\`
 
-These results prove the deterministic branch/PR gate on the merged head. The separate target-PC real-CCP smoke is also recorded as PASS in the E2E validation document.
+Reference successful run:
+\`35826687206\`
+
+Measured order of magnitude:
+
+| Component | Duration |
+|---|---:|
+| \`validate\` | ~104 s |
+| \`browser-e2e\` | ~166 s |
+| workflow path because browser waits for validate | ~276 s |
+
+Inside \`validate\`:
+
+- \`npm ci\`: ~9 s;
+- frontend typecheck: ~17 s;
+- backend typecheck: ~10 s;
+- \`npm test\`: ~35 s;
+- production build: ~7 s.
+
+Inside \`browser-e2e\`:
+
+- \`npm ci\`: ~6 s;
+- Playwright/Chromium installation: ~21 s;
+- browser tests: ~131 s.
+
+The figures are baseline measurements, not SLAs.
 
 ## Browser gate ownership
 
-The browser job is intentionally separate from the existing validation job so browser tooling is not injected into every non-browser test step. It is now part of the reference CI surface after E2E-001 was merged.
+The browser job remains separate from the non-browser validation surface.
 
-## Additional SDE gate
+The current ordering is known to be suboptimal:
 
-`.github/workflows/phase-2.7c-sde.yml` validates changes affecting the canonical universe graph against pinned CCP SDE build `3503375`.
+\`\`\`
+validate ───────────────► browser-e2e
+\`\`\`
 
-## Historical evidence
+CI-001 will first change this to independent jobs so the browser proof can progress while static/server validation is running.
 
-The earlier baseline commit `6e2d4aea524e29ed35e0419ea5f5519dd50c613e` has historical successful validation evidence. Current chantier validation must use the actual branch/PR workflow result rather than historical baseline status.
+The browser harness currently contains mutable global OAuth and market controls. Therefore the first browser optimization is **job/spec separation with one worker per job**, not an immediate increase of Playwright workers.
+
+## Concurrency policy
+
+Current main uses:
+
+\`\`\`yaml
+concurrency:
+  group: \${{ github.workflow }}-\${{ github.ref }}
+  cancel-in-progress: true
+\`\`\`
+
+This cancels obsolete runs for a given workflow reference, but distinct PRs remain distinct concurrency groups.
+
+This is intentional evidence for the CI management study: concurrency prevents some redundant compute but cannot replace the rule **one chantier = one active PR**.
+
+See [Audit CI — gestion, performance et gouvernance](../audits/ci-management-audit-2026-09-23.md).
+
+## SDE truth gate
+
+\`.github/workflows/phase-2.7c-sde.yml\` validates changes affecting the canonical universe graph against pinned CCP SDE build \`3503375\`.
+
+The gate:
+
+- detects SDE-sensitive paths;
+- regenerates the canonical graph/manifest;
+- fails on drift;
+- uses read-only repository permissions.
+
+It is currently low-cost and reliable. CI-001 will align its concurrency and result presentation with the future certification model.
+
+## Reference historical proof
+
+PR #46 established the deterministic browser gate:
+
+- merged head: \`1d56ace077d909dc544a641ed62d22ecae371bd3\`;
+- squash merge on \`main\`: \`9438bbedb2d44cf3f5f371144bcf72094955cd46\`;
+- CI Foundation run \`35814072097\`: success;
+- Phase 2.7C SDE Truth Gate run \`35814072067\`: success.
+
+The target-PC real-CCP smoke is recorded as PASS in [Browser E2E Validation](e2e.md).
+
+## Planned CI model
+
+CI-001 defines three functional levels:
+
+1. **PR Fast Gate** — short feedback during Draft/iteration;
+2. **PR Certification Gate** — complete proof for a Ready for Review PR;
+3. **Main / Full** — short post-merge smoke plus scheduled/manual exhaustive certification.
+
+The final architecture also includes a stable \`CI / required-gate\` aggregator so conditional jobs do not become branch-protection hazards.
+
+## Required-check caution
+
+The actual branch protection/rulesets for \`main\` could not be inspected with the available GitHub integration because the relevant API endpoints returned \`403 Resource not accessible by integration\`.
+
+No check name should be changed during CI-001 until the effective protection configuration is verified with administrative access.
+
+## Documentation
+
+- Deep study: [CI management audit](../audits/ci-management-audit-2026-09-23.md)
+- Planned refactor: [CI-001](../roadmap/ci-management-refactor.md)
+- Current contributing rules: [CONTRIBUTING.md](../../CONTRIBUTING.md)
+- Browser proof: [e2e.md](e2e.md)
+
+## Completion status
+
+The existing CI remains the current certification mechanism.
+
+**CI-001 is studied and planned, but not implemented.**
+
+No validation evidence is being removed or weakened as part of this documentation update.

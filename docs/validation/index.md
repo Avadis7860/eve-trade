@@ -16,5 +16,6 @@ Source of truth: `package.json` and `.github/workflows/`
 | Orders | [orders.md](orders.md) |
 | Financial Truth | [financial.md](financial.md) |
 | Regression matrix | [regression-matrix.md](regression-matrix.md) |
+| CI coverage matrix | [ci-coverage-matrix.md](ci-coverage-matrix.md) |
 
 Validation is evidence. Documentation alone never proves a test passed.

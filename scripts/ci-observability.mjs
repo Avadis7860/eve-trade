@@ -106,7 +106,7 @@ const metrics = {
     conclusion: run.conclusion,
     run_started_at: run.run_started_at,
     updated_at: run.updated_at,
-    duration_seconds: durationSeconds(run.run_started_at, run.updated_at),
+    elapsed_seconds_at_collection: durationSeconds(run.run_started_at, new Date().toISOString()),
   },
   jobs,
   history,
@@ -122,7 +122,7 @@ summary.push('');
 summary.push(`- Certified head: \`${sha}\``);
 summary.push(`- Run: \`${run.run_id}\` / attempt \`${attempt}\``);
 summary.push(`- Event: \`${run.event}\``);
-summary.push(`- Workflow duration: \`${metrics.workflow.duration_seconds ?? 'n/a'} s\``);
+summary.push(`- Workflow elapsed at collection: \`${metrics.workflow.elapsed_seconds_at_collection ?? 'n/a'} s\``);
 summary.push(`- Recent completed runs sampled: \`${history.sampled_runs}\``);
 summary.push(`- Recent cancellation rate: \`${history.cancellation_rate}%\``);
 summary.push(`- Recent rerun runs: \`${history.rerun_runs}\``);

@@ -60,6 +60,11 @@ jobs:
         with:
           node-version: 22.23.2
 
+      - name: Verify Node.js and npm versions
+        run: |
+          test "$(node --version)" = "v22.23.2"
+          test "$(npm --version)" = "10.9.8"
+
       - name: Download pinned CCP SDE
         shell: bash
         run: |

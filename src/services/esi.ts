@@ -216,7 +216,7 @@ export class EsiService {
       health_status:completeness==='partial'?'PARTIAL':'LIVE', validation_status:errorCount===0&&rejectedCount===0?'valid':'suspicious',
       fetched_at:new Date().toISOString(), age_seconds:0, pages_fetched:pagesFetched, expected_pages:expectedPages,
       orders_fetched:totalRawOrders, orders_valid:validOrders.length, duplicate_orders_removed:duplicateCount, rejected_orders_count:rejectedCount,
-      error_count:errorCount, last_error:lastError, confidence:expectedPages>0?Number((pagesFetched/expectedPages).toFixed(2)):1, sync_duration_ms:Date.now()-startTime
+      error_count:errorCount, last_error:lastError, confidence:expectedPages>0?Number((pagesFetched/expectedPages).toFixed(2)):1, sync_duration_ms:Date.now()-startTime, last_http_status:lastHttpStatus, cache_status:cacheStatus, esi_error_limit_remaining:esiErrorLimitRemaining, esi_error_limit_reset_seconds:esiErrorLimitResetSeconds, retry_after_seconds:retryAfterSeconds
     }};
   }
 

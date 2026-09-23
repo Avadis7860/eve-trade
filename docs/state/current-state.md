@@ -90,7 +90,7 @@ UX-02 is paused while CI-001 is the active infrastructure chantier.
 
 UX-01 is technically implemented and merged. Its target-PC market-order incident remains NOT ROOT-CAUSED pending capture of the required PC-side evidence.
 
-CI-001 is the active cross-cutting infrastructure chantier. CI-001A/B is the current execution slice; later topology changes remain gated by the baseline and evidence map.
+CI-001 is the active cross-cutting infrastructure chantier. CI-001A/B is baselined and CI-001C is the current execution slice: workflow security/reproducibility hardening. Topology changes remain gated by the completed C gate and the baseline/evidence map.
 
 PST-001, UI-001, E2E-002, UI-002, PERF-001 and TYPE-001 remain deferred until the UX sequencing gate is passed unless their dependency is explicitly reclassified.
 

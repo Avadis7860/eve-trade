@@ -4,6 +4,7 @@ import {
   ORDER_AGEING_RISK_REMAINING_RATIO,
   getOrderLockedValue,
   getOrderMarketDistance,
+  mergeMarketOrdersByCanonicalId,
   getOrderTiming,
 } from '../orderOperations';
 
@@ -112,3 +113,11 @@ assert.equal(buyDistance?.referencePrice, 8.5);
 assert.ok(Math.abs((buyDistance?.distancePct ?? 0) - ((8 - 8.5) / 8.5 * 100)) < 1e-9);
 
 console.log('✅ Operations timing/market-context primitives passed.');
+
+const duplicate = { ...market[0], order_id: 'other-1', price: 9.25 };
+const merged = mergeMarketOrdersByCanonicalId([market, [duplicate, { ...market[3], order_id: 'other-3', price: 7.75 }]]);
+assert.equal(merged.length, 5);
+assert.equal(merged.find((entry) => entry.order_id === 'other-1')?.price, 9.25);
+assert.equal(merged.find((entry) => entry.order_id === 'other-3')?.price, 7.75);
+
+console.log('✅ Operations canonical market-source merge semantics passed.');

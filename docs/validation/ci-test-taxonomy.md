@@ -1,6 +1,6 @@
 # CI-001E — Test taxonomy and canonical ownership
 
-Status: ACTIVE — CI-001F
+Status: CURRENT — CI-001I
 Date: 2026-09-23
 Scope: test ownership, certification taxonomy and duplication control
 Parent: [CI-001 — Refonte du système CI](../roadmap/ci-management-refactor.md)
@@ -145,7 +145,7 @@ A flaky test may be isolated only with an explicit owner, reason, diagnostic art
 
 The corporation-boundary overlap was the first duplication closed under the safe protocol.
 
-CI-001F adds job-level browser isolation: Auth and Operations run in separate fresh harness processes while retaining `workers: 1`. The unique boundary proof remains executed by the `unit_domain` lane, while the five duplicated proofs remain covered by `npm test`, `test:api` and `test:esi` under their canonical owners. The full historical composition is retained as an explicit recovery/full script.
+CI-001F adds job-level browser isolation: Auth and Operations run in separate fresh harness processes while retaining `workers: 1`. CI-001I verifies both browser lanes in the certified PR run and records their setup/execution timing. The unique boundary proof remains executed by the `unit_domain` lane, while the five duplicated proofs remain covered by `npm test`, `test:api` and `test:esi` under their canonical owners. The full historical composition is retained as an explicit recovery/full script.
 
 ## E exit gate
 

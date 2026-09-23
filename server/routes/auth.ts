@@ -4,8 +4,7 @@ import {
   EVE_CLIENT_ID,
   EVE_CLIENT_SECRET,
   EVE_CALLBACK_URL,
-  EVE_SSO_AUTHORIZE_URL,
-  EVE_SSO_TOKEN_URL,
+  getEveSsoMetadata,
   verifyEveAccessToken,
   EVE_SCOPES,
   generateOAuthState,
@@ -45,7 +44,7 @@ authRouter.get('/config', (req: Request, res: Response) => {
 });
 
 // 2. Auth URL builder (cryptographically random state, strictly whitelisted redirect_uri)
-authRouter.get('/url', (req: Request, res: Response) => {
+authRouter.get('/url', async (req: Request, res: Response) => {
   const requestedRedirect = req.query.redirect_uri as string | undefined;
   const { isValid, uri: redirectUri } = validateRedirectUri(requestedRedirect, req);
 
@@ -77,7 +76,20 @@ authRouter.get('/url', (req: Request, res: Response) => {
     state: state,
   });
 
-  const url = `${EVE_SSO_AUTHORIZE_URL}${EVE_SSO_AUTHORIZE_URL.includes('?') ? '&' : '?'}${params.toString()}`;
+  const metadata = await getEveSsoMetadata().catch(error => {
+    logEvent('ERROR', 'SSO', 'Unable to load CCP SSO metadata', { error: String(error) });
+    return null;
+  });
+  if (!metadata) {
+    return res.status(503).json({
+      error: 'SSO_METADATA_UNAVAILABLE',
+      message: 'Unable to load the official EVE SSO metadata document.',
+    });
+  }
+
+  const url = metadata.authorization_endpoint +
+    (metadata.authorization_endpoint.includes('?') ? '&' : '?') +
+    params.toString();
   logEvent('INFO', 'SSO', 'Generated SSO authorization URL', { redirectUri, statePrefix: state.substring(0, 8) });
   res.json({ url, redirect_uri: redirectUri, state });
 });
@@ -196,12 +208,12 @@ authRouter.post('/token', async (req: Request, res: Response) => {
       params.append('redirect_uri', redirect_uri.trim());
     }
 
-    const response = await fetch(EVE_SSO_TOKEN_URL, {
+    const metadata = await getEveSsoMetadata();
+    const response = await fetch(metadata.token_endpoint, {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${basicAuth}`,
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Host': 'login.eveonline.com',
         'User-Agent': 'eve-trade-interregional/0.2',
       },
       body: params.toString(),
@@ -431,7 +443,8 @@ export const callbackHandler = async (req: Request, res: Response) => {
       redirect_uri: redirectUri,
     });
 
-    const tokenRes = await fetch(EVE_SSO_TOKEN_URL, {
+    const metadata = await getEveSsoMetadata();
+    const tokenRes = await fetch(metadata.token_endpoint, {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${basicAuth}`,
@@ -481,27 +494,8 @@ export const callbackHandler = async (req: Request, res: Response) => {
 
     const parts = String(payload.sub).split(':');
     const parsedCharacterId = Number(parts[parts.length - 1]);
-    const characterId = Number.isInteger(parsedCharacterId) ? parsedCharacterId : null;
-    const characterName = typeof payload.name === 'string' && payload.name.trim() ? payload.name.trim() : null;
-
-    if (!characterId) {
-      try {
-        const verifyRes = await fetch(EVE_SSO_VERIFY_URL, {
-          headers: {
-            'Authorization': `Bearer ${tokenData.access_token}`,
-            'User-Agent': 'eve-trade-interregional/0.2',
-          },
-        });
-        if (verifyRes.ok) {
-          const verifyData = await verifyRes.json() as { CharacterID?: number; CharacterName?: string };
-          const verifiedId = Number(verifyData.CharacterID);
-          if (Number.isInteger(verifiedId) && verifiedId > 0) characterId = verifiedId;
-          if (typeof verifyData.CharacterName === 'string' && verifyData.CharacterName.trim()) characterName = verifyData.CharacterName.trim();
-        }
-      } catch (verifyError) {
-        logEvent('WARN', 'SSO', 'Character verification request failed after token exchange', { error: String(verifyError) });
-      }
-    }
+    let characterId = Number.isInteger(parsedCharacterId) ? parsedCharacterId : null;
+    let characterName = typeof payload.name === 'string' && payload.name.trim() ? payload.name.trim() : null;
 
     if (!characterId) {
       logEvent('ERROR', 'SSO', 'Token exchange succeeded but character identity could not be established');

@@ -46,10 +46,10 @@ for (const [action, sha] of Object.entries(ACTION_PINS)) {
 }
 
 assert.match(ci, /permissions:\s*\n\s+contents:\s+read/, 'CI must declare read-only repository permissions');
-assert.equal((ci.match(/persist-credentials: false/g) || []).length, 6, 'All five execution jobs must disable checkout credential persistence');
-assert.equal((ci.match(/node-version: 22\.23\.2/g) || []).length, 6, 'All five execution jobs must use the pinned Node runtime');
-assert.equal((ci.match(/test "\$\(node --version\)" = "v22\.23\.2"/g) || []).length, 5, 'All five execution jobs must verify the selected Node runtime');
-assert.equal((ci.match(/test "\$\(npm --version\)" = "10\.9\.8"/g) || []).length, 5, 'All five execution jobs must verify the npm version bundled with the pinned Node release');
+assert.equal((ci.match(/persist-credentials: false/g) || []).length, 6, 'All six execution jobs must disable checkout credential persistence');
+assert.equal((ci.match(/node-version: 22\.23\.2/g) || []).length, 6, 'All six execution jobs must use the pinned Node runtime');
+assert.equal((ci.match(/test "\$\(node --version\)" = "v22\.23\.2"/g) || []).length, 5, 'All six execution jobs must verify the selected Node runtime');
+assert.equal((ci.match(/test "\$\(npm --version\)" = "10\.9\.8"/g) || []).length, 5, 'All six execution jobs must verify the npm version bundled with the pinned Node release');
 
 assert.match(
   ci,

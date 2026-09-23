@@ -9,7 +9,7 @@ CI gate: [../validation/ci.md](../validation/ci.md)
 
 ## Current baseline
 
-Current `main` is `9438bbedb2d44cf3f5f371144bcf72094955cd46`, the squash merge of PR #46. E2E-001 is complete: deterministic browser CI is green and the target-PC real-CCP acceptance PASS was recorded on 2026-09-23.
+The functional E2E-001 baseline is `9438bbedb2d44cf3f5f371144bcf72094955cd46`, the squash merge of PR #46. E2E-001 is complete: deterministic browser CI is green and the target-PC real-CCP acceptance PASS was recorded on 2026-09-23. Subsequent `main` changes in this closeout are documentation-only.
 
 ## Stable foundations
 

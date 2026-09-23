@@ -9,7 +9,7 @@ CI gate: PR CI
 
 ## Current state
 
-The documentation reconstruction (DOC-001) is complete and merged. PR #45 prepared the E2E-001 bootstrap documentation. The stabilization sequence #37–#42 remains the functional foundation. PR #46 is merged to `main` as `9438bbedb2d44cf3f5f371144bcf72094955cd46`; deterministic CI and the target-PC real-CCP acceptance are complete.
+The documentation reconstruction (DOC-001) is complete and merged. PR #45 prepared the E2E-001 bootstrap documentation. The stabilization sequence #37–#42 remains the functional foundation. PR #46 established the functional E2E-001 baseline on `main` at `9438bbedb2d44cf3f5f371144bcf72094955cd46`; deterministic CI and the target-PC real-CCP acceptance are complete.
 
 Stable foundations are listed in [stable-domains](../state/stable-domains.md). Do not reopen them without a demonstrable regression.
 

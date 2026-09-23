@@ -2,7 +2,7 @@
 
 Status: CURRENT
 Scope: synthetic state of current `main`
-Source of truth: code, tests, CI and manifests at `main` `9438bbedb2d44cf3f5f371144bcf72094955cd46`
+Source of truth: code, tests, CI and manifests at current `main` after the E2E-001 merge and documentation closeout
 
 | Domaine | État | Implémentation principale | Validation | Documentation | Suite |
 |---|---|---|---|---|---|

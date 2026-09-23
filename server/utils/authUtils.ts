@@ -12,9 +12,6 @@ export const EVE_CALLBACK_URL = ESI_RUNTIME_CONFIG.callbackUrl;
 
 // Upstream EVE SSO endpoints. Production defaults remain CCP; local E2E can
 // point these boundaries at deterministic fixtures without changing the flow.
-export const EVE_SSO_AUTHORIZE_URL = ESI_RUNTIME_CONFIG.authorizeUrl;
-export const EVE_SSO_TOKEN_URL = ESI_RUNTIME_CONFIG.tokenUrl;
-export const EVE_SSO_VERIFY_URL = ESI_RUNTIME_CONFIG.verifyUrl;
 export const EVE_SSO_METADATA_URL = ESI_RUNTIME_CONFIG.metadataUrl;
 
 export { getRuntimeConfigStatus, assertOAuthRuntimeConfig } from '../config/environment';

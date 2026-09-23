@@ -82,9 +82,15 @@ async function runTests(): Promise<void> {
 
   setGlobalEsiMock(async (url, init) => {
     const parsed = new URL(String(url));
-    assert.ok(parsed.pathname.startsWith('/latest/'), `Expected ESI latest path, got ${parsed.pathname}`);
-    const esiPath = parsed.pathname.replace(/^\/latest(?=\/)/, '');
-    const authorization = (init?.headers as Record<string, string> | undefined)?.Authorization;
+    assert.strictEqual(parsed.origin, 'https://esi.evetech.net');
+    const esiPath = parsed.pathname;
+    const requestHeaders = init?.headers as Record<string, string> | undefined;
+    const authorization = requestHeaders?.Authorization;
+    assert.strictEqual(
+      requestHeaders?.['X-Compatibility-Date'],
+      '2026-09-22',
+      'Every ESI request must carry the CCP compatibility-date contract',
+    );
     observedRequests.push({ path: esiPath, search: parsed.search, authorization });
 
     if (esiPath === `/characters/${CHARACTER_A}/orders/`) {

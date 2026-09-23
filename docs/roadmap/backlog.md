@@ -68,6 +68,11 @@ These remain valid but are explicitly blocked until the UX baseline is accepted:
 - PERF-001: performance measurement/optimization.
 - TYPE-001: legacy typing/facade cleanup.
 
+## CI follow-up candidates
+
+- **Draft routing mismatch:** the current PR workflow triggers `CI Foundation & Regression Gate` for Draft PRs as well as Ready PRs. PR #61 was created as Draft and run `35858589551` entered the full six-lane certification topology after `CI / Change Scope` succeeded. This is a confirmed behavior mismatch with the documented Draft Fast Gate model.
+- Keep this as a separate CI hardening chantier; do not alter the current UX-02 delivery surface solely to repair it.
+
 ## Operational issue
 
 **Reported:** public market orders no longer retrieve from the user's PC.

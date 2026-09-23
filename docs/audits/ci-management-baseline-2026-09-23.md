@@ -141,14 +141,14 @@ Référence de mesure : workflow run `35826687206`, dernier run vert détaillé 
 | `validate` | ~104 s |
 | `browser-e2e` | ~166 s |
 | chemin mural avec `browser-e2e needs validate` | ~276 s |
-| `npm ci` validate | ~9 s |
-| frontend typecheck | ~17 s |
-| backend typecheck | ~10 s |
-| `npm test` | ~35 s |
-| build production | ~7 s |
-| `npm ci` browser | ~6 s |
-| Playwright/Chromium install | ~21 s |
-| E2E | ~131 s |
+| `npm ci` validate | 9.0 s |
+| frontend typecheck | 16.7 s |
+| backend typecheck | 9.6 s |
+| `npm test` | 35.5 s |
+| build production | ~7.0 s |
+| `npm ci` browser | 6.4 s |
+| Playwright/Chromium install | 21.4 s |
+| E2E | 130.8 s |
 
 Ordre de grandeur théorique si browser et validation devenaient indépendants :
 
@@ -166,6 +166,8 @@ Run `35842730680`, commit `d7f245ec...`, run #596 :
 - aucun changement de workflow n'est inclus dans ce run.
 
 Le détail job confirme que la certification actuelle est restée inchangée avant CI-001A/B.
+
+Les temps ci-dessus sont issus des timestamps des étapes du run de référence ; ils servent de métrique de comparaison et ne sont pas des SLA.
 
 ## Test inventory
 

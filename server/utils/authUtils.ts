@@ -292,7 +292,7 @@ export function validateRedirectUri(candidate: string | undefined, req: express.
   // exactly. Accepting arbitrary query parameters on the same callback path would
   // violate CCP's registered redirect URI contract.
   return { isValid: false, uri: defaultUri };
-
+}
 
 export interface EveSsoMetadata {
   issuer: string;

@@ -338,6 +338,17 @@ jobs:
           test "${{ needs.server.result }}" = "success"
           test "${{ needs.build.result }}" = "success"
 
+  browser-e2e:
+    name: Browser E2E — OAuth/ESI composition
+    if: ${{ always() }}
+    needs: [browser-auth, browser-operations]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify browser responsibility lanes
+        run: |
+          test "${{ needs.browser-auth.result }}" = "success"
+          test "${{ needs.browser-operations.result }}" = "success"
   required-gate:
     name: CI / required-gate
     if: ${{ always() }}
@@ -352,14 +363,3 @@ jobs:
           test "${{ needs.detect-changes.result }}" = "success"
           test "${{ needs.validate.result }}" = "success"
           test "${{ needs.browser-e2e.result }}" = "success"
-  browser-e2e:
-    name: Browser E2E — OAuth/ESI composition
-    if: ${{ always() }}
-    needs: [browser-auth, browser-operations]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Verify browser responsibility lanes
-        run: |
-          test "${{ needs.browser-auth.result }}" = "success"
-          test "${{ needs.browser-operations.result }}" = "success"

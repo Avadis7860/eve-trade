@@ -61,6 +61,7 @@ These tracks can be prepared in documentation before they are made active. Their
 | ID | Status | Goal | Depends on | Priority |
 |---|---|---|---|---|
 | CI-001 | DONE / MERGED | Refonte du système CI, validation et gouvernance PR | current CI study | maintenance only; follow-up hardening is separate |
+| CI-OPS-001 | CANDIDATE / DEFERRED | Project operator CLI with Oclif around the existing CI/PR model | P0 closure; explicit CI-hardening need | maintenance candidate; separate branch/PR |
 
 CI-001 remains the stable PR certification base. Its Draft-routing mismatch stays separate as a future CI hardening item.
 

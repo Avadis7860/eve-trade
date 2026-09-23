@@ -56,17 +56,21 @@ The increment is considered complete only after this documentation is merged wit
 
 ### P0-B — Rate-limit regression
 
-Extend deterministic browser coverage to HTTP 429.
+**Implementation: complete on `test/p0-market-429-retry-after`; CI certification pending.**
 
-Expected proof:
+Deterministic browser coverage now asserts:
+- the browser receives HTTP 429 on the controlled market-order request;
 - market health is `ERROR`;
 - active orders remain visible;
 - HTTP 429 is shown;
-- Retry-After is shown;
-- ESI budget metadata is shown;
-- no false empty market state is produced.
+- the accessible market-health diagnostics expose `cache MISS`, ESI budget `91` and `retry 7s`;
+- the false empty-state message is absent.
 
-No claim about real CCP behavior is inferred from the mock; this is a deterministic contract test.
+The existing E2E harness supplies `Retry-After: 7`, `X-ESI-Error-Limit-Remain: 91`, `X-ESI-Error-Limit-Reset: 42` and a deterministic cache/pagination envelope. No claim about real CCP behavior is inferred from the mock.
+
+Validation details: [P0-B 429 / Retry-After](../validation/p0-b-429-retry-after.md).
+
+The increment is considered complete only after the single PR is CI-certified, merged, and followed by a green Main Smoke.
 
 ### P0-C — Target-PC evidence bundle
 
@@ -103,6 +107,17 @@ Once P0 is closed, the next implementation order is:
 5. UX-07 responsive/accessibility hardening across the resulting workflows.
 
 Before UX-03 implementation, freeze the contracts for Allocation, Performance and Control Center so the implementations share the same vocabulary for capital, provenance, projected vs realized values, health and refresh.
+
+## CI operator tooling dependency
+
+The P0 closure does not depend on Oclif. Oclif is documented as a **future CI operator-layer candidate**, not as a P0 implementation requirement.
+
+The intended future boundary is:
+- GitHub Actions remains the certification authority;
+- gh remains the low-level GitHub control interface;
+- Oclif may later encode the repository's procedural delivery checks as a project CLI.
+
+Do not introduce this tooling inside P0-B. Any implementation starts as a separate maintenance chantier after P0 closure unless a narrowly scoped CI-hardening decision explicitly opens it earlier.
 
 ## Delivery discipline
 

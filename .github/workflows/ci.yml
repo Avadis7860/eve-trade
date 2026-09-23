@@ -304,14 +304,23 @@ jobs:
       - name: Verify selected browser lanes
         run: |
           set -euo pipefail
-          test "${{ needs.detect-changes.result }}" = "success"
+          detect_result="${{ needs.detect-changes.result }}"
+          run_browser="${{ needs.detect-changes.outputs.run_browser }}"
+          browser_auth_result="${{ needs.browser-auth.result }}"
+          browser_operations_result="${{ needs.browser-operations.result }}"
 
-          if [ "${{ needs.detect-changes.outputs.run_browser }}" = "true" ]; then
-            test "${{ needs.browser-auth.result }}" = "success"
-            test "${{ needs.browser-operations.result }}" = "success"
+          printf 'browser gate inputs: detect_result=%q run_browser=%q browser_auth=%q browser_operations=%q\n' \
+            "$detect_result" "$run_browser" "$browser_auth_result" "$browser_operations_result"
+
+          test "$detect_result" = "success"
+
+          if [ "$run_browser" = "true" ]; then
+            test "$browser_auth_result" = "success"
+            test "$browser_operations_result" = "success"
           else
-            test "${{ needs.browser-auth.result }}" = "skipped"
-            test "${{ needs.browser-operations.result }}" = "skipped"
+            test "$run_browser" = "false"
+            test "$browser_auth_result" = "skipped"
+            test "$browser_operations_result" = "skipped"
           fi
   required-gate:
     name: CI / required-gate

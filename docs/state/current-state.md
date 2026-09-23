@@ -42,6 +42,17 @@ Post-merge behavior is now intentionally split: PR changes run the PR certificat
 
 The single-active-branch/PR rule remains mandatory: one delivery branch at a time, and merged branches are not reused for new work.
 
+## CI operator tooling status
+
+Oclif is **planned / not implemented** as a future project CLI operator layer. It is intentionally not part of the active P0-B branch scope.
+
+The intended separation is:
+- GitHub Actions = CI and certification authority;
+- gh = GitHub workflow/PR/run control;
+- Oclif = optional project-facing operator commands and enforcement of the repository's delivery procedure.
+
+Activation is deferred until P0 is closed, or until a separately approved CI-hardening need makes the operator layer materially useful. The implementation, if activated, gets its own branch and PR.
+
 ## Stable foundations
 
 - Canonical catalog protected by version/count/checksum manifest.
@@ -71,6 +82,7 @@ The current engine/domain layers are ahead of the UI information architecture.
 
 - Target-PC public market-order retrieval failure is reported but not root-caused.
 - The P0-A audit found no concrete non-Operations production consumer that currently collapses a market acquisition failure into certifiable ordinary empty business state. The legacy `EsiService.fetchLiveOrders()` helper remains a latent quality-loss hazard with no production caller.
+- P0-B deterministic browser coverage now verifies HTTP 429, Retry-After and ESI budget diagnostics without collapsing the market into a false empty state.
 - Rate-limit-aware market scheduling is not yet exposed as a product-level operational signal.
 - No coherent Real Portfolio vs Proposed Allocation split exists yet.
 - No automatic ESI-derived performance history replaces the manual journal yet.
@@ -86,17 +98,17 @@ Completed and certified on main:
 - Browser Operations proof confirms active orders remain visible while a market `ERROR` is surfaced with HTTP 401 and ESI budget diagnostics.
 - CI run `35862904773` and SDE run `35862904812` are green; PR #63 merged into main at `72c049042a3e3bd735117bac43c3dfe71827f79d`.
 
-Remaining P0 closure work is limited to evidence-driven hardening and incident diagnosis: audit non-Operations callers, add deterministic 429/Retry-After browser coverage, and capture the required real-PC evidence before declaring the target-PC incident root-caused or externally bounded.
+Remaining P0 closure work is limited to the real target-PC evidence bundle and formal incident classification as ROOT-CAUSED or EXTERNALLY BOUNDED. P0-A is audited and merged; P0-B deterministic 429 coverage is implemented on the active branch and pending PR certification/merge.
 
 ## Current chantier / sequencing
 
 **Current product chantier: P0 market/ESI retrieval reliability closure.**
 
-The current technical branch `audit/p0-market-consumers` starts from `main` at `18e1556a4b00331b1089b98a060bbdc2b78030ad` and contains the P0-A caller audit/documentation increment. It must not be reused after merge.
+The current technical branch `test/p0-market-429-retry-after` starts from `main` at `c1f38b889adea1b16ea98b280f13c8fc72cca750` and contains the deterministic P0-B browser coverage plus synchronized documentation. It must not be reused after merge.
 
 UX-02 is DONE / MERGED. CI-001 is DONE / MERGED. Historical delivery branches have been reconciled to the current main head and are not active work.
 
-P0-B remains the next technical increment after the P0-A PR is certified and merged. `PST-001`, `UI-001`, `E2E-002`, `UI-002`, `PERF-001` and `TYPE-001` remain deferred behind the UX sequencing gate.
+P0-C (real target-PC evidence bundle) is the next technical increment after P0-B is certified and merged. UX-03 and all other deferred work remain blocked by the P0 closure gate.
 
 ## Reference paths
 

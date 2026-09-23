@@ -21,8 +21,10 @@ Completed:
 - Documentation of the P0-A caller matrix and the latent legacy-helper hazard.
 
 Remaining:
-- Add deterministic HTTP 429 / Retry-After regression coverage.
+- Certify and merge deterministic HTTP 429 / Retry-After browser coverage.
 - Capture the real target-PC evidence bundle and classify the incident as ROOT-CAUSED or EXTERNALLY BOUNDED.
+
+P0-B implementation is present on the active branch; it is not marked complete until its single PR is CI-certified, merged, and followed by a green Main Smoke.
 
 ### P1 — Operations / Mes Ordres — DONE / MERGED
 
@@ -80,6 +82,11 @@ These remain valid but are explicitly blocked until the UX baseline is accepted:
 
 - **Draft routing mismatch:** the current PR workflow triggers `CI Foundation & Regression Gate` for Draft PRs as well as Ready PRs. PR #61 was created as Draft and run `35858589551` entered the full six-lane certification topology after `CI / Change Scope` succeeded. This is a confirmed behavior mismatch with the documented Draft Fast Gate model.
 - Keep this as a separate CI hardening chantier; do not mix it into the P0 product closure work.
+
+## CI operator tooling — future candidate
+
+- **CI-OPS-001 / Oclif operator CLI:** candidate separate maintenance chantier after P0 closure. Oclif would provide the project-facing operator layer (for example `eve ci status`, `eve ci watch`, `eve ci rerun-failed`, `eve ci certify`) while GitHub Actions remains the certification authority and gh remains the low-level GitHub control surface.
+- Do not activate this track during P0-B. Open it only when CI operational hardening is intentionally separated from product reliability work.
 
 ## Operational issue
 

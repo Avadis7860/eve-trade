@@ -1,10 +1,14 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 
 const root = new URL('../../', import.meta.url);
 const read = (relativePath) => fs.readFileSync(new URL(relativePath, root), 'utf8');
 
 const script = read('scripts/ci-observability.mjs');
+
+const syntaxCheck = spawnSync(process.execPath, ['--check', new URL('../../scripts/ci-observability.mjs', import.meta.url).pathname], { encoding: 'utf8' });
+assert.equal(syntaxCheck.status, 0, `Observability collector must be valid JavaScript: ${syntaxCheck.stderr}`);
 const ci = read('.github/workflows/ci.yml');
 const mainSmoke = read('.github/workflows/ci-main-smoke.yml');
 const fullCertification = read('.github/workflows/ci-full-certification.yml');

@@ -11,8 +11,8 @@ CI gate: Playwright browser E2E + full regression CI
 |---|---|---|
 | Active order + LIVE market | Operational KPIs, row context and detail are available | PASS on previous run |
 | Market ERROR without prior market snapshot | Active order remains visible; health is ERROR; no recommendation is invented | PASS via UX-02 browser suite |
-| Market PARTIAL | Usable page/order data remains visible; market health is PARTIAL and no operational recommendation is presented as reliable | pending CI |
-| Existing market snapshot followed by fetch failure | Previous market context remains visible as STALE and carries the latest failure; no operational recommendation is presented as current | pending CI |
+| Market PARTIAL | Usable page/order data remains visible; market health is PARTIAL and no operational recommendation is presented as reliable | PASS |
+| Existing market snapshot followed by fetch failure | Previous market context remains visible as STALE and carries the latest failure; no operational recommendation is presented as current | PASS |
 | Order detail | Ownership, observation, expected remaining result and decision context are visible | PASS via UX-02 browser suite |
 | Projected vs realized values | Remaining sell value is labeled projected; Operations does not claim realized P&L | Covered by typecheck + detail implementation |
 
@@ -30,4 +30,4 @@ CI gate: Playwright browser E2E + full regression CI
 This deterministic browser suite does not replace target-PC real-CCP evidence. UX-01 target-PC status remains NOT ROOT-CAUSED until the required hub, timestamp, HTTP status, cache, pagination and ESI/rate-limit headers are captured on the affected PC.
 
 ## Current gate note
-The degraded-data recommendation gate is enforced by `FailureSemantics.isActionable()`; CI must remain the final acceptance proof.
+The degraded-data recommendation gate is enforced by `FailureSemantics.isActionable()`; CI is green on the current PR head; this matrix records the completed browser acceptance.

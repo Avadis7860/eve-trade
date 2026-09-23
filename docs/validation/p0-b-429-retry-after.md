@@ -1,8 +1,9 @@
 # P0-B — Deterministic HTTP 429 / Retry-After Browser Coverage
 
-Status: IMPLEMENTED — PENDING CI CERTIFICATION
-Branch: `test/p0-market-429-retry-after`
+Status: DONE / MERGED / CERTIFIED
+Branch: `test/p0-market-429-retry-after` (historical; do not reuse)
 Base: `main` at `c1f38b889adea1b16ea98b280f13c8fc72cca750`
+Merge: PR #66 → `main` at `c0ddc69ef424ed0cfd4de776758166c3ee8c1abe`
 
 ## Scenario
 
@@ -59,4 +60,4 @@ The target-PC incident remains NOT ROOT-CAUSED independently of this determinist
 - CI #703: product/browser lanes were executed; `Browser E2E — Operations` passed all 9 tests, including the HTTP 429 scenario, while the browser composition aggregator failed.
 - The failed browser composition job did not expose retrievable logs through the repository connector; a failed-job rerun reproduced the same aggregator failure.
 - CI #704 on the next commit failed in `CI / Change Scope` before lane selection, leaving the substantive validation lanes skipped. This is treated as CI/infrastructure evidence only, not as product behavior evidence.
-- The branch remains unmergeable until a complete certification run reaches a green `CI / required-gate` and the relevant browser/SDE jobs are verified.
+- The branch was certified by CI #718 and SDE #479, then merged as PR #66. Post-merge Main Smoke #7 completed successfully on the resulting main commit.

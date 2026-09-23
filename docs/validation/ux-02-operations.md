@@ -13,6 +13,9 @@ CI gate: Playwright browser E2E + full regression CI
 | Market ERROR without prior market snapshot | Active order remains visible; health is ERROR; no recommendation is invented | PASS via UX-02 browser suite |
 | Market PARTIAL | Usable page/order data remains visible; market health is PARTIAL and no operational recommendation is presented as reliable | PASS |
 | Existing market snapshot followed by fetch failure | Previous market context remains visible as STALE and carries the latest failure; no operational recommendation is presented as current | PASS |
+| Valid EMPTY market snapshot followed by fetch failure | Empty observation is preserved and degraded to STALE instead of becoming ERROR/EMPTY | PASS via market-data unit test |
+| Market CACHE / UNKNOWN | CACHE remains actionable; UNKNOWN remains non-actionable | PASS via unit test + browser coverage |
+| Outbid filter vs health | PARTIAL / STALE market context is excluded from the outbid filter | PASS via browser coverage |
 | Order detail | Ownership, observation, expected remaining result and decision context are visible | PASS via UX-02 browser suite |
 | Projected vs realized values | Remaining sell value is labeled projected; Operations does not claim realized P&L | Covered by typecheck + detail implementation |
 | LIVE decision = keep | Reliable keep recommendation is visible in row and detail | PASS in CI run #567 |
@@ -34,4 +37,4 @@ CI gate: Playwright browser E2E + full regression CI
 This deterministic browser suite does not replace target-PC real-CCP evidence. UX-01 target-PC status remains NOT ROOT-CAUSED until the required hub, timestamp, HTTP status, cache, pagination and ESI/rate-limit headers are captured on the affected PC.
 
 ## Current gate note
-The degraded-data recommendation gate is enforced by `FailureSemantics.isActionable()`. CI now includes the Operations timing/market-context primitive test and the deterministic LIVE decision scenarios; this matrix records the acceptance coverage.
+The degraded-data recommendation gate is enforced by `FailureSemantics.isActionable()`. CI now includes lifecycle-state tests, the Operations timing/market-context primitive test, deterministic LIVE decision scenarios and health-aware outbid filtering; this matrix records the acceptance coverage.

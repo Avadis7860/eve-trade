@@ -24,6 +24,16 @@ async function resetFixture(request: APIRequestContext): Promise<void> {
   expect(response.ok()).toBeTruthy();
 }
 
+async function setCharacterOrdersMode(
+  request: APIRequestContext,
+  mode: 'populated' | 'empty',
+): Promise<void> {
+  const response = await request.post(`${MOCK_BASE_URL}/__control__/orders`, {
+    data: { mode },
+  });
+  expect(response.ok()).toBeTruthy();
+}
+
 async function setMarketMode(
   request: APIRequestContext,
   mode: 'live' | 'error' | 'partial',
@@ -97,6 +107,32 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
     await resetFixture(request);
   });
 
+  test('shows a distinct loading state while active orders are being fetched', async ({ page, request }) => {
+    await prepareOperations(page, request, 'live');
+
+    const ordersUrl = `**/api/character/${ALPHA.id}/orders`;
+    await page.route(ordersUrl, async route => {
+      await new Promise(resolve => setTimeout(resolve, 700));
+      await route.continue();
+    });
+
+    await launchSso(page);
+    await expect(page.getByText('Chargement des ordres actifs…', { exact: true })).toBeVisible();
+    await expectOperationsLoaded(page);
+    await page.unroute(ordersUrl);
+  });
+
+  test('shows a distinct successful empty state for active orders', async ({ page, request }) => {
+    await setCharacterOrdersMode(request, 'empty');
+    await prepareOperations(page, request, 'live');
+    await launchSso(page);
+
+    await expect(
+      page.getByText('Aucun ordre actif n’est connu dans cette portée.', { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sync Marché des Ordres' })).toBeDisabled();
+  });
+
   test('exposes the operational decision context for a real active order fixture', async ({ page, request }) => {
     await prepareOperations(page, request, 'live');
     await launchSso(page);
@@ -121,6 +157,61 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
     await expect(page.getByText('Âge', { exact: true })).toBeVisible();
   });
 
+  test('exposes CACHE as an actionable health state', async ({ page, request }) => {
+    await prepareOperations(page, request, 'live');
+    await launchSso(page);
+    await expectOperationsLoaded(page);
+
+    await page.evaluate(async () => {
+      const { MarketDataStore } = await import('/src/services/marketDataStore.ts');
+      MarketDataStore.setOrders(34, 10000002, [{
+        order_id: 'cache-competitor',
+        type_id: 34,
+        region_id: 10000002,
+        system_id: 30000142,
+        location_id: 60003760,
+        price: 95,
+        volume_remain: 25,
+        volume_total: 25,
+        min_volume: 1,
+        is_buy_order: false,
+        range: 'region',
+        issued: '2026-09-23T00:00:00.000Z',
+        duration: 90,
+      }], false);
+      MarketDataStore.notifyListeners();
+    });
+
+    const firstRow = page.locator('tbody tr').first();
+    await expect(firstRow.getByText('CACHE', { exact: true })).toBeVisible();
+    await expect(firstRow.getByText(/Ajuster :|Conserver|Déplacer ➔|Annuler l'Ordre/)).toBeVisible();
+
+    await firstRow.click();
+    const detail = page.getByRole('dialog', { name: 'Détail opérationnel de l’ordre' });
+    await expect(detail.locator('span.inline-flex').filter({ hasText: 'CACHE' })).toBeVisible();
+    await expect(detail.getByText(/Aucune recommandation fiable n’est produite/)).toHaveCount(0);
+  });
+
+  test('keeps an order UNKNOWN and non-actionable when market state is absent', async ({ page, request }) => {
+    await prepareOperations(page, request, 'live');
+    await launchSso(page);
+    await expectOperationsLoaded(page);
+
+    await page.evaluate(async () => {
+      const { MarketDataStore } = await import('/src/services/marketDataStore.ts');
+      MarketDataStore.clearStore();
+    });
+
+    const firstRow = page.locator('tbody tr').first();
+    await expect(firstRow.getByText('UNKNOWN', { exact: true })).toBeVisible();
+    await expect(firstRow.getByText('Données insuffisantes', { exact: true })).toBeVisible();
+
+    await firstRow.click();
+    const detail = page.getByRole('dialog', { name: 'Détail opérationnel de l’ordre' });
+    await expect(detail.locator('span.inline-flex').filter({ hasText: 'UNKNOWN' })).toBeVisible();
+    await expect(detail.getByText(/Aucune recommandation fiable n’est produite/)).toBeVisible();
+  });
+
   for (const scenario of [
     { key: 'keep', row: /Conserver/, detail: /Position Optimale/ },
     { key: 'adjust', row: /Ajuster :/, detail: /Ajuster le Prix à/ },
@@ -142,6 +233,32 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
       await expect(detail.getByText(/Aucune recommandation fiable n’est produite/)).toHaveCount(0);
     });
   }
+
+  test('excludes PARTIAL market context from the outbid filter', async ({ page, request }) => {
+    await prepareOperations(page, request, 'partial');
+    await launchSso(page);
+    await expectOperationsLoaded(page);
+
+    await page.getByRole('button', { name: 'Sync Marché des Ordres' }).click();
+    await expect(page.getByText('PARTIAL', { exact: true }).first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('button', { name: /Dépassés \(0\)/ })).toBeVisible();
+    await page.getByRole('button', { name: /Dépassés \(0\)/ }).click();
+    await expect(page.getByText('Aucun ordre ne correspond aux critères.', { exact: true })).toBeVisible();
+  });
+
+  test('excludes STALE market context from the outbid filter', async ({ page, request }) => {
+    await prepareOperations(page, request, 'live');
+    await launchSso(page);
+    await expectOperationsLoaded(page);
+
+    await page.getByRole('button', { name: 'Sync Marché des Ordres' }).click();
+    await expect(page.getByText('LIVE', { exact: true }).first()).toBeVisible({ timeout: 15_000 });
+
+    await setMarketMode(request, 'error', 401);
+    await page.getByRole('button', { name: 'Sync Marché des Ordres' }).click();
+    await expect(page.getByText('STALE', { exact: true }).first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('button', { name: /Dépassés \(0\)/ })).toBeVisible();
+  });
 
   test('keeps active orders visible and refuses false decision state on market ERROR', async ({ page, request }) => {
     await prepareOperations(page, request, 'error');

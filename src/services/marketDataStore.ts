@@ -483,7 +483,8 @@ export class MarketDataStore {
             } else {
               // ESI returned partial or error: check previous cache
               const previousSnap = this.getSnapshot(typeId, hub.region_id);
-              if (previousSnap && previousSnap.orders.length > 0) {
+              const previousHealth = previousSnap ? FailureSemantics.evaluateHealth(previousSnap.quality) : null;
+              if (previousSnap && previousHealth !== 'ERROR' && previousHealth !== 'UNKNOWN') {
                 // Degrade previous cache to STALE
                 const ageSec = Math.round((Date.now() - previousSnap.timestamp) / 1000);
                 const degradedQuality: MarketDataQuality = {
@@ -526,7 +527,8 @@ export class MarketDataStore {
           } catch (err: unknown) {
             console.warn(`Could not sync live ESI for region ${hub.region}:`, err);
             const previousSnap = this.getSnapshot(typeId, hub.region_id);
-            if (previousSnap && previousSnap.orders.length > 0) {
+            const previousHealth = previousSnap ? FailureSemantics.evaluateHealth(previousSnap.quality) : null;
+            if (previousSnap && previousHealth !== 'ERROR' && previousHealth !== 'UNKNOWN') {
               const ageSec = Math.round((Date.now() - previousSnap.timestamp) / 1000);
               const degradedQuality: MarketDataQuality = {
                 ...previousSnap.quality,

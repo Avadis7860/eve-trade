@@ -24,6 +24,7 @@ interface NextAuthControl {
 
 type MarketControlMode = 'live' | 'error' | 'partial';
 type OperationsDecisionScenario = 'default' | 'keep' | 'adjust' | 'relocate' | 'cancel';
+type CharacterOrdersMode = 'populated' | 'empty';
 
 interface MarketControl {
   mode: MarketControlMode;
@@ -33,6 +34,7 @@ interface MarketControl {
 let nextAuthControl: NextAuthControl = { character: 'alpha' };
 let marketControl: MarketControl = { mode: 'live', errorStatus: 401 };
 let operationsDecisionScenario: OperationsDecisionScenario = 'default';
+let characterOrdersMode: CharacterOrdersMode = 'populated';
 type MarketEsiGatewayInstance = typeof import('../../server/gateways/marketEsiGateway').marketEsiGateway;
 let marketEsiGatewayControl: MarketEsiGatewayInstance | null = null;
 
@@ -186,6 +188,7 @@ async function handleMock(req: http.IncomingMessage, res: http.ServerResponse): 
     nextAuthControl = { character: 'alpha' };
     marketControl = { mode: 'live', errorStatus: 401 };
     operationsDecisionScenario = 'default';
+    characterOrdersMode = 'populated';
     marketEsiGatewayControl?.clearCache();
     return json(res, 200, { ok: true });
   }
@@ -217,6 +220,25 @@ async function handleMock(req: http.IncomingMessage, res: http.ServerResponse): 
     operationsDecisionScenario = scenario;
     marketEsiGateway.clearCache();
     return json(res, 200, { ok: true, operations: { scenario } });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/__control__/orders') {
+    let body: unknown = {};
+    try {
+      const raw = await readBody(req);
+      body = raw ? JSON.parse(raw) : {};
+    } catch {
+      return json(res, 400, { error: 'INVALID_CONTROL_PAYLOAD' });
+    }
+
+    const control = body as { mode?: CharacterOrdersMode };
+    if (control.mode !== 'populated' && control.mode !== 'empty') {
+      return json(res, 400, { error: 'INVALID_CHARACTER_ORDERS_MODE' });
+    }
+
+    characterOrdersMode = control.mode;
+    marketEsiGateway.clearCache();
+    return json(res, 200, { ok: true, orders: { mode: characterOrdersMode } });
   }
 
   if (req.method === 'POST' && url.pathname === '/__control__/market') {
@@ -542,6 +564,10 @@ async function handleMock(req: http.IncomingMessage, res: http.ServerResponse): 
     if (resource === 'wallet/transactions') return json(res, 200, []);
     if (resource === 'wallet/journal') return json(res, 200, []);
     const orderTypeId = fixture === fixtures.alpha ? 34 : 35;
+    if (characterOrdersMode === 'empty') {
+      return json(res, 200, [], { 'X-Pages': '1' });
+    }
+
     const orderVolume =
       operationsDecisionScenario === 'relocate' ? 100_000 :
       operationsDecisionScenario === 'cancel' ? 1_000 :

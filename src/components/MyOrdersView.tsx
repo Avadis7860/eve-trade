@@ -231,8 +231,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
       const distance = context?.distance?.distancePct;
       if (
         context &&
-        context.health !== 'ERROR' &&
-        context.health !== 'UNKNOWN' &&
+        FailureSemantics.isActionable(context.health) &&
         distance !== undefined &&
         (order.is_buy_order ? distance < 0 : distance > 0)
       ) {
@@ -267,8 +266,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
         const distance = context?.distance?.distancePct;
         if (
           !context ||
-          context.health === 'ERROR' ||
-          context.health === 'UNKNOWN' ||
+          !FailureSemantics.isActionable(context.health) ||
           distance === undefined ||
           (o.is_buy_order ? distance >= 0 : distance <= 0)
         ) return false;

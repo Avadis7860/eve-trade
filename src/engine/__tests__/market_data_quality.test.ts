@@ -233,6 +233,49 @@ async function runQualityTests() {
 
   console.log('✅ MarketDataStore snapshot & cache degradation passed.');
 
+  // CACHE is distinct and actionable; UNKNOWN remains explicitly non-actionable.
+  MarketDataStore.setOrders(39, recoveryHub.region_id, [validOrder], false);
+  const cacheQuality = MarketDataStore.getQuality(39, recoveryHub.region_id);
+  assert(cacheQuality?.health_status === 'CACHE', 'Explicit cached market data must remain CACHE');
+  assert(FailureSemantics.evaluateHealth(cacheQuality) === 'CACHE', 'Cached quality must evaluate to CACHE');
+  assert(FailureSemantics.isActionable('CACHE'), 'CACHE remains actionable by contract');
+  assert(
+    MarketDataStore.getDataHealth(999999, recoveryHub.region_id) === 'UNKNOWN',
+    'Missing market state must remain UNKNOWN',
+  );
+  assert(!FailureSemantics.isActionable('UNKNOWN'), 'UNKNOWN must not be actionable');
+
+  // A valid empty observation is still trustworthy. A failed refresh must preserve it as STALE.
+  MarketDataStore.setOrders(41, recoveryHub.region_id, [], true, {
+    ...sampleQuality,
+    completeness: 'empty',
+    data_state: 'EMPTY',
+    health_status: 'LIVE',
+    orders_fetched: 0,
+    orders_valid: 0,
+    fetched_at: new Date().toISOString(),
+    age_seconds: 0,
+  });
+  setBackendApiFetchForTesting(async () => {
+    throw new Error('network unavailable after valid empty observation');
+  });
+  const emptySnapshotFallback = await MarketDataStore.fetchLiveItemData(41, [recoveryHub], true);
+  const emptyFallbackQuality = emptySnapshotFallback.qualities[recoveryHub.region_id];
+  assert(
+    emptySnapshotFallback.orderBooks[recoveryHub.region_id]?.length === 0,
+    'Failed refresh must preserve the previously observed empty order book',
+  );
+  assert(emptyFallbackQuality?.source === 'cache', 'Preserved empty observation must identify cache source');
+  assert(emptyFallbackQuality?.health_status === 'STALE', 'Preserved empty observation must degrade to STALE');
+  assert(emptyFallbackQuality?.data_state === 'STALE', 'Preserved empty observation must degrade to STALE data');
+  assert(
+    emptyFallbackQuality?.last_error?.includes('network unavailable'),
+    'Preserved empty observation must carry the refresh failure',
+  );
+  setBackendApiFetchForTesting(null);
+
+  console.log('✅ Empty market snapshot failure preservation and CACHE/UNKNOWN semantics passed.');
+
   // 3. Test Scanner with Quality Metadata
   console.log('3. Testing InterRegionalScanner with DataQuality metadata...');
   const testHubs: MarketHub[] = [

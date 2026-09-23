@@ -136,7 +136,8 @@ authRouter.post('/token', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'CODE_TOO_LONG', message: 'Code parameter exceeds maximum allowed length' });
   }
 
-  // Mandatory OAuth State Validation
+  // The token exchange endpoint is an auxiliary/manual path but must enforce the same browser binding as the callback.
+  const browserState = readOAuthStateCookie(req);
   if (!state || typeof state !== 'string' || !state.trim()) {
     return res.status(400).json({
       error: 'MISSING_STATE',
@@ -146,6 +147,17 @@ authRouter.post('/token', async (req: Request, res: Response) => {
 
   if (state.length > 128) {
     return res.status(400).json({ error: 'INVALID_STATE', message: 'State parameter must be a string <= 128 characters' });
+  }
+
+  if (browserState !== state.trim()) {
+    logEvent('WARN', 'SSO', 'Token exchange browser state cookie mismatch - BLOCKED', {
+      statePrefix: state.trim().substring(0, 8),
+      browserStatePresent: Boolean(browserState),
+    });
+    return res.status(400).json({
+      error: 'BROWSER_STATE_MISMATCH',
+      message: 'The OAuth state does not belong to the browser that initiated the SSO flow.',
+    });
   }
 
   if (redirect_uri !== undefined && (typeof redirect_uri !== 'string' || redirect_uri.length > 2048)) {

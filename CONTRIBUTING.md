@@ -70,7 +70,7 @@ La situation actuelle de la CI est documentée dans :
 - [CI Management Audit](docs/audits/ci-management-audit-2026-09-23.md)
 - [CI-001 — Refonte du système CI](docs/roadmap/ci-management-refactor.md)
 
-L'étude conclut notamment que la prochaine refonte doit distinguer feedback Fast, certification profonde, smoke post-merge et certification Full. Elle ne modifie pas encore les workflows.
+CI-001 est désormais le chantier actif unique de CI. La tranche A/B fixe la baseline et les preuves avant toute refonte de topologie.
 
 ## Maintenance
 

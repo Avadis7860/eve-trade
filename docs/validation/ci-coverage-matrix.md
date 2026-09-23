@@ -1,6 +1,6 @@
 # CI-001 — Global Coverage Matrix
 
-Status: ACTIVE IMPLEMENTATION GATE — CI-001E
+Status: ACTIVE IMPLEMENTATION GATE — CI-001F
 Date: 2026-09-23
 Scope: durable coverage of CI, validation, security, delivery and governance
 Parent: [CI-001 — Refonte du système CI](../roadmap/ci-management-refactor.md)
@@ -47,9 +47,9 @@ A future optimization is not accepted merely because it reduces wall-clock time.
 | Server boot/runtime | smoke test | COVERED | D/E/H | post-merge smoke |
 | ESI protocol/gateway | ESI + security tests | COVERED | D/E | cert + failure-path proof |
 | Market data degraded states | market quality + UX-01 | COVERED | E | regression of LIVE/CACHE/STALE/PARTIAL/ERROR/UNKNOWN |
-| Browser OAuth/ESI composition | Playwright | COVERED | F | split by browser responsibility |
+| Browser OAuth/ESI composition | Playwright | COVERED | F | split into Auth and Operations jobs |
 | Browser critical trading workflows | only Operations increment currently | PARTIAL | F + later E2E-002 | expand after UX contracts |
-| Browser parallel safety | workers=1; harness has mutable global state | PARTIAL | F | isolated test state before workers>1 |
+| Browser parallel safety | Auth and Operations isolated by job; each job keeps `workers=1`; harness module state remains local to its job | PARTIAL | F | prove state isolation before workers>1 |
 | SDE artifact integrity | dedicated read-only SDE gate | COVERED | G | same source/trigger/concurrency model |
 | General change detection | SDE only today | GAP | G | conservative domain detection |
 | Stable required check | no dedicated aggregator | GAP | G | \`CI / required-gate\` |

@@ -26,9 +26,15 @@ The [caller matrix](../validation/p0-a-market-consumers.md) maps the direct rout
 
 No production code change is required by P0-A. The legacy `EsiService.fetchLiveOrders()` helper is recorded as a latent quality-loss hazard but has no production caller and is not reused.
 
+## P0-B implementation result
+
+P0-B is **IMPLEMENTED / PENDING CI CERTIFICATION** on branch `test/p0-market-429-retry-after`.
+
+The [deterministic 429 proof](../validation/p0-b-429-retry-after.md) now asserts HTTP 429, `ERROR`, active-order retention, visible HTTP status, ESI budget, Retry-After and absence of a false empty state.
+
 ## Next increments
 
-1. Add deterministic browser coverage for HTTP 429 with Retry-After and ESI budget metadata.
+1. Certify and merge the P0-B PR.
 2. Execute/capture the real target-PC evidence bundle: affected hub, UTC timestamp, request/status, cache/pagination headers, ESI error-budget headers, Retry-After where present, and whether the same request succeeds from a controlled comparison environment.
 3. Close UX-01 as either **ROOT-CAUSED** (reproducible technical cause) or **EXTERNALLY BOUNDED** (code path certified; remaining evidence dependency explicitly outside the repository).
 

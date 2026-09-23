@@ -57,7 +57,7 @@ A future optimization is not accepted merely because it reduces wall-clock time.
 | Branch protection verification | API access unavailable in study | DEFERRED / FOLLOW-UP | G/J | verify administratively when repository governance is next hardened |
 | Merge queue compatibility | not evidenced in repo | CONDITIONAL | G | add \`merge_group\` if adopted |
 | Concurrency governance | same-reference cancellation only | PARTIAL | D/G/H | per-PR stale-run cancellation + explicit PR policy |
-| PR lifecycle governance | implicit | PARTIAL | H | Draft iteration / Ready certification / no PR churn |
+| PR lifecycle governance | Draft and Ready both use the same PR certification workflow today; no separate lightweight Fast Gate trigger exists | DEFERRED / FOLLOW-UP | CI-002 | explicit Draft Fast / Ready Certification routing with stable required checks |
 | Test taxonomy | canonical ownership doc + controlled overlap reduction | PARTIAL | E | one canonical responsibility per test |
 | Flaky-test policy | no explicit quarantine/ownership model | DEFERRED / FOLLOW-UP | E/H | dedicated resilience hardening track |
 | Failure diagnostics | browser artifacts; standard job logs elsewhere | PARTIAL | H | failure-specific artifacts/summaries |

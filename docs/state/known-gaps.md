@@ -7,7 +7,7 @@ Source of truth: code, tests, CI and current state documents
 ## UX / product gaps
 
 - The UI information architecture does not yet reflect the mature trading workflow of discovery -> operations -> performance -> allocation -> cockpit.
-- Operations remains a partial product surface, but the current browser decision-loop/lifecycle gate is closed for keep / adjust / relocate / cancel, active-order loading/empty, market CACHE/UNKNOWN, failed-refresh preservation and health-aware outbid filtering. Further UX-02 work remains around refresh coordination and broader source/row consistency coverage.
+- Operations remains a partial product surface, while the current deterministic gate now covers the decision loop, loading/empty, all market health states, failed-refresh preservation, refresh coordination, canonical market-source deduplication and row ↔ detail consistency. Remaining UX-02 work is broader product-surface scope, not an open lifecycle/data-truth gate.
 - Portfolio currently presents an allocation simulation but is fed from opportunities derived from the selected item, preventing genuine cross-item diversification.
 - The Journal remains manual despite authoritative ESI-derived transaction/order-history/journal data being available.
 - Parameters mix trading policy, logistics, treasury and technical maintenance; some visible controls have no demonstrated effective engine consumer.

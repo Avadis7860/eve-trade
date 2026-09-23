@@ -16,6 +16,9 @@ CI gate: Playwright browser E2E + full regression CI
 | Valid EMPTY market snapshot followed by fetch failure | Empty observation is preserved and degraded to STALE instead of becoming ERROR/EMPTY | PASS via market-data unit test |
 | Market CACHE / UNKNOWN | CACHE remains actionable; UNKNOWN remains non-actionable | PASS via unit test + browser coverage |
 | Outbid filter vs health | PARTIAL / STALE market context is excluded from the outbid filter | PASS via browser coverage |
+| Background sync vs explicit refresh | Explicit refresh waits for an in-flight background market sync, then performs the single forced refresh | PASS via focused unit test |
+| Combined market sources / canonical dedup | Duplicate canonical OrderIds appear once; canonical MarketDataStore value wins when auxiliary sources also contain the order | PASS via focused engine test |
+| Row ↔ detail consistency | Same active order keeps owner, item, location, health, remaining quantity and decision context consistent between row and detail | PASS via browser coverage |
 | Order detail | Ownership, observation, expected remaining result and decision context are visible | PASS via UX-02 browser suite |
 | Projected vs realized values | Remaining sell value is labeled projected; Operations does not claim realized P&L | Covered by typecheck + detail implementation |
 | LIVE decision = keep | Reliable keep recommendation is visible in row and detail | PASS in CI run #567 |

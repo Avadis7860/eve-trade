@@ -51,7 +51,7 @@ for (const command of requiredCiCommands) {
 const jobsSection = ci.match(/^jobs:\s*\n([\s\S]*)$/m)?.[1];
 assert.ok(jobsSection, 'CI workflow must declare a jobs section');
 
-const jobIds = [...jobsSection.matchAll(/^  ([A-Za-z0-9_-]+):\s*$/gm)].map((match) => match[1]);
+const jobIds = [...jobsSection.matchAll(/^  ([A-Za-z0-9_-]+):[ \t]*$/gm)].map((match) => match[1]);
 assert.deepEqual(
   jobIds,
   ALL_JOB_IDS,
@@ -61,7 +61,7 @@ assert.deepEqual(
 const jobBlock = (jobId) => {
   const escapedId = jobId.replace(/[.*+?^{}()|[\\]\\]/g, '\\$&');
   const match = jobsSection.match(new RegExp(
-    `^  ${escapedId}:\\s*$([\\s\\S]*?)(?=^  [A-Za-z0-9_-]+:\\s*$|$)`,
+    `^  ${escapedId}:[ \\t]*\\n([\\s\\S]*?)(?=^  [A-Za-z0-9_-]+:[ \\t]*$|$)`,
     'm',
   ));
   assert.ok(match, `CI job block missing: ${jobId}`);

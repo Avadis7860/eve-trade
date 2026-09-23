@@ -34,32 +34,29 @@ Define and approve the target model:
 - Cockpit;
 - Control Center.
 
-Deliverables:
-- navigation model;
-- responsibility map per screen;
-- shared vocabulary;
-- shared state/health vocabulary;
-- cross-screen transition map.
-
 Gate:
 all six surface responsibilities documented without overlapping ownership.
 
 ### UX-01 — Market truth / retrieval observability
-Status: P0 / ACTIVE — RETRIEVAL RELIABILITY CLOSE GATE
+Status: P0 / CLOSURE GATE
 
 Purpose:
-establish why market-order acquisition can fail and ensure the UI never converts technical failure into an empty market state.
+ensure market-order acquisition failures are explicit and never become ordinary empty business state, while closing the reported target-PC incident with evidence.
 
-Deliverables:
-- observable market request lifecycle;
-- explicit HTTP/ESI/cache/rate-limit status;
-- stale-cache fallback state;
-- per-hub market health;
-- reproducible target-PC smoke evidence;
-- regression tests for ERROR/PARTIAL/STALE.
+Completed:
+- observable error propagation on the public market-order path;
+- HTTP/cache/ESI rate-limit diagnostics forwarded to browser-visible market health;
+- stale-cache preservation for previously observed market data;
+- deterministic ERROR/PARTIAL/STALE behavior and browser proof;
+- global synchronization failure accounting for market-quality ERROR.
+
+Remaining:
+- audit non-Operations market consumers for failure-to-empty collapse;
+- add deterministic HTTP 429 / Retry-After browser coverage;
+- capture target-PC evidence bundle and classify the incident as ROOT-CAUSED or EXTERNALLY BOUNDED.
 
 Gate:
-the implementation now exposes the required market-health evidence and recovery states; the target-PC market-order incident remains NOT ROOT-CAUSED until a target-PC capture contains the required hub, timestamp, HTTP/cache/ESI/rate-limit evidence.
+all repository-side failure paths are explicit and covered, and the target-PC incident has either a reproducible root cause or a documented external evidence boundary.
 
 ### UX-02 — Operations / Mes Ordres
 Status: DONE / MERGED
@@ -78,21 +75,17 @@ Deliverables:
 - explicit loading, empty, stale, partial and error acceptance.
 
 Gate:
-a trader can inspect an active order and decide whether to keep, adjust, relocate or cancel without leaving the operations context for routine information. Certified by PR #61 run `35859213922`; final status is DONE after PR #61 merge.
+a trader can inspect an active order and decide whether to keep, adjust, relocate or cancel without leaving the operations context for routine information. Certified by PR #61 run `35859213922` and P0 browser diagnostics by PR #63 run `35862904773`.
 
 ### UX-03 — Allocation / Portefeuille
-Status: P1
+Status: P1 — NEXT PRODUCT BUILD AFTER P0
 
-Deliverables:
-- Real Portfolio view;
-- Proposed Allocation view;
-- multi-item opportunity input universe;
-- allocation rationale;
-- concentration exposure;
-- capital remaining;
-- diversification by item/group/category/route;
-- projected ROI and profit/day;
-- rejection/remainder reasons.
+Preparation before implementation:
+- freeze Real Portfolio vs Proposed Allocation information hierarchy;
+- define cross-item opportunity universe contract;
+- define concentration/diversification explanations;
+- define loading/empty/stale/partial/error behavior;
+- define scenarios for a multi-opportunity capital allocation.
 
 Gate:
 the system can produce a meaningful diversified allocation across multiple opportunities independent of the currently selected catalog item.
@@ -118,13 +111,11 @@ financial truth comes from ESI-derived observations, not manual entry.
 ### UX-05 — Control Center / Paramètres
 Status: P1
 
-Deliverables:
-- real decision parameters surfaced;
-- groups organized by business intent;
-- impact explanations;
-- source-of-truth indicators;
-- unwired parameters hidden or clearly disabled;
-- technical maintenance separated from trading policy.
+Preparation before implementation:
+- map every visible control to a real engine consumer;
+- separate business policy from technical maintenance;
+- define precedence/source-of-truth behavior;
+- define impact explanations and non-operative labeling.
 
 Gate:
 every visible business parameter has a documented consumer or is explicitly labeled non-operative.
@@ -132,30 +123,8 @@ every visible business parameter has a documented consumer or is explicitly labe
 ### UX-06 — Cockpit
 Status: P2
 
-Deliverables:
-- now/next decision summary;
-- urgent actions;
-- capital;
-- actionable discovery;
-- allocation snapshot;
-- recent performance;
-- data-health warnings.
-
-Gate:
-cockpit answers "what should I know/do now?" without reproducing the full contents of the other views.
-
 ### UX-07 — Interaction, responsive and accessibility hardening
 Status: P2
-
-Deliverables:
-- desktop/tablet/mobile behavior;
-- keyboard/focus states;
-- density tuning;
-- reduced cognitive load;
-- consistent loading/empty/error states.
-
-Gate:
-critical workflows pass browser validation on desktop and mobile breakpoints.
 
 ## Shared contracts required before implementation
 
@@ -171,7 +140,8 @@ Every surface must define:
 - loading state;
 - refresh behavior;
 - action semantics;
-- link/transition destination.
+- link/transition destination;
+- validation scenarios.
 
 ## Anti-drift rules
 

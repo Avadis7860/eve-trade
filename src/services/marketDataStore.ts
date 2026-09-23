@@ -562,6 +562,14 @@ export class MarketDataStore {
                 confidence: 0,
                 sync_duration_ms: 0,
               };
+              const failedSnapshot: MarketDataSnapshot = {
+                type_id: typeId,
+                region_id: hub.region_id,
+                orders: [],
+                timestamp: Date.now(),
+                quality: failedQuality,
+              };
+              this.setSnapshot(failedSnapshot);
               orderBooks[hub.region_id] = [];
               qualities[hub.region_id] = failedQuality;
             }

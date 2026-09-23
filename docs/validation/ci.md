@@ -89,7 +89,8 @@ The gate:
 - detects SDE-sensitive paths;
 - regenerates the canonical graph/manifest;
 - fails on drift;
-- uses read-only repository permissions.
+- uses read-only repository permissions;
+- now pins checkout/setup-node to immutable SHAs and verifies Node.js 22.23.2 / npm 10.9.8.
 
 It is currently low-cost and reliable. CI-001 will align its concurrency and result presentation with the future certification model.
 

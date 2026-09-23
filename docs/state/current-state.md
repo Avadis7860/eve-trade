@@ -13,6 +13,42 @@ The functional E2E-001 baseline is 9438bbedb2d44cf3f5f371144bcf72094955cd46. Det
 
 The current UX-first program is now in UX-02 Operations implementation. UX-01 is technically implemented; its target-PC market-order incident remains NOT ROOT-CAUSED.
 
+## CI / delivery state
+
+The current CI is **functionally valid but operationally inefficient**.
+
+Reference main studied:
+\`6e3f611f8bdce6ad42236f7082b3dc044582dbef\`
+
+Reference successful CI run:
+\`35826687206\`
+
+Observed baseline:
+
+- \`validate\` ≈ 104 s;
+- \`browser-e2e\` ≈ 166 s;
+- browser waits for \`validate\`, producing ≈ 276 s of workflow path on that run;
+- the main test script contains about 37 sequential commands;
+- several specialized gates re-execute tests already present in the global test script;
+- current concurrency cancels obsolete runs on one workflow reference, but does not coordinate distinct PRs.
+
+The historical action data also shows high churn on some branches, with many cancelled runs. The study concludes that this is a combined **topology + certification taxonomy + PR governance** problem rather than a single slow-test problem.
+
+A dedicated study is recorded in [CI management audit](../audits/ci-management-audit-2026-09-23.md), with implementation plan [CI-001](../roadmap/ci-management-refactor.md).
+
+### Current CI management decision
+
+CI-001 is **PLANNED / PRIORITY DECISION PENDING**.
+
+No CI implementation has been changed as part of this documentation update.
+
+Until a priority decision is made:
+
+- the current \`ci.yml\` remains the certification mechanism;
+- the current SDE Truth Gate remains authoritative for SDE-sensitive changes;
+- no required check name should be changed without first verifying main branch protection;
+- a new PR must not be opened solely to obtain a new CI signal.
+
 ## Stable foundations
 
 - Canonical catalog protected by version/count/checksum manifest.
@@ -41,7 +77,7 @@ The current engine/domain layers are ahead of the UI information architecture.
 ## Active product gaps
 
 - Target-PC public market-order retrieval failure is reported but not root-caused.
-- Market acquisition failures can be collapsed into apparent empty business state by silent error handling.
+- Market acquisition failures can be collapsed into apparent empty business state by silent error handling in some non-Operations paths.
 - Operations is partially implemented; the remaining gate is end-to-end validation of keep / adjust / relocate / cancel decisions with explicit data-health states.
 - No coherent Real Portfolio vs Proposed Allocation split exists yet.
 - No automatic ESI-derived performance history replaces the manual journal yet.
@@ -54,15 +90,17 @@ UX-02 is the active implementation chantier.
 
 UX-01 is technically implemented and merged. Its target-PC market-order incident remains NOT ROOT-CAUSED pending capture of the required PC-side evidence.
 
-PST-001, UI-001, E2E-002, UI-002, PERF-001 and TYPE-001 are DEFERRED until the UX sequencing gate is passed.
+CI-001 is a cross-cutting infrastructure candidate prepared by the 2026-09-23 CI study. It is documented and implementation-ready, but is not yet the active chantier.
+
+PST-001, UI-001, E2E-002, UI-002, PERF-001 and TYPE-001 remain deferred until the UX sequencing gate is passed unless their dependency is explicitly reclassified.
 
 ## Reference paths
 
+[CI Validation](../validation/ci.md) ·
+[CI Management Audit](../audits/ci-management-audit-2026-09-23.md) ·
+[CI-001 Plan](../roadmap/ci-management-refactor.md) ·
 [UI/UX Product Audit](../audits/ui-ux-product-audit-2026-09-23.md) ·
 [UX Program](../roadmap/ux-program.md) ·
 [Master Plan](../roadmap/master-plan.md) ·
 [Truth Matrix](truth-matrix.md) ·
-[Known Gaps](known-gaps.md) ·
-[Frontend](../architecture/frontend.md) ·
-[Trading Orders](../domains/trading/orders.md) ·
-[Financial Truth](../domains/finance/financial-truth.md)
+[Known Gaps](known-gaps.md)

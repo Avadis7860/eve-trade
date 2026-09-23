@@ -28,3 +28,6 @@ CI gate: Playwright browser E2E + full regression CI
 ## Remaining manual evidence
 
 This deterministic browser suite does not replace target-PC real-CCP evidence. UX-01 target-PC status remains NOT ROOT-CAUSED until the required hub, timestamp, HTTP status, cache, pagination and ESI/rate-limit headers are captured on the affected PC.
+
+## Current gate note
+The degraded-data recommendation gate is enforced by `FailureSemantics.isActionable()`; CI must remain the final acceptance proof.

@@ -27,7 +27,7 @@ const EXECUTION_JOB_IDS = [
 ];
 
 const AGGREGATOR_JOB_IDS = ['validate', 'browser-e2e'];
-const ALL_JOB_IDS = [DETECTION_JOB_ID, ...EXECUTION_JOB_IDS, ...AGGREGATOR_JOB_IDS, 'required-gate'];
+const ALL_JOB_IDS = [DETECTION_JOB_ID, ...EXECUTION_JOB_IDS, ...AGGREGATOR_JOB_IDS, 'required-gate', 'observability'];
 
 const requiredCiCommands = [
   'npm run test:e2e:auth',
@@ -146,6 +146,19 @@ assert.match(
 assert.ok(requiredGateBlock.includes('needs.detect-changes.result'), 'Stable required-gate must inspect change detection result');
 assert.ok(requiredGateBlock.includes('needs.validate.result'), 'Stable required-gate must inspect non-browser validation result');
 assert.ok(requiredGateBlock.includes('needs.browser-e2e.result'), 'Stable required-gate must inspect browser validation result');
+const observabilityBlock = jobBlock('observability');
+assert.ok(observabilityBlock.includes('if: ${{ always() }}'), 'Observability must run even when certification fails');
+assert.ok(observabilityBlock.includes('needs: [required-gate]'), 'Observability must depend on the stable gate without becoming part of it');
+assert.ok(observabilityBlock.includes('contents: read'), 'Observability must keep repository access read-only');
+assert.ok(observabilityBlock.includes('actions: read'), 'Observability must use read-only Actions API access');
+assert.ok(observabilityBlock.includes('actions/checkout@' + ACTION_PINS.checkout), 'Observability checkout must be pinned');
+assert.ok(observabilityBlock.includes('actions/setup-node@' + ACTION_PINS.setupNode), 'Observability setup-node must be pinned');
+assert.ok(observabilityBlock.includes('persist-credentials: false'), 'Observability checkout must disable credential persistence');
+assert.ok(observabilityBlock.includes('node-version: 22.23.2'), 'Observability must use the pinned Node runtime');
+assert.ok(observabilityBlock.includes('node scripts/ci-observability.mjs'), 'Observability must execute the collector');
+assert.ok(observabilityBlock.includes('CI_OBSERVABILITY_FILE:'), 'Observability output path must be explicit');
+assert.ok(observabilityBlock.includes('actions/upload-artifact@' + ACTION_PINS.uploadArtifact), 'Observability artifact upload must be pinned');
+assert.ok(observabilityBlock.includes('ci-observability-${{ github.run_id }}-${{ github.run_attempt }}'), 'Observability artifact must identify run and attempt');
 
 assert.match(jobBlock('validate'), /^[ \t]+needs: \[detect-changes, static, unit_domain, server, build\][ \t]*$/m, 'Validation compatibility gate must aggregate detector and non-browser lanes');
 assert.match(jobBlock('browser-e2e'), /^[ \t]+needs: \[detect-changes, browser-auth, browser-operations\][ \t]*$/m, 'Browser compatibility gate must aggregate detector and browser lanes');

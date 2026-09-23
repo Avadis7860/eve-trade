@@ -41,6 +41,7 @@ import { MyOrdersView } from './components/MyOrdersView';
 import { ConnectedCharactersModal } from './components/ConnectedCharactersModal';
 import { GlobalMarketSyncModal } from './components/GlobalMarketSyncModal';
 import { GlobalScannerView } from './components/GlobalScannerView';
+import { MarketDataHealth } from './components/MarketDataHealth';
 
 const AppShell: React.FC = () => {
   // Catalog Context
@@ -89,6 +90,7 @@ const AppShell: React.FC = () => {
     historyCache,
     isSyncingLiveEsi,
     syncStatusMsg,
+    qualities,
     syncLiveESI,
   } = useMarketData(selectedType.type_id, selectedType.name, hubs);
 
@@ -420,6 +422,8 @@ const AppShell: React.FC = () => {
             </span>
           </div>
         )}
+
+        <MarketDataHealth hubs={hubs} qualities={qualities} isSyncing={isSyncingLiveEsi} onRefresh={syncLiveESI} />
 
         {/* Live ESI sync notification */}
         {syncStatusMsg && (

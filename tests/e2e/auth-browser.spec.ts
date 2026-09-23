@@ -253,11 +253,21 @@ test.describe('E2E-001 — browser OAuth composition', () => {
     expect(await emptyCharacterStore(page)).toBeTruthy();
   });
 
-  test('rejects a replayed OAuth callback state', async ({ page }) => {
+  test('rejects a replayed OAuth callback state', async ({ page, context }) => {
     const { popup } = await launchSso(page);
     const callbackUrl = await waitForOAuthCallback(popup);
     await expectAuthenticatedCharacter(page, ALPHA.name);
     await popup.close();
+
+    await context.addCookies([{
+      name: 'eve_trade_oauth_state_v1',
+      value: callbackUrl.searchParams.get('state')!,
+      domain: '127.0.0.1',
+      path: '/',
+      httpOnly: true,
+      secure: false,
+      sameSite: 'Lax',
+    }]);
 
     const replay = await page.goto(callbackUrl.toString());
     expect(replay?.status()).toBe(400);

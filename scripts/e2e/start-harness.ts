@@ -373,7 +373,8 @@ async function handleMock(req: http.IncomingMessage, res: http.ServerResponse): 
       (typeId === 34 ? 10 : 20);
     const currentCompetingSellPrice =
       operationsDecisionScenario === 'keep' ? 101 :
-      operationsDecisionScenario === 'adjust' || operationsDecisionScenario === 'cancel' ? 95 :
+      operationsDecisionScenario === 'adjust' ? 95 :
+      operationsDecisionScenario === 'cancel' ? 10 :
       operationsDecisionScenario === 'relocate' ? 110 :
       (typeId === 34 ? 95 : 195);
     const regionalOrders =

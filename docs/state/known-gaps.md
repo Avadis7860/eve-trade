@@ -7,7 +7,7 @@ Source of truth: code, tests, CI and current state documents
 ## UX / product gaps
 
 - The UI information architecture does not yet reflect the mature trading workflow of discovery -> operations -> performance -> allocation -> cockpit.
-- Operations is partially implemented: the active-order console now exposes the main operational context, but browser validation of the complete decision loop is still open.
+- Operations remains a partial product surface, but browser validation of the current decision loop is no longer open: deterministic CI covers keep / adjust / relocate / cancel and the explicit health-state behavior. Further product scope can continue under UX-02.
 - Portfolio currently presents an allocation simulation but is fed from opportunities derived from the selected item, preventing genuine cross-item diversification.
 - The Journal remains manual despite authoritative ESI-derived transaction/order-history/journal data being available.
 - Parameters mix trading policy, logistics, treasury and technical maintenance; some visible controls have no demonstrated effective engine consumer.

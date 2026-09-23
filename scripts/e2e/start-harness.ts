@@ -563,6 +563,7 @@ async function handleMock(req: http.IncomingMessage, res: http.ServerResponse): 
         duration: 90,
       },
     ], { 'X-Pages': '1' });
+  }
 
   const corpOrdersMatch = esiPath.match(/^\/corporations\/(\d+)\/orders\/$/);
   if (corpOrdersMatch && req.method === 'GET') {

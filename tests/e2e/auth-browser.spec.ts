@@ -86,6 +86,17 @@ async function launchSsoWithoutPopup(page: Page): Promise<void> {
   expect(authResponse.ok()).toBeTruthy();
 }
 
+async function waitForOAuthCallback(popup: Page): Promise<URL> {
+  await popup.waitForURL(/\/auth\/callback\?/, {
+    waitUntil: 'commit',
+    timeout: 15_000,
+  });
+
+  const callbackUrl = new URL(popup.url());
+  expect(callbackUrl.searchParams.get('state')).toBeTruthy();
+  return callbackUrl;
+}
+
 async function launchSso(page: Page): Promise<{ popup: Page; authUrl: string }> {
   await selectAppCallback(page);
 
@@ -134,10 +145,7 @@ test.describe('E2E-001 — browser OAuth composition', () => {
     expect(new URL(authUrl).port).toBe(String(MOCK_PORT));
     expect(new URL(authUrl).pathname).toBe('/v2/oauth/authorize/');
 
-    await popup.waitForURL(/\/auth\/callback\?code=.*&state=/, {
-      waitUntil: 'domcontentloaded',
-      timeout: 15_000,
-    });
+    await waitForOAuthCallback(popup);
 
     await expectAuthenticatedCharacter(page, ALPHA.name);
     const persistedSession = await page.evaluate(() => {
@@ -237,10 +245,7 @@ test.describe('E2E-001 — browser OAuth composition', () => {
     await configureNextAuth(request, { delayMs: 1500 });
 
     const { popup } = await launchSso(page);
-    await popup.waitForURL(/\/auth\/callback\?code=.*&state=/, {
-      waitUntil: 'domcontentloaded',
-      timeout: 15_000,
-    });
+    await waitForOAuthCallback(popup);
 
     await expect(popup.getByText(/Sécurité CSRF : Jeton Invalide ou Expiré/)).toBeVisible({
       timeout: 15_000,
@@ -251,12 +256,9 @@ test.describe('E2E-001 — browser OAuth composition', () => {
 
   test('rejects a replayed OAuth callback state', async ({ page }) => {
     const { popup } = await launchSso(page);
-    await popup.waitForURL(/\/auth\/callback\?code=.*&state=/, {
-      waitUntil: 'domcontentloaded',
-      timeout: 15_000,
-    });
+    await waitForOAuthCallback(popup);
 
-    const callbackUrl = popup.url();
+    const callbackUrl = new URL(popup.url());
     await expectAuthenticatedCharacter(page, ALPHA.name);
     await popup.close();
 
@@ -267,10 +269,7 @@ test.describe('E2E-001 — browser OAuth composition', () => {
 
   test('refreshes an expired character session through the real frontend API path', async ({ page }) => {
     const { popup } = await launchSso(page);
-    await popup.waitForURL(/\/auth\/callback\?code=.*&state=/, {
-      waitUntil: 'domcontentloaded',
-      timeout: 15_000,
-    });
+    await waitForOAuthCallback(popup);
     await expectAuthenticatedCharacter(page, ALPHA.name);
 
     await page.evaluate(() => {
@@ -301,10 +300,7 @@ test.describe('E2E-001 — browser OAuth composition', () => {
 
   test('logout clears the character session and returns to the SSO card', async ({ page }) => {
     const { popup } = await launchSso(page);
-    await popup.waitForURL(/\/auth\/callback\?code=.*&state=/, {
-      waitUntil: 'domcontentloaded',
-      timeout: 15_000,
-    });
+    await waitForOAuthCallback(popup);
     await expectAuthenticatedCharacter(page, ALPHA.name);
 
     await page.getByRole('button', { name: 'Déconnexion' }).click();
@@ -316,10 +312,7 @@ test.describe('E2E-001 — browser OAuth composition', () => {
 
   test('connects a second character and preserves strict character isolation', async ({ page, request }) => {
     const first = await launchSso(page);
-    await first.popup.waitForURL(/\/auth\/callback\?code=.*&state=/, {
-      waitUntil: 'domcontentloaded',
-      timeout: 15_000,
-    });
+    await waitForOAuthCallback(first.popup);
     await expectAuthenticatedCharacter(page, ALPHA.name);
     await first.popup.close();
 
@@ -330,10 +323,7 @@ test.describe('E2E-001 — browser OAuth composition', () => {
     await configureNextAuth(request, { character: 'beta' });
 
     const second = await launchSso(page);
-    await second.popup.waitForURL(/\/auth\/callback\?code=.*&state=/, {
-      waitUntil: 'domcontentloaded',
-      timeout: 15_000,
-    });
+    await waitForOAuthCallback(second.popup);
     await expectAuthenticatedCharacter(page, BETA.name);
     await second.popup.close();
 
@@ -376,11 +366,8 @@ test.describe('E2E-001 — browser OAuth composition', () => {
     });
 
     const { popup } = await launchSso(page);
-    await popup.waitForURL(/\/auth\/callback\?error=access_denied/, {
-      waitUntil: 'domcontentloaded',
-      timeout: 15_000,
-    });
-
+    const callbackUrl = await waitForOAuthCallback(popup);
+    expect(callbackUrl.searchParams.get('error')).toBe('access_denied');
     await expect(popup.getByText('Autorisation Refusée')).toBeVisible();
     expect(await emptyCharacterStore(page)).toBeTruthy();
     await expect(page.getByRole('banner').getByText(ALPHA.name, { exact: true })).toHaveCount(0);

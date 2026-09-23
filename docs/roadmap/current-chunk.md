@@ -26,16 +26,22 @@ The [caller matrix](../validation/p0-a-market-consumers.md) maps the direct rout
 
 No production code change is required by P0-A. The legacy `EsiService.fetchLiveOrders()` helper is recorded as a latent quality-loss hazard but has no production caller and is not reused.
 
-## P0-B implementation result
+## P0-B certification result
 
-P0-B is **IMPLEMENTED / PENDING CI CERTIFICATION** on branch `test/p0-market-429-retry-after`.
+P0-B is **DONE / MERGED / CERTIFIED** on main by PR #66 at merge commit `c0ddc69ef424ed0cfd4de776758166c3ee8c1abe`.
 
-The [deterministic 429 proof](../validation/p0-b-429-retry-after.md) now asserts HTTP 429, `ERROR`, active-order retention, visible HTTP status, ESI budget, Retry-After and absence of a false empty state.
+The [deterministic 429 proof](../validation/p0-b-429-retry-after.md) certified HTTP 429, `ERROR`, active-order retention, visible HTTP status, ESI budget, Retry-After and absence of a false empty state. PR CI and post-merge Main Smoke were green.
+
+## P0-C implementation result
+
+P0-C is **ACTIVE** on branch `feat/p0-target-pc-evidence`, based on main at `c0ddc69ef424ed0cfd4de776758166c3ee8c1abe`.
+
+The target-PC evidence workflow now includes a browser-visible JSON export containing the market request template, per-hub HTTP/cache/pagination/ESI/Retry-After diagnostics, data-health state, timestamp and non-secret browser context. The exported bundle deliberately records the controlled comparison result as `not_recorded`; that field must be established from the affected PC and a controlled comparison environment.
 
 ## Next increments
 
-1. Certify and merge the P0-B PR.
-2. Execute/capture the real target-PC evidence bundle: affected hub, UTC timestamp, request/status, cache/pagination headers, ESI error-budget headers, Retry-After where present, and whether the same request succeeds from a controlled comparison environment.
+1. Validate and merge the P0-C evidence-export increment.
+2. Run the exported evidence capture on the affected PC and from a controlled comparison environment, then classify the incident.
 3. Close UX-01 as either **ROOT-CAUSED** (reproducible technical cause) or **EXTERNALLY BOUNDED** (code path certified; remaining evidence dependency explicitly outside the repository).
 
 ## CI operator tooling — planned, not active

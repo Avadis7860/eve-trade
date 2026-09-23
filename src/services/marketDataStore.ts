@@ -419,7 +419,7 @@ export class MarketDataStore {
       activeHubs.length > 0 &&
       activeHubs.every((hub) => {
         const snap = this.getSnapshot(typeId, hub.region_id);
-        return snap && snap.quality.source === 'esi' && snap.timestamp > fiveMinutesAgo;
+        return snap && snap.timestamp > fiveMinutesAgo && snap.quality.source === 'esi' && snap.quality.error_count === 0 && snap.quality.completeness === 'complete' && (snap.quality.data_state === 'VALID' || snap.quality.data_state === 'EMPTY');
       });
 
     if (isAlreadyCached) {
@@ -447,7 +447,7 @@ export class MarketDataStore {
 
             const { orders, quality } = ordersResult;
 
-            if (quality.source === 'esi' && quality.error_count === 0) {
+            if (quality.source === 'esi' && orders.length > 0) {
               const snapshot: MarketDataSnapshot = {
                 type_id: typeId,
                 region_id: hub.region_id,
@@ -458,6 +458,19 @@ export class MarketDataStore {
               };
               this.setSnapshot(snapshot);
               orderBooks[hub.region_id] = orders;
+              qualities[hub.region_id] = quality;
+              if (quality.completeness === 'complete' && quality.error_count === 0) successCount++;
+            } else if (quality.source === 'esi' && quality.error_count === 0) {
+              const emptySnap: MarketDataSnapshot = {
+                type_id: typeId,
+                region_id: hub.region_id,
+                orders: [],
+                timestamp: Date.now(),
+                quality,
+                history: hist || undefined,
+              };
+              this.setSnapshot(emptySnap);
+              orderBooks[hub.region_id] = [];
               qualities[hub.region_id] = quality;
               successCount++;
             } else {

@@ -146,7 +146,7 @@ async function runQualityTests() {
     const url = String(input);
     if (url.includes('/api/markets/' + recoveryHub.region_id + '/orders')) {
       recoveryMarketCalls++;
-      return new Response(JSON.stringify([validOrder]), {
+      return new Response(JSON.stringify([{ ...validOrder, type_id: 37, order_id: '37001' }]), {
         status: 200,
         headers: {
           'Content-Type': 'application/json',
@@ -172,6 +172,8 @@ async function runQualityTests() {
   assert(recoveryMarketCalls === 1, 'An ERROR snapshot must not suppress a new market request');
   assert(recovery.orderBooks[recoveryHub.region_id]?.length === 1, 'Recovered ESI orders must replace the failed empty state');
   assert(recovery.qualities[recoveryHub.region_id]?.health_status === 'LIVE', 'Recovered complete ESI data must return to LIVE');
+  assert(recovery.qualities[recoveryHub.region_id]?.last_http_status === 200, 'Market quality must preserve final HTTP status');
+  assert(recovery.qualities[recoveryHub.region_id]?.cache_status === undefined, 'Mock response without cache header should not invent a cache state');
 
   console.log('✅ Failed market snapshot recovery / cache gate passed.');
   setBackendApiFetchForTesting(null);

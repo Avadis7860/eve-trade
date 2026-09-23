@@ -10,10 +10,11 @@ Objective: establish deterministic browser proof of the existing SSO → callbac
 ## Proof required
 
 - real Playwright browser reaches the SSO popup path through `SsoConnectCard`;
-- real application callback and `postMessage` composition;
+- real application callback and `postMessage` composition with a server-owned authorization-code exchange;
+- popup-blocked same-window callback recovery;
 - session persistence/restoration;
 - authenticated character and corporation ESI path through real application routes/gateways;
-- browser-level popup, state, OAuth-error, refresh, logout and multi-character isolation coverage;
+- browser-level popup, state, OAuth-error, refresh, logout, popup-blocked recovery and multi-character isolation coverage;
 - deterministic CI execution without CCP credentials;
 - local real-CCP smoke procedure documented separately.
 
@@ -34,4 +35,4 @@ The existing unit/API/security/ESI/corporation/build gates remain authoritative 
 
 ## Blockers
 
-The repository connector currently does not expose live workflow-run status for the pre-existing main baseline. Final completion therefore requires an actual CI run for this branch/PR.
+Final completion requires an actual green CI run for this branch/PR and the separate real-CCP smoke procedure on the target PC.

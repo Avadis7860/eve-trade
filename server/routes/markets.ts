@@ -17,6 +17,11 @@ function forwardMarketMetadata(res: Response, metadata: EsiResponseMetadata) {
   if (errorLimitReset !== undefined) {
     res.setHeader('X-ESI-Error-Limit-Reset', String(errorLimitReset));
   }
+
+  const retryAfter = metadata.rateLimit.retryAfterSeconds;
+  if (retryAfter !== undefined) {
+    res.setHeader('Retry-After', String(retryAfter));
+  }
 }
 
 function sendMarketError(res: Response, result: { status: number; error?: { kind: string } }) {

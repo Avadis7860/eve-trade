@@ -112,8 +112,8 @@ assert.match(
 );
 assert.match(
   jobBlock('validate'),
-  /^[ \t]+needs: \[static, unit_domain, server, build\][ \t]*$/m,
-  'The historical validate check must continue aggregating the non-browser execution lanes',
+  /^[ \t]+needs: \[detect-changes, static, unit_domain, server, build\][ \t]*$/m,
+  'The validation compatibility gate must aggregate change detection and all non-browser lanes',
 );
 assert.match(
   jobBlock('browser-e2e'),
@@ -122,8 +122,8 @@ assert.match(
 );
 assert.match(
   jobBlock('browser-e2e'),
-  /^[ \t]+needs: \[browser-auth, browser-operations\][ \t]*$/m,
-  'The historical browser-e2e check must continue aggregating both browser responsibility lanes',
+  /^[ \t]+needs: \[detect-changes, browser-auth, browser-operations\][ \t]*$/m,
+  'The browser compatibility gate must aggregate change detection and both browser responsibility lanes',
 );
 
 const requiredGateBlock = jobBlock('required-gate');

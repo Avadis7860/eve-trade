@@ -332,7 +332,7 @@ function renderAuthSuccessHtml(session: Record<string, unknown>): string {
     '      const browserResult = ' + browserResultJson + ';',
     '      if (window.opener) {',
     '        window.opener.postMessage({ type: "OAUTH_AUTH_SUCCESS", provider: "eve_sso", session: sessionData }, window.location.origin);',
-    '        setTimeout(() => window.close(), 250);',
+    '        setTimeout(() => window.close(), 1000);',
     '      } else {',
     '        try {',
     '          window.localStorage.setItem("' + OAUTH_BROWSER_RESULT_KEY + '", JSON.stringify(browserResult));',

@@ -444,3 +444,14 @@ D remains open until representative post-change runs confirm the behavior rather
 ### Rollback
 
 If topology introduces an unexplained race, coverage regression or material performance regression, revert the workflow and workflow-contract test to the preceding green CI-001C state on the same branch. The full historical command set remains intact for proof-safe rollback.
+
+
+## CI-001F — Browser isolation
+
+Applied on the same branch/PR after CI-001D and the initial CI-001E ownership step.
+
+The browser certification is now split into `browser-auth` and `browser-operations`. Each job installs its own dependencies/browser and starts its own fresh E2E harness process. The historical `browser-e2e` check remains as a compatibility aggregator requiring both jobs to succeed.
+
+Playwright remains at `workers: 1`. No assumption of intra-suite parallel safety has been introduced; the harness still contains mutable module-level controls, but those controls are no longer shared between Auth and Operations jobs.
+
+The E2E commands are explicit: `test:e2e:auth`, `test:e2e:operations`. The existing `test:e2e` full composition command remains available for Full/recovery.

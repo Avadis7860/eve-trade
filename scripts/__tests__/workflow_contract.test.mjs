@@ -76,6 +76,7 @@ assert.ok(detectionBlock.includes('BASE_SHA:'), 'Change detection must define an
 assert.ok(detectionBlock.includes('HEAD_SHA:'), 'Change detection must define an explicit head SHA');
 assert.ok(detectionBlock.includes('ambiguous=true'), 'Change detection must use a conservative ambiguity fallback');
 assert.ok(detectionBlock.includes('full_certification=true'), 'Change detection must fall back to full certification for high-impact or ambiguous scope');
+assert.ok(detectionBlock.includes('run_static='), 'Change detection must publish run_static selection');
 assert.ok(detectionBlock.includes('run_unit_domain='), 'Change detection must publish run_unit_domain selection');
 assert.ok(detectionBlock.includes('run_server='), 'Change detection must publish run_server selection');
 assert.ok(detectionBlock.includes('run_build='), 'Change detection must publish run_build selection');
@@ -86,6 +87,8 @@ assert.ok(ci.includes('steps.scope.outputs.run_build'), 'CI must expose run_buil
 assert.ok(ci.includes('steps.scope.outputs.run_browser'), 'CI must expose run_browser output');
 assert.ok(detectionBlock.includes('tests=true'), 'Test changes must force full certification');
 assert.ok(detectionBlock.includes('frontend=true'), 'Frontend changes must be detectable');
+assert.ok(detectionBlock.includes('scripts/ci-scope.mjs'), 'Change detection must use the tested scope classifier');
+assert.ok(detectionBlock.includes('scripts/__tests__/ci_scope.test.mjs'), 'Change detection must execute the scope classifier tests');
 assert.ok(detectionBlock.includes('GITHUB_STEP_SUMMARY'), 'Change detection must publish an observable scope summary');
 
 for (const jobId of EXECUTION_JOB_IDS) {
@@ -101,7 +104,8 @@ for (const jobId of EXECUTION_JOB_IDS) {
 for (const jobId of ['unit_domain', 'server', 'build', 'browser-auth', 'browser-operations']) {
   assert.match(jobBlock(jobId), /^[ \t]+needs: \[detect-changes\][ \t]*$/m, `Conditional job ${jobId} must depend on the change detector`);
 }
-assert.doesNotMatch(jobBlock('static'), /^[ \t]+needs:/m, 'Static lane must remain available regardless of scope selection');
+assert.match(jobBlock('static'), /^[ \t]+needs: \[detect-changes\][ \t]*$/m, 'Static lane must be routed through change detection');
+assert.match(jobBlock('static'), /needs\.detect-changes\.outputs\.run_static/, 'Static lane must be conditional by scope');
 
 assert.match(ci, /permissions:[ \t]*\n[ \t]+contents:[ \t]+read/, 'CI must declare read-only repository permissions');
 
@@ -143,6 +147,7 @@ assert.ok(requiredGateBlock.includes('needs.browser-e2e.result'), 'Stable requir
 
 assert.match(jobBlock('validate'), /^[ \t]+needs: \[detect-changes, static, unit_domain, server, build\][ \t]*$/m, 'Validation compatibility gate must aggregate detector and non-browser lanes');
 assert.match(jobBlock('browser-e2e'), /^[ \t]+needs: \[detect-changes, browser-auth, browser-operations\][ \t]*$/m, 'Browser compatibility gate must aggregate detector and browser lanes');
+assert.ok(jobBlock('validate').includes('needs.detect-changes.outputs.run_static'), 'Validation gate must inspect static selection');
 assert.ok(jobBlock('validate').includes('needs.detect-changes.outputs.run_unit_domain'), 'Validation gate must inspect unit/domain selection');
 assert.ok(jobBlock('validate').includes('needs.detect-changes.outputs.run_server'), 'Validation gate must inspect server selection');
 assert.ok(jobBlock('validate').includes('needs.detect-changes.outputs.run_build'), 'Validation gate must inspect build selection');
@@ -213,6 +218,7 @@ assert.ok(sde.includes('git diff --quiet -- src/data/universeGraph.json src/data
 assert.ok(sde.includes('exit 1'), 'SDE gate must fail on drift');
 
 const packageJson = JSON.parse(fs.readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
+assert.equal(packageJson.scripts['test:ci-scope'], 'node scripts/__tests__/ci_scope.test.mjs', 'CI scope router must have a direct test command');
 assert.equal(packageJson.scripts['test:corporation-boundary'], 'tsx src/services/__tests__/corporationTreasurySync.test.ts', 'Corporation boundary script must contain only its canonical unique proof');
 assert.ok(packageJson.scripts['test:corporation-boundary:full'], 'Full historical corporation-boundary composition must remain available for recovery/full certification');
 

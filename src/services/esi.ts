@@ -180,6 +180,11 @@ export class EsiService {
     const startTime = Date.now(); let pagesFetched = 0; let expectedPages = 1;
     let totalRawOrders = 0; let rejectedCount = 0; let duplicateCount = 0; let errorCount = 0;
     let lastError: string | undefined;
+    let lastHttpStatus: number | undefined;
+    let cacheStatus: 'HIT' | 'MISS' | 'REVALIDATED' | undefined;
+    let esiErrorLimitRemaining: number | undefined;
+    let esiErrorLimitResetSeconds: number | undefined;
+    let retryAfterSeconds: number | undefined;
     const seenOrderIds = new Set<string>(); const validOrders: RawMarketOrder[] = [];
     const processPage = (pageData: any[]) => {
       totalRawOrders += pageData.length;
@@ -192,6 +197,15 @@ export class EsiService {
     };
     const fetchPage = async (page: number) => {
       const result = await fetchBackendApi<any[]>(`/api/markets/${regionId}/orders?type_id=${typeId}&page=${page}`);
+      lastHttpStatus = result.status;
+      const rawCacheStatus = result.headers.get('x-cache-status');
+      if (rawCacheStatus === 'HIT' || rawCacheStatus === 'MISS' || rawCacheStatus === 'REVALIDATED') cacheStatus = rawCacheStatus;
+      const rawRemain = result.headers.get('x-esi-error-limit-remain');
+      const rawReset = result.headers.get('x-esi-error-limit-reset');
+      const rawRetryAfter = result.headers.get('retry-after');
+      if (rawRemain) esiErrorLimitRemaining = Number.parseInt(rawRemain, 10);
+      if (rawReset) esiErrorLimitResetSeconds = Number.parseInt(rawReset, 10);
+      if (rawRetryAfter) retryAfterSeconds = Number.parseInt(rawRetryAfter, 10);
       if (!result.ok && result.status !== 404) throw new Error(`Market API returned HTTP ${result.status}`);
       const xPages = result.headers.get('x-pages'); const parsed = xPages ? Number.parseInt(xPages, 10) : 1;
       return { data: Array.isArray(result.data) ? result.data : [], totalPages: Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 50) : 1 };
@@ -207,7 +221,7 @@ export class EsiService {
       return { orders: [], quality: {
         source:'unavailable', freshness:'expired', completeness:'empty', validation_status:'invalid', data_state:'ERROR', health_status:'ERROR',
         fetched_at:new Date().toISOString(), age_seconds:0, pages_fetched:0, expected_pages:1, orders_fetched:0, orders_valid:0,
-        duplicate_orders_removed:0, rejected_orders_count:0, error_count:errorCount, last_error:lastError, confidence:0, sync_duration_ms:Date.now()-startTime
+        duplicate_orders_removed:0, rejected_orders_count:0, error_count:errorCount, last_error:lastError, confidence:0, sync_duration_ms:Date.now()-startTime, last_http_status:lastHttpStatus, cache_status:cacheStatus, esi_error_limit_remaining:esiErrorLimitRemaining, esi_error_limit_reset_seconds:esiErrorLimitResetSeconds, retry_after_seconds:retryAfterSeconds
       }};
     }
     const completeness = pagesFetched >= expectedPages ? (validOrders.length === 0 ? 'empty' : 'complete') : pagesFetched > 0 ? 'partial' : 'empty';
@@ -216,7 +230,7 @@ export class EsiService {
       health_status:completeness==='partial'?'PARTIAL':'LIVE', validation_status:errorCount===0&&rejectedCount===0?'valid':'suspicious',
       fetched_at:new Date().toISOString(), age_seconds:0, pages_fetched:pagesFetched, expected_pages:expectedPages,
       orders_fetched:totalRawOrders, orders_valid:validOrders.length, duplicate_orders_removed:duplicateCount, rejected_orders_count:rejectedCount,
-      error_count:errorCount, last_error:lastError, confidence:expectedPages>0?Number((pagesFetched/expectedPages).toFixed(2)):1, sync_duration_ms:Date.now()-startTime
+      error_count:errorCount, last_error:lastError, confidence:expectedPages>0?Number((pagesFetched/expectedPages).toFixed(2)):1, sync_duration_ms:Date.now()-startTime, last_http_status:lastHttpStatus, cache_status:cacheStatus, esi_error_limit_remaining:esiErrorLimitRemaining, esi_error_limit_reset_seconds:esiErrorLimitResetSeconds, retry_after_seconds:retryAfterSeconds
     }};
   }
 

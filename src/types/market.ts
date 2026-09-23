@@ -57,6 +57,11 @@ export interface MarketDataQuality {
   last_error?: string;
   confidence: number; // 0.0 to 1.0
   sync_duration_ms: number;
+  last_http_status?: number;
+  cache_status?: 'HIT' | 'MISS' | 'REVALIDATED';
+  esi_error_limit_remaining?: number;
+  esi_error_limit_reset_seconds?: number;
+  retry_after_seconds?: number;
 }
 
 export interface RawMarketOrder {

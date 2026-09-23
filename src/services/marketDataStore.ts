@@ -419,7 +419,14 @@ export class MarketDataStore {
       activeHubs.length > 0 &&
       activeHubs.every((hub) => {
         const snap = this.getSnapshot(typeId, hub.region_id);
-        return snap && snap.quality.source === 'esi' && snap.timestamp > fiveMinutesAgo;
+        return Boolean(
+          snap &&
+          snap.timestamp > fiveMinutesAgo &&
+          snap.quality.source === 'esi' &&
+          snap.quality.error_count === 0 &&
+          (snap.quality.completeness === 'complete' || snap.quality.completeness === 'empty') &&
+          (snap.quality.data_state === 'VALID' || snap.quality.data_state === 'EMPTY')
+        );
       });
 
     if (isAlreadyCached) {
@@ -447,7 +454,7 @@ export class MarketDataStore {
 
             const { orders, quality } = ordersResult;
 
-            if (quality.source === 'esi' && quality.error_count === 0) {
+            if (quality.source === 'esi' && orders.length > 0) {
               const snapshot: MarketDataSnapshot = {
                 type_id: typeId,
                 region_id: hub.region_id,
@@ -459,6 +466,19 @@ export class MarketDataStore {
               this.setSnapshot(snapshot);
               orderBooks[hub.region_id] = orders;
               qualities[hub.region_id] = quality;
+              if (quality.completeness === 'complete' && quality.error_count === 0) successCount++;
+            } else if (quality.source === 'esi' && quality.error_count === 0) {
+              const emptySnap: MarketDataSnapshot = {
+                type_id: typeId,
+                region_id: hub.region_id,
+                orders: [],
+                timestamp: Date.now(),
+                quality,
+                history: hist || undefined,
+              };
+              this.setSnapshot(emptySnap);
+              orderBooks[hub.region_id] = [];
+              qualities[hub.region_id] = quality;
               successCount++;
             } else {
               // ESI returned partial or error: check previous cache
@@ -468,10 +488,18 @@ export class MarketDataStore {
                 const ageSec = Math.round((Date.now() - previousSnap.timestamp) / 1000);
                 const degradedQuality: MarketDataQuality = {
                   ...previousSnap.quality,
+                  source: 'cache',
                   freshness: 'stale',
+                  data_state: 'STALE',
+                  health_status: 'STALE',
                   age_seconds: ageSec,
                   confidence: Math.max(0.2, previousSnap.quality.confidence * 0.7),
                   last_error: quality.last_error || 'ESI sync issue, using cached snapshot',
+                  last_http_status: quality.last_http_status,
+                  cache_status: quality.cache_status,
+                  esi_error_limit_remaining: quality.esi_error_limit_remaining,
+                  esi_error_limit_reset_seconds: quality.esi_error_limit_reset_seconds,
+                  retry_after_seconds: quality.retry_after_seconds,
                 };
                 previousSnap.quality = degradedQuality;
                 orderBooks[hub.region_id] = previousSnap.orders;
@@ -502,7 +530,10 @@ export class MarketDataStore {
               const ageSec = Math.round((Date.now() - previousSnap.timestamp) / 1000);
               const degradedQuality: MarketDataQuality = {
                 ...previousSnap.quality,
+                source: 'cache',
                 freshness: 'stale',
+                data_state: 'STALE',
+                health_status: 'STALE',
                 age_seconds: ageSec,
                 confidence: Math.max(0.2, previousSnap.quality.confidence * 0.6),
                 last_error: String(err),
@@ -516,6 +547,8 @@ export class MarketDataStore {
                 freshness: 'expired',
                 completeness: 'empty',
                 validation_status: 'invalid',
+                data_state: 'ERROR',
+                health_status: 'ERROR',
                 fetched_at: new Date().toISOString(),
                 age_seconds: 0,
                 pages_fetched: 0,

@@ -45,7 +45,7 @@ Gate:
 all six surface responsibilities documented without overlapping ownership.
 
 ### UX-01 — Market truth / retrieval observability
-Status: P0 / IMPLEMENTED — OPERATIONAL VALIDATION OPEN
+Status: P0 / ACTIVE — RETRIEVAL RELIABILITY CLOSE GATE
 
 Purpose:
 establish why market-order acquisition can fail and ensure the UI never converts technical failure into an empty market state.
@@ -62,7 +62,7 @@ Gate:
 the implementation now exposes the required market-health evidence and recovery states; the target-PC market-order incident remains NOT ROOT-CAUSED until a target-PC capture contains the required hub, timestamp, HTTP/cache/ESI/rate-limit evidence.
 
 ### UX-02 — Operations / Mes Ordres
-Status: ACTIVE — GATE CERTIFIED / PRE-MERGE
+Status: DONE / MERGED
 
 Deliverables:
 - operational KPI strip;
@@ -78,7 +78,7 @@ Deliverables:
 - explicit loading, empty, stale, partial and error acceptance.
 
 Gate:
-a trader can inspect an active order and decide whether to keep, adjust, relocate or cancel without leaving the operations context for routine information. Certified by PR #61 run `35859213922`; final status becomes DONE when the PR is merged.
+a trader can inspect an active order and decide whether to keep, adjust, relocate or cancel without leaving the operations context for routine information. Certified by PR #61 run `35859213922`; final status is DONE after PR #61 merge.
 
 ### UX-03 — Allocation / Portefeuille
 Status: P1

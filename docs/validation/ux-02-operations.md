@@ -16,7 +16,7 @@ CI gate: Playwright browser E2E + full regression CI
 | Order detail | Ownership, observation, expected remaining result and decision context are visible | PASS via UX-02 browser suite |
 | Projected vs realized values | Remaining sell value is labeled projected; Operations does not claim realized P&L | Covered by typecheck + detail implementation |
 | KEEP | Active order is visibly classified as `Conserver`; detail exposes the keep rationale | PASS — PR #61 run `35859213922` |
-| ADJUST | Active order is visibly classified as `Ajuster`; detail exposes the target price rationale | Pending current-branch browser run |
+| ADJUST | Active order is visibly classified as `Ajuster`; detail exposes the target price rationale | PASS — PR #61 run `35859213922` |
 | RELOCATE | Active order is visibly classified as `Déplacer`; detail exposes the destination hub and economics | Pending current-branch browser run |
 | CANCEL | Active order is visibly classified as `Annuler`; detail exposes the cancellation rationale | Pending current-branch browser run |
 

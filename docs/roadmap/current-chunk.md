@@ -1,24 +1,24 @@
 # Current Chunk
 
 Status: ACTIVE
-Scope: UX-02 — Operations / Mes Ordres
+Scope: P0 — Market / ESI retrieval observability and reliability
 Reference: [UI/UX Product Audit](../audits/ui-ux-product-audit-2026-09-23.md)
 Program: [UX-First Trading Terminal Program](ux-program.md)
 Decision: [ADR-0002](../decisions/ADR-0002-ux-first-trading-terminal.md)
 
 ## Objective
 
-Turn Mes Ordres into the Operations console for active market positions while preserving canonical ownership and explicit market-data truth.
+Close the remaining P0 market/ESI retrieval reliability gate while preserving canonical data truth and producing reproducible evidence for the target-PC incident.
 
 ## Current increment
 
-- Operational KPI strip: liquidity, escrow, active orders, immobilized exposure, actions required, ageing risk.
-- Order rows expose ownership, side, item, location, price, fill ratio, remaining duration, exposure, market distance, health and recommendation.
-- Order detail exposes last market observation, recommendation rationale, projected remaining outcome and ownership provenance.
-- Active-order sync failures are explicit and never rendered as an ordinary empty state.
-- Order timing/market-distance derivations are covered by focused tests.
-- Performance analytics has been removed from the Operations component and remains owned by the Performance surface.
-- The current close gate adds deterministic browser scenarios for keep / adjust / relocate / cancel; **PR #61 run `35859213922` is green and certifies the gate.**
+- Inspect public market-order acquisition error propagation across EsiService → MarketEsiGateway → EsiGateway → UI consumers.
+- Identify concrete callers that still collapse fetch failures into empty/unchanged business data.
+- Preserve explicit LIVE / CACHE / STALE / PARTIAL / ERROR / UNKNOWN semantics.
+- Add deterministic regression coverage for affected failure paths.
+- Produce the evidence needed to narrow the target-PC incident without speculative provider/transport changes.
+
+The UX-02 Operations decision loop is already merged and certified by PR #61 run `35859213922`.
 
 ## Scope discipline
 
@@ -29,5 +29,5 @@ UX-01 technical implementation is merged and provides the shared market-data tru
 
 ## Validation
 
-UX-02 is complete when a trader can inspect an active order and decide keep / adjust / relocate / cancel from Operations without leaving for routine information, with explicit loading/empty/error/stale/partial behavior and focused browser validation.
+P0 is complete when the remaining market retrieval failure paths are explicitly observable, deterministic regression coverage exists, and the target-PC diagnosis has either a reproducible root cause or a clearly bounded external evidence requirement.
 

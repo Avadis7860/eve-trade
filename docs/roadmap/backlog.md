@@ -8,7 +8,7 @@ Source of truth: revalidated code and current state documents
 
 The authoritative product backlog is [UX-First Trading Terminal Program](ux-program.md).
 
-### P0 — Market / ESI truth and retrieval reliability
+### P0 — Market / ESI truth and retrieval reliability — ACTIVE
 
 - Establish observable lifecycle for public market-order requests.
 - Surface HTTP, ESI, cache and rate-limit outcomes to the UI.
@@ -16,10 +16,10 @@ The authoritative product backlog is [UX-First Trading Terminal Program](ux-prog
 - Reproduce and diagnose the reported target-PC failure to retrieve market orders.
 - Add regression coverage for ERROR, PARTIAL and STALE states.
 
-### P1 — Operations / Mes Ordres — ACTIVE / GATE CERTIFIED / PRE-MERGE
+### P1 — Operations / Mes Ordres — DONE / MERGED
 
-- Continue the Operations console from the merged first increment; active branch: `feat/ux-02-close-operations-gate`.
-- Close the browser decision gate for keep / adjust / relocate / cancel with deterministic fixtures and explicit degraded-data behavior. **Certified on PR #61 run `35859213922`; merge remains the final delivery transition.**
+- The Operations console first increment is merged.
+- Browser decision gate for keep / adjust / relocate / cancel is certified by PR #61 run `35859213922`.
 - Expose capital, escrow, active sell value, order age, fill ratio, remaining locked capital, estimated turnover, expected remaining return, market distance and data health.
 - Separate economic ownership scope from performance-analysis scope.
 - Keep the existing order advisor but make its decision context inspectable.
@@ -97,4 +97,4 @@ Historical issues are not copied into the active backlog unless they remain repr
 
 The UX-first sequencing gate is mandatory: no deferred technical item is promoted ahead of UX-00/UX-01 and the relevant surface contract without an explicit roadmap update.
 
-CI-001 is merged; no CI-only branch remains active. The next product chantier starts from the merged `main` head.
+CI-001 is merged; no CI-only branch remains active. UX-02 is also merged. The current product chantier starts from the merged `main` head.

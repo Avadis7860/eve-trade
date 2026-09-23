@@ -11,7 +11,7 @@ CI gate: [../validation/ci.md](../validation/ci.md)
 
 The functional E2E-001 baseline is 9438bbedb2d44cf3f5f371144bcf72094955cd46. Deterministic browser CI is green and the target-PC real-CCP SSO/ESI smoke PASS was recorded on 2026-09-23.
 
-The current UX-first program is now in UX-02 Operations implementation. UX-01 is technically implemented; its target-PC market-order incident remains NOT ROOT-CAUSED.
+The current UX-first program is now completing the P0 market/ESI retrieval reliability work. UX-01 technical implementation is merged; the target-PC market-order incident remains NOT ROOT-CAUSED.
 
 ## CI / delivery state
 
@@ -79,7 +79,7 @@ The current engine/domain layers are ahead of the UI information architecture.
 
 - Target-PC public market-order retrieval failure is reported but not root-caused.
 - Market acquisition failures can be collapsed into apparent empty business state by silent error handling in some non-Operations paths.
-- Operations decision-loop validation is now certified on PR #61 run `35859213922`: keep / adjust / relocate / cancel plus explicit LIVE/ERROR/PARTIAL/STALE behavior are covered. UX-02 remains the active chantier until that certified PR is merged.
+- UX-02 Operations is merged and its decision-loop validation is certified by PR #61 run `35859213922`: keep / adjust / relocate / cancel plus explicit LIVE/ERROR/PARTIAL/STALE behavior are covered.
 - No coherent Real Portfolio vs Proposed Allocation split exists yet.
 - No automatic ESI-derived performance history replaces the manual journal yet.
 - No clear business Control Center exists yet.
@@ -87,7 +87,7 @@ The current engine/domain layers are ahead of the UI information architecture.
 
 ## Current chantier / sequencing
 
-**UX-02 is now active and its close gate is certified** on `feat/ux-02-close-operations-gate`; PR #61 remains the only active PR for UX-02 until merge.
+**The current active chantier is P0 market/ESI retrieval observability**, on branch `fix/market-retrieval-observability`. UX-02 is merged and no longer has an active PR.
 
 UX-01 is technically implemented and merged. Its target-PC market-order incident remains NOT ROOT-CAUSED pending the required PC-side evidence.
 

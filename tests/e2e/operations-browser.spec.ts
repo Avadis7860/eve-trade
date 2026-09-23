@@ -127,6 +127,9 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
     await page.getByRole('button', { name: 'Sync Marché des Ordres' }).click();
     await expect(page.getByText('ERROR', { exact: true }).first()).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText('Décision indisponible', { exact: true }).first()).toBeVisible();
+    await expect(
+      page.getByLabel(/HTTP 401.*budget ESI/).first(),
+    ).toBeVisible();
     await expect(page.getByText('Impossible de déterminer l’état actuel des ordres.', { exact: true })).toHaveCount(0);
     await expect(page.locator('tbody tr').first()).toBeVisible();
 

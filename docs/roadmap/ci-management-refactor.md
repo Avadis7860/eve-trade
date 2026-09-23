@@ -477,7 +477,7 @@ Gate :
 
 ### CI-001H — Cycle Main : post-merge, Full et récupération
 
-État : ACTIVE — workflows Main/Full et récupération implémentés sur la branche CI-001 unique; première certification d'exécution dédiée encore à obtenir.
+État : IMPLEMENTED — workflows Main/Full et recovery runbook implémentés sur la branche CI-001 unique. Le Main Smoke est une preuve post-merge; le Full reste un contrôle manual/scheduled indépendant.
 
 Objectif : séparer santé immédiate et certification exhaustive.
 
@@ -497,7 +497,7 @@ Gate :
 
 ### CI-001I — Observabilité durable et contrôle de performance
 
-État : ACTIVE — collecteur de métriques ajouté aux workflows PR, Main Smoke et Full.
+État : COMPLETED — collecteur de métriques exécutable et runtime-verified par PR run `35856208503`.
 
 Objectif : transformer les gains ponctuels en système mesurable.
 
@@ -572,10 +572,14 @@ En particulier :
 
 ## Priorité
 
-État actuel : **ACTIVE — CI-001H**.
+État actuel : **PRE-MERGE CLOSURE — CI-001J**.
 
 CI-001 est désormais le chantier prioritaire unique pour la CI et la gouvernance de livraison. UX-02 reste suspendu pendant cette tranche d'infrastructure.
 
 CI-001D est désormais mesuré sur deux runs verts ; **CI-001E** a engagé l’ownership canonique ; **CI-001F** est la tranche active : isolation Auth/Operations et preuve de reproductibilité browser.
 
 La protection de branche et les required checks restent inchangés jusqu'à vérification administrative explicite.
+
+## Pre-merge closure
+
+Le chantier ne doit pas être modifié par de nouvelles optimisations avant merge. Les prérequis restants sont : validation humaine de la PR, vérification administrative de la branch protection/ruleset de `main`, et conservation du head vert. Le Main Smoke et le Full Certification restent des preuves séparées qui ne doivent pas être artificiellement produites comme prérequis de fusion.

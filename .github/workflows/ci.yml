@@ -128,22 +128,8 @@ jobs:
       - name: Production build
         run: npm run build
 
-  validate:
-    name: Validation & Non-Regression Gate
-    if: ${{ always() }}
-    needs: [static, unit_domain, server, build]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Verify validation lanes
-        run: |
-          test "${{ needs.static.result }}" = "success"
-          test "${{ needs.unit_domain.result }}" = "success"
-          test "${{ needs.server.result }}" = "success"
-          test "${{ needs.build.result }}" = "success"
-
-  browser-e2e:
-    name: Browser E2E — OAuth/ESI composition
+  browser-auth:
+    name: Browser E2E — Auth
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -165,14 +151,75 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-      - name: Browser E2E — deterministic OAuth/ESI
-        run: npm run test:e2e
-      - name: Upload Playwright report
+      - name: Browser Auth E2E
+        run: npm run test:e2e:auth
+      - name: Upload Auth Playwright report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: playwright-report
+          name: playwright-report-auth
           path: |
             playwright-report/
             test-results/
           if-no-files-found: ignore
+
+  browser-operations:
+    name: Browser E2E — Operations
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Setup Node.js 22.23.2
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Verify Node.js and npm versions
+        run: |
+          test "$(node --version)" = "v22.23.2"
+          test "$(npm --version)" = "10.9.8"
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Browser Operations E2E
+        run: npm run test:e2e:operations
+      - name: Upload Operations Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-report-operations
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+
+  validate:
+    name: Validation & Non-Regression Gate
+    if: ${{ always() }}
+    needs: [static, unit_domain, server, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify validation lanes
+        run: |
+          test "${{ needs.static.result }}" = "success"
+          test "${{ needs.unit_domain.result }}" = "success"
+          test "${{ needs.server.result }}" = "success"
+          test "${{ needs.build.result }}" = "success"
+
+  browser-e2e:
+    name: Browser E2E — OAuth/ESI composition
+    if: ${{ always() }}
+    needs: [browser-auth, browser-operations]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify browser responsibility lanes
+        run: |
+          test "${{ needs.browser-auth.result }}" = "success"
+          test "${{ needs.browser-operations.result }}" = "success"

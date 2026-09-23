@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
+    "dev": "node --env-file-if-exists=.env --import tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "lint": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
@@ -16,7 +16,7 @@
     "test:esi": "tsx server/__tests__/esi_gateway.test.ts && tsx server/__tests__/market_esi_gateway.test.ts && tsx server/__tests__/character_esi_gateway.test.ts && tsx server/__tests__/corporation_esi_gateway.test.ts && tsx server/__tests__/corporation_esi_architecture.test.ts && tsx server/__tests__/esi_hardening.test.ts",
     "test:corporation-boundary": "tsx src/engine/__tests__/financial_config.test.ts && tsx src/engine/__tests__/treasury.test.ts && tsx src/services/__tests__/corporationTreasurySync.test.ts && tsx server/__tests__/corporation_esi_gateway.test.ts && tsx server/__tests__/character_routes_contract.test.ts && tsx server/__tests__/corporation_esi_architecture.test.ts",
     "test:server": "npm run test:api && npm run test:smoke && npm run test:security && npm run test:esi",
-    "start": "node dist/server.cjs",
+    "start": "node --env-file-if-exists=.env dist/server.cjs",
     "preview": "vite preview --host 0.0.0.0 --port 3000",
     "test:truth": "tsx src/engine/__tests__/catalog_universe_truth.test.ts",
     "test:sde": "node scripts/__tests__/universe_graph_builder.test.mjs",

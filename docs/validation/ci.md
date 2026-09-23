@@ -9,7 +9,7 @@ CI gate: this workflow
 
 ## Current pipeline
 
-The `validate` job runs Node.js 22 + `npm ci`, frontend typecheck, backend typecheck, CI workflow contract tests, catalog/universe truth, corporation treasury/ESI boundary, full unit suite, API integration, server smoke, security hardening, ESI tests and production build.
+The `validate` job runs Node.js 22 + `npm ci`, frontend typecheck, backend typecheck, CI workflow contract tests, runtime configuration tests, EVE SSO JWT validation tests, catalog/universe truth, corporation treasury/ESI boundary, full unit suite, API integration, server smoke, security hardening, ESI tests and production build.
 
 The `browser-e2e` job runs after `validate`, installs Chromium through Playwright, and executes the deterministic browser OAuth/ESI composition gate. It does not require a CCP account or personal credentials and uploads Playwright diagnostics on completion.
 

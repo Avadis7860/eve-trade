@@ -9,10 +9,10 @@ CI gate: Playwright browser E2E + full regression CI
 
 | Scenario | Expected behavior | Automated |
 |---|---|---|
-| Active order + LIVE market | Operational KPIs, row context and detail are available | PASS via UX-02 browser suite |
+| Active order + LIVE market | Operational KPIs, row context and detail are available | PASS on previous run |
 | Market ERROR without prior market snapshot | Active order remains visible; health is ERROR; no recommendation is invented | PASS via UX-02 browser suite |
-| Market PARTIAL | Usable page/order data remains visible; market health is PARTIAL | PASS via UX-02 browser suite |
-| Existing market snapshot followed by fetch failure | Previous market context remains visible as STALE and carries the latest failure | PASS via UX-02 browser suite |
+| Market PARTIAL | Usable page/order data remains visible; market health is PARTIAL | PENDING after PARTIAL-vs-ERROR fix |
+| Existing market snapshot followed by fetch failure | Previous market context remains visible as STALE and carries the latest failure | PENDING after explicit-refresh serialization fix |
 | Order detail | Ownership, observation, expected remaining result and decision context are visible | PASS via UX-02 browser suite |
 | Projected vs realized values | Remaining sell value is labeled projected; Operations does not claim realized P&L | Covered by typecheck + detail implementation |
 

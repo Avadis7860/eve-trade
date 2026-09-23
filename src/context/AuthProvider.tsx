@@ -34,46 +34,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsub();
   }, [refreshState]);
 
-  // Authentication bootstrap is authoritative at provider mount. This keeps
-  // expired persisted sessions from waiting for a downstream data-sync effect
-  // before attempting their refresh.
-  useEffect(() => {
-    let cancelled = false;
-    const refreshExpiredActiveSession = async () => {
-      const active = AuthService.getActiveCharacter();
-      if (!active) return;
-
-      try {
-        const needsRefresh =
-          active.is_token_expired === true ||
-          !active.expires_at ||
-          active.expires_at <= Date.now();
-
-        const refreshed = needsRefresh
-          ? await AuthService.refreshCharacterToken(active)
-          : active;
-
-        if (!cancelled) {
-          refreshState();
-          if (refreshed.access_token && !refreshed.is_token_expired) {
-            refreshState();
-          }
-        }
-      } catch (error) {
-        if (!cancelled) {
-          refreshState();
-          console.warn('[AuthProvider] session bootstrap refresh failed:', error);
-        }
-      }
-    };
-
-    void refreshExpiredActiveSession();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshState]);
-
   const setActiveCharacter = useCallback((characterId: number) => {
     AuthService.setActiveCharacter(characterId);
     refreshState();

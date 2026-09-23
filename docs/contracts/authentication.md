@@ -11,7 +11,7 @@ Maintain EVE SSO v2 Authorization Code authentication and character-scoped crede
 
 ## Contract shape
 
-The client secret remains server-side. The browser returns to the registered callback with an authorization code and state; the server validates and consumes the state, exchanges the code at the EVE SSO token endpoint, verifies the returned JWT, and only then exposes the validated session to the browser.
+The client secret remains server-side. The browser returns to the registered callback with an authorization code and state; the server validates and consumes the state, discovers the current authorization/token/JWKS endpoints from CCP's well-known metadata document, exchanges the code at the discovered token endpoint, verifies the returned JWT, and only then exposes the validated session to the browser.
 
 CCP's official SSO documentation is the authority for the OAuth/JWT contract: https://developers.eveonline.com/docs/services/sso/.
 

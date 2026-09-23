@@ -1,9 +1,9 @@
 # CI Validation
 
-Status: CURRENT — CI-001 ACTIVE / A-B BASELINED
+Status: CURRENT — CI-001 ACTIVE / C + D IMPLEMENTED
 Scope: GitHub Actions regression gate and certification model
 Source of truth: \`.github/workflows/ci.yml\` and \`.github/workflows/phase-2.7c-sde.yml\`
-Implementation: current CI unchanged on main for CI-001A/B; refactor phases are now active
+Implementation: CI-001C hardened runtime/supply-chain controls; CI-001D splits the certification topology while retaining the historical `validate` check name
 Tests: \`npm run test:ci-config\` plus all validation and browser gates below
 
 Baseline: [CI-001A/B — Baseline](../audits/ci-management-baseline-2026-09-23.md)
@@ -57,7 +57,12 @@ The browser job remains separate from the non-browser validation surface.
 The current ordering is known to be suboptimal:
 
 \`\`\`
-validate ───────────────► browser-e2e
+static ────────────────┐
+unit_domain ────────────┤
+server ────────────────┤──► validate (compatibility check)
+build ─────────────────┘
+
+browser-e2e ───────────────► independent
 \`\`\`
 
 CI-001 will first change this to independent jobs so the browser proof can progress while static/server validation is running.
@@ -132,6 +137,6 @@ No check name should be changed during CI-001 until the effective protection con
 
 The existing CI remains the current certification mechanism.
 
-**CI-001A/B is active and baselined; the execution topology remains unchanged until the A/B gate is accepted.**
+**CI-001A/B and CI-001C are baselined; CI-001D is the active topology increment.**
 
-No validation evidence is being removed or weakened as part of this documentation update.
+The topology change is additive in proof ownership: existing commands remain present, the historical `validate` check name remains available, and browser execution is no longer downstream of non-browser validation.

@@ -271,6 +271,169 @@ export function validateRedirectUri(candidate: string | undefined, req: express.
   return { isValid: false, uri: defaultUri };
 }
 
+
+export interface EveSsoMetadata {
+  issuer: string;
+  authorization_endpoint: string;
+  token_endpoint: string;
+  jwks_uri: string;
+}
+
+let cachedEveSsoMetadata: { expiresAt: number; value: EveSsoMetadata } | null = null;
+let cachedEveJwks: { expiresAt: number; keys: EveJwksKey[]; jwksUri: string } | null = null;
+const EVE_SSO_CACHE_TTL_MS = 5 * 60 * 1000;
+const EVE_SSO_FETCH_TIMEOUT_MS = 5_000;
+const EVE_EXPECTED_ISSUERS = new Set([
+  'https://login.eveonline.com/',
+  'https://login.eveonline.com',
+  'login.eveonline.com',
+]);
+
+type EveJwtHeader = { alg?: string; kid?: string; typ?: string };
+type EveJwksKey = {
+  alg?: string;
+  kid?: string;
+  kty?: string;
+  n?: string;
+  e?: string;
+  use?: string;
+};
+
+function decodeBase64UrlJson<T>(value: string): T {
+  return JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as T;
+}
+
+async function fetchJsonWithTimeout<T>(url: string): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), EVE_SSO_FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, {
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    return await response.json() as T;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function validateSsoMetadata(metadata: EveSsoMetadata): EveSsoMetadata {
+  for (const field of ['issuer', 'authorization_endpoint', 'token_endpoint', 'jwks_uri'] as const) {
+    if (typeof metadata[field] !== 'string' || metadata[field].length === 0) {
+      throw new Error(`EVE_SSO_METADATA_INVALID_${field.toUpperCase()}`);
+    }
+    new URL(metadata[field]);
+  }
+  if (!EVE_EXPECTED_ISSUERS.has(metadata.issuer)) {
+    throw new Error('EVE_SSO_METADATA_ISSUER_INVALID');
+  }
+  return metadata;
+}
+
+export async function getEveSsoMetadata(forceRefresh = false): Promise<EveSsoMetadata> {
+  const now = Date.now();
+  if (!forceRefresh && cachedEveSsoMetadata && cachedEveSsoMetadata.expiresAt > now) {
+    return cachedEveSsoMetadata.value;
+  }
+  const metadata = validateSsoMetadata(
+    await fetchJsonWithTimeout<EveSsoMetadata>(EVE_SSO_METADATA_URL)
+  );
+  cachedEveSsoMetadata = { expiresAt: now + EVE_SSO_CACHE_TTL_MS, value: metadata };
+  return metadata;
+}
+
+async function fetchEveJwks(forceRefresh = false): Promise<{ expiresAt: number; keys: EveJwksKey[]; jwksUri: string }> {
+  const now = Date.now();
+  if (!forceRefresh && cachedEveJwks && cachedEveJwks.expiresAt > now) {
+    return cachedEveJwks;
+  }
+  const metadata = await getEveSsoMetadata(forceRefresh);
+  const jwks = await fetchJsonWithTimeout<{ keys?: EveJwksKey[] }>(metadata.jwks_uri);
+  if (!Array.isArray(jwks.keys) || jwks.keys.length === 0) {
+    throw new Error('EVE_SSO_JWKS_EMPTY');
+  }
+  cachedEveJwks = { expiresAt: now + EVE_SSO_CACHE_TTL_MS, keys: jwks.keys, jwksUri: metadata.jwks_uri };
+  return cachedEveJwks;
+}
+
+/**
+ * Verifies an EVE SSO access-token JWT using the signing keys advertised by CCP.
+ * Official contract: metadata -> JWKS -> RS256 signature -> issuer/audience/expiration.
+ * See https://developers.eveonline.com/docs/services/sso/.
+ */
+export async function verifyEveAccessToken(token: string): Promise<Record<string, unknown>> {
+  if (!token || typeof token !== 'string') throw new Error('EVE_SSO_TOKEN_MISSING');
+  const parts = token.split('.');
+  if (parts.length !== 3) throw new Error('EVE_SSO_TOKEN_MALFORMED');
+
+  let header: EveJwtHeader;
+  let payload: Record<string, unknown>;
+  let signature: Buffer;
+  try {
+    header = decodeBase64UrlJson<EveJwtHeader>(parts[0]);
+    payload = decodeBase64UrlJson<Record<string, unknown>>(parts[1]);
+    signature = Buffer.from(parts[2], 'base64url');
+  } catch {
+    throw new Error('EVE_SSO_TOKEN_MALFORMED');
+  }
+
+  if (header.alg !== 'RS256' || !header.kid || signature.length === 0) {
+    throw new Error('EVE_SSO_TOKEN_UNSUPPORTED_ALGORITHM');
+  }
+
+  const loadKey = async (forceRefresh: boolean): Promise<EveJwksKey> => {
+    const jwks = await fetchEveJwks(forceRefresh);
+    const key = jwks.keys.find(item =>
+      item.kid === header.kid &&
+      item.alg === header.alg &&
+      item.kty === 'RSA' &&
+      typeof item.n === 'string' &&
+      typeof item.e === 'string'
+    );
+    if (!key) throw new Error('EVE_SSO_SIGNING_KEY_NOT_FOUND');
+    return key;
+  };
+
+  let key: EveJwksKey;
+  try {
+    key = await loadKey(false);
+  } catch (error) {
+    if (!String(error).includes('EVE_SSO_SIGNING_KEY_NOT_FOUND')) throw error;
+    cachedEveJwks = null;
+    key = await loadKey(true);
+  }
+
+  const publicKey = crypto.createPublicKey({
+    key: key as JsonWebKey,
+    format: 'jwk',
+  });
+  const verified = crypto.verify(
+    'RSA-SHA256',
+    Buffer.from(`${parts[0]}.${parts[1]}`, 'ascii'),
+    publicKey,
+    signature
+  );
+  if (!verified) throw new Error('EVE_SSO_SIGNATURE_INVALID');
+
+  if (typeof payload.iss !== 'string' || !EVE_EXPECTED_ISSUERS.has(payload.iss)) {
+    throw new Error('EVE_SSO_ISSUER_INVALID');
+  }
+  if (!Array.isArray(payload.aud) || !payload.aud.includes(EVE_CLIENT_ID) || !payload.aud.includes('EVE Online')) {
+    throw new Error('EVE_SSO_AUDIENCE_INVALID');
+  }
+  if (typeof payload.exp !== 'number' || !Number.isFinite(payload.exp) || payload.exp <= Math.floor(Date.now() / 1000)) {
+    throw new Error('EVE_SSO_TOKEN_EXPIRED');
+  }
+  if (typeof payload.sub !== 'string' || !/^CHARACTER:EVE:\\d+$/.test(payload.sub)) {
+    throw new Error('EVE_SSO_SUBJECT_INVALID');
+  }
+
+  return payload;
+}
+
 export function renderAuthErrorHtml(title: string, message: string, errorCode: string): string {
   const safeTitle = escapeHtml(title);
   const safeMessage = escapeHtml(message);

@@ -40,9 +40,9 @@ Deferred until the UX gate:
 |---|---|---|---|---|---|
 | DOC-001 | DONE | Reconstruct modular documentation governance | current mission | stale truth if incomplete | docs/link audit + CI |
 | E2E-001 | DONE | Establish reproducible local OAuth/browser gate, deterministic CI E2E coverage, and real-CCP smoke | stable auth/ESI | environment-sensitive auth/callback integration | browser E2E + security/API + local CCP smoke |
-| UX-00 | BLOCKING | Define and freeze product model, navigation, responsibilities and shared UX vocabulary | current audit | scope drift if implementation starts early | accepted UX contract |
-| UX-01 | P0 / BLOCKING | Establish market/ESI truth, retrieval observability and diagnose target-PC market-order incident | UX-00 vocabulary; existing ESI boundary | hidden empty/error states; ESI rate limits | target-PC smoke + ERROR/PARTIAL/STALE regression |
-| UX-02 | P1 | Rebuild Mes Ordres as the Operations console | UX-00, UX-01 | business state fragmentation | UI/browser acceptance |
+| UX-00 | DONE | Define and freeze product model, navigation, responsibilities and shared UX vocabulary | current audit | scope drift if implementation starts early | accepted UX contract |
+| UX-01 | P0 / IMPLEMENTED — VALIDATION OPEN | Establish market/ESI truth, retrieval observability and diagnose target-PC market-order incident | UX-00 vocabulary; existing ESI boundary | hidden empty/error states; ESI rate limits | target-PC smoke + ERROR/PARTIAL/STALE regression |
+| UX-02 | ACTIVE | Rebuild Mes Ordres as the Operations console | UX-00, UX-01 | business state fragmentation | UI/browser acceptance |
 | UX-03 | P1 | Rebuild Portefeuille as Real Portfolio + Proposed Allocation across multiple opportunities | UX-00, existing portfolio engine | misleading allocation / concentration | engine + UI + scenario tests |
 | UX-04 | P1 | Replace manual Journal with ESI-based automatic Performance & Historique | UX-00, financial truth, execution data | incorrect attribution | accounting + reconciliation + browser scenarios |
 | UX-05 | P1 | Rebuild Paramètres as business Control Center and remove/unwire fake controls | UX-00, engine consumer map | settings with no effect | consumer matrix + UI tests |

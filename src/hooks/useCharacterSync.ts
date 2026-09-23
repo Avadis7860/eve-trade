@@ -20,6 +20,7 @@ export function useCharacterSync(
   const { setConfig } = useTradingConfig();
   const [characterOrders, setCharacterOrders] = useState<EveCharacterOrder[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState<boolean>(false);
+  const [orderSyncError, setOrderSyncError] = useState<string | null>(null);
   const ssoPopupRef = useRef<Window | null>(null);
   const syncVersionByCharacterRef = useRef(new Map<number, number>());
 
@@ -50,13 +51,22 @@ export function useCharacterSync(
 
       if (isTargetActive) {
         setIsLoadingOrders(true);
+        setOrderSyncError(null);
       }
 
       try {
         const balance = await EsiService.fetchCharacterWallet(charId, token);
         const skills = await EsiService.fetchCharacterSkills(charId, token);
-        const ordersResult = await EsiService.fetchCharacterOrders(charId, token);
-        const rawOrders = EsiService.requireUsableCollection(ordersResult, 'character orders');
+        let rawOrders: EveCharacterOrder[];
+        try {
+          const ordersResult = await EsiService.fetchCharacterOrders(charId, token);
+          rawOrders = EsiService.requireUsableCollection(ordersResult, 'character orders');
+        } catch (orderError: unknown) {
+          if (isTargetActive) {
+            setOrderSyncError(orderError instanceof Error ? orderError.message : String(orderError));
+          }
+          throw orderError;
+        }
 
         let corporationOrders: EveCharacterOrder[] = [];
         let corporationInfo: Awaited<ReturnType<typeof EsiService.fetchCorporationInfo>> | undefined;
@@ -183,6 +193,7 @@ export function useCharacterSync(
 
         if (shouldApplyToActiveContext) {
           setCharacterOrders(enrichedOrders);
+          setOrderSyncError(null);
         }
 
         if (!characterStillLinked || !syncStillCurrent) {
@@ -461,6 +472,7 @@ export function useCharacterSync(
   return {
     characterOrders,
     isLoadingOrders,
+    orderSyncError,
     loadCharacterData,
     handleConnectSSO,
     handleExchangeCode,

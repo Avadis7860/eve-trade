@@ -11,7 +11,7 @@ CI gate: [../validation/ci.md](../validation/ci.md)
 
 The functional E2E-001 baseline is 9438bbedb2d44cf3f5f371144bcf72094955cd46. Deterministic browser CI is green and the target-PC real-CCP SSO/ESI smoke PASS was recorded on 2026-09-23.
 
-The current UX-first program is now completing the P0 market/ESI retrieval reliability work. UX-01 technical implementation is merged; the target-PC market-order incident remains NOT ROOT-CAUSED.
+The current UX-first program is closing the P0 market/ESI retrieval reliability gate. UX-01 technical implementation is merged; the target-PC market-order incident remains NOT ROOT-CAUSED.
 
 ## CI / delivery state
 
@@ -38,17 +38,9 @@ A dedicated study is recorded in [CI management audit](../audits/ci-management-a
 
 CI-001 is **DONE / MERGED** on main at `7fc6fe7ca65454d0d29843bc0eace336b2da864c`.
 
-CI-001A/B froze the baseline/evidence map; C hardened workflow security/reproducibility; D split the validation topology; E formalized canonical ownership; F isolated browser Auth/Operations; G established scope routing plus `CI / required-gate`; H separated Main/Full and recovery; I added durable timing/churn observability; J synchronized closure documentation.
-
 Post-merge behavior is now intentionally split: PR changes run the PR certification surface, while pushes to `main` run the short Main Smoke surface. Full Repository Certification is scheduled/manual.
 
-Historically, during CI-001E:
-
-- `ci.yml` is the PR certification mechanism and owns the stable `CI / required-gate`;
-- the Main Smoke workflow owns push-to-main smoke validation;
-- the SDE Truth Gate remains authoritative for SDE-sensitive changes;
-- no required check name should be changed without administrative branch-protection verification;
-- the single active branch/PR rule remains mandatory; never reuse a merged branch for the next chantier.
+The single-active-branch/PR rule remains mandatory: one delivery branch at a time, and merged branches are not reused for new work.
 
 ## Stable foundations
 
@@ -68,30 +60,41 @@ Historically, during CI-001E:
 
 The current engine/domain layers are ahead of the UI information architecture.
 
-- Global discovery is useful and remains the principal discovery surface.
-- Mes Ordres has entered UX-02 implementation: it now has an operational KPI/order surface and a focused order-detail path; character synchronization still owns acquisition while Performance remains a separate surface.
+- Global discovery remains the principal discovery surface.
+- Mes Ordres / Operations is implemented and merged with a certified keep / adjust / relocate / cancel decision loop.
 - Portfolio allocation supports concentration by item type/group, but the current React opportunity input is derived from the selected item, so the UI cannot express the intended cross-item diversified allocation.
 - Journal remains manual despite ESI-derived transactions, order history and wallet journal already being available.
 - Parameter UI contains real controls, but business-critical decision thresholds are not surfaced with the same priority and some exposed flags do not have a demonstrated current consumer.
-- UI must become explicit about data health: LIVE, CACHE, STALE, PARTIAL, UNKNOWN, ERROR.
+- UI now exposes market health diagnostics with LIVE, CACHE, STALE, PARTIAL, UNKNOWN and ERROR semantics.
 
 ## Active product gaps
 
 - Target-PC public market-order retrieval failure is reported but not root-caused.
-- Market acquisition failures can be collapsed into apparent empty business state by silent error handling in some non-Operations paths.
-- UX-02 Operations is merged and its decision-loop validation is certified by PR #61 run `35859213922`: keep / adjust / relocate / cancel plus explicit LIVE/ERROR/PARTIAL/STALE behavior are covered.
+- Some non-Operations market acquisition paths may still swallow failures or collapse them into unchanged/empty business state.
+- Rate-limit-aware market scheduling is not yet exposed as a product-level operational signal.
 - No coherent Real Portfolio vs Proposed Allocation split exists yet.
 - No automatic ESI-derived performance history replaces the manual journal yet.
 - No clear business Control Center exists yet.
 - Cockpit remains too item-centric to serve as a decision-oriented synthesis.
 
+## P0 closure status
+
+Completed and certified on main:
+
+- Global market synchronization now treats a market-quality `ERROR` as a failed item and preserves the error count instead of counting it as a successful sync.
+- Public market-order error responses preserve HTTP/cache/ESI rate-limit metadata through the backend route.
+- Browser Operations proof confirms active orders remain visible while a market `ERROR` is surfaced with HTTP 401 and ESI budget diagnostics.
+- CI run `35862904773` and SDE run `35862904812` are green; PR #63 merged into main at `72c049042a3e3bd735117bac43c3dfe71827f79d`.
+
+Remaining P0 closure work is limited to evidence-driven hardening and incident diagnosis: audit non-Operations callers, add deterministic 429/Retry-After browser coverage, and capture the required real-PC evidence before declaring the target-PC incident root-caused or externally bounded.
+
 ## Current chantier / sequencing
 
-**The current active chantier is P0 market/ESI retrieval observability**, on branch `fix/market-retrieval-observability`. UX-02 is merged and no longer has an active PR.
+**Current product chantier: P0 market/ESI retrieval reliability closure.**
 
-UX-01 is technically implemented and merged. Its target-PC market-order incident remains NOT ROOT-CAUSED pending the required PC-side evidence.
+The current documentation branch `docs/p0-closure-and-roadmap-sync` is a temporary delivery branch for roadmap/state synchronization only. No technical work should branch from it. The next technical branch must start from the resulting `main` head after this documentation PR is merged.
 
-CI-001 is merged and is no longer an active chantier. Its observed Draft-routing mismatch is recorded as a separate CI follow-up.
+UX-02 is DONE / MERGED. CI-001 is DONE / MERGED. Historical delivery branches have been reconciled to the current main head and are not active work.
 
 PST-001, UI-001, E2E-002, UI-002, PERF-001 and TYPE-001 remain deferred behind the UX sequencing gate.
 
@@ -102,6 +105,7 @@ PST-001, UI-001, E2E-002, UI-002, PERF-001 and TYPE-001 remain deferred behind t
 [CI Evidence Map](../validation/ci-evidence-map.md) ·
 [CI Management Audit](../audits/ci-management-audit-2026-09-23.md) ·
 [CI-001 Plan](../roadmap/ci-management-refactor.md) ·
+[P0 Market Reliability Plan](p0-market-reliability.md) ·
 [UI/UX Product Audit](../audits/ui-ux-product-audit-2026-09-23.md) ·
 [UX Program](../roadmap/ux-program.md) ·
 [Master Plan](../roadmap/master-plan.md) ·

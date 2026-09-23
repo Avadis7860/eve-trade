@@ -170,6 +170,32 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
     await expect(page.getByText('Âge', { exact: true })).toBeVisible();
   });
 
+  test('keeps row and detail values consistent for the same active order', async ({ page, request }) => {
+    await prepareOperations(page, request, 'live', 'adjust');
+    await launchSso(page);
+    await expectOperationsLoaded(page);
+
+    const firstRow = page.locator('tbody tr').first();
+    const cells = firstRow.locator('td');
+    const owner = (await cells.nth(0).locator('div').first().innerText()).trim();
+    const item = (await cells.nth(2).locator('div').nth(1).locator('div').first().innerText()).trim();
+    const location = (await cells.nth(3).locator('div').first().innerText()).trim();
+    const remaining = (await cells.nth(5).locator('span').first().innerText()).trim();
+    const health = (await cells.nth(9).locator('span.inline-flex').innerText()).trim();
+
+    await expect(firstRow.getByText(/Ajuster :/)).toBeVisible();
+    await firstRow.click();
+
+    const detail = page.getByRole('dialog', { name: 'Détail opérationnel de l’ordre' });
+    await expect(detail).toBeVisible();
+    await expect(detail.getByText(item, { exact: true })).toBeVisible();
+    await expect(detail.getByText(location, { exact: true })).toBeVisible();
+    await expect(detail.getByText(owner, { exact: true })).toBeVisible();
+    await expect(detail.getByText(health, { exact: true }).first()).toBeVisible();
+    await expect(detail.getByText(new RegExp('reliquat\\s+' + remaining + '\\b'))).toBeVisible();
+    await expect(detail.getByText(/Ajuster le Prix à/)).toBeVisible();
+  });
+
   test('exposes CACHE as an actionable health state', async ({ page, request }) => {
     await prepareOperations(page, request, 'error');
     await blockMarketOrderRequests(page);

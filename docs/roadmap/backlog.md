@@ -17,9 +17,10 @@ Completed:
 - Deterministic ERROR / PARTIAL / STALE coverage.
 - Global sync failure accounting for market-quality ERROR.
 - Browser certification of operator-facing HTTP 401 + ESI budget diagnostics.
+- **P0-A caller audit:** all identified non-Operations market-order consumers are mapped; no concrete failure-to-empty/unchanged collapse was demonstrated.
+- Documentation of the P0-A caller matrix and the latent legacy-helper hazard.
 
 Remaining:
-- Audit remaining non-Operations public market-order callers for failure collapse.
 - Add deterministic HTTP 429 / Retry-After regression coverage.
 - Capture the real target-PC evidence bundle and classify the incident as ROOT-CAUSED or EXTERNALLY BOUNDED.
 
@@ -92,11 +93,13 @@ EsiService.fetchLiveOrdersDetailed -> /api/markets/region/orders -> MarketEsiGat
 Evidence now certified in code:
 - backend error responses preserve HTTP/cache/rate-limit diagnostics;
 - Operations browser flow retains active orders and surfaces market ERROR instead of false zero activity;
+- P0-A caller audit maps the non-Operations consumers and found no concrete failure-to-empty collapse affecting certifiable business truth;
 - the target-PC incident is still not root-caused because real-PC evidence is not in the repository.
 
 Reference:
 [UI/UX Product Audit](../audits/ui-ux-product-audit-2026-09-23.md)
 [P0 Market Reliability Plan](p0-market-reliability.md)
+[P0-A Caller Matrix](../validation/p0-a-market-consumers.md)
 
 ## Rule
 

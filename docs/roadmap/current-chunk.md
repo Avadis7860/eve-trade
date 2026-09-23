@@ -29,7 +29,7 @@ UX-01 technical implementation is merged and provides the shared market-data tru
 
 ## Validation
 
-Current increment gate: PASS. Deterministic browser CI now proves the keep / adjust / relocate / cancel decision loop together with explicit loading/data-health semantics already covered by the Operations suite.
+Current increment gate: PASS on the existing decision/lifecycle coverage; this branch adds focused acceptance for background-vs-explicit refresh coordination, canonical market-source deduplication and row ↔ detail consistency.
 
 UX-02 remains ACTIVE for the broader product scope; the target-PC incident is a separate UX-01 validation matter and remains NOT ROOT-CAUSED.
 

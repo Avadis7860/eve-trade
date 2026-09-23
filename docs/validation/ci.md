@@ -133,6 +133,17 @@ The PR, Main Smoke and Full workflows expose a dedicated `CI / observability` jo
 
 Artifacts are retained for 30 days so several runs can be compared without changing functional gates.
 
+## Operator tooling boundary
+
+A future Oclif project CLI may provide procedural commands around the existing CI model, but it is not a CI engine and is not part of the current certification gate.
+
+The intended separation is:
+- GitHub Actions: authoritative execution and certification;
+- gh: low-level GitHub control and inspection;
+- Oclif: project-level operator workflow and delivery-procedure checks.
+
+Any Oclif implementation is a separate maintenance chantier and must not add a second orchestration layer inside the Actions workflows.
+
 ## Documentation
 
 - Deep study: [CI management audit](../audits/ci-management-audit-2026-09-23.md)

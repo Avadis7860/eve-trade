@@ -2,7 +2,6 @@ import crypto from 'crypto';
 import express from 'express';
 import {
   ESI_RUNTIME_CONFIG,
-  getRuntimeConfigStatus,
 } from '../config/environment';
 
 // Canonical server-side runtime configuration. Values are resolved once here;

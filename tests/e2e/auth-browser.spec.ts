@@ -151,7 +151,7 @@ test.describe('E2E-001 — browser OAuth composition', () => {
   });
 
   test('recovers through the same-window callback when popup creation is blocked', async ({ page }) => {
-    await page.addInitScript(() => {
+    await page.evaluate(() => {
       Object.defineProperty(window, 'open', {
         configurable: true,
         value: () => null,
@@ -192,6 +192,39 @@ test.describe('E2E-001 — browser OAuth composition', () => {
     expect(response?.status()).toBe(400);
     await expect(page.getByText(/Jeton Invalide|Jeton State Manquant|Sécurité CSRF/)).toBeVisible();
     expect(await emptyCharacterStore(page)).toBeTruthy();
+  });
+
+  test('rejects token exchange when the callback code is invalid', async ({ page, request }) => {
+    const authResponse = await request.get('/api/auth/url');
+    expect(authResponse.ok()).toBeTruthy();
+    const authData = await authResponse.json();
+
+    const callback = await page.goto(
+      `/auth/callback?code=invalid-e2e-code&state=${encodeURIComponent(authData.state)}`,
+    );
+
+    expect(callback?.status()).toBe(502);
+    await expect(page.getByText(/Échec de l'authentification EVE SSO/)).toBeVisible();
+  });
+
+  test('rejects a token exchange when redirect URI does not match the OAuth state binding', async ({ request }) => {
+    const authResponse = await request.get(
+      '/api/auth/url?redirect_uri=http%3A%2F%2F127.0.0.1%3A3000%2Fauth%2Fcallback',
+    );
+    expect(authResponse.ok()).toBeTruthy();
+    const authData = await authResponse.json();
+
+    const tokenResponse = await request.post('/api/auth/token', {
+      data: {
+        code: 'e2e-code-alpha',
+        state: authData.state,
+        redirect_uri: 'http://localhost:3000/auth/callback',
+      },
+    });
+
+    expect(tokenResponse.status()).toBe(400);
+    const body = await tokenResponse.json();
+    expect(body.error).toBe('INVALID_OR_EXPIRED_STATE');
   });
 
   test('rejects a callback after the OAuth state TTL expires', async ({ page, request }) => {

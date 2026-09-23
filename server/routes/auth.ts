@@ -271,13 +271,22 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'INVALID_PAYLOAD', message: 'Request body must be a JSON object' });
   }
 
-  const { refresh_token } = req.body;
+  const { refresh_token, character_id } = req.body;
   if (!refresh_token || typeof refresh_token !== 'string' || !refresh_token.trim()) {
     return res.status(400).json({ error: 'MISSING_REFRESH_TOKEN', message: 'Missing or invalid refresh_token parameter' });
   }
 
   if (refresh_token.length > 4096) {
     return res.status(400).json({ error: 'REFRESH_TOKEN_TOO_LONG', message: 'refresh_token parameter exceeds maximum allowed length' });
+  }
+
+  const expectedCharacterId =
+    character_id === undefined || character_id === null || character_id === ''
+      ? null
+      : Number(character_id);
+
+  if (expectedCharacterId !== null && (!Number.isInteger(expectedCharacterId) || expectedCharacterId <= 0)) {
+    return res.status(400).json({ error: 'INVALID_CHARACTER_ID', message: 'character_id must be a positive integer when provided' });
   }
 
   if (!EVE_CLIENT_ID || !EVE_CLIENT_SECRET) {
@@ -311,9 +320,58 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
       return res.status(response.status).json({ error: 'REFRESH_FAILED', details: errText });
     }
 
-    const tokenData = await response.json();
-    logEvent('INFO', 'SSO', 'Token refreshed successfully');
-    res.json(tokenData);
+    const tokenData = await response.json() as {
+      access_token?: string;
+      refresh_token?: string;
+      expires_in?: number;
+    };
+
+    if (!tokenData.access_token || typeof tokenData.access_token !== 'string') {
+      return res.status(502).json({
+        error: 'INVALID_REFRESH_RESPONSE',
+        message: 'EVE SSO did not return a usable access token.',
+      });
+    }
+
+    let payload: Record<string, unknown>;
+    try {
+      payload = await verifyEveAccessToken(tokenData.access_token);
+    } catch (error) {
+      logEvent('WARN', 'SSO', 'Refreshed EVE access token failed validation', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return res.status(502).json({
+        error: 'INVALID_REFRESH_TOKEN_RESPONSE',
+        message: 'The refreshed EVE access token failed CCP signature or claim validation.',
+      });
+    }
+
+    const parts = String(payload.sub).split(':');
+    const refreshedCharacterId = Number(parts[parts.length - 1]);
+    if (!Number.isInteger(refreshedCharacterId) || refreshedCharacterId <= 0) {
+      return res.status(502).json({
+        error: 'INVALID_REFRESH_CHARACTER',
+        message: 'The refreshed EVE access token does not contain a valid character identity.',
+      });
+    }
+
+    if (expectedCharacterId !== null && expectedCharacterId !== refreshedCharacterId) {
+      logEvent('WARN', 'SSO', 'Refresh token identity mismatch - BLOCKED', {
+        expectedCharacterId,
+        refreshedCharacterId,
+      });
+      return res.status(409).json({
+        error: 'REFRESH_CHARACTER_MISMATCH',
+        message: 'The refreshed token does not belong to the requested character.',
+      });
+    }
+
+    logEvent('INFO', 'SSO', 'Token refreshed successfully', { characterId: refreshedCharacterId });
+    res.json({
+      ...tokenData,
+      character_id: refreshedCharacterId,
+      character_name: typeof payload.name === 'string' ? payload.name : undefined,
+    });
   } catch (err: unknown) {
     logEvent('ERROR', 'SSO', 'Internal error during token refresh', { error: String(err) });
     res.status(500).json({ error: 'INTERNAL_REFRESH_ERROR', message: String(err) });
@@ -445,7 +503,6 @@ export const callbackHandler = async (req: Request, res: Response) => {
       headers: {
         'Authorization': `Basic ${basicAuth}`,
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Host': 'login.eveonline.com',
         'User-Agent': 'eve-trade-interregional/0.2',
       },
       body: params.toString(),

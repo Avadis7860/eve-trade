@@ -220,7 +220,7 @@ test.describe('E2E-001 — browser OAuth composition', () => {
     await expect(page.getByText(/Échec de l'authentification EVE SSO/)).toBeVisible();
   });
 
-  test('rejects a token exchange when redirect URI does not match the OAuth state binding', async ({ request }) => {
+  test('rejects an unauthorized redirect URI before token exchange', async ({ request }) => {
     const authResponse = await request.get(
       '/api/auth/url?redirect_uri=http%3A%2F%2F127.0.0.1%3A3000%2Fauth%2Fcallback',
     );
@@ -231,13 +231,13 @@ test.describe('E2E-001 — browser OAuth composition', () => {
       data: {
         code: 'e2e-code-alpha',
         state: authData.state,
-        redirect_uri: 'http://localhost:3000/auth/callback',
+        redirect_uri: 'http://127.0.0.1:3000/auth/callback?tampered=1',
       },
     });
 
     expect(tokenResponse.status()).toBe(400);
     const body = await tokenResponse.json();
-    expect(body.error).toBe('INVALID_OR_EXPIRED_STATE');
+    expect(body.error).toBe('INVALID_REDIRECT_URI');
   });
 
   test('rejects a callback after the OAuth state TTL expires', async ({ page, request }) => {
@@ -300,9 +300,10 @@ test.describe('E2E-001 — browser OAuth composition', () => {
     await expectAuthenticatedCharacter(page, ALPHA.name);
 
     const store = await page.evaluate(() => JSON.parse(localStorage.getItem('eve_trade_character_store_v3')!));
-    expect(store.characters[0].character_id).toBe(ALPHA.id);
-    expect(store.characters[0].access_token).toBe(ALPHA.token);
-    expect(store.characters[0].is_token_expired).toBeFalsy();
+    const refreshed = store.characters.find((character: any) => character.character_id === ALPHA.id);
+    expect(refreshed.character_id).toBe(ALPHA.id);
+    expect(refreshed.access_token).toMatch(/^[^.]+\.[^.]+\.[^.]+$/);
+    expect(refreshed.is_token_expired).toBeFalsy();
   });
 
   test('logout clears the character session and returns to the SSO card', async ({ page }) => {
@@ -339,6 +340,9 @@ test.describe('E2E-001 — browser OAuth composition', () => {
     expect(store.characters.map((character: any) => character.character_id).sort()).toEqual([ALPHA.id, BETA.id]);
     expect(store.active_character_id).toBe(BETA.id);
 
+    const betaAccessToken = store.characters.find((character: any) => character.character_id === BETA.id)?.access_token;
+    expect(betaAccessToken).toMatch(/^[^.]+\.[^.]+\.[^.]+$/);
+
     const crossCharacterStatus = await page.evaluate(
       async ({ id, token }) => {
         const response = await fetch(`/api/character/${id}/orders`, {
@@ -346,7 +350,7 @@ test.describe('E2E-001 — browser OAuth composition', () => {
         });
         return response.status;
       },
-      { id: ALPHA.id, token: BETA.token },
+      { id: ALPHA.id, token: betaAccessToken },
     );
     expect(crossCharacterStatus).toBe(403);
 
@@ -358,12 +362,11 @@ test.describe('E2E-001 — browser OAuth composition', () => {
 
     const afterSwitch = await page.evaluate(() => JSON.parse(localStorage.getItem('eve_trade_character_store_v3')!));
     expect(afterSwitch.active_character_id).toBe(ALPHA.id);
-    expect(
-      afterSwitch.characters.find((character: any) => character.character_id === ALPHA.id)?.access_token,
-    ).toBe(ALPHA.token);
-    expect(
-      afterSwitch.characters.find((character: any) => character.character_id === BETA.id)?.access_token,
-    ).toBe(BETA.token);
+    const alphaAccessToken = afterSwitch.characters.find((character: any) => character.character_id === ALPHA.id)?.access_token;
+    const switchedBetaAccessToken = afterSwitch.characters.find((character: any) => character.character_id === BETA.id)?.access_token;
+    expect(alphaAccessToken).toMatch(/^[^.]+\.[^.]+\.[^.]+$/);
+    expect(switchedBetaAccessToken).toMatch(/^[^.]+\.[^.]+\.[^.]+$/);
+    expect(alphaAccessToken).not.toBe(switchedBetaAccessToken);
   });
 
   test('handles a controlled OAuth denial without authenticating the browser session', async ({ page, request }) => {

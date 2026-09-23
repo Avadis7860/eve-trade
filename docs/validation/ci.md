@@ -1,11 +1,14 @@
 # CI Validation
 
-Status: CURRENT — BASELINE MEASURED / REFACTOR PLANNED
+Status: CURRENT — CI-001 ACTIVE / A-B BASELINED
 Scope: GitHub Actions regression gate and certification model
 Source of truth: \`.github/workflows/ci.yml\` and \`.github/workflows/phase-2.7c-sde.yml\`
-Implementation: current CI unchanged on main; CI-001 documents the planned refactor
+Implementation: current CI unchanged on main for CI-001A/B; refactor phases are now active
 Tests: \`npm run test:ci-config\` plus all validation and browser gates below
-CI gate: current PR CI; future stable aggregator planned by CI-001
+
+Baseline: [CI-001A/B — Baseline](../audits/ci-management-baseline-2026-09-23.md)
+Evidence map: [CI-001B — Evidence Map](ci-evidence-map.md)
+CI gate: current PR CI; stable aggregator remains a future CI-001G gate
 
 ## Current pipeline
 
@@ -18,7 +21,7 @@ The current pipeline is functionally established, but its topology is now the su
 ## Current measured baseline
 
 Reference main:
-\`6e3f611f8bdce6ad42236f7082b3dc044582dbef\`
+\`d7f245ec47a8746306792ce6017496f9123c23d6\`
 
 Reference successful run:
 \`35826687206\`
@@ -128,6 +131,6 @@ No check name should be changed during CI-001 until the effective protection con
 
 The existing CI remains the current certification mechanism.
 
-**CI-001 is studied and planned, but not implemented.**
+**CI-001A/B is active and baselined; the execution topology remains unchanged until the A/B gate is accepted.**
 
 No validation evidence is being removed or weakened as part of this documentation update.

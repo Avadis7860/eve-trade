@@ -166,6 +166,11 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
     await expectOperationsLoaded(page);
 
     await page.evaluate(async () => {
+      const { GlobalMarketSyncService } = await import('/src/services/globalMarketSync.ts');
+      GlobalMarketSyncService.stop();
+    });
+
+    await page.evaluate(async () => {
       const { MarketDataStore } = await import('/src/services/marketDataStore.ts');
       MarketDataStore.setOrders(34, 10000002, [{
         order_id: 'cache-competitor',
@@ -199,6 +204,11 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
     await prepareOperations(page, request, 'error');
     await launchSso(page);
     await expectOperationsLoaded(page);
+
+    await page.evaluate(async () => {
+      const { GlobalMarketSyncService } = await import('/src/services/globalMarketSync.ts');
+      GlobalMarketSyncService.stop();
+    });
 
     await page.evaluate(async () => {
       const { MarketDataStore } = await import('/src/services/marketDataStore.ts');

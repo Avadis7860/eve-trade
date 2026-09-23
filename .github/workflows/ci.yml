@@ -28,6 +28,7 @@ jobs:
       tests: ${{ steps.scope.outputs.tests }}
       docs: ${{ steps.scope.outputs.docs }}
       ambiguous: ${{ steps.scope.outputs.ambiguous }}
+      run_static: ${{ steps.scope.outputs.run_static }}
       full_certification: ${{ steps.scope.outputs.full_certification }}
       run_unit_domain: ${{ steps.scope.outputs.run_unit_domain }}
       run_server: ${{ steps.scope.outputs.run_server }}
@@ -59,107 +60,14 @@ jobs:
             ambiguous=false
           fi
 
-          frontend=false
-          domain=false
-          server=false
-          sde=false
-          ci=false
-          config=false
-          tests=false
-          docs=false
+          printf "%s\n" "$changed_files" | node scripts/__tests__/ci_scope.test.mjs >/dev/null
+          printf "%s\n" "$changed_files" | node scripts/ci-scope.mjs
 
-          if [ -z "$changed_files" ]; then
-            ambiguous=true
-          fi
-
-          while IFS= read -r path; do
-            [ -z "$path" ] && continue
-            case "$path" in
-              .github/workflows/*|.github/dependabot.yml)
-                ci=true
-                ;;
-              src/engine/*)
-                domain=true
-                ;;
-              src/services/*|server/*|server.ts)
-                server=true
-                ;;
-              src/data/universeGraph.json|src/data/universeGraphManifest.ts|scripts/build-universe-graph.mjs|scripts/universe-graph-builder.mjs|scripts/write-universe-graph-manifest.mjs|scripts/__tests__/universe_graph_builder.test.mjs)
-                sde=true
-                ;;
-              src/components/*|src/pages/*|src/hooks/*|src/App.*|src/main.*|public/*)
-                frontend=true
-                ;;
-              tests/*|*/__tests__/*|*.test.ts|*.test.tsx|*.test.mjs)
-                tests=true
-                ;;
-              package.json|package-lock.json|tsconfig*.json|vite.config.*|postcss.config.*|tailwind.config.*)
-                config=true
-                ;;
-              docs/*|CONTRIBUTING.md|README.md)
-                docs=true
-                ;;
-              *)
-                ambiguous=true
-                ;;
-            esac
-          done <<< "$changed_files"
-
-          full_certification=false
-          if [ "$ambiguous" = true ] || [ "$ci" = true ] || [ "$config" = true ] || [ "$domain" = true ] || [ "$server" = true ] || [ "$sde" = true ] || [ "$tests" = true ]; then
-            full_certification=true
-          fi
-
-          run_unit_domain="$full_certification"
-          run_server="$full_certification"
-          run_build="$full_certification"
-          run_browser="$full_certification"
-
-          if [ "$frontend" = true ]; then
-            run_build=true
-            run_browser=true
-          fi
-
-          {
-            echo "frontend=$frontend"
-            echo "domain=$domain"
-            echo "server=$server"
-            echo "sde=$sde"
-            echo "ci=$ci"
-            echo "config=$config"
-            echo "tests=$tests"
-            echo "docs=$docs"
-            echo "ambiguous=$ambiguous"
-            echo "full_certification=$full_certification"
-            echo "run_unit_domain=$run_unit_domain"
-            echo "run_server=$run_server"
-            echo "run_build=$run_build"
-            echo "run_browser=$run_browser"
-          } >> "$GITHUB_OUTPUT"
-
-          {
-            echo '## Change Scope'
-            echo
-            echo '| Domain | Changed |'
-            echo '|---|---:|'
-            echo "| Frontend | $frontend |"
-            echo "| Engine/domain | $domain |"
-            echo "| Server/API/ESI | $server |"
-            echo "| SDE/data | $sde |"
-            echo "| CI/workflows | $ci |"
-            echo "| Package/config | $config |"
-            echo "| Tests | $tests |"
-            echo "| Documentation | $docs |"
-            echo "| Ambiguous/unclassified | $ambiguous |"
-            echo
-            if [ "$full_certification" = true ]; then
-              echo '**Conservative fallback:** full certification remains required for this scope.'
-            else
-              echo '**Scope detection only:** no validation is skipped by this workflow yet.'
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
+          # ci-scope.mjs writes GitHub outputs and the scope summary.
   static:
     name: Static / Config / Auth
+    needs: [detect-changes]
+    if: ${{ needs.detect-changes.outputs.run_static == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -363,7 +271,12 @@ jobs:
         run: |
           set -euo pipefail
           test "${{ needs.detect-changes.result }}" = "success"
-          test "${{ needs.static.result }}" = "success"
+
+          if [ "${{ needs.detect-changes.outputs.run_static }}" = "true" ]; then
+            test "${{ needs.static.result }}" = "success"
+          else
+            test "${{ needs.static.result }}" = "skipped"
+          fi
 
           if [ "${{ needs.detect-changes.outputs.run_unit_domain }}" = "true" ]; then
             test "${{ needs.unit_domain.result }}" = "success"

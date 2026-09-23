@@ -1,30 +1,34 @@
 # Current Chunk
 
-Status: COMPLETE
-Scope: E2E-001 — Reproducible Local OAuth / Browser Gate
-PR: #46 — merged to `main`
-Merge: `9438bbedb2d44cf3f5f371144bcf72094955cd46`
-Objective: establish deterministic browser proof of the existing SSO → callback → session → authenticated ESI path, plus a separate real-CCP smoke procedure.
+Status: ACTIVE / BLOCKING
+Scope: UX-00 — Product model and information architecture
+Reference: [UI/UX Product Audit](../audits/ui-ux-product-audit-2026-09-23.md)
+Program: [UX-First Trading Terminal Program](ux-program.md)
+Decision: [ADR-0002](../decisions/ADR-0002-ux-first-trading-terminal.md)
 
-## Completed proof
+## Objective
 
-- real Playwright browser reaches the SSO popup path through `SsoConnectCard`;
-- real application callback and `postMessage` composition with a server-owned authorization-code exchange;
-- popup-blocked same-window callback recovery;
-- session persistence/restoration;
-- authenticated character and corporation ESI path through real application routes/gateways;
-- browser-level popup, state, OAuth-error, refresh, logout, popup-blocked recovery and multi-character isolation coverage;
-- deterministic CI execution without CCP credentials;
-- target-PC real-CCP smoke executed successfully on 2026-09-23.
+Define and freeze the trading-terminal information architecture, screen responsibilities, shared vocabulary and cross-screen transitions before implementation of the major UI workstreams.
+
+## Required output
+
+- Discovery responsibility defined and protected.
+- Operations / Mes Ordres contract.
+- Allocation / Portefeuille contract.
+- Performance / Journal contract.
+- Control Center / Paramètres contract.
+- Cockpit contract.
+- Shared data-truth vocabulary: LIVE, CACHE, STALE, PARTIAL, UNKNOWN, ERROR.
+- Shared loading/empty/error/stale/partial behavior.
+- Surface-to-surface transition map.
+- Acceptance scenarios for the next implementation workstreams.
+
+## Blocking rule
+
+PST-001, UI-001, E2E-002, UI-002, PERF-001 and TYPE-001 remain deferred while UX-00 is active.
+
+UX-01 is the only implementation workstream allowed to proceed before UX-00 is fully accepted, and only for market/ESI reliability and observability required by the current target-PC market-order incident.
 
 ## Validation
 
-The unit/API/security/ESI/corporation/build gates remain green, the deterministic browser gate is green, and the real CCP SSO/ESI acceptance is PASS.
-
-## Completion
-
-E2E-001 is closed. No blocker remains on the authentication/browser acceptance track.
-
-## Next chantier
-
-PST-001 — Decompose the IndexedDB implementation without semantic drift.
+The chunk is complete only when the UX baseline is documented, internally consistent, linked from the master plan and backlog, and implementation-ready acceptance criteria exist for UX-01 through UX-05.

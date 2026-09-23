@@ -328,8 +328,9 @@ async function runTests() {
 
     await test('GET /auth/callback neutralizes </script> breakout injection in script context', async () => {
       const injection = '</script><script>alert("XSS")</script>';
+      const state = generateOAuthState(`${baseUrl}/auth/callback`);
       const xssRes = await fetch(
-        `${baseUrl}/auth/callback?error=invalid_grant&error_description=${encodeURIComponent(injection)}`
+        `${baseUrl}/auth/callback?state=${state}&error=invalid_grant&error_description=${encodeURIComponent(injection)}`
       );
       assert(xssRes.status === 400, `Expected 400 HTML page, got ${xssRes.status}`);
       const html = await xssRes.text();
@@ -340,8 +341,9 @@ async function runTests() {
 
     await test('GET /auth/callback safely escapes quotes, ampersands, and special chars in script payload', async () => {
       const trickyPayload = 'Injection "with" \'quotes\' & <tags> and \\backslash';
+      const state = generateOAuthState(`${baseUrl}/auth/callback`);
       const trickyRes = await fetch(
-        `${baseUrl}/auth/callback?error=test_error&error_description=${encodeURIComponent(trickyPayload)}`
+        `${baseUrl}/auth/callback?state=${state}&error=test_error&error_description=${encodeURIComponent(trickyPayload)}`
       );
       assert(trickyRes.status === 400, `Expected 400, got ${trickyRes.status}`);
       const html = await trickyRes.text();

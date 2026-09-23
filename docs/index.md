@@ -16,6 +16,13 @@
 | [audits](audits/) | Quels audits sont actifs ou historiques ? |
 | [archive](archive/) | Quels documents ne sont plus actifs ? |
 
-Un chantier doit normalement être compris avec 2 à 5 documents spécialisés. Les archives ne sont jamais requises pour connaître l'état courant.
+## Current product governance
+
+The current product sequence is governed by:
+- [UI/UX Product Audit](audits/ui-ux-product-audit-2026-09-23.md)
+- [UX-First Trading Terminal Program](roadmap/ux-program.md)
+- [ADR-0002 — UX-first sequencing](decisions/ADR-0002-ux-first-trading-terminal.md)
+
+A chantier must normally be understood with 2 to 5 specialized documents. The UX program is the sequencing authority for the current product phase.
 
 Voir [documentation-guide.md](documentation-guide.md) pour la gouvernance.

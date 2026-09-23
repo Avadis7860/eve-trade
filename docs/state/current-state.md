@@ -38,11 +38,11 @@ A dedicated study is recorded in [CI management audit](../audits/ci-management-a
 
 ### Current CI management decision
 
-CI-001 is **ACTIVE — CI-001A/B** and is now the project-wide CI priority.
+CI-001 is **ACTIVE — CI-001D** and is now the project-wide CI priority.
 
-No workflow topology has been changed in CI-001A/B; this tranche is limited to baseline/evidence/documentation.
+CI-001A/B froze the baseline/evidence map; CI-001C hardened workflow security/reproducibility; CI-001D now splits the validation topology without changing required-check names or Playwright workers.
 
-During CI-001A/B:
+During CI-001D:
 
 - the current \`ci.yml\` remains the certification mechanism;
 - the current SDE Truth Gate remains authoritative for SDE-sensitive changes;
@@ -90,7 +90,7 @@ UX-02 is paused while CI-001 is the active infrastructure chantier.
 
 UX-01 is technically implemented and merged. Its target-PC market-order incident remains NOT ROOT-CAUSED pending capture of the required PC-side evidence.
 
-CI-001 is the active cross-cutting infrastructure chantier. CI-001A/B is baselined and CI-001C is the current execution slice: workflow security/reproducibility hardening. Topology changes remain gated by the completed C gate and the baseline/evidence map.
+CI-001 is the active cross-cutting infrastructure chantier. CI-001A/B is baselined, CI-001C is completed, and CI-001D is the current execution slice: controlled lane decomposition and browser detachment. The active PR/branch remains the only CI-001 delivery surface.
 
 PST-001, UI-001, E2E-002, UI-002, PERF-001 and TYPE-001 remain deferred until the UX sequencing gate is passed unless their dependency is explicitly reclassified.
 

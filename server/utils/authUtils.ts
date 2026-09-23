@@ -288,18 +288,10 @@ export function validateRedirectUri(candidate: string | undefined, req: express.
     return { isValid: true, uri: trimmed };
   }
 
-  // Origin-matching callback checks
-  try {
-    const parsed = new URL(trimmed);
-    const parsedOrigin = `${parsed.protocol}//${parsed.host}`;
-    const serverOrigin = `${protocol}://${host}`;
-    if (parsedOrigin === serverOrigin && parsed.pathname === '/auth/callback') {
-      return { isValid: true, uri: trimmed };
-    }
-  } catch {}
-
+  // Redirect URIs must match one of the explicitly registered/whitelisted values
+  // exactly. Accepting arbitrary query parameters on the same callback path would
+  // violate CCP's registered redirect URI contract.
   return { isValid: false, uri: defaultUri };
-}
 
 
 export interface EveSsoMetadata {

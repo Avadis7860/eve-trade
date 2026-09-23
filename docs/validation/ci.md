@@ -146,6 +146,12 @@ Artifacts are retained for 30 days so several runs can be compared without chang
 
 The topology change is additive in proof ownership: existing commands remain present, the historical `validate` check name remains available, and browser execution is no longer downstream of non-browser validation.
 
+## Observed CI behavior after CI-001 merge
+
+The implementation currently uses a single `pull_request` trigger for the certification workflow. This means a Draft PR also enters the same certification topology rather than a distinct lightweight Fast Gate. The documented Draft-versus-Ready split is therefore a **known follow-up gap**, not current behavior. Do not treat this as a blocker for UX-02; track it as a separate CI hardening chantier.
+
+The post-merge `main` path remains separate via `CI Main Post-Merge Smoke`, while Full Repository Certification remains manual/scheduled.
+
 ## CI-001I evidence
 
 PR run `35856208503` completed successfully on head `9d09d8affac903de6c2ca8f39156b5b662d4fef4`. Change Scope, Static, Unit/Domain, Server/API/Security/ESI, Production Build, Browser Auth, Browser Operations, both compatibility aggregators, `CI / required-gate` and `CI / observability` all succeeded. SDE Truth Gate run `35856208652` also succeeded. The observability artifact sampled 49 completed runs: 39 cancelled, 5 failed and 5 successful (79.6% cancellation rate); the slowest current lane was Browser Auth at ~139 s, with Unit/Domain ~59 s and Browser Operations ~88 s.

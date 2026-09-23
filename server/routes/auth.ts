@@ -16,6 +16,8 @@ import {
   escapeHtml,
   safeJsonStringify,
   activeOAuthStates,
+  getRuntimeConfigStatus,
+  assertOAuthRuntimeConfig,
 } from '../utils/authUtils';
 
 export const authRouter = Router();
@@ -26,11 +28,13 @@ authRouter.get('/config', (req: Request, res: Response) => {
   const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
   const currentOrigin = `${protocol}://${host}`;
 
+  const runtime = getRuntimeConfigStatus();
+
   res.json({
-    client_id: EVE_CLIENT_ID,
-    has_client_secret: Boolean(EVE_CLIENT_SECRET),
-    callback_url_configured: Boolean(EVE_CALLBACK_URL),
-    callback_url: EVE_CALLBACK_URL || null,
+    client_id: EVE_CLIENT_ID || null,
+    has_client_secret: runtime.clientSecretConfigured,
+    callback_url_configured: runtime.callbackConfigured,
+    callback_url: runtime.callbackUrl,
     scopes: EVE_SCOPES,
     suggested_redirect_uris: [
       ...(EVE_CALLBACK_URL ? [EVE_CALLBACK_URL] : []),
@@ -53,6 +57,13 @@ authRouter.get('/url', (req: Request, res: Response) => {
     return res.status(400).json({
       error: 'INVALID_REDIRECT_URI',
       message: 'The requested redirect_uri is not whitelisted. Use the configured EVE_CALLBACK_URL or application host callback.',
+    });
+  }
+
+  if (!EVE_CLIENT_ID) {
+    return res.status(503).json({
+      error: 'SSO_NOT_CONFIGURED',
+      message: 'EVE_CLIENT_ID is required to start CCP SSO.',
     });
   }
 
@@ -164,11 +175,15 @@ authRouter.post('/token', async (req: Request, res: Response) => {
     });
   }
 
-  if (!EVE_CLIENT_ID || !EVE_CLIENT_SECRET) {
-    logEvent('ERROR', 'SSO', 'Attempted token exchange without EVE_CLIENT_ID or EVE_CLIENT_SECRET configured');
-    return res.status(500).json({
+  try {
+    assertOAuthRuntimeConfig();
+  } catch (error) {
+    logEvent('ERROR', 'SSO', 'Attempted token exchange without complete OAuth runtime configuration', {
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return res.status(503).json({
       error: 'SSO_NOT_CONFIGURED',
-      message: 'EVE_CLIENT_ID and EVE_CLIENT_SECRET environment variables are required.',
+      message: 'EVE_CLIENT_ID, EVE_CLIENT_SECRET and EVE_CALLBACK_URL are required for CCP token exchange.',
     });
   }
 

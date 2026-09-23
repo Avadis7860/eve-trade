@@ -400,6 +400,28 @@ Le projet configure Node.js 22 pour ses étapes applicatives, mais le runtime Ja
 
 Cette différence constitue un point de CI-001C/I pour la reproductibilité et la supply chain. Elle n’est pas modifiée dans CI-001A/B.
 
+## CI-001C — Reproducibility and supply-chain hardening increment
+
+Applied on the same branch/PR, without changing job topology or required checks:
+
+- top-level `permissions: contents: read` on the main CI workflow;
+- `persist-credentials: false` on all repository checkouts;
+- immutable SHA pinning for `actions/checkout`, `actions/setup-node` and `actions/upload-artifact`;
+- Node.js pinned to **22.23.2** and npm pinned by runtime verification to **10.9.8**;
+- workflow contract tests extended to enforce these invariants;
+- SDE workflow updated to the same immutable action/runtime policy.
+
+Action SHAs currently resolved from the v4 tags:
+
+| Action | SHA |
+|---|---|
+| `actions/checkout@v4` | `11d5960a326750d5838078e36cf38b85af677262` |
+| `actions/setup-node@v4` | `49933ea5288caeca8642d1e84afbd3f7d6820020` |
+| `actions/upload-artifact@v4` | `ea165f8d65b6e75b540449e92b4886f43607fa02` |
+
+Node.js 22.23.2 is an LTS security release; the release includes npm 10.9.8. This project deliberately pins the patch runtime for CI reproducibility and makes a mismatch fail the workflow.
+
+CI-001C does not yet change the runner image, change detection, required gate, Playwright workers, test taxonomy or main/full topology.
 ## Rollback
 
 Le rollback de CI-001A/B est trivial : supprimer les nouveaux documents et revenir au SHA `d7f245ec...`.

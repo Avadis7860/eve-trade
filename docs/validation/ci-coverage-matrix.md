@@ -1,6 +1,6 @@
 # CI-001 — Global Coverage Matrix
 
-Status: ACTIVE IMPLEMENTATION GATE — CI-001D
+Status: ACTIVE IMPLEMENTATION GATE — CI-001E
 Date: 2026-09-23
 Scope: durable coverage of CI, validation, security, delivery and governance
 Parent: [CI-001 — Refonte du système CI](../roadmap/ci-management-refactor.md)
@@ -57,7 +57,7 @@ A future optimization is not accepted merely because it reduces wall-clock time.
 | Merge queue compatibility | not evidenced in repo | CONDITIONAL | G | add \`merge_group\` if adopted |
 | Concurrency governance | same-reference cancellation only | PARTIAL | D/G/H | per-PR stale-run cancellation + explicit PR policy |
 | PR lifecycle governance | implicit | PARTIAL | H | Draft iteration / Ready certification / no PR churn |
-| Test taxonomy | global + specialized overlap | PARTIAL | E | one canonical responsibility per test |
+| Test taxonomy | canonical ownership doc + controlled overlap reduction | PARTIAL | E | one canonical responsibility per test |
 | Flaky-test policy | no explicit quarantine/ownership model | GAP | E/H | classify, quarantine, fix, re-enable |
 | Failure diagnostics | browser artifacts; standard job logs elsewhere | PARTIAL | H | failure-specific artifacts/summaries |
 | Retry policy | browser retry=1; no global policy | PARTIAL | H | retries only where justified and visible |
@@ -80,7 +80,7 @@ A future optimization is not accepted merely because it reduces wall-clock time.
 | Artifact provenance | no release-attestation requirement | CONDITIONAL | C/I | assess only if release/distribution requires it |
 | CI documentation | current workflow/runbook exists | COVERED | J | active docs + phase evidence |
 | Rollback of CI refactor | not yet formalized | GAP | A/J | every phase reversible |
-| CI self-validation | workflow contract tests exist | COVERED | D/G/J | meta-contract expanded with new topology |
+| CI self-validation | workflow contract tests exist | COVERED | D/E/G/J | meta-contract expanded with new topology and ownership script |
 | Human runbook | basic runbook exists | PARTIAL | H/J | incident/rerun/new-PR decision tree |
 | Cost/churn control | historical evidence only | PARTIAL | A/I | runs/PR, cancelled %, reruns and wall-clock tracked |
 | Long-term maintenance | action updates handled ad hoc | PARTIAL | I/J | recurring maintenance procedure |

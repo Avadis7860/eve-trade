@@ -1,24 +1,27 @@
 # CI Validation
 
-Status: CURRENT — BASELINE MEASURED / REFACTOR PLANNED
+Status: CURRENT — CI-001J PRE-MERGE CLOSURE
 Scope: GitHub Actions regression gate and certification model
 Source of truth: \`.github/workflows/ci.yml\` and \`.github/workflows/phase-2.7c-sde.yml\`
-Implementation: current CI unchanged on main; CI-001 documents the planned refactor
+Implementation: CI-001C/D/E/F/G harden security, topology, ownership, browser isolation and scope routing; CI-001H separates Main Smoke and Full Repository Certification; CI-001I adds durable timing/churn observability
 Tests: \`npm run test:ci-config\` plus all validation and browser gates below
-CI gate: current PR CI; future stable aggregator planned by CI-001
+
+Baseline: [CI-001A/B — Baseline](../audits/ci-management-baseline-2026-09-23.md)
+Evidence map: [CI-001B — Evidence Map](ci-evidence-map.md)
+Test taxonomy: [CI-001E — Test Taxonomy](ci-test-taxonomy.md)
+Browser model: Auth/Operations are isolated by job; `workers: 1` remains mandatory
+CI gate: `CI / required-gate` is the stable PR aggregation surface; Main and Full are separate certification workflows
 
 ## Current pipeline
 
-The \`validate\` job runs Node.js 22 + \`npm ci\`, frontend typecheck, backend typecheck, CI workflow contract tests, runtime configuration tests, EVE SSO JWT validation tests, catalog/universe truth, corporation treasury/ESI boundary, full unit suite, API integration, server smoke, security hardening, ESI tests and production build.
+The PR certification workflow performs change-scope detection first, then executes the selected families independently: \`static\`, \`unit_domain\`, \`server\`, \`build\`, \`browser-auth\` and \`browser-operations\`. The historical \`validate\` and \`browser-e2e\` jobs remain compatibility aggregators, while \`CI / required-gate\` is the stable PR aggregation surface.
 
-The \`browser-e2e\` job currently runs **after** \`validate\`, installs Chromium through Playwright, executes the deterministic browser OAuth/ESI composition gate and uploads diagnostics.
-
-The current pipeline is functionally established, but its topology is now the subject of a dedicated study because validation families are unnecessarily serialized.
+Documentation-only scope runs only routing/aggregation. Frontend-only scope runs static/build/browser. CI, config, domain, server, SDE, test or ambiguous scope conservatively falls back to the complete certification set.
 
 ## Current measured baseline
 
 Reference main:
-\`6e3f611f8bdce6ad42236f7082b3dc044582dbef\`
+\`d7f245ec47a8746306792ce6017496f9123c23d6\`
 
 Reference successful run:
 \`35826687206\`
@@ -49,17 +52,23 @@ The figures are baseline measurements, not SLAs.
 
 ## Browser gate ownership
 
-The browser job remains separate from the non-browser validation surface.
+The browser jobs remain separate from the non-browser validation surface.
 
-The current ordering is known to be suboptimal:
+The previous ordering was known to be suboptimal; the certified topology now lets browser and non-browser families progress in parallel:
 
 \`\`\`
-validate ───────────────► browser-e2e
+static ────────────────┐
+unit_domain ────────────┤
+server ────────────────┤──► validate (compatibility check)
+build ─────────────────┘
+
+browser-auth ────────────┐
+browser-operations ───────┤──► browser-e2e (compatibility check)
 \`\`\`
 
-CI-001 will first change this to independent jobs so the browser proof can progress while static/server validation is running.
+This topology is now implemented and certified by PR run `35856208503`.
 
-The browser harness currently contains mutable global OAuth and market controls. Therefore the first browser optimization is **job/spec separation with one worker per job**, not an immediate increase of Playwright workers.
+The browser harness still contains mutable control state; therefore Auth and Operations are isolated by job and `workers: 1` remains the safe operating mode.
 
 ## Concurrency policy
 
@@ -86,7 +95,8 @@ The gate:
 - detects SDE-sensitive paths;
 - regenerates the canonical graph/manifest;
 - fails on drift;
-- uses read-only repository permissions.
+- uses read-only repository permissions;
+- now pins checkout/setup-node to immutable SHAs and verifies Node.js 22.23.2 / npm 10.9.8.
 
 It is currently low-cost and reliable. CI-001 will align its concurrency and result presentation with the future certification model.
 
@@ -101,13 +111,13 @@ PR #46 established the deterministic browser gate:
 
 The target-PC real-CCP smoke is recorded as PASS in [Browser E2E Validation](e2e.md).
 
-## Planned CI model
+## Current CI model
 
 CI-001 defines three functional levels:
 
-1. **PR Fast Gate** — short feedback during Draft/iteration;
-2. **PR Certification Gate** — complete proof for a Ready for Review PR;
-3. **Main / Full** — short post-merge smoke plus scheduled/manual exhaustive certification.
+1. **PR Fast Gate** — scope-aware short feedback during Draft/iteration;
+2. **PR Certification Gate** — complete conditional proof for the active PR;
+3. **Main / Full** — short post-merge smoke plus scheduled/manual exhaustive certification, now implemented as dedicated workflows.
 
 The final architecture also includes a stable \`CI / required-gate\` aggregator so conditional jobs do not become branch-protection hazards.
 
@@ -116,6 +126,12 @@ The final architecture also includes a stable \`CI / required-gate\` aggregator 
 The actual branch protection/rulesets for \`main\` could not be inspected with the available GitHub integration because the relevant API endpoints returned \`403 Resource not accessible by integration\`.
 
 No check name should be changed during CI-001 until the effective protection configuration is verified with administrative access.
+
+## CI-001I observability
+
+The PR, Main Smoke and Full workflows expose a dedicated `CI / observability` job. It reads the current workflow's Jobs API with `actions: read` only, captures job and step timestamps, calculates recent workflow duration statistics, reports cancellation/rerun frequency, writes a machine-readable JSON artifact and publishes the slowest observed steps in the run summary. The collector never participates in the stable required-gate.
+
+Artifacts are retained for 30 days so several runs can be compared without changing functional gates.
 
 ## Documentation
 
@@ -126,8 +142,10 @@ No check name should be changed during CI-001 until the effective protection con
 
 ## Completion status
 
-The existing CI remains the current certification mechanism.
+**CI-001G is certified; CI-001H is implemented; CI-001I is runtime-verified on PR run `35856208503` for head `9d09d8affac903de6c2ca8f39156b5b662d4fef4`.** Main Smoke and Full remain independent post-merge/scheduled health checks.
 
-**CI-001 is studied and planned, but not implemented.**
+The topology change is additive in proof ownership: existing commands remain present, the historical `validate` check name remains available, and browser execution is no longer downstream of non-browser validation.
 
-No validation evidence is being removed or weakened as part of this documentation update.
+## CI-001I evidence
+
+PR run `35856208503` completed successfully on head `9d09d8affac903de6c2ca8f39156b5b662d4fef4`. Change Scope, Static, Unit/Domain, Server/API/Security/ESI, Production Build, Browser Auth, Browser Operations, both compatibility aggregators, `CI / required-gate` and `CI / observability` all succeeded. SDE Truth Gate run `35856208652` also succeeded. The observability artifact sampled 49 completed runs: 39 cancelled, 5 failed and 5 successful (79.6% cancellation rate); the slowest current lane was Browser Auth at ~139 s, with Unit/Domain ~59 s and Browser Operations ~88 s.

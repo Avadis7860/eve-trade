@@ -22,20 +22,24 @@ Source of truth: code, tests, CI and current state documents
 
 ## CI / delivery gaps
 
-- The current CI is functionally valid but operationally inefficient: the browser gate waits for the monolithic validation job.
-- The main validation job contains several independent families that are still serialized.
+- CI-001D topology is proven; CI-001G scope routing and `CI / required-gate` are certified on head `bc2ff6c24a6b4b419311b287ddd0b206489093c3`.
+- The historical `validate` and `browser-e2e` checks remain as compatibility aggregators; `CI / required-gate` is now the stable PR aggregation surface. Branch protection remains administratively unverified.
+- Test taxonomy and canonical ownership are now documented; the first demonstrated duplicate invocation was removed while the underlying tests remain covered by their canonical owners and a retained Full/recovery composition.
+- Browser Auth and Operations are now isolated at the job level; multi-worker Playwright execution remains intentionally blocked until state isolation is proven.
 - \`npm test\` is a large sequential command manifest and specialized gates partially overlap it.
 - Current concurrency cancels obsolete runs on one PR/workflow reference but does not prevent several distinct PRs from representing the same human chantier.
-- The SDE gate is reliable and cheap but is not yet governed by the same future certification/concurrency model.
-- There is no stable conditional-check aggregator yet, so a future path-aware model must be introduced carefully.
+- The SDE gate remains authoritative for PR SDE-sensitive changes; Full certification also contains an explicit SDE regeneration proof.
+- Conditional execution is routed through `CI / Change Scope` with conservative full-certification fallback; no workflow-level path filter is used on the required PR surface.
 - Branch protection/ruleset configuration for \`main\` could not be verified with the available integration and must be checked before any required-check rename.
-- CI-001 is documented and implementation-ready, but remains PLANNED / PRIORITY DECISION PENDING.
+- CI-001 is now in PRE-MERGE CLOSURE — CI-001J. G is certified; H is implemented with dedicated Main/Full workflows and the CI recovery runbook; I is runtime-verified on PR run `35856208503` with durable workflow/job/step timing plus cancellation/rerun observability. Main Smoke and Full runtime proofs remain independent post-merge/scheduled health checks.
 
 See:
 - [CI Validation](../validation/ci.md)
 - [CI Management Audit](../audits/ci-management-audit-2026-09-23.md)
 - [CI-001 — Refonte du système CI](../roadmap/ci-management-refactor.md)
 - [CI-001 Global Coverage Matrix](../validation/ci-coverage-matrix.md)
+- [CI-001 Baseline](../audits/ci-management-baseline-2026-09-23.md)
+- [CI-001 Evidence Map](../validation/ci-evidence-map.md)
 
 ## Structural gaps
 

@@ -1,73 +1,22 @@
-name: CI Foundation & Regression Gate
+name: CI Full Repository Certification
 
 on:
-  pull_request:
-    branches: ["main"]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 1"
 
 permissions:
   contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  detect-changes:
-    name: CI / Change Scope
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      frontend: ${{ steps.scope.outputs.frontend }}
-      domain: ${{ steps.scope.outputs.domain }}
-      server: ${{ steps.scope.outputs.server }}
-      sde: ${{ steps.scope.outputs.sde }}
-      ci: ${{ steps.scope.outputs.ci }}
-      config: ${{ steps.scope.outputs.config }}
-      tests: ${{ steps.scope.outputs.tests }}
-      docs: ${{ steps.scope.outputs.docs }}
-      ambiguous: ${{ steps.scope.outputs.ambiguous }}
-      run_static: ${{ steps.scope.outputs.run_static }}
-      full_certification: ${{ steps.scope.outputs.full_certification }}
-      run_unit_domain: ${{ steps.scope.outputs.run_unit_domain }}
-      run_server: ${{ steps.scope.outputs.run_server }}
-      run_build: ${{ steps.scope.outputs.run_build }}
-      run_browser: ${{ steps.scope.outputs.run_browser }}
-    steps:
-      - name: Checkout pull request commit
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Detect changed domains
-        id: scope
-        shell: bash
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          set -euo pipefail
-
-          if ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
-            echo 'Base commit is not present locally; falling back conservatively to full certification.'
-            changed_files=''
-            ambiguous=true
-          else
-            changed_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
-            ambiguous=false
-          fi
-
-          printf "%s\n" "$changed_files" | node scripts/__tests__/ci_scope.test.mjs >/dev/null
-          printf "%s\n" "$changed_files" | node scripts/ci-scope.mjs
-
-          # ci-scope.mjs writes GitHub outputs and the scope summary.
   static:
-    name: Static / Config / Auth
-    needs: [detect-changes]
-    if: ${{ needs.detect-changes.outputs.run_static == 'true' }}
+    name: Full / Static / Config / Auth
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -81,6 +30,7 @@ jobs:
           cache-dependency-path: package-lock.json
       - name: Verify Node.js and npm versions
         run: |
+          set -euo pipefail
           test "$(node --version)" = "v22.23.2"
           test "$(npm --version)" = "10.9.8"
       - name: Install dependencies
@@ -97,11 +47,9 @@ jobs:
         run: npm run test:auth-token
 
   unit_domain:
-    name: Unit / Domain Certification
-    needs: [detect-changes]
-    if: ${{ needs.detect-changes.outputs.run_unit_domain == 'true' }}
+    name: Full / Unit / Domain
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -115,6 +63,7 @@ jobs:
           cache-dependency-path: package-lock.json
       - name: Verify Node.js and npm versions
         run: |
+          set -euo pipefail
           test "$(node --version)" = "v22.23.2"
           test "$(npm --version)" = "10.9.8"
       - name: Install dependencies
@@ -127,11 +76,9 @@ jobs:
         run: npm test
 
   server:
-    name: Server / API / Security / ESI
-    needs: [detect-changes]
-    if: ${{ needs.detect-changes.outputs.run_server == 'true' }}
+    name: Full / Server / API / Security / ESI
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -145,6 +92,7 @@ jobs:
           cache-dependency-path: package-lock.json
       - name: Verify Node.js and npm versions
         run: |
+          set -euo pipefail
           test "$(node --version)" = "v22.23.2"
           test "$(npm --version)" = "10.9.8"
       - name: Install dependencies
@@ -159,11 +107,9 @@ jobs:
         run: npm run test:esi
 
   build:
-    name: Production Build
-    needs: [detect-changes]
-    if: ${{ needs.detect-changes.outputs.run_build == 'true' }}
+    name: Full / Production Build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -177,6 +123,7 @@ jobs:
           cache-dependency-path: package-lock.json
       - name: Verify Node.js and npm versions
         run: |
+          set -euo pipefail
           test "$(node --version)" = "v22.23.2"
           test "$(npm --version)" = "10.9.8"
       - name: Install dependencies
@@ -185,11 +132,9 @@ jobs:
         run: npm run build
 
   browser-auth:
-    name: Browser E2E — Auth
-    needs: [detect-changes]
-    if: ${{ needs.detect-changes.outputs.run_browser == 'true' }}
+    name: Full / Browser Auth
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -203,6 +148,7 @@ jobs:
           cache-dependency-path: package-lock.json
       - name: Verify Node.js and npm versions
         run: |
+          set -euo pipefail
           test "$(node --version)" = "v22.23.2"
           test "$(npm --version)" = "10.9.8"
       - name: Install dependencies
@@ -215,18 +161,16 @@ jobs:
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: playwright-report-auth
+          name: full-playwright-report-auth
           path: |
             playwright-report/
             test-results/
           if-no-files-found: ignore
 
   browser-operations:
-    name: Browser E2E — Operations
-    needs: [detect-changes]
-    if: ${{ needs.detect-changes.outputs.run_browser == 'true' }}
+    name: Full / Browser Operations
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -240,6 +184,7 @@ jobs:
           cache-dependency-path: package-lock.json
       - name: Verify Node.js and npm versions
         run: |
+          set -euo pipefail
           test "$(node --version)" = "v22.23.2"
           test "$(npm --version)" = "10.9.8"
       - name: Install dependencies
@@ -252,86 +197,104 @@ jobs:
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: playwright-report-operations
+          name: full-playwright-report-operations
           path: |
             playwright-report/
             test-results/
           if-no-files-found: ignore
 
-  validate:
-    name: Validation & Non-Regression Gate
-    if: ${{ always() }}
-    needs: [detect-changes, static, unit_domain, server, build]
+  sde-truth:
+    name: Full / SDE Truth
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 25
+    env:
+      SDE_BUILD: '3503375'
+      SDE_URL: 'https://developers.eveonline.com/static-data/tranquility/eve-online-static-data-3503375-jsonl.zip'
     steps:
-      - name: Verify selected validation lanes
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Setup Node.js 22.23.2
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22.23.2
+      - name: Verify Node.js and npm versions
         run: |
           set -euo pipefail
-          test "${{ needs.detect-changes.result }}" = "success"
-
-          if [ "${{ needs.detect-changes.outputs.run_static }}" = "true" ]; then
-            test "${{ needs.static.result }}" = "success"
-          else
-            test "${{ needs.static.result }}" = "skipped"
-          fi
-
-          if [ "${{ needs.detect-changes.outputs.run_unit_domain }}" = "true" ]; then
-            test "${{ needs.unit_domain.result }}" = "success"
-          else
-            test "${{ needs.unit_domain.result }}" = "skipped"
-          fi
-
-          if [ "${{ needs.detect-changes.outputs.run_server }}" = "true" ]; then
-            test "${{ needs.server.result }}" = "success"
-          else
-            test "${{ needs.server.result }}" = "skipped"
-          fi
-
-          if [ "${{ needs.detect-changes.outputs.run_build }}" = "true" ]; then
-            test "${{ needs.build.result }}" = "success"
-          else
-            test "${{ needs.build.result }}" = "skipped"
-          fi
-
-  browser-e2e:
-    name: Browser E2E — OAuth/ESI composition
-    if: ${{ always() }}
-    needs: [detect-changes, browser-auth, browser-operations]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Verify selected browser lanes
-        run: |
-          set -euo pipefail
-          test "${{ needs.detect-changes.result }}" = "success"
-
-          if [ "${{ needs.detect-changes.outputs.run_browser }}" = "true" ]; then
-            test "${{ needs.browser-auth.result }}" = "success"
-            test "${{ needs.browser-operations.result }}" = "success"
-          else
-            test "${{ needs.browser-auth.result }}" = "skipped"
-            test "${{ needs.browser-operations.result }}" = "skipped"
-          fi
-  required-gate:
-    name: CI / required-gate
-    if: ${{ always() }}
-    needs: [detect-changes, validate, browser-e2e]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Verify stable certification result
+          test "$(node --version)" = "v22.23.2"
+          test "$(npm --version)" = "10.9.8"
+      - name: Download pinned CCP SDE
         shell: bash
         run: |
           set -euo pipefail
-          test "${{ needs.detect-changes.result }}" = "success"
-          test "${{ needs.validate.result }}" = "success"
-          test "${{ needs.browser-e2e.result }}" = "success"
+          mkdir -p "$RUNNER_TEMP/eve-sde"
+          curl --fail --location --retry 5 --retry-all-errors --silent --show-error \
+            "$SDE_URL" --output "$RUNNER_TEMP/eve-sde/sde.zip"
+          unzip -q "$RUNNER_TEMP/eve-sde/sde.zip" -d "$RUNNER_TEMP/eve-sde/unpacked"
+          SYSTEMS_FILE="$(find "$RUNNER_TEMP/eve-sde/unpacked" -type f -name 'mapSolarSystems.jsonl' -print -quit)"
+          STARGATES_FILE="$(find "$RUNNER_TEMP/eve-sde/unpacked" -type f -name 'mapStargates.jsonl' -print -quit)"
+          test -n "$SYSTEMS_FILE"
+          test -n "$STARGATES_FILE"
+          mkdir -p "$RUNNER_TEMP/eve-sde/input"
+          cp "$SYSTEMS_FILE" "$RUNNER_TEMP/eve-sde/input/mapSolarSystems.jsonl"
+          cp "$STARGATES_FILE" "$RUNNER_TEMP/eve-sde/input/mapStargates.jsonl"
+      - name: Generate real canonical graph
+        run: |
+          set -euo pipefail
+          node scripts/build-universe-graph.mjs \
+            "$RUNNER_TEMP/eve-sde/input" \
+            src/data/universeGraph.json \
+            "$SDE_BUILD"
+          node scripts/write-universe-graph-manifest.mjs \
+            src/data/universeGraph.json \
+            src/data/universeGraphManifest.ts
+      - name: Validate generated graph is committed cleanly
+        run: |
+          set -euo pipefail
+          git diff --check
+          git diff --stat
+          test -s src/data/universeGraph.json
+          test -s src/data/universeGraphManifest.ts
+      - name: Verify generated canonical artifact matches commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- src/data/universeGraph.json src/data/universeGraphManifest.ts; then
+            echo 'Canonical SDE graph artifact and manifest match the pinned CCP SDE regeneration.'
+            exit 0
+          fi
+          echo '::error::Committed canonical SDE artifact does not match the pinned CCP SDE regeneration.'
+          git diff --stat -- src/data/universeGraph.json src/data/universeGraphManifest.ts
+          git diff -- src/data/universeGraphManifest.ts
+          echo 'Full SDE certification is read-only. Regenerate and commit the artifact explicitly in a reviewed change.'
+          exit 1
+
+  full-gate:
+    name: CI / full-certification-gate
+    if: ${{ always() }}
+    needs: [static, unit_domain, server, build, browser-auth, browser-operations, sde-truth]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify full certification result
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Full certification head: ${{ github.sha }}"
+          test "${{ needs.static.result }}" = "success"
+          test "${{ needs.unit_domain.result }}" = "success"
+          test "${{ needs.server.result }}" = "success"
+          test "${{ needs.build.result }}" = "success"
+          test "${{ needs.browser-auth.result }}" = "success"
+          test "${{ needs.browser-operations.result }}" = "success"
+          test "${{ needs.sde-truth.result }}" = "success"
 
   observability:
     name: CI / observability
     if: ${{ always() }}
-    needs: [required-gate]
+    needs: [full-gate]
     permissions:
       contents: read
       actions: read

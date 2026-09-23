@@ -1,12 +1,14 @@
 # CI-001 — Refonte du système CI, validation et gouvernance
 
-Status: PLANNED / PRIORITY DECISION PENDING
+Status: PRE-MERGE CLOSURE — CI-001J
 Scope: GitHub Actions, test certification, browser E2E et gouvernance des PR
 Owner: project maintainers
-Baseline: main @ \`6e3f611f8bdce6ad42236f7082b3dc044582dbef\`
+Baseline: main @ \`d7f245ec47a8746306792ce6017496f9123c23d6\`
 Study: [Audit CI — gestion, performance et gouvernance](../audits/ci-management-audit-2026-09-23.md)
 Current validation: [CI Validation](../validation/ci.md)
 Coverage model: [CI-001 Global Coverage Matrix](../validation/ci-coverage-matrix.md)
+Current baseline: [CI-001A/B — Baseline](../audits/ci-management-baseline-2026-09-23.md)
+Evidence map: [CI-001B — Evidence Map](../validation/ci-evidence-map.md)
 
 ## Objective
 
@@ -36,18 +38,35 @@ CI-001 ne vise pas à :
 
 > Une modification doit recevoir le signal dont elle a besoin au moment où elle en a besoin : debug rapide pendant l'itération, certification profonde avant merge, santé courte après merge, certification exhaustive planifiée.
 
+## Current execution state
+
+CI-001 is implemented on the single active branch `ci/ci-001a-baseline` and is now in pre-merge closure; there must be no second active PR for CI-001.
+
+CI-001A/B through CI-001I are implemented, with CI-001G certified and CI-001I runtime-verified on PR run `35856208503`. CI-001H separates Main Smoke, Full Repository Certification and recovery guidance. The remaining items are closure/documentation decisions plus a small set of explicitly deferred security/maintenance hardening tracks.
+
+Required-check naming is unchanged. Branch-protection visibility remains an administrative unknown because the available integration cannot inspect the relevant settings. Playwright workers remain at 1 by design.
+
 ## État actuel de référence
 
 Le workflow principal est :
 
 \`\`\`
-pull_request/push main
+pull_request
         │
-        ▼
-   validate
-        │
-        ▼
- browser-e2e
+        ├────────► Change Scope
+        ├────────► static
+        ├────────► unit-domain
+        ├────────► server
+        ├────────► build
+        ├────────► browser-auth
+        └────────► browser-operations
+             │             │
+             └────► compatibility aggregators
+                            │
+                     CI / required-gate
+
+main push ─────────────► Main Smoke
+manual/schedule ───────► Full Certification
 \`\`\`
 
 Le job \`validate\` regroupe presque toutes les validations. Le browser E2E attend la totalité de ce job.
@@ -390,6 +409,8 @@ Gate :
 
 Objectif : supprimer les dépendances séquentielles sans modifier la couverture.
 
+État : COMPLETED — topologie indépendante implémentée et prouvée sur les runs de certification.
+
 Travail :
 
 - détacher browser de \`validate\` ;
@@ -405,6 +426,8 @@ Gate :
 ### CI-001E — Taxonomie et ownership des tests
 
 Objectif : rendre la certification intelligible et sans doublons injustifiés.
+
+État : COMPLETED — ownership canonique fixé et doublon de certification éliminé avec preuve conservée.
 
 Travail :
 
@@ -423,6 +446,8 @@ Gate :
 
 Objectif : accélérer l'E2E sans introduire de flakiness.
 
+État : COMPLETED — Auth et Operations sont séparés en jobs indépendants ; `workers: 1` reste volontairement la limite sûre.
+
 Travail :
 
 - séparer Auth et Operations en jobs ;
@@ -440,6 +465,8 @@ Playwright recommande la stabilité/reproductibilité avec un seul worker en CI 
 
 ### CI-001G — Change detection et required-gate
 
+État : COMPLETED — certifié sur head `bc2ff6c24a6b4b419311b287ddd0b206489093c3`.
+
 Objectif : rendre les validations conditionnelles sûres.
 
 Travail :
@@ -456,6 +483,8 @@ Gate :
 > chaque PR obtient un signal de fusion stable et aucune validation requise ne peut rester silencieusement en attente.
 
 ### CI-001H — Cycle Main : post-merge, Full et récupération
+
+État : IMPLEMENTED — workflows Main/Full et recovery runbook implémentés sur la branche CI-001 unique. Le Main Smoke est une preuve post-merge; le Full reste un contrôle manual/scheduled indépendant.
 
 Objectif : séparer santé immédiate et certification exhaustive.
 
@@ -475,18 +504,21 @@ Gate :
 
 ### CI-001I — Observabilité durable et contrôle de performance
 
+État : COMPLETED — collecteur de métriques exécutable et runtime-verified par PR run `35856208503`.
+
 Objectif : transformer les gains ponctuels en système mesurable.
 
 Travail :
 
-- durée workflow/job/test ;
+- durée workflow/job/step ;
 - taux d'annulation ;
 - taux de rerun ;
 - flakiness ;
 - coût relatif des lanes ;
 - fréquence des certifications Full ;
 - top lenteurs ;
-- seuils d'alerte/dérive.
+- seuils d'alerte/dérive ;
+- artefact machine-readable conservé pour l'analyse de tendance.
 
 Gate :
 
@@ -547,8 +579,14 @@ En particulier :
 
 ## Priorité
 
-État actuel : **PRIORITY DECISION PENDING**.
+État actuel : **PRE-MERGE CLOSURE — CI-001J**.
 
-Cette roadmap est prête à devenir le chantier prioritaire, mais elle ne modifie pas encore l'ordre produit actuel.
+CI-001 est désormais le chantier prioritaire unique pour la CI et la gouvernance de livraison. UX-02 reste suspendu pendant cette tranche d'infrastructure.
 
-Si CI-001 devient la priorité absolue, le premier incrément à lancer est **CI-001A + CI-001B**, sans toucher immédiatement aux règles de protection de branche.
+CI-001D/E/F/G sont complétés et runtime-verified ; CI-001H/I sont implémentés et prouvés. Le chantier est désormais en clôture pré-merge.
+
+La protection de branche reste administrativement inconnue avec l'intégration disponible ; aucun renommage de required-check n'a été effectué.
+
+## Pre-merge closure
+
+Le chantier ne doit pas être étendu par de nouvelles optimisations avant merge. La revue est effectuée par l'agent sur le head courant ; le merge repose sur cette revue et sur la certification CI disponible. La branch protection/ruleset de `main` reste un point d'administration GitHub non observable par l'intégration et ne fait pas partie d'un changement implicite de required-check. Le Main Smoke et le Full Certification restent des surfaces de santé séparées.

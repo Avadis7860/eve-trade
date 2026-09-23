@@ -67,7 +67,7 @@ Expected behavior:
 
 The user-reported market-order retrieval issue is still classified as NOT ROOT-CAUSED.
 
-P0-C now provides the **Exporter preuve P0-C** JSON bundle so the target-PC capture can be preserved as one non-secret artifact.
+P0-C is implemented and certified on main. The **Exporter preuve P0-C** JSON bundle lets the target-PC capture be preserved as one non-secret artifact.
 
 The next acceptance step is to run the target PC against a failing/recovering market path and capture:
 - hub;

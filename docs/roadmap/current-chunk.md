@@ -32,17 +32,16 @@ P0-B is **DONE / MERGED / CERTIFIED** on main by PR #66 at merge commit `c0ddc69
 
 The [deterministic 429 proof](../validation/p0-b-429-retry-after.md) certified HTTP 429, `ERROR`, active-order retention, visible HTTP status, ESI budget, Retry-After and absence of a false empty state. PR CI and post-merge Main Smoke were green.
 
-## P0-C implementation result
+## P0-C certification result
 
-P0-C is **ACTIVE** on branch `feat/p0-target-pc-evidence`, based on main at `c0ddc69ef424ed0cfd4de776758166c3ee8c1abe`.
+P0-C implementation is **DONE / MERGED / CERTIFIED** on main by PR #67 at merge commit `31308676ec2d9104f7c6ffab29dae1e3f4f49a00`.
 
-The target-PC evidence workflow now includes a browser-visible JSON export containing the market request template, per-hub HTTP/cache/pagination/ESI/Retry-After diagnostics, data-health state, timestamp and non-secret browser context. The exported bundle deliberately records the controlled comparison result as `not_recorded`; that field must be established from the affected PC and a controlled comparison environment. Validation: [P0-C target-PC evidence](../validation/p0-c-target-pc-evidence.md).
+The target-PC evidence workflow now includes a browser-visible JSON export containing the market request template, per-hub HTTP/cache/pagination/ESI/Retry-After diagnostics, data-health state, timestamp and non-secret browser context. PR CI #719, SDE #480, and post-merge Main Smoke #8 are green. The exported bundle deliberately records the controlled comparison result as `not_recorded`; that field must be established from the affected PC and a controlled comparison environment. Validation: [P0-C target-PC evidence](../validation/p0-c-target-pc-evidence.md).
 
 ## Next increments
 
-1. Validate and merge the P0-C evidence-export increment.
-2. Run the exported evidence capture on the affected PC and from a controlled comparison environment, then classify the incident.
-3. Close UX-01 as either **ROOT-CAUSED** (reproducible technical cause) or **EXTERNALLY BOUNDED** (code path certified; remaining evidence dependency explicitly outside the repository).
+1. Run the exported evidence capture on the affected PC and from a controlled comparison environment, then classify the incident.
+2. Close UX-01 as either **ROOT-CAUSED** (reproducible technical cause) or **EXTERNALLY BOUNDED** (code path certified; remaining evidence dependency explicitly outside the repository).
 
 ## CI operator tooling — planned, not active
 

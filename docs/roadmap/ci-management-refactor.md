@@ -1,6 +1,6 @@
 # CI-001 — Refonte du système CI, validation et gouvernance
 
-Status: ACTIVE — CI-001H
+Status: ACTIVE — CI-001I
 Scope: GitHub Actions, test certification, browser E2E et gouvernance des PR
 Owner: project maintainers
 Baseline: main @ \`d7f245ec47a8746306792ce6017496f9123c23d6\`
@@ -497,18 +497,21 @@ Gate :
 
 ### CI-001I — Observabilité durable et contrôle de performance
 
+État : ACTIVE — collecteur de métriques ajouté aux workflows PR, Main Smoke et Full.
+
 Objectif : transformer les gains ponctuels en système mesurable.
 
 Travail :
 
-- durée workflow/job/test ;
+- durée workflow/job/step ;
 - taux d'annulation ;
 - taux de rerun ;
 - flakiness ;
 - coût relatif des lanes ;
 - fréquence des certifications Full ;
 - top lenteurs ;
-- seuils d'alerte/dérive.
+- seuils d'alerte/dérive ;
+- artefact machine-readable conservé pour l'analyse de tendance.
 
 Gate :
 

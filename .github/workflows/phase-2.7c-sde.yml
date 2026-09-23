@@ -28,7 +28,28 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          changed_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+          echo "SDE scope refs: BASE_SHA=$BASE_SHA HEAD_SHA=$HEAD_SHA"
+          if ! git cat-file -e "$HEAD_SHA^{commit}" 2>/dev/null; then
+            echo '::error::PR head commit is not available after checkout.'
+            exit 1
+          fi
+
+          if ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+            echo '::warning::Base commit is not present locally; running the SDE Truth Gate conservatively.'
+            changed_files=''
+            echo "sde_changed=true" >> "$GITHUB_OUTPUT"
+            echo 'SDE-sensitive scope is assumed because the base commit is unavailable.'
+            exit 0
+          fi
+
+          if ! changed_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"; then
+            echo '::warning::Unable to compute the PR diff; running the SDE Truth Gate conservatively.'
+            changed_files=''
+            echo "sde_changed=true" >> "$GITHUB_OUTPUT"
+            echo 'SDE-sensitive scope is assumed because the diff could not be computed.'
+            exit 0
+          fi
+
           printf '%s\n' "$changed_files"
 
           if printf '%s\n' "$changed_files" | grep -Eq '^(.github/workflows/phase-2.7c-sde.yml|src/data/universeGraph.json|src/data/universeGraphManifest.ts|scripts/build-universe-graph.mjs|scripts/universe-graph-builder.mjs|scripts/write-universe-graph-manifest.mjs|scripts/__tests__/universe_graph_builder.test.mjs)$'; then

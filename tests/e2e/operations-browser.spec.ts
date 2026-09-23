@@ -24,6 +24,16 @@ async function resetFixture(request: APIRequestContext): Promise<void> {
   expect(response.ok()).toBeTruthy();
 }
 
+async function setOperationsScenario(
+  request: APIRequestContext,
+  scenario: 'keep' | 'adjust' | 'relocate' | 'cancel',
+): Promise<void> {
+  const response = await request.post(MOCK_BASE_URL + '/__control__/operations-scenario', {
+    data: { scenario },
+  });
+  expect(response.ok()).toBeTruthy();
+}
+
 async function setMarketMode(
   request: APIRequestContext,
   mode: 'live' | 'error' | 'partial',
@@ -143,6 +153,62 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
     await expect(detail).toBeVisible();
     await expect(detail.locator('span.inline-flex').filter({ hasText: 'PARTIAL' })).toBeVisible();
     await expect(detail.getByText(/Aucune recommandation fiable|Aucune recommandation supplémentaire/)).toBeVisible();
+  });
+
+  test('supports the KEEP decision end to end', async ({ page, request }) => {
+    await setOperationsScenario(request, 'keep');
+    await page.goto('/');
+    await openOrders(page);
+    await launchSso(page);
+    await expectOperationsLoaded(page);
+
+    const row = page.locator('tbody tr').first();
+    await expect(row.getByText('Conserver', { exact: true })).toBeVisible();
+    await row.click();
+    const detail = page.getByRole('dialog', { name: 'Détail opérationnel de l’ordre' });
+    await expect(detail.getByText('Position Optimale (1er Vendeur)', { exact: true })).toBeVisible();
+  });
+
+  test('supports the ADJUST decision end to end', async ({ page, request }) => {
+    await setOperationsScenario(request, 'adjust');
+    await page.goto('/');
+    await openOrders(page);
+    await launchSso(page);
+    await expectOperationsLoaded(page);
+
+    const row = page.locator('tbody tr').first();
+    await expect(row.getByText(/Ajuster :/)).toBeVisible();
+    await row.click();
+    const detail = page.getByRole('dialog', { name: 'Détail opérationnel de l’ordre' });
+    await expect(detail.getByText(/Ajuster le Prix à/)).toBeVisible();
+  });
+
+  test('supports the RELOCATE decision end to end', async ({ page, request }) => {
+    await setOperationsScenario(request, 'relocate');
+    await page.goto('/');
+    await openOrders(page);
+    await launchSso(page);
+    await expectOperationsLoaded(page);
+
+    const row = page.locator('tbody tr').first();
+    await expect(row.getByText(/Déplacer ➔/)).toBeVisible();
+    await row.click();
+    const detail = page.getByRole('dialog', { name: 'Détail opérationnel de l’ordre' });
+    await expect(detail.getByText(/Déplacer vers Amarr \(Domain\)/)).toBeVisible();
+  });
+
+  test('supports the CANCEL decision end to end', async ({ page, request }) => {
+    await setOperationsScenario(request, 'cancel');
+    await page.goto('/');
+    await openOrders(page);
+    await launchSso(page);
+    await expectOperationsLoaded(page);
+
+    const row = page.locator('tbody tr').first();
+    await expect(row.getByText('Annuler l\'Ordre', { exact: true })).toBeVisible();
+    await row.click();
+    const detail = page.getByRole('dialog', { name: 'Détail opérationnel de l’ordre' });
+    await expect(detail.getByText('Annuler : Concurrence Destructrice de Marge', { exact: true })).toBeVisible();
   });
 
   test('degrades a previously observed market snapshot to STALE instead of dropping the order context', async ({ page, request }) => {

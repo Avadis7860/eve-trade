@@ -38,7 +38,7 @@ const testItem: EveTypeDetail = {
   name: 'P0 Error Fixture',
   volume: 1,
   group_id: 999991,
-  category_id: 999991,
+  category_id: 4,
 };
 
 async function run(): Promise<void> {
@@ -59,7 +59,7 @@ async function run(): Promise<void> {
       testConfig,
       'immediate',
       {
-        category_id_filter: 999991,
+        category_id_filter: 4,
         item_limit: 1,
         fetch_history: false,
         concurrency: 1,

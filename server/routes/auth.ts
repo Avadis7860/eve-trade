@@ -6,12 +6,11 @@ import {
   EVE_CALLBACK_URL,
   EVE_SSO_AUTHORIZE_URL,
   EVE_SSO_TOKEN_URL,
-  EVE_SSO_VERIFY_URL,
+  verifyEveAccessToken,
   EVE_SCOPES,
   generateOAuthState,
   validateAndConsumeOAuthState,
   validateRedirectUri,
-  parseJwt,
   renderAuthErrorHtml,
   escapeHtml,
   safeJsonStringify,
@@ -219,32 +218,27 @@ authRouter.post('/token', async (req: Request, res: Response) => {
     }
 
     const tokenData = await response.json();
-    const payload = parseJwt(tokenData.access_token);
-
-    let characterId: number | null = null;
-    let characterName: string | null = null;
-
-    if (payload && payload.sub) {
-      const parts = payload.sub.split(':');
-      characterId = Number(parts[parts.length - 1]);
-      characterName = payload.name || null;
+    if (!tokenData.access_token || typeof tokenData.access_token !== 'string') {
+      return res.status(502).json({ error: 'INVALID_TOKEN_RESPONSE', message: 'EVE SSO did not return a usable access token.' });
     }
 
-    if (!characterId) {
-      try {
-        const verifyRes = await fetch(EVE_SSO_VERIFY_URL, {
-          headers: {
-            'Authorization': `Bearer ${tokenData.access_token}`,
-            'User-Agent': 'eve-trade-interregional/0.2',
-          },
-        });
-        if (verifyRes.ok) {
-          const verifyData = await verifyRes.json();
-          characterId = verifyData.CharacterID;
-          characterName = verifyData.CharacterName;
-        }
-      } catch {}
+    let payload: Record<string, unknown>;
+    try {
+      payload = await verifyEveAccessToken(tokenData.access_token);
+    } catch (error) {
+      logEvent('WARN', 'SSO', 'EVE access token validation failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return res.status(502).json({
+        error: 'INVALID_EVE_SSO_TOKEN',
+        message: 'EVE SSO returned an access token that failed signature or claim validation.',
+      });
     }
+
+    const parts = String(payload.sub).split(':');
+    const parsedCharacterId = Number(parts[parts.length - 1]);
+    const characterId = Number.isInteger(parsedCharacterId) ? parsedCharacterId : null;
+    const characterName = typeof payload.name === 'string' ? payload.name : null;
 
     logEvent('INFO', 'SSO', 'Character session authenticated successfully', { characterId, characterName });
 
@@ -470,16 +464,25 @@ export const callbackHandler = async (req: Request, res: Response) => {
       ));
     }
 
-    const payload = parseJwt(tokenData.access_token);
-    let characterId: number | null = null;
-    let characterName: string | null = null;
-
-    if (payload && payload.sub) {
-      const parts = String(payload.sub).split(':');
-      const parsedCharacterId = Number(parts[parts.length - 1]);
-      if (Number.isInteger(parsedCharacterId) && parsedCharacterId > 0) characterId = parsedCharacterId;
-      if (typeof payload.name === 'string' && payload.name.trim()) characterName = payload.name.trim();
+    let payload: Record<string, unknown>;
+    try {
+      payload = await verifyEveAccessToken(tokenData.access_token);
+    } catch (error) {
+      logEvent('WARN', 'SSO', 'Browser callback access token validation failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      res.status(502).setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(renderAuthErrorHtml(
+        'Réponse SSO invalide',
+        'Le jeton d’accès EVE SSO n’a pas pu être vérifié avec les clés officielles CCP.',
+        'INVALID_EVE_SSO_TOKEN'
+      ));
     }
+
+    const parts = String(payload.sub).split(':');
+    const parsedCharacterId = Number(parts[parts.length - 1]);
+    const characterId = Number.isInteger(parsedCharacterId) ? parsedCharacterId : null;
+    const characterName = typeof payload.name === 'string' && payload.name.trim() ? payload.name.trim() : null;
 
     if (!characterId) {
       try {

@@ -256,13 +256,11 @@ test.describe('E2E-001 — browser OAuth composition', () => {
 
   test('rejects a replayed OAuth callback state', async ({ page }) => {
     const { popup } = await launchSso(page);
-    await waitForOAuthCallback(popup);
-
-    const callbackUrl = new URL(popup.url());
+    const callbackUrl = await waitForOAuthCallback(popup);
     await expectAuthenticatedCharacter(page, ALPHA.name);
     await popup.close();
 
-    const replay = await page.goto(callbackUrl);
+    const replay = await page.goto(callbackUrl.toString());
     expect(replay?.status()).toBe(400);
     await expect(page.getByText(/Jeton Invalide ou Expiré/)).toBeVisible();
   });

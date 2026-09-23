@@ -14,17 +14,22 @@ jobs:
     outputs:
       sde_changed: ${{ steps.detect.outputs.sde_changed }}
     steps:
-      - name: Detect SDE-sensitive changes from PR files
+      - name: Checkout pull request commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Detect SDE-sensitive changes
         id: detect
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          changed_files="$(gh api --paginate \
-            "/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files?per_page=100" \
-            --jq '.[].filename')"
+          changed_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
           printf '%s\n' "$changed_files"
 
           if printf '%s\n' "$changed_files" | grep -Eq '^(.github/workflows/phase-2.7c-sde.yml|src/data/universeGraph.json|src/data/universeGraphManifest.ts|scripts/build-universe-graph.mjs|scripts/universe-graph-builder.mjs|scripts/write-universe-graph-manifest.mjs|scripts/__tests__/universe_graph_builder.test.mjs)$'; then
@@ -34,6 +39,7 @@ jobs:
             echo "sde_changed=false" >> "$GITHUB_OUTPUT"
             echo 'No SDE-sensitive changes detected; the Truth Gate will be skipped.'
           fi
+
   sde-truth:
     needs: detect-sde-changes
     if: needs.detect-sde-changes.outputs.sde_changed == 'true'

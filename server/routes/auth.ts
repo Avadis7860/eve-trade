@@ -35,7 +35,6 @@ authRouter.get('/config', (req: Request, res: Response) => {
     suggested_redirect_uris: [
       ...(EVE_CALLBACK_URL ? [EVE_CALLBACK_URL] : []),
       `${currentOrigin}/auth/callback`,
-      'http://localhost:8000/callback',
       `${currentOrigin}/callback`,
     ],
     current_origin: currentOrigin,

@@ -106,4 +106,8 @@ assert.ok(sde.includes("SDE_BUILD: '3503375'"), 'SDE build must remain explicitl
 assert.ok(sde.includes('git diff --quiet -- src/data/universeGraph.json src/data/universeGraphManifest.ts'), 'SDE gate must compare canonical artifacts');
 assert.ok(sde.includes('exit 1'), 'SDE gate must fail on drift');
 
+const packageJson = JSON.parse(fs.readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
+assert.equal(packageJson.scripts['test:corporation-boundary'], 'tsx src/services/__tests__/corporationTreasurySync.test.ts', 'Corporation boundary script must contain only its canonical unique proof');
+assert.ok(packageJson.scripts['test:corporation-boundary:full'], 'Full historical corporation-boundary composition must remain available for recovery/full certification');
+
 console.log('Workflow contract checks passed.');

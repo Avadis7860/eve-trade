@@ -103,32 +103,43 @@ assert.match(
   'The historical browser-e2e check must continue aggregating both browser responsibility lanes',
 );
 
-assert.match(
-  jobBlock('static'),
-  /npm run typecheck[\s\S]*npm run typecheck:server[\s\S]*npm run test:ci-config[\s\S]*npm run test:config[\s\S]*npm run test:auth-token/,
-  'Static lane ownership drifted',
-);
-assert.match(
-  jobBlock('unit_domain'),
-  /npm run test:truth[\s\S]*npm run test:corporation-boundary[\s\S]*npm test/,
-  'Unit/domain lane ownership drifted',
-);
-assert.match(
-  jobBlock('server'),
-  /npm run test:api[\s\S]*npm run test:smoke[\s\S]*npm run test:security[\s\S]*npm run test:esi/,
-  'Server lane ownership drifted',
-);
+const expectedJobCommands = {
+  static: [
+    'npm run test:ci-config',
+    'npm run typecheck',
+    'npm run typecheck:server',
+    'npm run test:config',
+    'npm run test:auth-token',
+  ],
+  unit_domain: [
+    'npm run test:truth',
+    'npm run test:corporation-boundary',
+    'npm test',
+  ],
+  server: [
+    'npm run test:api',
+    'npm run test:smoke',
+    'npm run test:security',
+    'npm run test:esi',
+  ],
+  build: ['npm run build'],
+  'browser-auth': [
+    'npx playwright install --with-deps chromium',
+    'npm run test:e2e:auth',
+  ],
+  'browser-operations': [
+    'npx playwright install --with-deps chromium',
+    'npm run test:e2e:operations',
+  ],
+};
+
+for (const [jobId, commands] of Object.entries(expectedJobCommands)) {
+  const block = jobBlock(jobId);
+  for (const command of commands) {
+    assert.ok(block.includes(command), `Job ${jobId} lost required command: ${command}`);
+  }
+}
 assert.match(jobBlock('build'), /npm run build/, 'Build lane ownership drifted');
-assert.match(
-  jobBlock('browser-auth'),
-  /npx playwright install --with-deps chromium[\s\S]*npm run test:e2e:auth/,
-  'Browser Auth lane must execute the deterministic Playwright gate',
-);
-assert.match(
-  jobBlock('browser-operations'),
-  /npx playwright install --with-deps chromium[\s\S]*npm run test:e2e:operations/,
-  'Browser Operations lane must execute the deterministic Playwright gate',
-);
 assert.ok(
   !ci.match(/uses: actions\/(?:checkout|setup-node|upload-artifact)@v\d/),
   'CI action references must use immutable SHAs, not moving version tags',

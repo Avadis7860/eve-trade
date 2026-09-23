@@ -116,10 +116,10 @@ The browser job has no CCP dependency and uploads Playwright diagnostics when av
 
 ## OAuth invariants
 
-- The authorization state is single-use and remains bound to the exact redirect URI selected when the authorization request is created.
+- The authorization state is single-use, remains bound to the exact redirect URI selected when the authorization request is created, and is tied to the initiating browser by an HttpOnly SameSite cookie.
 - The callback performs the authorization-code exchange only on the server.
 - A successful popup message contains only the validated session; raw OAuth code and state are not returned to the frontend for a second exchange.
-- When popup creation is blocked, the callback writes a short-lived same-origin one-shot result and redirects to the application; the frontend consumes and removes that result before synchronization.
+- When popup creation is blocked, the callback writes a short-lived same-origin one-shot result and redirects to the application; the frontend consumes and removes that result before synchronization. Both the callback and the auxiliary code-exchange endpoint require the initiating browser state cookie.
 - Popup creation occurs synchronously from the user gesture; only the destination URL is assigned after the backend has created the state.
 
 ## Completion gate

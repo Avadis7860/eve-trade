@@ -35,7 +35,7 @@ async function setCharacterOrdersMode(
 }
 
 async function blockMarketOrderRequests(page: Page): Promise<void> {
-  await page.route('**/api/markets/*/orders?*', async route => {
+  await page.route('**/api/markets/*/orders*', async route => {
     await route.fulfill({
       status: 401,
       contentType: 'application/json',

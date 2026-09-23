@@ -267,6 +267,10 @@ export function useCharacterSync(
       const pendingSession = AuthService.consumePendingBrowserOAuthResult();
       if (!pendingSession || cancelled) return;
 
+      // Mirror the popup path: register the authenticated character before
+      // synchronization so loadCharacterData can verify the character remains linked.
+      updateSession(pendingSession);
+
       await loadCharacterData(
         pendingSession.access_token,
         pendingSession.character_id,

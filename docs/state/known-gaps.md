@@ -35,6 +35,7 @@ See:
 - [CI Validation](../validation/ci.md)
 - [CI Management Audit](../audits/ci-management-audit-2026-09-23.md)
 - [CI-001 — Refonte du système CI](../roadmap/ci-management-refactor.md)
+- [CI-001 Global Coverage Matrix](../validation/ci-coverage-matrix.md)
 
 ## Structural gaps
 

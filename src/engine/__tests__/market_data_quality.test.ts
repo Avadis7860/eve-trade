@@ -279,7 +279,7 @@ async function runQualityTests() {
   // Explicit refresh waits for an in-flight background sync, then owns the final forced fetch.
   const concurrencyTypeId = 42;
   let marketFetchCalls = 0;
-  let releaseBackgroundFetch: (() => void) | null = null;
+  let releaseBackgroundFetch = () => {};
   let backgroundFetchStartedResolve: (() => void) | null = null;
   const backgroundFetchStarted = new Promise<void>((resolve) => {
     backgroundFetchStartedResolve = resolve;
@@ -323,7 +323,7 @@ async function runQualityTests() {
   await new Promise((resolve) => setTimeout(resolve, 20));
   assert(marketFetchCalls === 1, 'Explicit refresh must wait for the in-flight background sync instead of starting a concurrent fetch');
 
-  releaseBackgroundFetch?.();
+  releaseBackgroundFetch();
   await backgroundSync;
   await explicitRefresh;
   assert(marketFetchCalls === 2, 'Explicit refresh must perform exactly one forced fetch after the background sync');

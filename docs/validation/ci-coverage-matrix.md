@@ -1,6 +1,6 @@
 # CI-001 — Global Coverage Matrix
 
-Status: ACTIVE IMPLEMENTATION GATE — CI-001F
+Status: ACTIVE IMPLEMENTATION GATE — CI-001I
 Date: 2026-09-23
 Scope: durable coverage of CI, validation, security, delivery and governance
 Parent: [CI-001 — Refonte du système CI](../roadmap/ci-management-refactor.md)
@@ -62,8 +62,8 @@ A future optimization is not accepted merely because it reduces wall-clock time.
 | Failure diagnostics | browser artifacts; standard job logs elsewhere | PARTIAL | H | failure-specific artifacts/summaries |
 | Retry policy | browser retry=1; no global policy | PARTIAL | H | retries only where justified and visible |
 | Timeout policy | job timeout exists | PARTIAL | H | job + critical-step timeouts |
-| CI performance metrics | historical run analysis only | GAP | D/I | durable metrics and baseline |
-| Test duration telemetry | no canonical per-test timing report | GAP | A/E/I | slowest suites visible |
+| CI performance metrics | workflow/job/step timing plus recent cancellation/rerun history emitted as JSON artifacts and run summaries | COVERED | I | durable metrics and baseline |
+| Test duration telemetry | CI step timings classify test/check, npm install, browser setup and build; slowest steps are surfaced | COVERED | I | slowest suites visible |
 | Main post-merge validation | dedicated short Main Smoke workflow on `push` to `main`; first dedicated runtime proof pending | PARTIAL | H | short smoke by default |
 | Full repository certification | dedicated scheduled/manual Full workflow implemented; first dedicated runtime proof pending | PARTIAL | H | scheduled/manual exhaustive proof |
 | Dependency vulnerability review | no dedicated dependency-review proof found | GAP / CONDITIONAL | C/I | PR dependency change detection + scheduled vulnerability scan when supported |
@@ -82,7 +82,7 @@ A future optimization is not accepted merely because it reduces wall-clock time.
 | Rollback of CI refactor | explicit CI recovery runbook added in H; exercise and final validation remain | PARTIAL | H/J | every phase reversible |
 | CI self-validation | workflow contract tests exist | COVERED | D/E/G/J | meta-contract expanded with new topology and ownership script |
 | Human runbook | dedicated CI recovery runbook added for current-head evidence, reruns and rollback | COVERED | H/J | incident/rerun/new-PR decision tree |
-| Cost/churn control | historical evidence only | PARTIAL | A/I | runs/PR, cancelled %, reruns and wall-clock tracked |
+| Cost/churn control | recent workflow history reports cancellation rate, rerun count and workflow duration statistics | COVERED | I | runs/PR, cancelled %, reruns and wall-clock tracked |
 | Long-term maintenance | action updates handled ad hoc | PARTIAL | I/J | recurring maintenance procedure |
 
 ## Required coverage before implementation is declared complete

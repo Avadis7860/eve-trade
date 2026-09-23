@@ -283,7 +283,6 @@ test.describe('E2E-001 — browser OAuth composition', () => {
     );
     expect(crossCharacterStatus).toBe(403);
 
-    await page.getByTitle('Gérer vos personnages et comptes EVE liés').click();
     await page.getByRole('button', { name: /Flotte & Rôles \(2\)/ }).click();
     await expect(page.getByText(/2 pilotes/)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Activer' })).toHaveCount(1);

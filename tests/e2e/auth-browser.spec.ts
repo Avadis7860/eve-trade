@@ -223,7 +223,7 @@ test.describe('E2E-001 — browser OAuth composition', () => {
   test('rejects an unauthorized redirect URI before token exchange', async ({ page }) => {
     const result = await page.evaluate(async () => {
       const response = await fetch(
-        '/api/auth/url?redirect_uri=http%3A%2F%2F127.0.0.1%3A3000%2Fauth%2Fcallback%3Ftampered%3D1',
+        '/api/auth/url?redirect_uri=https%3A%2F%2Funtrusted-external-site.example%2Fsteal-token',
       );
       return {
         status: response.status,

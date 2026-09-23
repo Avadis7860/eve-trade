@@ -423,7 +423,7 @@ const AppShell: React.FC = () => {
           </div>
         )}
 
-        <MarketDataHealth hubs={hubs} qualities={qualities} isSyncing={isSyncingLiveEsi} onRefresh={syncLiveESI} />
+        <MarketDataHealth typeName={selectedType.name} hubs={hubs} qualities={qualities} isSyncing={isSyncingLiveEsi} onRefresh={syncLiveESI} />
 
         {/* Live ESI sync notification */}
         {syncStatusMsg && (

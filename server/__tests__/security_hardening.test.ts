@@ -304,7 +304,10 @@ async function runTests() {
       // Second call (replay) with the same state MUST fail immediately with INVALID_OR_EXPIRED_STATE
       const replayRes = await fetch(`${baseUrl}/api/auth/token`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: `eve_trade_oauth_state_v1=${state}`,
+        },
         body: JSON.stringify({
           code: 'test-code',
           state: state,
@@ -317,8 +320,8 @@ async function runTests() {
     });
 
     await test('POST /api/auth/token auto-extracts code and state when full callback URL is provided', async () => {
-      const validState = generateOAuthState('http://127.0.0.1:3000/auth/callback');
-      const fullUrl = `http://localhost:3000/auth/callback?code=extracted-code-xyz&state=${validState}`;
+      const validState = generateOAuthState(`${baseUrl}/auth/callback`);
+      const fullUrl = `${baseUrl}/auth/callback?code=extracted-code-xyz&state=${validState}`;
 
       const res = await fetch(`${baseUrl}/api/auth/token`, {
         method: 'POST',

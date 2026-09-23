@@ -1,34 +1,33 @@
 # Current Chunk
 
-Status: ACTIVE / BLOCKING
-Scope: UX-00 — Product model and information architecture
+Status: ACTIVE
+Scope: UX-02 — Operations / Mes Ordres
 Reference: [UI/UX Product Audit](../audits/ui-ux-product-audit-2026-09-23.md)
 Program: [UX-First Trading Terminal Program](ux-program.md)
 Decision: [ADR-0002](../decisions/ADR-0002-ux-first-trading-terminal.md)
 
 ## Objective
 
-Define and freeze the trading-terminal information architecture, screen responsibilities, shared vocabulary and cross-screen transitions before implementation of the major UI workstreams.
+Turn Mes Ordres into the Operations console for active market positions while preserving canonical ownership and explicit market-data truth.
 
-## Required output
+## Current increment
 
-- Discovery responsibility defined and protected.
-- Operations / Mes Ordres contract.
-- Allocation / Portefeuille contract.
-- Performance / Journal contract.
-- Control Center / Paramètres contract.
-- Cockpit contract.
-- Shared data-truth vocabulary: LIVE, CACHE, STALE, PARTIAL, UNKNOWN, ERROR.
-- Shared loading/empty/error/stale/partial behavior.
-- Surface-to-surface transition map.
-- Acceptance scenarios for the next implementation workstreams.
+- Operational KPI strip: liquidity, escrow, active orders, immobilized exposure, actions required, ageing risk.
+- Order rows expose ownership, side, item, location, price, fill ratio, remaining duration, exposure, market distance, health and recommendation.
+- Order detail exposes last market observation, recommendation rationale, projected remaining outcome and ownership provenance.
+- Active-order sync failures are explicit and never rendered as an ordinary empty state.
+- Order timing/market-distance derivations are covered by focused tests.
+- Performance analytics has been removed from the Operations component and remains owned by the Performance surface.
 
-## Blocking rule
 
-PST-001, UI-001, E2E-002, UI-002, PERF-001 and TYPE-001 remain deferred while UX-00 is active.
+## Scope discipline
 
-UX-01 is the only implementation workstream allowed to proceed before UX-00 is fully accepted, and only for market/ESI reliability and observability required by the current target-PC market-order incident.
+PST-001, UI-001, E2E-002, UI-002, PERF-001 and TYPE-001 remain deferred.
+
+UX-01 technical implementation is merged and provides the shared market-data truth primitives, but the target-PC market-order incident remains NOT ROOT-CAUSED until the required PC evidence is captured.
+
 
 ## Validation
 
-The chunk is complete only when the UX baseline is documented, internally consistent, linked from the master plan and backlog, and implementation-ready acceptance criteria exist for UX-01 through UX-05.
+UX-02 is complete when a trader can inspect an active order and decide keep / adjust / relocate / cancel from Operations without leaving for routine information, with explicit loading/empty/error/stale/partial behavior and focused browser validation.
+

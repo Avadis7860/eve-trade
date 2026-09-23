@@ -1,6 +1,6 @@
 # CI-001 — Refonte du système CI, validation et gouvernance
 
-Status: ACTIVE — CI-001E
+Status: ACTIVE — CI-001F
 Scope: GitHub Actions, test certification, browser E2E et gouvernance des PR
 Owner: project maintainers
 Baseline: main @ \`d7f245ec47a8746306792ce6017496f9123c23d6\`
@@ -42,7 +42,7 @@ CI-001 ne vise pas à :
 
 CI-001 is now the single active cross-cutting chantier and the absolute CI priority. The active branch is `ci/ci-001a-baseline`; there must be no second active PR for CI-001.
 
-CI-001A/B and CI-001C are completed. CI-001D has two complete green representative runs. CI-001E is now the active execution slice.
+CI-001A/B and CI-001C are completed. CI-001D has two complete green representative runs. CI-001E engaged canonical ownership and the first safe deduplication. CI-001F is now the active execution slice.
 
 CI-001A/B established the baseline/evidence map and CI-001C hardened workflow permissions, action immutability and runtime reproducibility. CI-001D is now the active topology increment. Required-check naming, branch protection and Playwright workers remain unchanged.
 
@@ -439,6 +439,8 @@ Gate :
 
 Objectif : accélérer l'E2E sans introduire de flakiness.
 
+État : ACTIVE — Auth et Operations sont séparés en jobs indépendants.
+
 Travail :
 
 - séparer Auth et Operations en jobs ;
@@ -563,10 +565,10 @@ En particulier :
 
 ## Priorité
 
-État actuel : **ACTIVE — CI-001E**.
+État actuel : **ACTIVE — CI-001F**.
 
 CI-001 est désormais le chantier prioritaire unique pour la CI et la gouvernance de livraison. UX-02 reste suspendu pendant cette tranche d'infrastructure.
 
-CI-001D est désormais mesuré sur deux runs verts ; **CI-001E** est la tranche active : ownership canonique, taxonomie Fast/Certification/Full et dédoublonnage contrôlé.
+CI-001D est désormais mesuré sur deux runs verts ; **CI-001E** a engagé l’ownership canonique ; **CI-001F** est la tranche active : isolation Auth/Operations et preuve de reproductibilité browser.
 
 La protection de branche et les required checks restent inchangés jusqu'à vérification administrative explicite.

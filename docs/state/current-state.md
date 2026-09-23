@@ -70,7 +70,7 @@ The current engine/domain layers are ahead of the UI information architecture.
 ## Active product gaps
 
 - Target-PC public market-order retrieval failure is reported but not root-caused.
-- Some non-Operations market acquisition paths may still swallow failures or collapse them into unchanged/empty business state.
+- The P0-A audit found no concrete non-Operations production consumer that currently collapses a market acquisition failure into certifiable ordinary empty business state. The legacy `EsiService.fetchLiveOrders()` helper remains a latent quality-loss hazard with no production caller.
 - Rate-limit-aware market scheduling is not yet exposed as a product-level operational signal.
 - No coherent Real Portfolio vs Proposed Allocation split exists yet.
 - No automatic ESI-derived performance history replaces the manual journal yet.
@@ -92,11 +92,11 @@ Remaining P0 closure work is limited to evidence-driven hardening and incident d
 
 **Current product chantier: P0 market/ESI retrieval reliability closure.**
 
-The current documentation branch `docs/p0-closure-and-roadmap-sync` is a temporary delivery branch for roadmap/state synchronization only. No technical work should branch from it. The next technical branch must start from the resulting `main` head after this documentation PR is merged.
+The current technical branch `audit/p0-market-consumers` starts from `main` at `18e1556a4b00331b1089b98a060bbdc2b78030ad` and contains the P0-A caller audit/documentation increment. It must not be reused after merge.
 
 UX-02 is DONE / MERGED. CI-001 is DONE / MERGED. Historical delivery branches have been reconciled to the current main head and are not active work.
 
-PST-001, UI-001, E2E-002, UI-002, PERF-001 and TYPE-001 remain deferred behind the UX sequencing gate.
+P0-B remains the next technical increment after the P0-A PR is certified and merged. `PST-001`, `UI-001`, `E2E-002`, `UI-002`, `PERF-001` and `TYPE-001` remain deferred behind the UX sequencing gate.
 
 ## Reference paths
 

@@ -1,10 +1,12 @@
 # CI-001 — Global Coverage Matrix
 
-Status: CURRENT STUDY / IMPLEMENTATION GATE
+Status: ACTIVE IMPLEMENTATION GATE — CI-001A/B
 Date: 2026-09-23
 Scope: durable coverage of CI, validation, security, delivery and governance
 Parent: [CI-001 — Refonte du système CI](../roadmap/ci-management-refactor.md)
-Baseline: main @ \`6e3f611f8bdce6ad42236f7082b3dc044582dbef\`
+Baseline snapshot: [CI-001A/B — Baseline](../audits/ci-management-baseline-2026-09-23.md)
+Evidence map: [CI-001B — Evidence Map](ci-evidence-map.md)
+Baseline: main @ \`d7f245ec47a8746306792ce6017496f9123c23d6\`
 
 ## Purpose
 

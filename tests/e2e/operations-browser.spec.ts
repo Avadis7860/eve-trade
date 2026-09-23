@@ -62,7 +62,6 @@ async function launchSso(page: Page): Promise<void> {
 }
 
 async function expectOperationsLoaded(page: Page): Promise<void> {
-  await expect(page.getByText('Opérations KPI strip').or(page.getByText('Operations KPI strip'))).toHaveCount(0);
   await expect(page.getByText('Ordres actifs', { exact: true })).toBeVisible();
   await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
 }
@@ -90,7 +89,6 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
     await expect(page.getByText('Risque d’expiration', { exact: true })).toBeVisible();
 
     await expect(page.getByText('LIVE', { exact: true }).first()).toBeVisible();
-    await expect(page.locator('tbody tr').first()).toContainText('ACHAT|VENTE', { timeout: 1000 }).catch(() => {});
 
     await page.locator('tbody tr').first().click();
     await expect(

@@ -403,8 +403,16 @@ export async function verifyEveAccessToken(token: string): Promise<Record<string
     key = await loadKey(true);
   }
 
+  if (typeof key.n !== 'string' || typeof key.e !== 'string') {
+    throw new Error('EVE_SSO_SIGNING_KEY_INVALID');
+  }
+
   const publicKey = crypto.createPublicKey({
-    key: key as JsonWebKey,
+    key: {
+      kty: 'RSA',
+      n: key.n,
+      e: key.e,
+    },
     format: 'jwk',
   });
   const verified = crypto.verify(

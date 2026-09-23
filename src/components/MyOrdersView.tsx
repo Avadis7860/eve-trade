@@ -21,12 +21,14 @@ import { AuthService } from '../services/authService';
 import { TraderAnalyticsService } from '../services/traderAnalytics';
 import { CharacterTransactionSyncService } from '../services/characterTransactionSyncService';
 import { OrderAdvisorService } from '../services/orderAdvisor';
+import { getOrderLockedValue, getOrderMarketDistance, getOrderTiming } from '../engine/orderOperations';
 import { GlobalMarketSyncService } from '../services/globalMarketSync';
 import { MarketDataStore } from '../services/marketDataStore';
 import { IndexedDbStore } from '../services/indexedDbStore';
 import { CatalogRepository } from '../domain/catalog/CatalogRepository';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
 import { OrderAdvisorModal } from './OrderAdvisorModal';
+import { OrderOperationsDetail } from './OrderOperationsDetail';
 import { TraderPerformanceModal } from './TraderPerformanceModal';
 import { SsoConnectCard } from './SsoConnectCard';
 import {
@@ -62,6 +64,7 @@ interface MyOrdersViewProps {
   orderCollection?: OrderCollection;
   orders?: EveCharacterOrder[];
   isLoadingOrders: boolean;
+  orderSyncError?: string | null;
   onRefreshOrders: () => void;
   onConnectSSO: (customRedirectUri?: string) => void;
   onExchangeCode: (code: string, redirectUri?: string) => Promise<void>;
@@ -75,11 +78,29 @@ interface MyOrdersViewProps {
   onChangeScope?: (scope: OrderScope) => void;
 }
 
+function formatOrderAge(milliseconds: number): string {
+  const seconds = Math.max(0, Math.floor(milliseconds / 1000));
+  if (seconds < 60) return seconds + 's';
+  if (seconds < 3600) return Math.floor(seconds / 60) + 'm';
+  if (seconds < 86_400) return Math.floor(seconds / 3600) + 'h';
+  return Math.floor(seconds / 86_400) + 'j';
+}
+
+function formatRemainingDuration(milliseconds: number): string {
+  const seconds = Math.max(0, Math.floor(milliseconds / 1000));
+  if (seconds < 3600) return Math.max(1, Math.floor(seconds / 60)) + 'm';
+  if (seconds < 86_400) return Math.floor(seconds / 3600) + 'h';
+  const days = Math.floor(seconds / 86_400);
+  const hours = Math.floor((seconds % 86_400) / 3600);
+  return hours > 0 ? days + 'j ' + hours + 'h' : days + 'j';
+}
+
 export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
   session,
   orderCollection,
   orders: rawOrders = [],
   isLoadingOrders,
+  orderSyncError,
   onRefreshOrders,
   onConnectSSO,
   onExchangeCode,
@@ -96,278 +117,20 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
     return orderCollection?.orders ?? rawOrders;
   }, [orderCollection, rawOrders]);
 
-  const [filterTab, setFilterTab] = useState<'all' | 'buy' | 'sell' | 'outbid' | 'action_needed'>('all');
+  const [filterTab, setFilterTab] = useState<'all' | 'buy' | 'sell' | 'outbid' | 'action_needed' | 'ageing_risk'>('all');
+  const [selectedOrder, setSelectedOrder] = useState<EveCharacterOrder | null>(null);
+  const [, setNowTick] = useState(0);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNowTick((tick) => tick + 1), 30_000);
+    return () => window.clearInterval(interval);
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
-
-  // Trader Performance & Analytics State
-  const [traderMetrics, setTraderMetrics] = useState<TraderPerformanceMetrics | null>(null);
-  const [fleetConsolidatedMetrics, setFleetConsolidatedMetrics] = useState<TraderPerformanceMetrics | null>(null);
-  const [characterFinancialResults, setCharacterFinancialResults] = useState<CharacterFinancialResult[]>([]);
-  const [performanceScope, setPerformanceScope] = useState<PerformanceScope>({ type: 'active_character' });
-  const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
-  const [isMetricsModalOpen, setIsMetricsModalOpen] = useState(false);
 
   // Order Advisor State
   const [selectedRecommendation, setSelectedRecommendation] = useState<OrderAdvisorRecommendation | null>(null);
   const [isAdvisorModalOpen, setIsAdvisorModalOpen] = useState(false);
-
-  // Load and compute Trader Performance Metrics for active and linked characters
-  useEffect(() => {
-    if (!session) {
-      setTraderMetrics(null);
-      setCharacterFinancialResults([]);
-      return;
-    }
-
-    const allCharacters = AuthService.getLinkedCharacters();
-    const targetList: EveCharacterSession[] = allCharacters.length > 0 ? allCharacters : [session];
-
-    // Seed initial cached results
-    const initialResults: CharacterFinancialResult[] = targetList.map((char: EveCharacterSession) => {
-      const cached = TraderAnalyticsService.getCachedMetrics(char.character_id);
-      if (cached) {
-        return {
-          characterId: String(char.character_id),
-          characterName: char.character_name,
-          metrics: cached,
-          dataHealth: 'stale',
-        };
-      }
-      return {
-        characterId: String(char.character_id),
-        characterName: char.character_name,
-        metrics: {
-          character_id: char.character_id,
-          character_name: char.character_name,
-          last_calculated: new Date().toISOString(),
-          total_realized_profit: 0,
-          total_buy_volume: 0,
-          total_sell_volume: 0,
-          total_turnover: 0,
-          total_closed_trades: 0,
-          profitable_trades: 0,
-          unprofitable_trades: 0,
-          win_rate_pct: 100,
-          average_realized_roi: 0,
-          average_hold_days: 0,
-          total_broker_fees_paid: 0,
-          total_sales_tax_paid: 0,
-          top_profitable_items: [],
-          recent_trade_cycles: [],
-          activity_by_location: [],
-          category_success_rate: {},
-          trader_title: 'Synchronisation en cours...',
-          trader_badge_color: 'text-gray-400 bg-gray-500/10 border-gray-500/20',
-          calibration_weight: 0,
-          financial_completeness: 'ESTIMATED',
-          is_net_estimated: true,
-          realized_profit_label: 'Bénéfice Net Réalisé (Estimé)',
-        },
-        dataHealth: 'stale',
-      };
-    });
-
-    setCharacterFinancialResults(initialResults);
-    const activeCached = initialResults.find((r) => r.characterId === String(session.character_id));
-    if (activeCached?.metrics) {
-      setTraderMetrics(activeCached.metrics);
-    }
-
-    // Fetch fresh transactions and orders history from ESI per character
-    const fetchAnalytics = async () => {
-      setIsLoadingAnalytics(true);
-      const updatedResults: CharacterFinancialResult[] = [];
-      const allFleetTransactions: import('../types').EveCharacterTransaction[] = [];
-      const characterSyncDetails: {
-        character_id: number;
-        character_name: string;
-        accounting_level: number;
-        broker_relations_level: number;
-      }[] = [];
-
-      for (const char of targetList) {
-        try {
-          const token = await AuthService.getFreshToken(char.character_id);
-          if (!token) {
-            throw new Error(`Jeton introuvable ou expiré pour ${char.character_name}`);
-          }
-
-          // Trigger deep pagination sync into IndexedDB in background (resilient against network hiccups)
-          try {
-            await CharacterTransactionSyncService.syncCharacterTransactions(char.character_id, {
-              maxPages: 10,
-              timeoutMs: 8000,
-            });
-          } catch (syncErr) {
-            console.warn(`[MyOrdersView] Deep sync warning for ${char.character_name}:`, syncErr);
-          }
-
-          const [freshTxResult, orderHistoryResult, journalResult, storedPersisted] = await Promise.all([
-            EsiService.fetchCharacterTransactions(char.character_id, token),
-            EsiService.fetchCharacterOrderHistory(char.character_id, token, 1),
-            EsiService.fetchCharacterJournal(char.character_id, token),
-            IndexedDbStore.getCharacterTransactions(char.character_id).catch(() => []),
-          ]);
-
-          const freshTxs = EsiService.requireUsableCollection(
-            freshTxResult,
-            'character transactions',
-          );
-          const orderHistory = EsiService.requireUsableCollection(
-            orderHistoryResult,
-            'character order history',
-          );
-          const journal = EsiService.requireUsableCollection(
-            journalResult,
-            'character journal',
-          );
-
-          // Combine stored and fresh transactions by transaction_id to preserve historical FIFO depth
-          const txMap = new Map<number, import('../types').EveCharacterTransaction>();
-          for (const p of storedPersisted) {
-            txMap.set(p.transaction_id, {
-              transaction_id: p.transaction_id,
-              character_id: p.character_id ?? char.character_id,
-              character_name: (p as any).character_name ?? char.character_name,
-              date: p.timestamp,
-              type_id: p.type_id,
-              location_id: p.location_id,
-              unit_price: p.unit_price,
-              quantity: p.quantity,
-              is_buy: p.is_buy,
-              is_personal: p.is_personal ?? true,
-              client_id: p.client_id ?? 0,
-              journal_ref_id: p.journal_ref_id,
-              location_name: p.location_name,
-            });
-          }
-          for (const f of freshTxs) {
-            txMap.set(f.transaction_id, {
-              ...f,
-              character_id: f.character_id ?? char.character_id,
-              character_name: f.character_name ?? char.character_name,
-            });
-          }
-
-          const combinedTxs = Array.from(txMap.values()).sort(
-            (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-          );
-
-          allFleetTransactions.push(...combinedTxs);
-          characterSyncDetails.push({
-            character_id: char.character_id,
-            character_name: char.character_name,
-            accounting_level: char.accounting_skill || 4,
-            broker_relations_level: char.broker_relations_skill || 4,
-          });
-
-          const computed = TraderAnalyticsService.processTransactions(
-            char.character_id,
-            char.character_name,
-            combinedTxs,
-            orderHistory,
-            journal,
-            char.accounting_skill || 4,
-            char.broker_relations_skill || 4
-          );
-
-          updatedResults.push({
-            characterId: String(char.character_id),
-            characterName: char.character_name,
-            metrics: computed,
-            dataHealth: 'fresh',
-          });
-
-          if (char.character_id === session.character_id) {
-            setTraderMetrics(computed);
-          }
-        } catch (err: any) {
-          console.warn(`[MyOrdersView] Failed to compute analytics for ${char.character_name}:`, err);
-          const cached = TraderAnalyticsService.getCachedMetrics(char.character_id);
-          if (cached) {
-            updatedResults.push({
-              characterId: String(char.character_id),
-              characterName: char.character_name,
-              metrics: cached,
-              dataHealth: 'stale',
-              errorMessage: err?.message || 'ESI fetch failed, using cached metrics',
-            });
-          } else {
-            updatedResults.push({
-              characterId: String(char.character_id),
-              characterName: char.character_name,
-              metrics: {
-                character_id: char.character_id,
-                character_name: char.character_name,
-                last_calculated: new Date().toISOString(),
-                total_realized_profit: 0,
-                total_buy_volume: 0,
-                total_sell_volume: 0,
-                total_turnover: 0,
-                total_closed_trades: 0,
-                profitable_trades: 0,
-                unprofitable_trades: 0,
-                win_rate_pct: 100,
-                average_realized_roi: 0,
-                average_hold_days: 0,
-                total_broker_fees_paid: 0,
-                total_sales_tax_paid: 0,
-                top_profitable_items: [],
-                recent_trade_cycles: [],
-                activity_by_location: [],
-                category_success_rate: {},
-                trader_title: 'Indisponible',
-                trader_badge_color: 'text-zinc-400 bg-zinc-500/10 border-zinc-500/20',
-                calibration_weight: 0,
-                financial_completeness: 'UNAVAILABLE',
-                is_net_estimated: true,
-                realized_profit_label: 'Profit Réalisé (Hors Frais)',
-              },
-              dataHealth: 'unavailable',
-              errorMessage: err?.message || 'Authentification ESI expirée ou erreur réseau',
-            });
-          }
-        }
-      }
-
-      // Calculate consolidated multi-character fleet metrics to resolve cross-character trades
-      if (allFleetTransactions.length > 0 && characterSyncDetails.length > 0) {
-        try {
-          const fleetConsolidated = TraderAnalyticsService.processFleetConsolidatedTransactions(
-            characterSyncDetails,
-            allFleetTransactions
-          );
-          setFleetConsolidatedMetrics(fleetConsolidated);
-        } catch (fleetErr) {
-          console.warn('[MyOrdersView] Consolidated fleet analytics computation error:', fleetErr);
-        }
-      }
-
-      setCharacterFinancialResults(updatedResults);
-      setIsLoadingAnalytics(false);
-    };
-
-    fetchAnalytics();
-  }, [session, session?.character_id]);
-
-  // Derive active display metrics using FleetFinancialEngine
-  const displayMetrics = useMemo(() => {
-    if (!session) return traderMetrics;
-    const selected = FleetFinancialEngine.selectPerformanceByScope(
-      characterFinancialResults,
-      performanceScope,
-      String(session.character_id),
-      { consolidatedFleetMetrics: fleetConsolidatedMetrics || undefined }
-    );
-    return selected.selectedMetrics || traderMetrics;
-  }, [characterFinancialResults, performanceScope, session, traderMetrics, fleetConsolidatedMetrics]);
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedUrl(text);
-    setTimeout(() => setCopiedUrl(null), 2500);
-  };
 
   // Reactive store trigger
   const [storeTick, setStoreTick] = useState(0);
@@ -417,10 +180,36 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
     return { ...historyCache, ...syncHistory };
   }, [historyCache, storeTick]);
 
+  // Operations market context is derived from canonical MarketDataStore state.
+  // A missing quality is UNKNOWN and never becomes a healthy empty market.
+  const orderMarketContexts = useMemo(() => {
+    const map = new Map<string, {
+      health: import('../types').DataHealthStatus;
+      quality: import('../types').MarketDataQuality | null;
+      distance: ReturnType<typeof getOrderMarketDistance>;
+      timing: ReturnType<typeof getOrderTiming>;
+    }>();
+
+    for (const order of orders) {
+      const quality = MarketDataStore.getQuality(order.type_id, order.region_id);
+      const regionalOrders = combinedMarketOrders[order.region_id] ?? [];
+      map.set(order.order_id, {
+        health: quality?.health_status ?? 'UNKNOWN',
+        quality,
+        distance: getOrderMarketDistance(order, regionalOrders),
+        timing: getOrderTiming(order, Date.now()),
+      });
+    }
+    return map;
+  }, [orders, combinedMarketOrders, storeTick]);
+
   // Compute Order Advisor Recommendations for each active order
   const orderRecommendations = useMemo(() => {
     const map = new Map<string, OrderAdvisorRecommendation>();
     for (const order of orders) {
+      const context = orderMarketContexts.get(order.order_id);
+      if (context?.health === 'ERROR' || context?.health === 'UNKNOWN') continue;
+
       const rec = OrderAdvisorService.analyzeOrder(
         order,
         combinedMarketOrders,
@@ -430,32 +219,43 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
       map.set(order.order_id, rec);
     }
     return map;
-  }, [orders, combinedMarketOrders, combinedHistoryStats, config]);
+  }, [orders, combinedMarketOrders, combinedHistoryStats, config, orderMarketContexts]);
 
-  // Stats calculation
   const stats = useMemo(() => {
     let buyCount = 0;
     let sellCount = 0;
     let escrowTotal = 0;
     let sellTotal = 0;
+    let capitalLocked = 0;
     let outbidCount = 0;
     let actionNeededCount = 0;
+    let ageingRiskCount = 0;
 
-    for (const o of orders) {
-      if (o.is_buy_order) {
+    for (const order of orders) {
+      if (order.is_buy_order) {
         buyCount++;
-        escrowTotal += (o.escrow || 0) || (o.price * o.volume_remain);
+        escrowTotal += order.escrow ?? order.price * order.volume_remain;
       } else {
         sellCount++;
-        sellTotal += o.price * o.volume_remain;
+        sellTotal += order.price * order.volume_remain;
       }
-      if (o.market_competition?.is_outbid) {
+
+      capitalLocked += getOrderLockedValue(order);
+      const context = orderMarketContexts.get(order.order_id);
+      const distance = context?.distance?.distancePct;
+      if (
+        context &&
+        context.health !== 'ERROR' &&
+        context.health !== 'UNKNOWN' &&
+        distance !== undefined &&
+        (order.is_buy_order ? distance < 0 : distance > 0)
+      ) {
         outbidCount++;
       }
-      const rec = orderRecommendations.get(o.order_id);
-      if (rec && rec.action !== 'keep') {
-        actionNeededCount++;
-      }
+
+      const rec = orderRecommendations.get(order.order_id);
+      if (rec && rec.action !== 'keep') actionNeededCount++;
+      if (context?.timing.isAgeingRisk) ageingRiskCount++;
     }
 
     return {
@@ -464,21 +264,34 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
       sellCount,
       escrowTotal,
       sellTotal,
+      capitalLocked,
       outbidCount,
       actionNeededCount,
+      ageingRiskCount,
     };
-  }, [orders, orderRecommendations]);
+  }, [orders, orderRecommendations, orderMarketContexts]);
 
   // Filtered orders
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
       if (filterTab === 'buy' && !o.is_buy_order) return false;
       if (filterTab === 'sell' && o.is_buy_order) return false;
-      if (filterTab === 'outbid' && !o.market_competition?.is_outbid) return false;
+      if (filterTab === 'outbid') {
+        const context = orderMarketContexts.get(o.order_id);
+        const distance = context?.distance?.distancePct;
+        if (
+          !context ||
+          context.health === 'ERROR' ||
+          context.health === 'UNKNOWN' ||
+          distance === undefined ||
+          (o.is_buy_order ? distance >= 0 : distance <= 0)
+        ) return false;
+      }
       if (filterTab === 'action_needed') {
         const rec = orderRecommendations.get(o.order_id);
         if (!rec || rec.action === 'keep') return false;
       }
+      if (filterTab === 'ageing_risk' && !orderMarketContexts.get(o.order_id)?.timing.isAgeingRisk) return false;
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -489,7 +302,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
 
       return true;
     });
-  }, [orders, filterTab, searchQuery, orderRecommendations]);
+  }, [orders, filterTab, searchQuery, orderRecommendations, orderMarketContexts]);
 
   // Helper for rendering advice pill
   const renderAdvicePill = (rec: OrderAdvisorRecommendation | undefined) => {
@@ -684,21 +497,6 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
 
           {/* Action Buttons & Performance Modal Trigger */}
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-            {displayMetrics && (
-              <button
-                onClick={() => setIsMetricsModalOpen(true)}
-                className="flex items-center gap-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-bold px-3.5 py-2 rounded-lg transition-all shadow-sm"
-              >
-                <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                <span>Performances &amp; Historique Réel</span>
-                {displayMetrics.financial_completeness && (
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#0e1117]/80 text-amber-300 border border-amber-500/30">
-                    {displayMetrics.financial_completeness}
-                  </span>
-                )}
-              </button>
-            )}
-
             <button
               onClick={() => {
                 if (orders && orders.length > 0) {
@@ -736,6 +534,27 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
             </button>
           </div>
         </div>
+
+        {isLoadingOrders && orders.length === 0 && (
+          <div className="bg-[#161821] border border-[#262730] rounded-xl p-5 flex items-center gap-3 text-sm text-[#cfd3dc]">
+            <RefreshCw className="w-4 h-4 animate-spin text-blue-400" />
+            <div>
+              <div className="font-semibold">Chargement des ordres actifs…</div>
+              <div className="text-xs text-[#808495] mt-1">Le chargement reste distinct d’un carnet vide.</div>
+            </div>
+          </div>
+        )}
+
+        {orderSyncError && orders.length > 0 && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 text-xs text-amber-200 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            <div>
+              <div className="font-semibold">La dernière synchronisation des ordres a échoué.</div>
+              <div className="text-amber-200/70 mt-0.5">Les ordres déjà connus restent visibles ; cela ne signifie pas qu’il n’y a aucun ordre.</div>
+              <div className="font-mono text-[10px] mt-1 break-words">{orderSyncError}</div>
+            </div>
+          </div>
+        )}
 
         {/* Phase 2 — Order Scope Selector */}
         {orderCollection && (
@@ -797,121 +616,22 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
           </div>
         )}
 
-        {/* Real Trader Historical Performance Card - Hidden to avoid redundancy with the dedicated modal triggered by the header button */}
-        {traderMetrics && (
-          <div className="hidden bg-gradient-to-r from-[#161821] via-[#1a1d2e] to-[#161821] border border-amber-500/30 rounded-xl p-5 shadow-xl space-y-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-[#262730] pb-3">
-              <div className="flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-amber-400" />
-                <div>
-                  <h3 className="font-bold text-sm text-[#fafafa] flex items-center gap-2">
-                    Historique Réel &amp; Performances Financières de Trader
-                    <span className="text-[11px] font-normal text-amber-300/80">
-                      (Calibre le moteur de prédiction)
-                    </span>
-                  </h3>
-                  <p className="text-[11px] text-[#808495]">
-                    Basé sur {traderMetrics.total_closed_trades} cycles d'achat/vente clôturés sur votre compte ESI Tranquility
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsMetricsModalOpen(true)}
-                className="text-xs text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1"
-              >
-                <span>Détail complet des cycles &amp; objets</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </button>
+        {/* Operations KPI strip */}
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+          {[
+            { label: 'Liquidités', value: session.wallet_balance !== undefined ? fmtIsk(session.wallet_balance) : '—', note: 'ISK disponible', tone: 'text-amber-400' },
+            { label: 'Escrow', value: fmtIsk(stats.escrowTotal), note: stats.buyCount + ' achats actifs', tone: 'text-blue-400' },
+            { label: 'Ordres actifs', value: String(stats.total), note: stats.buyCount + ' achat · ' + stats.sellCount + ' vente', tone: 'text-[#fafafa]' },
+            { label: 'Capital immobilisé', value: fmtIsk(stats.capitalLocked), note: 'escrow + exposition vente', tone: 'text-purple-300' },
+            { label: 'Actions requises', value: String(stats.actionNeededCount), note: stats.actionNeededCount > 0 ? 'décisions à traiter' : 'aucune action identifiée', tone: 'text-orange-300' },
+            { label: 'Risque d’expiration', value: String(stats.ageingRiskCount), note: '≤ 20% de durée restante', tone: 'text-red-300' },
+          ].map((kpi) => (
+            <div key={kpi.label} className="bg-[#161821] border border-[#262730] rounded-xl p-3.5 space-y-1.5 min-w-0">
+              <div className="text-[10px] uppercase tracking-wider font-semibold text-[#808495] truncate">{kpi.label}</div>
+              <div className={"text-lg font-bold font-mono truncate " + kpi.tone}>{kpi.value}</div>
+              <div className="text-[10px] text-[#808495] leading-tight">{kpi.note}</div>
             </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-[#0e1117] p-3 rounded-lg border border-emerald-500/20">
-                <div className="text-[11px] text-[#808495]">
-                  {traderMetrics.realized_profit_label ||
-                    (traderMetrics.financial_completeness === 'UNAVAILABLE'
-                      ? 'Profit Réalisé (Hors Frais)'
-                      : 'Bénéfice Net Réalisé Total')}
-                </div>
-                <div className="text-base font-bold font-mono text-emerald-400 mt-0.5">
-                  +{fmtIsk(traderMetrics.total_realized_profit)}
-                </div>
-              </div>
-
-              <div className="bg-[#0e1117] p-3 rounded-lg border border-blue-500/20">
-                <div className="text-[11px] text-[#808495]">Taux de Réussite (Win Rate)</div>
-                <div className="text-base font-bold font-mono text-blue-400 mt-0.5">
-                  {traderMetrics.win_rate_pct.toFixed(1)}% ({traderMetrics.profitable_trades}/{traderMetrics.total_closed_trades})
-                </div>
-              </div>
-
-              <div className="bg-[#0e1117] p-3 rounded-lg border border-purple-500/20">
-                <div className="text-[11px] text-[#808495]">ROI Moyen Réalisé</div>
-                <div className="text-base font-bold font-mono text-purple-300 mt-0.5">
-                  +{(traderMetrics.average_realized_roi * 100).toFixed(1)}%
-                </div>
-              </div>
-
-              <div className="bg-[#0e1117] p-3 rounded-lg border border-amber-500/20">
-                <div className="text-[11px] text-[#808495]">Rotation Moyenne des Stocks</div>
-                <div className="text-base font-bold font-mono text-amber-400 mt-0.5">
-                  ~{traderMetrics.average_hold_days.toFixed(1)} jours
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Financial KPI Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-[#161821] border border-[#262730] rounded-xl p-4 space-y-1">
-            <div className="flex items-center justify-between text-xs text-[#808495]">
-              <span>Solde Portefeuille ISK</span>
-              <Coins className="w-4 h-4 text-amber-400" />
-            </div>
-            <div className="text-xl font-bold font-mono text-amber-400">
-              {session.wallet_balance !== undefined ? fmtIsk(session.wallet_balance) : '---'}
-            </div>
-            <div className="text-[11px] text-[#808495]">Liquidités directes disponibles</div>
-          </div>
-
-          <div className="bg-[#161821] border border-[#262730] rounded-xl p-4 space-y-1">
-            <div className="flex items-center justify-between text-xs text-[#808495]">
-              <span>Fonds en Séquestre (Escrow)</span>
-              <ShoppingBag className="w-4 h-4 text-blue-400" />
-            </div>
-            <div className="text-xl font-bold font-mono text-blue-400">
-              {fmtIsk(stats.escrowTotal)}
-            </div>
-            <div className="text-[11px] text-[#808495]">
-              {stats.buyCount} ordres d'achat actifs
-            </div>
-          </div>
-
-          <div className="bg-[#161821] border border-[#262730] rounded-xl p-4 space-y-1">
-            <div className="flex items-center justify-between text-xs text-[#808495]">
-              <span>Marchandises en Vente</span>
-              <Tag className="w-4 h-4 text-green-400" />
-            </div>
-            <div className="text-xl font-bold font-mono text-green-400">
-              {fmtIsk(stats.sellTotal)}
-            </div>
-            <div className="text-[11px] text-[#808495]">
-              {stats.sellCount} ordres de vente actifs
-            </div>
-          </div>
-
-          <div className="bg-[#161821] border border-[#262730] rounded-xl p-4 space-y-1">
-            <div className="flex items-center justify-between text-xs text-[#808495]">
-              <span>Conseils d'Action Requis</span>
-              <Sparkles className="w-4 h-4 text-purple-400" />
-            </div>
-            <div className="text-xl font-bold font-mono text-purple-300">
-              {stats.actionNeededCount} / {stats.total}
-            </div>
-            <div className="text-[11px] text-[#808495]">
-              {stats.actionNeededCount > 0 ? 'Ajustements ou déplacements rentables' : 'Aucune action urgente requise'}
-            </div>
-          </div>
+          ))}
         </div>
 
         {/* Orders Table Container */}
@@ -953,6 +673,15 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                 <span>Dépassés ({stats.outbidCount})</span>
               </button>
               <button
+                onClick={() => setFilterTab('ageing_risk')}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-md font-medium transition-colors ${
+                  filterTab === 'ageing_risk' ? 'bg-red-500/15 text-red-300' : 'text-[#808495] hover:text-red-300'
+                }`}
+              >
+                <Clock className="w-3 h-3" />
+                <span>Expiration ({stats.ageingRiskCount})</span>
+              </button>
+              <button
                 onClick={() => setFilterTab('buy')}
                 className={`px-3 py-1.5 rounded-md font-medium transition-colors ${
                   filterTab === 'buy'
@@ -988,128 +717,147 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
           </div>
 
           {/* Orders Table */}
-          {filteredOrders.length === 0 ? (
+          {isLoadingOrders && orders.length === 0 ? null : orderSyncError && orders.length === 0 ? (
+            <div className="p-12 text-center space-y-3">
+              <AlertCircle className="w-9 h-9 mx-auto text-red-300 opacity-80" />
+              <p className="text-sm font-semibold text-red-200">Impossible de déterminer l’état actuel des ordres.</p>
+              <p className="text-xs text-[#808495] max-w-xl mx-auto">La synchronisation ESI a échoué. L’absence de lignes n’est pas interprétée comme une absence d’ordres.</p>
+              <div className="font-mono text-[10px] text-red-200/70 max-w-xl mx-auto break-words">{orderSyncError}</div>
+              <button type="button" onClick={onRefreshOrders} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#262730] hover:bg-[#31333f] text-xs font-semibold">
+                <RefreshCw className="w-3.5 h-3.5" /> Réessayer
+              </button>
+            </div>
+          ) : filteredOrders.length === 0 ? (
             <div className="p-12 text-center text-[#808495] space-y-2">
-              <ShoppingBag className="w-8 h-8 mx-auto opacity-40 text-[#808495]" />
+              <ShoppingBag className="w-8 h-8 mx-auto opacity-40" />
               <p className="text-sm font-medium">Aucun ordre ne correspond aux critères.</p>
-              <p className="text-xs">
-                {orders.length === 0
-                  ? "Vous n'avez aucun ordre actif sur Tranquility pour le moment."
-                  : 'Essayez de réinitialiser vos filtres ou termes de recherche.'}
-              </p>
+              <p className="text-xs">{orders.length === 0 ? 'Aucun ordre actif n’est connu dans cette portée.' : 'Réduisez les filtres ou la recherche pour réafficher les ordres.'}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="w-full min-w-[1260px] text-left text-xs">
                 <thead className="bg-[#0e1117] text-[#808495] uppercase font-semibold text-[10px] tracking-wider border-b border-[#262730]">
                   <tr>
-                    <th className="py-3 px-4">Objet</th>
-                    <th className="py-3 px-3">Type</th>
-                    <th className="py-3 px-3">Prix Actuel</th>
-                    <th className="py-3 px-3">Conseil Stratégique d'Ordre</th>
-                    <th className="py-3 px-3">Volume Restant</th>
-                    <th className="py-3 px-3">Valeur Totale</th>
-                    <th className="py-3 px-3">Emplacement</th>
-                    <th className="py-3 px-4 text-right">Action Arbitrage</th>
+                    <th className="py-3 px-4">Propriétaire</th>
+                    <th className="py-3 px-3">Ordre</th>
+                    <th className="py-3 px-3">Objet</th>
+                    <th className="py-3 px-3">Lieu</th>
+                    <th className="py-3 px-3">Prix</th>
+                    <th className="py-3 px-3">Restant / fill</th>
+                    <th className="py-3 px-3">Durée</th>
+                    <th className="py-3 px-3">Immobilisé</th>
+                    <th className="py-3 px-3">Marché</th>
+                    <th className="py-3 px-3">Données</th>
+                    <th className="py-3 px-4">Décision</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#262730]">
                   {filteredOrders.map((order) => {
                     const isBuy = order.is_buy_order;
-                    const totalVal = order.price * order.volume_remain;
-                    const volPct = Math.round((order.volume_remain / Math.max(1, order.volume_total)) * 100);
+                    const context = orderMarketContexts.get(order.order_id);
                     const recommendation = orderRecommendations.get(order.order_id);
+                    const timing = context?.timing;
+                    const quality = context?.quality;
+                    const ownerType = order.ownership?.owner_type;
+                    const ownerName = order.ownership?.owner_name || order.character_name || (ownerType === 'corporation' ? 'Corporation inconnue' : 'Propriétaire inconnu');
+                    const location = order.location_name || UniverseRepository.getInstance().getStationNameSync(order.location_id);
+                    const health = context?.health ?? 'UNKNOWN';
+                    const healthTone = health === 'LIVE'
+                      ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/30'
+                      : health === 'CACHE'
+                        ? 'text-blue-300 bg-blue-500/10 border-blue-500/30'
+                        : health === 'STALE'
+                          ? 'text-amber-300 bg-amber-500/10 border-amber-500/30'
+                          : health === 'PARTIAL'
+                            ? 'text-orange-300 bg-orange-500/10 border-orange-500/30'
+                            : health === 'ERROR'
+                              ? 'text-red-300 bg-red-500/10 border-red-500/30'
+                              : 'text-zinc-300 bg-zinc-500/10 border-zinc-500/30';
 
                     return (
-                      <tr key={order.order_id} className="hover:bg-[#1a1d27] transition-colors">
-                        {/* Type Icon & Name */}
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-2.5">
+                      <tr key={order.order_id} onClick={() => setSelectedOrder(order)} className="hover:bg-[#1a1d27] transition-colors cursor-pointer align-top">
+                        <td className="py-3 px-4 max-w-[170px]">
+                          <div className="font-semibold text-[#fafafa] truncate" title={ownerName}>{ownerName}</div>
+                          <div className="text-[10px] text-[#808495]">{ownerType === 'corporation' ? 'Corporation' : 'Personnage'}</div>
+                        </td>
+
+                        <td className="py-3 px-3">
+                          <span className={`inline-flex px-2 py-0.5 rounded border text-[10px] font-bold ${isBuy ? 'bg-blue-500/15 text-blue-300 border-blue-500/30' : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'}`}>
+                            {isBuy ? 'ACHAT' : 'VENTE'}
+                          </span>
+                          <div className="text-[10px] text-[#808495] mt-1">{timing ? (timing.remainingMs > 0 ? 'ACTIVE' : 'À EXPIRER') : 'ACTIVE'}</div>
+                        </td>
+
+                        <td className="py-3 px-3 min-w-[170px]">
+                          <div className="flex items-center gap-2">
                             <img
                               src={`https://images.evetech.net/types/${order.type_id}/icon?size=32`}
                               alt=""
                               className="w-7 h-7 rounded bg-[#0e1117] border border-[#31333f] flex-shrink-0"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = 'none';
-                              }}
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                             />
-                            <div>
-                              <div className="font-bold text-[#fafafa]">
-                                {order.type_name || CatalogRepository.getInstance().getTypeName(order.type_id)}
-                              </div>
-                              <div className="flex items-center gap-1.5 text-[10px] text-[#808495] font-mono">
-                                <span>ID: {order.type_id}</span>
-                                {order.character_name &&
-                                  (orderCollection?.scope.type === 'fleet' ||
-                                    (orderCollection?.characters?.length ?? 0) > 1) && (
-                                    <span className="text-purple-300 bg-purple-500/10 px-1.5 py-0.2 rounded border border-purple-500/20 font-sans font-medium">
-                                      {order.character_name}
-                                    </span>
-                                  )}
-                              </div>
+                            <div className="min-w-0">
+                              <div className="font-bold text-[#fafafa] truncate">{order.type_name || CatalogRepository.getInstance().getTypeName(order.type_id)}</div>
+                              <div className="text-[10px] text-[#808495] font-mono">#{order.type_id}</div>
                             </div>
                           </div>
                         </td>
 
-                        {/* Order Type Badge */}
-                        <td className="py-3 px-3">
-                          <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold ${
-                              isBuy
-                                ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
-                                : 'bg-green-500/15 text-green-400 border border-green-500/30'
-                            }`}
-                          >
-                            {isBuy ? 'ACHAT' : 'VENTE'}
-                          </span>
+                        <td className="py-3 px-3 max-w-[170px]">
+                          <div className="text-[#cfd3dc] truncate" title={location}>{location}</div>
+                          <div className="text-[10px] text-[#808495] truncate" title={order.region_name || 'Région inconnue'}>{order.region_name || 'Région inconnue'}</div>
                         </td>
 
-                        {/* Order Price */}
-                        <td className="py-3 px-3 font-mono font-bold text-[#fafafa]">
-                          {fmtIsk(order.price)}
-                        </td>
+                        <td className="py-3 px-3 font-mono font-bold text-[#fafafa] whitespace-nowrap">{fmtIsk(order.price)}</td>
 
-                        {/* Strategic Order Advisor Pill */}
-                        <td className="py-3 px-3">
-                          {renderAdvicePill(recommendation)}
-                        </td>
-
-                        {/* Volume Remaining Progress */}
-                        <td className="py-3 px-3">
-                          <div className="space-y-1 w-28">
-                            <div className="flex justify-between text-[10px] font-mono text-[#808495]">
-                              <span className="text-[#fafafa] font-bold">{fmtNumber(order.volume_remain)}</span>
-                              <span>/ {fmtNumber(order.volume_total)}</span>
-                            </div>
-                            <div className="w-full bg-[#0e1117] h-1.5 rounded-full overflow-hidden">
-                              <div
-                                className={`h-full ${isBuy ? 'bg-blue-400' : 'bg-green-400'}`}
-                                style={{ width: `${volPct}%` }}
-                              />
-                            </div>
+                        <td className="py-3 px-3 min-w-[130px]">
+                          <div className="flex items-center justify-between gap-2 text-[10px] font-mono">
+                            <span className="text-[#fafafa] font-bold">{fmtNumber(order.volume_remain)}</span>
+                            <span className="text-emerald-300">{((1 - order.volume_remain / Math.max(1, order.volume_total)) * 100).toFixed(0)}% fill</span>
                           </div>
+                          <div className="mt-1.5 h-1.5 bg-[#0e1117] rounded overflow-hidden">
+                            <div className={`h-full ${isBuy ? 'bg-blue-400' : 'bg-emerald-400'}`} style={{ width: `${Math.round((1 - order.volume_remain / Math.max(1, order.volume_total)) * 100)}%` }} />
+                          </div>
+                          <div className="text-[9px] text-[#808495] mt-1">sur {fmtNumber(order.volume_total)}</div>
                         </td>
 
-                        {/* Total ISK Value */}
-                        <td className="py-3 px-3 font-mono text-[#fafafa]">
-                          {fmtIsk(totalVal)}
+                        <td className="py-3 px-3 min-w-[120px]">
+                          <div className={`font-mono font-semibold ${timing?.isAgeingRisk ? 'text-red-300' : 'text-[#cfd3dc]'}`}>
+                            {timing ? (timing.remainingMs > 0 ? formatRemainingDuration(timing.remainingMs) : 'Expiré') : '—'}
+                          </div>
+                          <div className="text-[9px] text-[#808495]">âge {timing ? formatOrderAge(timing.ageMs) : '—'}</div>
                         </td>
 
-                        {/* Location */}
-                        <td className="py-3 px-3 text-[#808495] max-w-xs truncate text-[11px]" title={order.location_name || UniverseRepository.getInstance().getStationNameSync(order.location_id)}>
-                          {order.location_name || UniverseRepository.getInstance().getStationNameSync(order.location_id)}
+                        <td className="py-3 px-3 font-mono whitespace-nowrap">
+                          <div className="text-purple-200">{fmtIsk(getOrderLockedValue(order))}</div>
+                          <div className="text-[9px] text-[#808495]">{isBuy ? 'escrow' : 'exposition vente'}</div>
                         </td>
 
-                        {/* Scan Arbitrage for this item */}
-                        <td className="py-3 px-4 text-right">
-                          <button
-                            onClick={() => onSelectTypeForArbitrage(order.type_id)}
-                            className="inline-flex items-center gap-1 bg-[#262730] hover:bg-[#ff4b4b] hover:text-white text-[#fafafa] px-2.5 py-1.5 rounded text-[11px] font-medium transition-colors"
-                            title="Lancer le scanner d'arbitrage inter-régional sur cet objet"
-                          >
-                            <span>Arbitrage</span>
-                            <ExternalLink className="w-3 h-3" />
-                          </button>
+                        <td className="py-3 px-3 min-w-[120px]">
+                          {context?.distance?.distancePct !== undefined ? (
+                            <>
+                              <div className={`font-mono font-semibold ${isBuy ? (context.distance.distancePct >= 0 ? 'text-emerald-300' : 'text-red-300') : (context.distance.distancePct <= 0 ? 'text-emerald-300' : 'text-red-300')}`}>
+                                {(context.distance.distancePct >= 0 ? '+' : '') + context.distance.distancePct.toFixed(2) + '%'}
+                              </div>
+                              <div className="text-[9px] text-[#808495]">vs meilleur {isBuy ? 'achat' : 'vente'}</div>
+                            </>
+                          ) : <span className="text-[#808495]">—</span>}
+                        </td>
+
+                        <td className="py-3 px-3 min-w-[120px]">
+                          <span className={`inline-flex px-1.5 py-0.5 rounded border text-[9px] font-bold ${healthTone}`}>{health}</span>
+                          <div className="text-[9px] text-[#808495] font-mono mt-1">{quality ? formatOrderAge(quality.age_seconds * 1000) : '—'}</div>
+                        </td>
+
+                        <td className="py-3 px-4 min-w-[190px] max-w-[240px]">
+                          {recommendation ? renderAdvicePill(recommendation) : (
+                            <div className="space-y-1">
+                              <div className={`text-[10px] font-semibold ${health === 'ERROR' ? 'text-red-300' : health === 'UNKNOWN' ? 'text-zinc-300' : 'text-amber-300'}`}>
+                                {health === 'ERROR' ? 'Décision indisponible' : health === 'UNKNOWN' ? 'Données insuffisantes' : 'Pas de recommandation'}
+                              </div>
+                              <div className="text-[9px] text-[#808495]">Ouvrir le détail pour le contexte.</div>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );
@@ -1129,18 +877,21 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
         onSelectTypeForArbitrage={onSelectTypeForArbitrage}
       />
 
-      {/* Trader Real Performance & Historical Cycles Modal */}
-      <TraderPerformanceModal
-        isOpen={isMetricsModalOpen}
-        onClose={() => setIsMetricsModalOpen(false)}
-        metrics={displayMetrics}
-        onSelectTypeForArbitrage={onSelectTypeForArbitrage}
-        characterResults={characterFinancialResults}
-        activeCharacterId={session ? String(session.character_id) : ''}
-        scope={performanceScope}
-        onChangeScope={setPerformanceScope}
-        consolidatedFleetMetrics={fleetConsolidatedMetrics}
-      />
+      {selectedOrder && (() => {
+        const context = orderMarketContexts.get(selectedOrder.order_id);
+        return (
+          <OrderOperationsDetail
+            order={selectedOrder}
+            recommendation={orderRecommendations.get(selectedOrder.order_id)}
+            quality={context?.quality ?? null}
+            marketOrders={combinedMarketOrders[selectedOrder.region_id] ?? []}
+            history={combinedHistoryStats[selectedOrder.region_id] ?? null}
+            onClose={() => setSelectedOrder(null)}
+            onSelectTypeForArbitrage={onSelectTypeForArbitrage}
+          />
+        );
+      })()}
+
     </div>
   );
 };

@@ -382,7 +382,7 @@ async function handleMock(req: http.IncomingMessage, res: http.ServerResponse): 
       return json(
         res,
         200,
-        baseOrders,
+        scenarioOrdersByRegion,
         {
           'X-Cache-Status': 'MISS',
           'X-Pages': '2',
@@ -395,7 +395,7 @@ async function handleMock(req: http.IncomingMessage, res: http.ServerResponse): 
     return json(
       res,
       200,
-      baseOrders,
+      scenarioOrdersByRegion,
       {
         'X-Cache-Status': 'MISS',
         'X-Pages': '1',

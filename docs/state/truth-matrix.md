@@ -19,4 +19,4 @@ Source of truth: code, tests, CI and manifests at main `eb7810dde5b4a1f3b7b1949d
 | Persistence | STABLE | `IndexedDbStore` v5 / 11 stores | persistence tests | [persistence](../architecture/persistence.md) | structural refactor |
 | Security | STABLE | auth + ESI principal boundary | security/ESI | [security](../architecture/security-boundary.md) | new scopes |
 | UI | PARTIAL | React components/hooks | typecheck/build | [frontend](../architecture/frontend.md) | E2E + UX/performance |
-| Browser E2E | PARTIAL | no reference browser harness on `main`; E2E-001 implementation exists on active branch | HTTP/API + service/engine on `main`; browser evidence pending | [e2e](../validation/e2e.md) | E2E-001 |
+| Browser E2E | PARTIAL | deterministic Playwright OAuth/ESI composition on E2E-001 branch; server-owned code exchange and same-window recovery | validation + browser CI evidence pending | [e2e](../validation/e2e.md) | E2E-001 |

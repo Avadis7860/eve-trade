@@ -75,8 +75,9 @@ async function prepareOperations(
   page: Page,
   request: APIRequestContext,
   mode: 'live' | 'error' | 'partial',
+  errorStatus: 401 | 403 | 429 | 500 = 401,
 ): Promise<void> {
-  await setMarketMode(request, mode);
+  await setMarketMode(request, mode, errorStatus);
   await page.goto('/');
   await openOrders(page);
 }
@@ -143,7 +144,7 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
   });
 
   test('keeps active orders visible and exposes HTTP 429 Retry-After and ESI budget diagnostics', async ({ page, request }) => {
-    await prepareOperations(page, request, 'error');
+    await prepareOperations(page, request, 'error', 429);
     await launchSso(page);
     await expectOperationsLoaded(page);
 

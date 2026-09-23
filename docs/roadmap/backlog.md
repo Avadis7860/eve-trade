@@ -22,7 +22,7 @@ Completed:
 
 Remaining:
 - **P0-B DONE / MERGED:** deterministic HTTP 429 / Retry-After browser coverage certified by PR #66 and post-merge Main Smoke.
-- **P0-C ACTIVE:** validate the target-PC evidence export, then capture the real target-PC bundle and classify the incident as ROOT-CAUSED or EXTERNALLY BOUNDED.
+- **P0-C IMPLEMENTATION CERTIFIED / EXTERNAL EVIDENCE PENDING:** PR #67 merged; target-PC capture and controlled comparison remain outstanding.
 
 P0-B implementation is present on the active branch; it is not marked complete until its single PR is CI-certified, merged, and followed by a green Main Smoke.
 

@@ -276,6 +276,72 @@ async function runQualityTests() {
 
   console.log('✅ Empty market snapshot failure preservation and CACHE/UNKNOWN semantics passed.');
 
+  // Explicit refresh waits for an in-flight background sync, then owns the final forced fetch.
+  const concurrencyTypeId = 42;
+  let marketFetchCalls = 0;
+  let releaseBackgroundFetch = () => {};
+  let backgroundFetchStartedResolve: (() => void) | null = null;
+  const backgroundFetchStarted = new Promise<void>((resolve) => {
+    backgroundFetchStartedResolve = resolve;
+  });
+
+  setBackendApiFetchForTesting(async (input) => {
+    const url = String(input);
+    if (url.includes('/api/markets/' + recoveryHub.region_id + '/orders')) {
+      marketFetchCalls++;
+      const call = marketFetchCalls;
+      if (call === 1) {
+        backgroundFetchStartedResolve?.();
+        await new Promise<void>((resolve) => {
+          releaseBackgroundFetch = resolve;
+        });
+      }
+      return new Response(JSON.stringify([
+        { ...validOrder, type_id: concurrencyTypeId, order_id: call === 1 ? '42001' : '42002', price: call === 1 ? 10 : 12 },
+      ]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', 'X-Pages': '1' },
+      });
+    }
+    if (url.includes('/api/markets/' + recoveryHub.region_id + '/history')) {
+      return new Response(JSON.stringify([{
+        date: '2026-09-23',
+        order_count: 20,
+        volume: 500,
+        average: 10,
+      }]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    throw new Error('Unexpected concurrency request: ' + url);
+  });
+
+  const backgroundSync = MarketDataStore.syncCharacterOrdersMarketData([concurrencyTypeId], [recoveryHub]);
+  await backgroundFetchStarted;
+  const explicitRefresh = MarketDataStore.refreshCharacterOrdersMarketData([concurrencyTypeId], [recoveryHub]);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert(
+    marketFetchCalls === 1,
+    'Explicit refresh must wait for the in-flight background sync instead of starting a concurrent fetch',
+  );
+
+  releaseBackgroundFetch();
+  await backgroundSync;
+  await explicitRefresh;
+  assert(
+    marketFetchCalls === 2,
+    'Explicit refresh must perform exactly one forced fetch after the background sync',
+  );
+  const finalConcurrencySnapshot = MarketDataStore.getSnapshot(concurrencyTypeId, recoveryHub.region_id);
+  assert(
+    finalConcurrencySnapshot?.orders[0]?.order_id === '42002',
+    'The explicit forced refresh must own the final market snapshot',
+  );
+  setBackendApiFetchForTesting(null);
+
+  console.log('✅ Background/explicit market refresh coordination passed.');
+
   // 3. Test Scanner with Quality Metadata
   console.log('3. Testing InterRegionalScanner with DataQuality metadata...');
   const testHubs: MarketHub[] = [

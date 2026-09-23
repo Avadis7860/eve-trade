@@ -15,10 +15,10 @@ CI gate: Playwright browser E2E + full regression CI
 | Existing market snapshot followed by fetch failure | Previous market context remains visible as STALE and carries the latest failure; no operational recommendation is presented as current | PASS |
 | Order detail | Ownership, observation, expected remaining result and decision context are visible | PASS via UX-02 browser suite |
 | Projected vs realized values | Remaining sell value is labeled projected; Operations does not claim realized P&L | Covered by typecheck + detail implementation |
-| LIVE decision = keep | Reliable keep recommendation is visible in row and detail | Added to deterministic browser suite |
-| LIVE decision = adjust | Reliable price-adjustment recommendation is visible in row and detail | Added to deterministic browser suite |
-| LIVE decision = relocate | Reliable relocation recommendation is visible in row and detail | Added to deterministic browser suite |
-| LIVE decision = cancel | Reliable cancellation recommendation is visible in row and detail | Added to deterministic browser suite |
+| LIVE decision = keep | Reliable keep recommendation is visible in row and detail | PASS in CI run #567 |
+| LIVE decision = adjust | Reliable price-adjustment recommendation is visible in row and detail | PASS in CI run #567 |
+| LIVE decision = relocate | Reliable relocation recommendation is visible in row and detail | PASS in CI run #567 |
+| LIVE decision = cancel | Reliable cancellation recommendation is visible in row and detail | PASS in CI run #567 |
 
 ## Invariants
 

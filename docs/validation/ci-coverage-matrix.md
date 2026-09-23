@@ -1,6 +1,6 @@
 # CI-001 — Global Coverage Matrix
 
-Status: ACTIVE IMPLEMENTATION GATE — CI-001A/B
+Status: ACTIVE IMPLEMENTATION GATE — CI-001D
 Date: 2026-09-23
 Scope: durable coverage of CI, validation, security, delivery and governance
 Parent: [CI-001 — Refonte du système CI](../roadmap/ci-management-refactor.md)
@@ -55,14 +55,14 @@ A future optimization is not accepted merely because it reduces wall-clock time.
 | Stable required check | no dedicated aggregator | GAP | G | \`CI / required-gate\` |
 | Branch protection verification | API access unavailable in study | GAP / UNKNOWN | G | admin-verified required checks |
 | Merge queue compatibility | not evidenced in repo | CONDITIONAL | G | add \`merge_group\` if adopted |
-| Concurrency governance | same-reference cancellation only | PARTIAL | G/H | per-PR stale-run cancellation + explicit PR policy |
+| Concurrency governance | same-reference cancellation only | PARTIAL | D/G/H | per-PR stale-run cancellation + explicit PR policy |
 | PR lifecycle governance | implicit | PARTIAL | H | Draft iteration / Ready certification / no PR churn |
 | Test taxonomy | global + specialized overlap | PARTIAL | E | one canonical responsibility per test |
 | Flaky-test policy | no explicit quarantine/ownership model | GAP | E/H | classify, quarantine, fix, re-enable |
 | Failure diagnostics | browser artifacts; standard job logs elsewhere | PARTIAL | H | failure-specific artifacts/summaries |
 | Retry policy | browser retry=1; no global policy | PARTIAL | H | retries only where justified and visible |
 | Timeout policy | job timeout exists | PARTIAL | H | job + critical-step timeouts |
-| CI performance metrics | historical run analysis only | GAP | A/I | durable metrics and baseline |
+| CI performance metrics | historical run analysis only | GAP | D/I | durable metrics and baseline |
 | Test duration telemetry | no canonical per-test timing report | GAP | A/E/I | slowest suites visible |
 | Main post-merge validation | full CI reruns on main push | PARTIAL | H | short smoke by default |
 | Full repository certification | no dedicated scheduled full gate | GAP | H | scheduled/manual exhaustive proof |
@@ -73,13 +73,14 @@ A future optimization is not accepted merely because it reduces wall-clock time.
 | Workflow token permissions | main CI + SDE explicitly declare \`contents: read\` | COVERED | C | explicit minimum permissions |
 | Action immutability | checkout/setup-node/upload-artifact pinned to immutable SHAs | COVERED | C/I | reviewable SHA maintenance policy |
 | Secret handling | application tests cover auth boundaries; CI security policy not separately mapped | PARTIAL | C | explicit secret exposure rules |
+| Validation topology | static, unit/domain, server and build execute independently; browser is independent of `validate` | D | COVERED | representative runs must prove lower wall-clock without coverage loss |
 | Dependency / lockfile reproducibility | \`npm ci\` + lockfile | COVERED | C | preserve locked installs |
-| Node/runtime reproducibility | Node 22.23.2 + npm 10.9.8 explicitly verified | COVERED | C/I | explicit supported runtime + monitored action runtime |
+| Node/runtime reproducibility | Node 22.23.2 + npm 10.9.8 explicitly verified | COVERED | C/D/I | explicit supported runtime + monitored action runtime |
 | Runner environment drift | \`ubuntu-latest\` | PARTIAL | I | intentional runner policy or periodic verification |
 | Artifact provenance | no release-attestation requirement | CONDITIONAL | C/I | assess only if release/distribution requires it |
 | CI documentation | current workflow/runbook exists | COVERED | J | active docs + phase evidence |
 | Rollback of CI refactor | not yet formalized | GAP | A/J | every phase reversible |
-| CI self-validation | workflow contract tests exist | COVERED | G/J | meta-contract expanded with new topology |
+| CI self-validation | workflow contract tests exist | COVERED | D/G/J | meta-contract expanded with new topology |
 | Human runbook | basic runbook exists | PARTIAL | H/J | incident/rerun/new-PR decision tree |
 | Cost/churn control | historical evidence only | PARTIAL | A/I | runs/PR, cancelled %, reruns and wall-clock tracked |
 | Long-term maintenance | action updates handled ad hoc | PARTIAL | I/J | recurring maintenance procedure |

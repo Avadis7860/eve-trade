@@ -61,12 +61,24 @@ async function launchSso(page: Page): Promise<void> {
   await popup.close();
 }
 
+async function setOperationsScenario(
+  request: APIRequestContext,
+  scenario: 'default' | 'keep' | 'adjust' | 'relocate' | 'cancel',
+): Promise<void> {
+  const response = await request.post(`${MOCK_BASE_URL}/__control__/operations`, {
+    data: { scenario },
+  });
+  expect(response.ok()).toBeTruthy();
+}
+
 async function prepareOperations(
   page: Page,
   request: APIRequestContext,
   mode: 'live' | 'error' | 'partial',
+  scenario: 'default' | 'keep' | 'adjust' | 'relocate' | 'cancel' = 'default',
 ): Promise<void> {
   await setMarketMode(request, mode);
+  await setOperationsScenario(request, scenario);
   await page.goto('/');
   await openOrders(page);
 }
@@ -108,6 +120,28 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
     await expect(page.getByText('Décision Operations', { exact: true })).toBeVisible();
     await expect(page.getByText('Âge', { exact: true })).toBeVisible();
   });
+
+  for (const scenario of [
+    { key: 'keep', row: /Position Optimale/, detail: /Position Optimale/ },
+    { key: 'adjust', row: /Ajuster :/, detail: /Ajuster le Prix à/ },
+    { key: 'relocate', row: /Déplacer ➔ Amarr \(Domain\)/, detail: /Déplacer vers Amarr/ },
+    { key: 'cancel', row: /Annuler l'Ordre/, detail: /Annuler : Concurrence Destructrice de Marge|Marché Inactif : Annulation Recommandée/ },
+  ] as const) {
+    test(`exposes a reliable ${scenario.key} decision in Operations`, async ({ page, request }) => {
+      await prepareOperations(page, request, 'live', scenario.key);
+      await launchSso(page);
+      await expectOperationsLoaded(page);
+
+      const firstRow = page.locator('tbody tr').first();
+      await expect(firstRow.getByText(scenario.row)).toBeVisible();
+      await firstRow.click();
+
+      const detail = page.getByRole('dialog', { name: 'Détail opérationnel de l’ordre' });
+      await expect(detail).toBeVisible();
+      await expect(detail.getByText(scenario.detail)).toBeVisible();
+      await expect(detail.getByText(/Aucune recommandation fiable n’est produite/)).toHaveCount(0);
+    });
+  }
 
   test('keeps active orders visible and refuses false decision state on market ERROR', async ({ page, request }) => {
     await prepareOperations(page, request, 'error');

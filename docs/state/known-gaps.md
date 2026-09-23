@@ -25,7 +25,7 @@ Source of truth: code, tests, CI and current state documents
 - IndexedDbStore remains a large monolithic service; decomposition is explicitly DEFERRED by the UX-first sequencing gate.
 - Several UI files remain large; decomposition is explicitly DEFERRED until the relevant UX contracts are accepted.
 - Performance is not protected by a dedicated measurement gate.
-- Browser E2E still needs a dedicated gate for combined market-source/dedup behavior and full row ↔ detail value consistency; the current lifecycle/decision coverage is intentionally narrower.
+- Browser/unit acceptance now has dedicated coverage for combined market-source canonical deduplication and row ↔ detail value consistency; broader source heterogeneity outside Operations remains an application-wide gap.
 
 ## Domain gaps
 

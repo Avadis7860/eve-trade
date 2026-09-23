@@ -108,6 +108,17 @@ Once P0 is closed, the next implementation order is:
 
 Before UX-03 implementation, freeze the contracts for Allocation, Performance and Control Center so the implementations share the same vocabulary for capital, provenance, projected vs realized values, health and refresh.
 
+## CI operator tooling dependency
+
+The P0 closure does not depend on Oclif. Oclif is documented as a **future CI operator-layer candidate**, not as a P0 implementation requirement.
+
+The intended future boundary is:
+- GitHub Actions remains the certification authority;
+- gh remains the low-level GitHub control interface;
+- Oclif may later encode the repository's procedural delivery checks as a project CLI.
+
+Do not introduce this tooling inside P0-B. Any implementation starts as a separate maintenance chantier after P0 closure unless a narrowly scoped CI-hardening decision explicitly opens it earlier.
+
 ## Delivery discipline
 
 - One active delivery branch and one active PR at a time.

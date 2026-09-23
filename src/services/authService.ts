@@ -380,7 +380,7 @@ export class AuthService {
   }
 
   /**
-   * Gets the preferred redirect URI for EVE SSO (defaults to localhost:8000/callback or app callback).
+   * Gets the canonical redirect URI for EVE SSO.
    */
   static getPreferredRedirectUri(): string {
     const stored = safeStorage.getItem('eve_sso_preferred_redirect_uri');

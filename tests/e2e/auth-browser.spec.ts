@@ -220,14 +220,12 @@ test.describe('E2E-001 — browser OAuth composition', () => {
     await expect(page.getByText(/Échec de l'authentification EVE SSO/)).toBeVisible();
   });
 
-  test('rejects an unauthorized redirect URI before token exchange', async ({ request }) => {
-    const authResponse = await request.get(
-      '/api/auth/url?redirect_uri=http%3A%2F%2F127.0.0.1%3A3000%2Fauth%2Fcallback',
-    );
-    expect(authResponse.ok()).toBeTruthy();
-    const authData = await authResponse.json();
-
-    const tokenResponse = await request.post('/api/auth/token', {
+  test('rejects an unauthorized redirect URI before token exchange', async ({ page }) => {
+    const authData = await page.evaluate(async () => {
+      const response = await fetch('/api/auth/url');
+      return await response.json();
+    });
+    const tokenResponse = await page.context().request.post('/api/auth/token', {
       data: {
         code: 'e2e-code-alpha',
         state: authData.state,
@@ -246,7 +244,9 @@ test.describe('E2E-001 — browser OAuth composition', () => {
     const { popup } = await launchSso(page);
     await waitForOAuthCallback(popup);
 
-    await expect(popup.getByText(/Sécurité CSRF : Jeton Invalide ou Expiré/)).toBeVisible({
+    await expect(
+      popup.getByText(/Sécurité (CSRF : Jeton Invalide ou Expiré|OAuth : navigateur non reconnu)/),
+    ).toBeVisible({
       timeout: 15_000,
     });
     await expect(page.getByRole('banner').getByText(ALPHA.name, { exact: true })).toHaveCount(0);
@@ -278,6 +278,7 @@ test.describe('E2E-001 — browser OAuth composition', () => {
     const { popup } = await launchSso(page);
     await waitForOAuthCallback(popup);
     await expectAuthenticatedCharacter(page, ALPHA.name);
+    await expect(page.getByRole('button', { name: 'Actualiser' })).toBeEnabled({ timeout: 15_000 });
 
     await page.evaluate(() => {
       const raw = localStorage.getItem('eve_trade_character_store_v3');

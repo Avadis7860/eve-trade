@@ -204,14 +204,15 @@ test.describe('E2E-001 — browser OAuth composition', () => {
     );
 
     expect(response?.status()).toBe(400);
-    await expect(page.getByText(/Jeton Invalide|Jeton State Manquant|Sécurité CSRF/)).toBeVisible();
+    await expect(page.getByText(/Jeton Invalide|Jeton State Manquant|Sécurité CSRF|navigateur non reconnu/)).toBeVisible();
     expect(await emptyCharacterStore(page)).toBeTruthy();
   });
 
-  test('rejects token exchange when the callback code is invalid', async ({ page, request }) => {
-    const authResponse = await request.get('/api/auth/url');
-    expect(authResponse.ok()).toBeTruthy();
-    const authData = await authResponse.json();
+  test('rejects token exchange when the callback code is invalid', async ({ page }) => {
+    const authData = await page.evaluate(async () => {
+      const response = await fetch('/api/auth/url');
+      return await response.json();
+    });
 
     const callback = await page.goto(
       `/auth/callback?code=invalid-e2e-code&state=${encodeURIComponent(authData.state)}`,

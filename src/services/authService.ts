@@ -445,7 +445,10 @@ export class AuthService {
     }
   }
 
-(code: string, redirectUri?: string, state?: string): Promise<EveCharacterSession> {
+  /**
+   * Exchanges an authorization code for access and refresh tokens.
+   */
+  static async exchangeCodeForSession(code: string, redirectUri?: string, state?: string): Promise<EveCharacterSession> {
     let cleanCode = code.trim();
     let effectiveRedirectUri = redirectUri || this.getPreferredRedirectUri();
     let effectiveState = state;

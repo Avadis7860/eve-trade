@@ -1,18 +1,23 @@
 import crypto from 'crypto';
 import express from 'express';
+import {
+  ESI_RUNTIME_CONFIG,
+  getRuntimeConfigStatus,
+} from '../config/environment';
 
-export const EVE_CLIENT_ID = process.env.EVE_CLIENT_ID || '';
-export const EVE_CLIENT_SECRET = process.env.EVE_CLIENT_SECRET || '';
-export const EVE_CALLBACK_URL = process.env.EVE_CALLBACK_URL?.trim() || '';
+// Canonical server-side runtime configuration. Values are resolved once here;
+// consumers must not read EVE_* process variables directly.
+export const EVE_CLIENT_ID = ESI_RUNTIME_CONFIG.clientId;
+export const EVE_CLIENT_SECRET = ESI_RUNTIME_CONFIG.clientSecret;
+export const EVE_CALLBACK_URL = ESI_RUNTIME_CONFIG.callbackUrl;
 
 // Upstream EVE SSO endpoints. Production defaults remain CCP; local E2E can
 // point these boundaries at deterministic fixtures without changing the flow.
-export const EVE_SSO_AUTHORIZE_URL =
-  process.env.EVE_SSO_AUTHORIZE_URL?.trim() || 'https://login.eveonline.com/v2/oauth/authorize/';
-export const EVE_SSO_TOKEN_URL =
-  process.env.EVE_SSO_TOKEN_URL?.trim() || 'https://login.eveonline.com/v2/oauth/token';
-export const EVE_SSO_VERIFY_URL =
-  process.env.EVE_SSO_VERIFY_URL?.trim() || 'https://login.eveonline.com/oauth/verify';
+export const EVE_SSO_AUTHORIZE_URL = ESI_RUNTIME_CONFIG.authorizeUrl;
+export const EVE_SSO_TOKEN_URL = ESI_RUNTIME_CONFIG.tokenUrl;
+export const EVE_SSO_VERIFY_URL = ESI_RUNTIME_CONFIG.verifyUrl;
+
+export { getRuntimeConfigStatus } from '../config/environment';
 
 export const EVE_SCOPES = [
   'esi-markets.read_character_orders.v1',

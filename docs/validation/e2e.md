@@ -8,7 +8,7 @@ CI gate: pending branch validation
 
 ## Current proof model
 
-The browser suite deliberately uses the real eve-trade frontend/backend, while replacing only the external OAuth and ESI boundaries with deterministic local fixtures.
+The browser suite deliberately uses the real eve-trade frontend/backend, while replacing only the external OAuth and ESI boundaries with deterministic local fixtures. The authorization-code exchange is server-owned; the browser receives only the validated session result.
 
 ```
 Browser
@@ -85,7 +85,8 @@ The current suite covers:
 - logout;
 - second-character connection, token preservation and active-character switching;
 - controlled OAuth denial;
-- popup closed before completion.
+- popup closed before completion;
+- popup-blocked same-window callback recovery.
 
 HTTP/security suites remain responsible for the exhaustive state TTL and lower-level protocol validation already present in the repository. The browser suite tests composition failures that those suites cannot observe.
 
@@ -112,6 +113,14 @@ The GitHub Actions workflow contains two complementary jobs:
 - the Playwright browser job, which installs Chromium and executes `npm run test:e2e`.
 
 The browser job has no CCP dependency and uploads Playwright diagnostics when available.
+
+## OAuth invariants
+
+- The authorization state is single-use and remains bound to the exact redirect URI selected when the authorization request is created.
+- The callback performs the authorization-code exchange only on the server.
+- A successful popup message contains only the validated session; raw OAuth code and state are not returned to the frontend for a second exchange.
+- When popup creation is blocked, the callback writes a short-lived same-origin one-shot result and redirects to the application; the frontend consumes and removes that result before synchronization.
+- Popup creation occurs synchronously from the user gesture; only the destination URL is assigned after the backend has created the state.
 
 ## Completion gate
 

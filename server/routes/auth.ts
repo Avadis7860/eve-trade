@@ -16,6 +16,9 @@ import {
   activeOAuthStates,
   getRuntimeConfigStatus,
   assertOAuthRuntimeConfig,
+  buildOAuthStateCookie,
+  buildOAuthStateCookieClear,
+  readOAuthStateCookie,
 } from '../utils/authUtils';
 
 export const authRouter = Router();
@@ -90,6 +93,7 @@ authRouter.get('/url', async (req: Request, res: Response) => {
     (metadata.authorization_endpoint.includes('?') ? '&' : '?') +
     params.toString();
   logEvent('INFO', 'SSO', 'Generated SSO authorization URL', { redirectUri, statePrefix: state.substring(0, 8) });
+  res.setHeader('Set-Cookie', buildOAuthStateCookie(state, req));
   res.json({ url, redirect_uri: redirectUri, state });
 });
 
@@ -446,6 +450,20 @@ export const callbackHandler = async (req: Request, res: Response) => {
   }
 
   const callbackUri = getRequestCallbackUri(req);
+  const browserState = readOAuthStateCookie(req);
+  if (!browserState || browserState !== state) {
+    logEvent('WARN', 'SSO', 'Callback browser state cookie mismatch - BLOCKED', {
+      statePrefix: state.substring(0, 8),
+      browserStatePresent: Boolean(browserState),
+    });
+    res.status(400).setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.send(renderAuthErrorHtml(
+      'Sécurité OAuth : navigateur non reconnu',
+      'La requête de rappel ne correspond pas au navigateur qui a initié cette connexion SSO.',
+      'BROWSER_STATE_MISMATCH'
+    ));
+  }
+
   const stateCheck = validateAndConsumeOAuthState(state, callbackUri);
   if (!stateCheck.isValid) {
     logEvent('ERROR', 'SSO', 'Callback received invalid or expired state - BLOCKED', {
@@ -464,6 +482,8 @@ export const callbackHandler = async (req: Request, res: Response) => {
       stateCheck.error || 'INVALID_STATE'
     ));
   }
+
+  res.setHeader('Set-Cookie', buildOAuthStateCookieClear(req));
 
   if (error) {
     logEvent('WARN', 'SSO', 'Callback received error from CCP SSO', { error, errorDesc });

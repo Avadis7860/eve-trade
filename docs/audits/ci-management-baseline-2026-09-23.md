@@ -162,10 +162,10 @@ Run `35842730680`, commit `d7f245ec...`, run #596 :
 
 - événement : `push` sur `main` ;
 - `validate` : success ;
-- `browser-e2e` : encore en cours au moment de la lecture, sur l'installation Chromium ;
+- le run a ensuite terminé avec une conclusion `success` ;
 - aucun changement de workflow n'est inclus dans ce run.
 
-Cette observation est datée et ne constitue pas une métrique finale de certification.
+Le détail job confirme que la certification actuelle est restée inchangée avant CI-001A/B.
 
 ## Test inventory
 
@@ -348,6 +348,55 @@ CI-001A/B doit rester documentaire et métrologique :
 8. ne pas modifier `workers` ;
 9. ne pas introduire de change detection opérationnelle ;
 10. ne pas découper `validate` tant que CI-001A/B n'est pas accepté comme nouvelle baseline.
+
+## Mesure E2E par responsabilité
+
+Les logs du run `35826687206` donnent les durées individuelles des 17 scénarios.
+
+### Browser Auth — 13 tests
+
+| Test | Durée |
+|---|---:|
+| nominal SSO popup → callback → postMessage → authenticated ESI → persisted session | 12.9 s |
+| same-window callback lorsque le popup est bloqué | 8.9 s |
+| forged same-origin postMessage | 4.7 s |
+| callback state non émis par l’application | 4.6 s |
+| token exchange code invalide | 4.3 s |
+| redirect URI non autorisée | 4.9 s |
+| OAuth state TTL expiré | 16.3 s |
+| callback state rejoué | 5.7 s |
+| refresh de session expirée | 9.1 s |
+| logout / retour SSO | 6.1 s |
+| isolation stricte de deux personnages | 7.6 s |
+| refus OAuth contrôlé | 5.2 s |
+| popup fermé avant callback | 5.8 s |
+
+Somme des durées de tests Auth : **~96.1 s**.
+
+### Browser Operations — 4 tests
+
+| Test | Durée |
+|---|---:|
+| contexte opérationnel d’un ordre actif | 6.0 s |
+| marché ERROR sans fausse décision | 7.1 s |
+| marché PARTIAL avec page suivante en échec | 7.0 s |
+| marché STALE après observation antérieure | 6.7 s |
+
+Somme des durées de tests Operations : **~26.8 s**.
+
+Les 17 scénarios représentent **~122.9 s de temps de test** ; le reste du coût browser provient du démarrage/harness, de l’installation du navigateur et du teardown.
+
+## Dérive runtime observée sur le runner
+
+Le même run émet à plusieurs reprises :
+
+> Node.js 20 is deprecated. This workflow is running with Node 24 by default.
+
+Les actions actuellement utilisées sont `actions/checkout@v4`, `actions/setup-node@v4` et `actions/upload-artifact@v4`.
+
+Le projet configure Node.js 22 pour ses étapes applicatives, mais le runtime JavaScript interne de ces actions est soumis à l’évolution du runner GitHub.
+
+Cette différence constitue un point de CI-001C/I pour la reproductibilité et la supply chain. Elle n’est pas modifiée dans CI-001A/B.
 
 ## Rollback
 

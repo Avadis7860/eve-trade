@@ -8,13 +8,20 @@ Source of truth: revalidated code and current state documents
 
 The authoritative product backlog is [UX-First Trading Terminal Program](ux-program.md).
 
-### P0 — Market / ESI truth and retrieval reliability — ACTIVE
+### P0 — Market / ESI truth and retrieval reliability — ACTIVE / CLOSING
 
-- Establish observable lifecycle for public market-order requests.
-- Surface HTTP, ESI, cache and rate-limit outcomes to the UI.
-- Preserve and expose stale cache when appropriate instead of silently returning empty business data.
-- Reproduce and diagnose the reported target-PC failure to retrieve market orders.
-- Add regression coverage for ERROR, PARTIAL and STALE states.
+Completed:
+- Observable public market-order error propagation.
+- HTTP, cache and ESI budget metadata surfaced to the browser UI.
+- Stale-cache preservation on previously observed market data.
+- Deterministic ERROR / PARTIAL / STALE coverage.
+- Global sync failure accounting for market-quality ERROR.
+- Browser certification of operator-facing HTTP 401 + ESI budget diagnostics.
+
+Remaining:
+- Audit remaining non-Operations public market-order callers for failure collapse.
+- Add deterministic HTTP 429 / Retry-After regression coverage.
+- Capture the real target-PC evidence bundle and classify the incident as ROOT-CAUSED or EXTERNALLY BOUNDED.
 
 ### P1 — Operations / Mes Ordres — DONE / MERGED
 
@@ -71,7 +78,7 @@ These remain valid but are explicitly blocked until the UX baseline is accepted:
 ## CI follow-up candidates
 
 - **Draft routing mismatch:** the current PR workflow triggers `CI Foundation & Regression Gate` for Draft PRs as well as Ready PRs. PR #61 was created as Draft and run `35858589551` entered the full six-lane certification topology after `CI / Change Scope` succeeded. This is a confirmed behavior mismatch with the documented Draft Fast Gate model.
-- Keep this as a separate CI hardening chantier; do not alter the current UX-02 delivery surface solely to repair it.
+- Keep this as a separate CI hardening chantier; do not mix it into the P0 product closure work.
 
 ## Operational issue
 
@@ -82,14 +89,14 @@ These remain valid but are explicitly blocked until the UX baseline is accepted:
 Primary diagnostic path:
 EsiService.fetchLiveOrdersDetailed -> /api/markets/region/orders -> MarketEsiGateway -> EsiGateway -> ESI.
 
-Important UI failure mode:
-fetch failures can currently collapse into empty/unchanged business data because some callers intentionally swallow errors.
-
-Current CCP context:
-the public market-order route is in a dedicated rate-limit group, with a five-minute cache expectation and a 12,000-token budget. The implementation must respect response rate-limit/cache metadata and avoid bursty redundant polling.
+Evidence now certified in code:
+- backend error responses preserve HTTP/cache/rate-limit diagnostics;
+- Operations browser flow retains active orders and surfaces market ERROR instead of false zero activity;
+- the target-PC incident is still not root-caused because real-PC evidence is not in the repository.
 
 Reference:
 [UI/UX Product Audit](../audits/ui-ux-product-audit-2026-09-23.md)
+[P0 Market Reliability Plan](p0-market-reliability.md)
 
 ## Rule
 
@@ -97,4 +104,4 @@ Historical issues are not copied into the active backlog unless they remain repr
 
 The UX-first sequencing gate is mandatory: no deferred technical item is promoted ahead of UX-00/UX-01 and the relevant surface contract without an explicit roadmap update.
 
-CI-001 is merged; no CI-only branch remains active. UX-02 is also merged. The current product chantier starts from the merged `main` head.
+CI-001 and UX-02 are merged. The current product chantier starts from the merged `main` head and uses one active delivery branch/PR at a time.

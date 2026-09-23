@@ -18,7 +18,7 @@ Turn Mes Ordres into the Operations console for active market positions while pr
 - Active-order sync failures are explicit and never rendered as an ordinary empty state.
 - Order timing/market-distance derivations are covered by focused tests.
 - Performance analytics has been removed from the Operations component and remains owned by the Performance surface.
-
+- The current close gate adds deterministic browser scenarios for keep / adjust / relocate / cancel; **PR #61 run `35859213922` is green and certifies the gate.**
 
 ## Scope discipline
 

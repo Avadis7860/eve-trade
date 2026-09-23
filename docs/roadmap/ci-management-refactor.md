@@ -1,6 +1,6 @@
 # CI-001 — Refonte du système CI, validation et gouvernance
 
-Status: PRE-MERGE CLOSURE — CI-001J
+Status: DONE / MERGED — CI-001J
 Scope: GitHub Actions, test certification, browser E2E et gouvernance des PR
 Owner: project maintainers
 Baseline: main @ \`d7f245ec47a8746306792ce6017496f9123c23d6\`
@@ -587,6 +587,6 @@ CI-001D/E/F/G sont complétés et runtime-verified ; CI-001H/I sont implémenté
 
 La protection de branche reste administrativement inconnue avec l'intégration disponible ; aucun renommage de required-check n'a été effectué.
 
-## Pre-merge closure
+## Post-merge closure
 
-Le chantier ne doit pas être étendu par de nouvelles optimisations avant merge. La revue est effectuée par l'agent sur le head courant ; le merge repose sur cette revue et sur la certification CI disponible. La branch protection/ruleset de `main` reste un point d'administration GitHub non observable par l'intégration et ne fait pas partie d'un changement implicite de required-check. Le Main Smoke et le Full Certification restent des surfaces de santé séparées.
+CI-001 est fusionné sur `main` à `7fc6fe7ca65454d0d29843bc0eace336b2da864c`. Aucun chantier CI-001 ne doit être rouvert ; le constat Draft-vs-Ready est enregistré comme follow-up de durcissement distinct. Le Main Smoke et le Full Certification restent des surfaces de santé séparées.

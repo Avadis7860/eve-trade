@@ -16,9 +16,10 @@ The authoritative product backlog is [UX-First Trading Terminal Program](ux-prog
 - Reproduce and diagnose the reported target-PC failure to retrieve market orders.
 - Add regression coverage for ERROR, PARTIAL and STALE states.
 
-### P1 — Operations / Mes Ordres — ACTIVE
+### P1 — Operations / Mes Ordres — ACTIVE / GATE CERTIFIED / PRE-MERGE
 
-- Replace the current overloaded order table with an operational market-position console. First increment landed on the dedicated UX-02 branch.
+- Continue the Operations console from the merged first increment; active branch: `feat/ux-02-close-operations-gate`.
+- Close the browser decision gate for keep / adjust / relocate / cancel with deterministic fixtures and explicit degraded-data behavior. **Certified on PR #61 run `35859213922`; merge remains the final delivery transition.**
 - Expose capital, escrow, active sell value, order age, fill ratio, remaining locked capital, estimated turnover, expected remaining return, market distance and data health.
 - Separate economic ownership scope from performance-analysis scope.
 - Keep the existing order advisor but make its decision context inspectable.
@@ -67,6 +68,11 @@ These remain valid but are explicitly blocked until the UX baseline is accepted:
 - PERF-001: performance measurement/optimization.
 - TYPE-001: legacy typing/facade cleanup.
 
+## CI follow-up candidates
+
+- **Draft routing mismatch:** the current PR workflow triggers `CI Foundation & Regression Gate` for Draft PRs as well as Ready PRs. PR #61 was created as Draft and run `35858589551` entered the full six-lane certification topology after `CI / Change Scope` succeeded. This is a confirmed behavior mismatch with the documented Draft Fast Gate model.
+- Keep this as a separate CI hardening chantier; do not alter the current UX-02 delivery surface solely to repair it.
+
 ## Operational issue
 
 **Reported:** public market orders no longer retrieve from the user's PC.
@@ -90,3 +96,5 @@ Reference:
 Historical issues are not copied into the active backlog unless they remain reproducibly open today.
 
 The UX-first sequencing gate is mandatory: no deferred technical item is promoted ahead of UX-00/UX-01 and the relevant surface contract without an explicit roadmap update.
+
+CI-001 is merged; no CI-only branch remains active. The next product chantier starts from the merged `main` head.

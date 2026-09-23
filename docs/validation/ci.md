@@ -1,9 +1,9 @@
 # CI Validation
 
-Status: CURRENT — CI-001J PRE-MERGE CLOSURE
+Status: CURRENT — CI-001 DONE / POST-MERGE
 Scope: GitHub Actions regression gate and certification model
 Source of truth: \`.github/workflows/ci.yml\` and \`.github/workflows/phase-2.7c-sde.yml\`
-Implementation: CI-001C/D/E/F/G harden security, topology, ownership, browser isolation and scope routing; CI-001H separates Main Smoke and Full Repository Certification; CI-001I adds durable timing/churn observability
+Implementation: CI-001 is merged on main; the current CI surface is the post-merge PR/Main/Full model with durable observability. Follow-up hardening is tracked separately.
 Tests: \`npm run test:ci-config\` plus all validation and browser gates below
 
 Baseline: [CI-001A/B — Baseline](../audits/ci-management-baseline-2026-09-23.md)
@@ -145,6 +145,12 @@ Artifacts are retained for 30 days so several runs can be compared without chang
 **CI-001G is certified; CI-001H is implemented; CI-001I is runtime-verified on PR run `35856208503` for head `9d09d8affac903de6c2ca8f39156b5b662d4fef4`.** Main Smoke and Full remain independent post-merge/scheduled health checks.
 
 The topology change is additive in proof ownership: existing commands remain present, the historical `validate` check name remains available, and browser execution is no longer downstream of non-browser validation.
+
+## Observed CI behavior after CI-001 merge
+
+The implementation currently uses a single `pull_request` trigger for the certification workflow. This means a Draft PR also enters the same certification topology rather than a distinct lightweight Fast Gate. This is now directly observed on UX-02 PR #61: Draft run `35858589551` progressed from `CI / Change Scope` to Browser Auth, Static, Server, Build, Unit/Domain and Browser Operations. The documented Draft-versus-Ready split is therefore a **confirmed follow-up gap**, not current behavior. Do not treat this as a blocker for UX-02; track it as a separate CI hardening chantier.
+
+The post-merge `main` path remains separate via `CI Main Post-Merge Smoke`, while Full Repository Certification remains manual/scheduled.
 
 ## CI-001I evidence
 

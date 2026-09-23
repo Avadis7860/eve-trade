@@ -318,6 +318,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           CI_OBSERVABILITY_FILE: ${{ runner.temp }}/ci-observability.json
+          CI_CERTIFIED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: node scripts/ci-observability.mjs
       - name: Upload CI observability metrics
         if: ${{ !cancelled() }}

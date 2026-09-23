@@ -7,6 +7,12 @@ const read = (relativePath) => fs.readFileSync(new URL(relativePath, root), 'utf
 const ci = read('.github/workflows/ci.yml');
 const sde = read('.github/workflows/phase-2.7c-sde.yml');
 
+const ACTION_PINS = {
+  checkout: '11d5960a326750d5838078e36cf38b85af677262',
+  setupNode: '49933ea5288caeca8642d1e84afbd3f7d6820020',
+  uploadArtifact: 'ea165f8d65b6e75b540449e92b4886f43607fa02',
+};
+
 const requiredCiCommands = [
   'npm run test:e2e',
   'npm ci --no-audit --no-fund',
@@ -26,6 +32,31 @@ for (const command of requiredCiCommands) {
   assert.ok(ci.includes(command), `CI gate lost required command: ${command}`);
 }
 
+for (const [action, sha] of Object.entries(ACTION_PINS)) {
+  const labels = {
+    checkout: 'actions/checkout',
+    setupNode: 'actions/setup-node',
+    uploadArtifact: 'actions/upload-artifact',
+  };
+  assert.ok(
+    ci.includes(`${labels[action]}@${sha}`),
+    `CI must pin ${labels[action]} to an immutable SHA`,
+  );
+}
+
+assert.match(ci, /permissions:\s*\n\s+contents:\s+read/, 'CI must declare read-only repository permissions');
+assert.match(
+  ci,
+  /Checkout repository[\s\S]*persist-credentials: false/,
+  'CI checkout must not persist the GitHub token in the repository config',
+);
+assert.match(ci, /node-version: 22\.23\.2/, 'CI runtime must pin the Node 22 patch release');
+assert.match(
+  ci,
+  /Setup Node\.js 22\.23\.2[\s\S]*setup-node@/,
+  'CI must make the pinned Node runtime explicit in the setup step',
+);
+
 assert.match(
   ci,
   /Install dependencies[\s\S]*Frontend typecheck[\s\S]*Backend typecheck/,
@@ -42,6 +73,16 @@ assert.match(
   /permissions:\s*\n\s+contents:\s+read/,
   'SDE truth gate must remain read-only',
 );
+assert.ok(
+  sde.includes(`actions/checkout@${ACTION_PINS.checkout}`),
+  'SDE checkout must remain pinned to an immutable SHA',
+);
+assert.ok(
+  sde.includes(`actions/setup-node@${ACTION_PINS.setupNode}`),
+  'SDE setup-node must remain pinned to an immutable SHA',
+);
+assert.ok(sde.includes('node-version: 22.23.2'), 'SDE must use the pinned Node 22 patch release');
+
 assert.ok(
   sde.includes('fetch-depth: 0'),
   'SDE detector must have local history for PR-base comparison',

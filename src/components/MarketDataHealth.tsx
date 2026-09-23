@@ -10,6 +10,7 @@ import {
 import type { DataHealthStatus, MarketDataQuality, MarketHub } from '../types';
 
 interface MarketDataHealthProps {
+  typeName: string;
   hubs: MarketHub[];
   qualities: Record<number, MarketDataQuality>;
   isSyncing: boolean;
@@ -109,6 +110,7 @@ function formatDiagnostics(quality?: MarketDataQuality): string {
 }
 
 export const MarketDataHealth: React.FC<MarketDataHealthProps> = ({
+  typeName,
   hubs,
   qualities,
   isSyncing,

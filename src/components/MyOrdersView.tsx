@@ -13,7 +13,7 @@ import {
 import { fmtIsk, fmtNumber } from '../engine/money';
 import { AuthService } from '../services/authService';
 import { OrderAdvisorService } from '../services/orderAdvisor';
-import { getOrderLockedValue, getOrderMarketDistance, getOrderTiming } from '../engine/orderOperations';
+import { getOrderLockedValue, getOrderMarketDistance, getOrderTiming, mergeMarketOrdersByCanonicalId } from '../engine/orderOperations';
 import { GlobalMarketSyncService } from '../services/globalMarketSync';
 import { MarketDataStore } from '../services/marketDataStore';
 import { FailureSemantics } from '../engine/failureSemantics';
@@ -141,23 +141,21 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
   const combinedMarketOrders = useMemo(() => {
     const storeOrders = MarketDataStore.getAllOrdersByRegion();
     const syncOrders = GlobalMarketSyncService.getLatestRegionalOrders();
-    const result: Record<number, RawMarketOrder[]> = { ...orderBooks };
+    const regionIds = new Set<number>([
+      ...Object.keys(orderBooks).map(Number),
+      ...Object.keys(syncOrders).map(Number),
+      ...Object.keys(storeOrders).map(Number),
+    ]);
+    const result: Record<number, RawMarketOrder[]> = {};
 
-    const addOrders = (regionId: number, ordersList: RawMarketOrder[]) => {
-      const current = result[regionId] ?? [];
-      const byOrderId = new Map<string, RawMarketOrder>();
-      for (const order of current) byOrderId.set(order.order_id, order);
-      for (const order of ordersList) byOrderId.set(order.order_id, order);
-      result[regionId] = Array.from(byOrderId.values());
-    };
-
-    for (const [regIdStr, ordersList] of Object.entries(storeOrders)) {
-      addOrders(Number(regIdStr), ordersList);
+    for (const regionId of regionIds) {
+      result[regionId] = mergeMarketOrdersByCanonicalId([
+        orderBooks[regionId] ?? [],
+        syncOrders[regionId] ?? [],
+        storeOrders[regionId] ?? [],
+      ]);
     }
 
-    for (const [regIdStr, ordersList] of Object.entries(syncOrders)) {
-      addOrders(Number(regIdStr), ordersList);
-    }
     return result;
   }, [orderBooks, storeTick]);
 

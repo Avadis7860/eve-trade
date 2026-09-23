@@ -152,7 +152,7 @@ Then open `http://localhost:3000` in a normal browser.
 7. Verify logout returns to the unauthenticated SSO card.
 8. When multi-character validation is required, repeat with the dedicated disposable second character and confirm that the two character credentials remain isolated.
 
-The official EVE SSO flow uses a registered redirect URI, an authorization code, server-side token exchange and a validated JWT; CCP's documentation states that an unregistered redirect URL is rejected. citeturn713243search0
+The official EVE SSO flow uses a registered redirect URI, an authorization code, server-side token exchange and a validated JWT; CCP's documentation states that an unregistered redirect URL is rejected. ([documentation CCP SSO](https://developers.eveonline.com/docs/services/sso/))
 
 ### Acceptance result
 

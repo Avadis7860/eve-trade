@@ -17,7 +17,7 @@ The application accepts configurable upstream URLs through environment variables
 
 When unset, the defaults remain the official CCP EVE SSO and ESI endpoints.
 
-The Playwright harness starts a separate deterministic fixture before the application server is loaded. The browser still executes the real `SsoConnectCard`, real popup navigation, real `/auth/callback`, real `postMessage`, real session persistence, real frontend authenticated API requests, real character/corporation route composition, and the existing gateway stack.
+The Playwright harness starts a separate deterministic fixture before the application server is loaded. The browser still executes the real `SsoConnectCard`, real popup navigation, real `/auth/callback`, real `postMessage`, real session persistence, real frontend authenticated API requests, real character/corporation route composition, and the existing gateway stack. The authorization-code exchange is exclusively server-owned.
 
 ## Browser callback trust
 
@@ -26,7 +26,7 @@ OAuth callback messages are accepted only when:
 1. the message origin equals the current application origin; and
 2. the message source is the popup recorded for the active SSO attempt.
 
-The callback no longer uses a wildcard `postMessage` fallback.
+The callback no longer uses a wildcard `postMessage` fallback and never sends the raw authorization code or state back to the frontend for another exchange.
 
 ## Alternatives rejected
 
@@ -45,3 +45,7 @@ A real CCP account would make the CI gate non-deterministic, credential-dependen
 ## Consequences
 
 Production defaults remain unchanged. Local deterministic tests require no CCP credentials. The real CCP smoke procedure remains an operator-controlled acceptance step after local installation.
+
+## Popup-blocked recovery
+
+If the browser rejects popup creation, the callback uses a short-lived same-origin one-shot browser-storage bridge and redirects to the application. The frontend immediately consumes and removes the result, then continues through the normal character synchronization path. This preserves the existing browser-session architecture without creating a second OAuth protocol.

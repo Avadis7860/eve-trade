@@ -6,6 +6,7 @@ import { MarketDataStore } from './marketDataStore';
 import { IndexedDbStore } from './indexedDbStore';
 import { OpportunityEvidenceEngine } from '../engine/evidence';
 import { FailureSemantics } from '../engine/failureSemantics';
+import type { MarketDataQuality } from '../types/market';
 import { CatalogRepository } from '../domain/catalog/CatalogRepository';
 import { MarketGroupRepository } from '../domain/catalog/MarketGroupRepository';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
@@ -51,13 +52,25 @@ export interface GlobalSyncOptions {
   character_id?: number; // for personal trade history calibration
 }
 
+export function classifyGlobalMarketQuality(quality: MarketDataQuality): {
+  health: ReturnType<typeof FailureSemantics.evaluateHealth>;
+  itemFailed: boolean;
+  errorCount: number;
+} {
+  const health = FailureSemantics.evaluateHealth(quality);
+  return {
+    health,
+    itemFailed: health === 'ERROR',
+    errorCount: Math.max(0, quality.error_count ?? 0),
+  };
+}
+
 export class GlobalMarketSyncService {
   private static isRunning = false;
   private static isPaused = false;
   private static abortController: AbortController | null = null;
   private static universeOpportunities: UniverseWideOpportunity[] = [];
   private static latestRegionalOrders: Record<number, RawMarketOrder[]> = {};
-  private static latestRegionalQualities: Record<number, import('../types').MarketDataQuality> = {};
   private static latestRegionalHistory: Record<number, HistoricalStats> = {};
   private static listeners: Array<(progress: GlobalSyncProgress) => void> = [];
   private static opportunityListeners: Array<(opps: UniverseWideOpportunity[]) => void> = [];
@@ -140,10 +153,6 @@ export class GlobalMarketSyncService {
 
   static getLatestRegionalOrders(): Record<number, RawMarketOrder[]> {
     return { ...this.latestRegionalOrders };
-  }
-
-  static getLatestRegionalQualities(): Record<number, import('../types').MarketDataQuality> {
-    return { ...this.latestRegionalQualities };
   }
 
   static getLatestRegionalHistory(): Record<number, HistoricalStats> {
@@ -340,7 +349,6 @@ export class GlobalMarketSyncService {
     };
     this.universeOpportunities = [];
     this.latestRegionalOrders = {};
-    this.latestRegionalQualities = {};
     this.latestRegionalHistory = {};
 
     for (const hub of activeHubs) {
@@ -383,15 +391,9 @@ export class GlobalMarketSyncService {
             try {
               const { orders, quality } = await EsiService.fetchLiveOrdersDetailed(hub.region_id, item.type_id);
               itemQualities[hub.region_id] = quality;
-              this.latestRegionalQualities[hub.region_id] = quality;
-
-              const health = FailureSemantics.evaluateHealth(quality);
-              if (health === 'ERROR') {
-                itemFailed = true;
-              }
-              if (quality.error_count && quality.error_count > 0) {
-                this.progressState.error_count += quality.error_count;
-              }
+              const qualityState = classifyGlobalMarketQuality(quality);
+              if (qualityState.itemFailed) itemFailed = true;
+              if (qualityState.errorCount > 0) this.progressState.error_count += qualityState.errorCount;
 
               if (orders.length > 0) {
                 itemOrderBooks[hub.region_id] = orders;

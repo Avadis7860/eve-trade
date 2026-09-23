@@ -53,3 +53,10 @@ P0-B is complete only after:
 - the P0 documentation remains synchronized.
 
 The target-PC incident remains NOT ROOT-CAUSED independently of this deterministic test.
+
+## Certification history
+
+- CI #703: product/browser lanes were executed; `Browser E2E — Operations` passed all 9 tests, including the HTTP 429 scenario, while the browser composition aggregator failed.
+- The failed browser composition job did not expose retrievable logs through the repository connector; a failed-job rerun reproduced the same aggregator failure.
+- CI #704 on the next commit failed in `CI / Change Scope` before lane selection, leaving the substantive validation lanes skipped. This is treated as CI/infrastructure evidence only, not as product behavior evidence.
+- The branch remains unmergeable until a complete certification run reaches a green `CI / required-gate` and the relevant browser/SDE jobs are verified.

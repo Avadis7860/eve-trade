@@ -13,6 +13,8 @@ const ACTION_PINS = {
   uploadArtifact: '043fb46d1a93c77aae656e7c1c64a875d1fc6a0a',
 };
 
+const DETECTION_JOB_ID = 'detect-changes';
+
 const EXECUTION_JOB_IDS = [
   'static',
   'unit_domain',
@@ -23,7 +25,7 @@ const EXECUTION_JOB_IDS = [
 ];
 
 const AGGREGATOR_JOB_IDS = ['validate', 'browser-e2e'];
-const ALL_JOB_IDS = [...EXECUTION_JOB_IDS, ...AGGREGATOR_JOB_IDS];
+const ALL_JOB_IDS = [DETECTION_JOB_ID, ...EXECUTION_JOB_IDS, ...AGGREGATOR_JOB_IDS, 'required-gate'];
 
 const requiredCiCommands = [
   'npm run test:e2e:auth',
@@ -66,6 +68,16 @@ const jobBlock = (jobId) => {
   return entry.slice(entry.indexOf('\n') + 1);
 };
 
+const detectionBlock = jobBlock(DETECTION_JOB_ID);
+assert.ok(detectionBlock.includes(`actions/checkout@${ACTION_PINS.checkout}`), 'Change detection must pin checkout to an immutable SHA');
+assert.ok(detectionBlock.includes('fetch-depth: 0'), 'Change detection must have repository history for PR-base comparison');
+assert.ok(detectionBlock.includes('persist-credentials: false'), 'Change detection must disable checkout credential persistence');
+assert.ok(detectionBlock.includes('BASE_SHA:'), 'Change detection must define an explicit base SHA');
+assert.ok(detectionBlock.includes('HEAD_SHA:'), 'Change detection must define an explicit head SHA');
+assert.ok(detectionBlock.includes('ambiguous=true'), 'Change detection must use a conservative ambiguity fallback');
+assert.ok(detectionBlock.includes('full_certification=true'), 'Change detection must fall back to full certification for high-impact or ambiguous scope');
+assert.ok(detectionBlock.includes('GITHUB_STEP_SUMMARY'), 'Change detection must publish an observable scope summary');
+
 for (const jobId of EXECUTION_JOB_IDS) {
   const block = jobBlock(jobId);
   assert.ok(block.includes(`actions/checkout@${ACTION_PINS.checkout}`), `Execution job ${jobId} must pin checkout to an immutable SHA`);
@@ -102,6 +114,21 @@ assert.match(
   /^[ \t]+needs: \[browser-auth, browser-operations\][ \t]*$/m,
   'The historical browser-e2e check must continue aggregating both browser responsibility lanes',
 );
+
+const requiredGateBlock = jobBlock('required-gate');
+assert.match(
+  requiredGateBlock,
+  /^[ \t]+if: \$\{\{ always\(\) \}\}[ \t]*$/m,
+  'Stable required-gate must always evaluate',
+);
+assert.match(
+  requiredGateBlock,
+  /^[ \t]+needs: \[detect-changes, validate, browser-e2e\][ \t]*$/m,
+  'Stable required-gate must aggregate detection plus both compatibility validation surfaces',
+);
+assert.ok(requiredGateBlock.includes('needs.detect-changes.result'), 'Stable required-gate must inspect change detection result');
+assert.ok(requiredGateBlock.includes('needs.validate.result'), 'Stable required-gate must inspect non-browser validation result');
+assert.ok(requiredGateBlock.includes('needs.browser-e2e.result'), 'Stable required-gate must inspect browser validation result');
 
 const expectedJobCommands = {
   static: [

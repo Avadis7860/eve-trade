@@ -330,7 +330,8 @@ async function runTests() {
       const injection = '</script><script>alert("XSS")</script>';
       const state = generateOAuthState(`${baseUrl}/auth/callback`);
       const xssRes = await fetch(
-        `${baseUrl}/auth/callback?state=${state}&error=invalid_grant&error_description=${encodeURIComponent(injection)}`
+        `${baseUrl}/auth/callback?state=${state}&error=invalid_grant&error_description=${encodeURIComponent(injection)}`,
+        { headers: { Cookie: `eve_trade_oauth_state_v1=${state}` } },
       );
       assert(xssRes.status === 400, `Expected 400 HTML page, got ${xssRes.status}`);
       const html = await xssRes.text();
@@ -343,6 +344,7 @@ async function runTests() {
       const state = generateOAuthState('http://localhost:3000/auth/callback');
       const response = await fetch(
         `${baseUrl}/auth/callback?state=${state}&error=access_denied&error_description=cancelled`,
+        { headers: { Cookie: `eve_trade_oauth_state_v1=${state}` } },
       );
       assert.strictEqual(response.status, 400);
       const html = await response.text();
@@ -353,7 +355,8 @@ async function runTests() {
       const trickyPayload = 'Injection "with" \'quotes\' & <tags> and \\backslash';
       const state = generateOAuthState(`${baseUrl}/auth/callback`);
       const trickyRes = await fetch(
-        `${baseUrl}/auth/callback?state=${state}&error=test_error&error_description=${encodeURIComponent(trickyPayload)}`
+        `${baseUrl}/auth/callback?state=${state}&error=test_error&error_description=${encodeURIComponent(trickyPayload)}`,
+        { headers: { Cookie: `eve_trade_oauth_state_v1=${state}` } },
       );
       assert(trickyRes.status === 400, `Expected 400, got ${trickyRes.status}`);
       const html = await trickyRes.text();

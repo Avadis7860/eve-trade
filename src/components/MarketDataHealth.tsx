@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   AlertCircle,
   CheckCircle2,
@@ -8,9 +8,11 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import type { DataHealthStatus, MarketDataQuality, MarketHub } from '../types';
+import { buildMarketEvidenceBundle, serializeMarketEvidenceBundle } from '../services/marketEvidence';
 
 interface MarketDataHealthProps {
   typeName: string;
+  typeId?: number;
   hubs: MarketHub[];
   qualities: Record<number, MarketDataQuality>;
   isSyncing: boolean;
@@ -111,6 +113,7 @@ function formatDiagnostics(quality?: MarketDataQuality): string {
 
 export const MarketDataHealth: React.FC<MarketDataHealthProps> = ({
   typeName,
+  typeId,
   hubs,
   qualities,
   isSyncing,
@@ -144,6 +147,26 @@ export const MarketDataHealth: React.FC<MarketDataHealthProps> = ({
   const hasProblem =
     aggregate !== 'LIVE' ||
     states.some((state) => (state.quality?.error_count ?? 0) > 0);
+
+  const [evidenceExported, setEvidenceExported] = useState(false);
+
+  const exportEvidence = () => {
+    const bundle = buildMarketEvidenceBundle(typeName, typeId, hubs, qualities);
+    const blob = new Blob([serializeMarketEvidenceBundle(bundle)], {
+      type: 'application/json;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    const stamp = bundle.captured_at_utc.replace(/[:.]/g, '-');
+    anchor.href = url;
+    anchor.download = 'eve-trade-p0-c-market-evidence-' + stamp + '.json';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+    setEvidenceExported(true);
+    window.setTimeout(() => setEvidenceExported(false), 5000);
+  };
 
   return (
     <section
@@ -219,6 +242,15 @@ export const MarketDataHealth: React.FC<MarketDataHealthProps> = ({
               Une erreur marché ne signifie pas « aucun ordre ».
             </span>
           )}
+
+          <button
+            type="button"
+            onClick={exportEvidence}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-[#31333f] bg-[#0e1117] text-[10px] font-semibold text-[#cfd3dc] hover:text-white"
+            title="Exporter un bundle JSON de preuve P0-C sans jeton d’authentification"
+          >
+            {evidenceExported ? 'Preuve exportée' : 'Exporter preuve P0-C'}
+          </button>
 
           <button
             type="button"

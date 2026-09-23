@@ -67,6 +67,8 @@ Expected behavior:
 
 The user-reported market-order retrieval issue is still classified as NOT ROOT-CAUSED.
 
+P0-C now provides the **Exporter preuve P0-C** JSON bundle so the target-PC capture can be preserved as one non-secret artifact.
+
 The next acceptance step is to run the target PC against a failing/recovering market path and capture:
 - hub;
 - timestamp;
@@ -76,7 +78,10 @@ The next acceptance step is to run the target PC against a failing/recovering ma
 - X-ESI-Error-Limit-Remain;
 - X-ESI-Error-Limit-Reset;
 - Retry-After when rate limited;
-- displayed health state.
+- displayed health state;
+- exported P0-C JSON bundle.
+
+Procedure: [P0-C target-PC evidence](p0-c-target-pc-evidence.md)
 
 No conclusion about a remaining root cause should be recorded until that evidence exists.
 

@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
 
 const MOCK_PORT = Number(process.env.E2E_MOCK_PORT || 43123);
@@ -165,6 +166,56 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
     ).toBeVisible();
     await expect(page.getByText('Impossible de déterminer l’état actuel des ordres.', { exact: true })).toHaveCount(0);
     await expect(page.locator('tbody tr').first()).toBeVisible();
+  });
+
+  test('exports a non-secret P0-C evidence bundle from the affected market state', async ({ page, request }) => {
+    await prepareOperations(page, request, 'error', 429);
+    await launchSso(page);
+    await expectOperationsLoaded(page);
+
+    await page.getByRole('button', { name: 'Sync Marché des Ordres' }).click();
+    await expect(page.getByText('ERROR', { exact: true }).first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('HTTP 429', { exact: true }).first()).toBeVisible();
+
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Exporter preuve P0-C' }).click();
+    const download = await downloadPromise;
+
+    expect(download.suggestedFilename()).toMatch(/^eve-trade-p0-c-market-evidence-.*\.json$/);
+    const downloadPath = await download.path();
+    expect(downloadPath).toBeTruthy();
+
+    const bundle = JSON.parse(await readFile(downloadPath!, 'utf8')) as {
+      schema_version: string;
+      captured_at_utc: string;
+      type: { id?: number; name: string };
+      request_template: { path_pattern: string };
+      hubs: Array<{
+        region_id: number;
+        health_status: string;
+        http_status?: number;
+        esi_error_limit_remaining?: number;
+        retry_after_seconds?: number;
+      }>;
+    };
+
+    expect(bundle.schema_version).toBe('p0-c-1');
+    expect(bundle.captured_at_utc).toMatch(/Z$/);
+    expect(bundle.type.id).toBe(34);
+    expect(bundle.type.name).toBe('Tritanium');
+    expect(bundle.request_template.path_pattern).toContain('/api/markets/:regionId/orders');
+    expect(bundle.hubs.some(hub =>
+      hub.region_id === 10000002 &&
+      hub.health_status === 'ERROR' &&
+      hub.http_status === 429 &&
+      hub.esi_error_limit_remaining === 91 &&
+      hub.retry_after_seconds === 7
+    )).toBeTruthy();
+
+    const raw = JSON.stringify(bundle);
+    expect(raw).not.toContain('Authorization');
+    expect(raw).not.toContain('Bearer ');
+    expect(raw).not.toContain('access_token');
   });
 
   test('preserves usable rows and marks the market PARTIAL when a later page fails', async ({ page, request }) => {

@@ -42,7 +42,7 @@ The current engine/domain layers are ahead of the UI information architecture.
 
 - Target-PC public market-order retrieval failure is reported but not root-caused.
 - Market acquisition failures can be collapsed into apparent empty business state by silent error handling.
-- Operations is partially implemented as a product surface, but the first UX-02 decision-loop validation gate is now closed: deterministic browser CI covers keep / adjust / relocate / cancel and the explicit LIVE / ERROR / PARTIAL / STALE health semantics.
+- Operations is partially implemented as a product surface, and its current UX-02 gate covers keep / adjust / relocate / cancel, active-order loading/empty states, LIVE / CACHE / STALE / PARTIAL / UNKNOWN / ERROR market health semantics, failed refresh preservation, and health-aware outbid filtering.
 - No coherent Real Portfolio vs Proposed Allocation split exists yet.
 - No automatic ESI-derived performance history replaces the manual journal yet.
 - No clear business Control Center exists yet.

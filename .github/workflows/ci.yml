@@ -14,6 +14,132 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  detect-changes:
+    name: CI / Change Scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      frontend: ${{ steps.scope.outputs.frontend }}
+      domain: ${{ steps.scope.outputs.domain }}
+      server: ${{ steps.scope.outputs.server }}
+      sde: ${{ steps.scope.outputs.sde }}
+      ci: ${{ steps.scope.outputs.ci }}
+      config: ${{ steps.scope.outputs.config }}
+      tests: ${{ steps.scope.outputs.tests }}
+      docs: ${{ steps.scope.outputs.docs }}
+      ambiguous: ${{ steps.scope.outputs.ambiguous }}
+      full_certification: ${{ steps.scope.outputs.full_certification }}
+    steps:
+      - name: Checkout pull request commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Detect changed domains
+        id: scope
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+
+          if ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+            echo 'Base commit is not present locally; falling back conservatively to full certification.'
+            changed_files=''
+            ambiguous=true
+          else
+            changed_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+            ambiguous=false
+          fi
+
+          frontend=false
+          domain=false
+          server=false
+          sde=false
+          ci=false
+          config=false
+          tests=false
+          docs=false
+
+          if [ -z "$changed_files" ]; then
+            ambiguous=true
+          fi
+
+          while IFS= read -r path; do
+            [ -z "$path" ] && continue
+            case "$path" in
+              .github/workflows/*|.github/dependabot.yml)
+                ci=true
+                ;;
+              src/engine/*)
+                domain=true
+                ;;
+              src/services/*|server/*|server.ts)
+                server=true
+                ;;
+              src/data/universeGraph.json|src/data/universeGraphManifest.ts|scripts/build-universe-graph.mjs|scripts/universe-graph-builder.mjs|scripts/write-universe-graph-manifest.mjs|scripts/__tests__/universe_graph_builder.test.mjs)
+                sde=true
+                ;;
+              src/components/*|src/pages/*|src/hooks/*|src/App.*|src/main.*|public/*)
+                frontend=true
+                ;;
+              tests/*|*/__tests__/*|*.test.ts|*.test.tsx|*.test.mjs)
+                tests=true
+                ;;
+              package.json|package-lock.json|tsconfig*.json|vite.config.*|postcss.config.*|tailwind.config.*)
+                config=true
+                ;;
+              docs/*|CONTRIBUTING.md|README.md)
+                docs=true
+                ;;
+              *)
+                ambiguous=true
+                ;;
+            esac
+          done <<< "$changed_files"
+
+          full_certification=false
+          if [ "$ambiguous" = true ] || [ "$ci" = true ] || [ "$config" = true ] || [ "$domain" = true ] || [ "$server" = true ] || [ "$sde" = true ]; then
+            full_certification=true
+          fi
+
+          {
+            echo "frontend=$frontend"
+            echo "domain=$domain"
+            echo "server=$server"
+            echo "sde=$sde"
+            echo "ci=$ci"
+            echo "config=$config"
+            echo "tests=$tests"
+            echo "docs=$docs"
+            echo "ambiguous=$ambiguous"
+            echo "full_certification=$full_certification"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo '## Change Scope'
+            echo
+            echo '| Domain | Changed |'
+            echo '|---|---:|'
+            echo "| Frontend | $frontend |"
+            echo "| Engine/domain | $domain |"
+            echo "| Server/API/ESI | $server |"
+            echo "| SDE/data | $sde |"
+            echo "| CI/workflows | $ci |"
+            echo "| Package/config | $config |"
+            echo "| Tests | $tests |"
+            echo "| Documentation | $docs |"
+            echo "| Ambiguous/unclassified | $ambiguous |"
+            echo
+            if [ "$full_certification" = true ]; then
+              echo '**Conservative fallback:** full certification remains required for this scope.'
+            else
+              echo '**Scope detection only:** no validation is skipped by this workflow yet.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
   static:
     name: Static / Config / Auth
     runs-on: ubuntu-latest
@@ -212,6 +338,20 @@ jobs:
           test "${{ needs.server.result }}" = "success"
           test "${{ needs.build.result }}" = "success"
 
+  required-gate:
+    name: CI / required-gate
+    if: ${{ always() }}
+    needs: [detect-changes, validate, browser-e2e]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify stable certification result
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ needs.detect-changes.result }}" = "success"
+          test "${{ needs.validate.result }}" = "success"
+          test "${{ needs.browser-e2e.result }}" = "success"
   browser-e2e:
     name: Browser E2E — OAuth/ESI composition
     if: ${{ always() }}

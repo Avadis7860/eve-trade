@@ -13,6 +13,8 @@ The functional E2E-001 baseline is stable and merged. CI-001 is now merged and c
 
 The application has mature market, ESI, finance, order, prediction and portfolio foundations, but the presentation layer does not yet expose them as a coherent trading workflow.
 
+**Current active chantier:** close the P0 market/ESI retrieval reliability gate without inventing a root cause for the target-PC incident.
+
 See:
 - [UI/UX Product Audit](../audits/ui-ux-product-audit-2026-09-23.md)
 - [UX-First Trading Terminal Program](ux-program.md)
@@ -42,7 +44,7 @@ Deferred until the UX gate:
 | E2E-001 | DONE | Establish reproducible local OAuth/browser gate, deterministic CI E2E coverage, and real-CCP smoke | stable auth/ESI | environment-sensitive auth/callback integration | browser E2E + security/API + local CCP smoke |
 | UX-00 | DONE | Define and freeze product model, navigation, responsibilities and shared UX vocabulary | current audit | scope drift if implementation starts early | accepted UX contract |
 | UX-01 | P0 / IMPLEMENTED — OPERATIONAL VALIDATION OPEN | Establish market/ESI truth, retrieval observability and diagnose target-PC market-order incident | UX-00 vocabulary; existing ESI boundary | hidden empty/error states; ESI rate limits | target-PC evidence + ERROR/PARTIAL/STALE regression |
-| UX-02 | ACTIVE — CLOSE OPERATIONS GATE | Rebuild Mes Ordres as the Operations console | UX-00, UX-01, CI-001 merged | business state fragmentation; incomplete decision proof | UI/browser acceptance |
+| UX-02 | DONE / MERGED | Rebuild Mes Ordres as the Operations console | UX-00, UX-01, CI-001 merged | business state fragmentation | UI/browser acceptance |
 | UX-03 | P1 | Rebuild Portefeuille as Real Portfolio + Proposed Allocation across multiple opportunities | UX-00, existing portfolio engine | misleading allocation / concentration | engine + UI + scenario tests |
 | UX-04 | P1 | Replace manual Journal with ESI-based automatic Performance & Historique | UX-00, financial truth, execution data | incorrect attribution | accounting + reconciliation + browser scenarios |
 | UX-05 | P1 | Rebuild Paramètres as business Control Center and remove/unwire fake controls | UX-00, engine consumer map | settings with no effect | consumer matrix + UI tests |
@@ -70,7 +72,7 @@ CI-001 is documented in:
 - [CI-001 — Refonte du système CI](ci-management-refactor.md)
 - [CI Validation](../validation/ci.md) · [CI Baseline](../audits/ci-management-baseline-2026-09-23.md) · [CI Evidence Map](../validation/ci-evidence-map.md)
 
-The study found a combined topology, certification-taxonomy and PR-governance issue. CI-001 is now merged; the next product chantier is UX-02. Follow-up hardening remains separate.
+The study found a combined topology, certification-taxonomy and PR-governance issue. CI-001 is merged; follow-up hardening remains separate from the current product chantier.
 
 ## UX program completion gate
 

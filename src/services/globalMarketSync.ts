@@ -5,6 +5,8 @@ import { TraderAnalyticsService } from './traderAnalytics';
 import { MarketDataStore } from './marketDataStore';
 import { IndexedDbStore } from './indexedDbStore';
 import { OpportunityEvidenceEngine } from '../engine/evidence';
+import { FailureSemantics } from '../engine/failureSemantics';
+import type { MarketDataQuality } from '../types/market';
 import { CatalogRepository } from '../domain/catalog/CatalogRepository';
 import { MarketGroupRepository } from '../domain/catalog/MarketGroupRepository';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
@@ -48,6 +50,19 @@ export interface GlobalSyncOptions {
   fetch_history?: boolean; // also fetch 30-day ESI history
   concurrency?: number; // parallel requests (default 4)
   character_id?: number; // for personal trade history calibration
+}
+
+export function classifyGlobalMarketQuality(quality: MarketDataQuality): {
+  health: ReturnType<typeof FailureSemantics.evaluateHealth>;
+  itemFailed: boolean;
+  errorCount: number;
+} {
+  const health = FailureSemantics.evaluateHealth(quality);
+  return {
+    health,
+    itemFailed: health === 'ERROR',
+    errorCount: Math.max(0, quality.error_count ?? 0),
+  };
 }
 
 export class GlobalMarketSyncService {
@@ -376,6 +391,9 @@ export class GlobalMarketSyncService {
             try {
               const { orders, quality } = await EsiService.fetchLiveOrdersDetailed(hub.region_id, item.type_id);
               itemQualities[hub.region_id] = quality;
+              const qualityState = classifyGlobalMarketQuality(quality);
+              if (qualityState.itemFailed) itemFailed = true;
+              if (qualityState.errorCount > 0) this.progressState.error_count += qualityState.errorCount;
 
               if (orders.length > 0) {
                 itemOrderBooks[hub.region_id] = orders;

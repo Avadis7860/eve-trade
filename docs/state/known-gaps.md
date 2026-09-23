@@ -7,7 +7,7 @@ Source of truth: code, tests, CI and current state documents
 ## UX / product gaps
 
 - The UI information architecture does not yet reflect the mature trading workflow of discovery -> operations -> performance -> allocation -> cockpit.
-- Operations is partially implemented: the active-order console now exposes the main operational context, but browser validation of the complete decision loop is still open.
+- Operations decision-loop validation is complete and merged; PR #61 certified keep / adjust / relocate / cancel plus degraded-data behavior.
 - Portfolio currently presents an allocation simulation but is fed from opportunities derived from the selected item, preventing genuine cross-item diversification.
 - The Journal remains manual despite authoritative ESI-derived transaction/order-history/journal data being available.
 - Parameters mix trading policy, logistics, treasury and technical maintenance; some visible controls have no demonstrated effective engine consumer.
@@ -41,7 +41,9 @@ See:
 - [CI-001 Baseline](../audits/ci-management-baseline-2026-09-23.md)
 - [CI-001 Evidence Map](../validation/ci-evidence-map.md)
 
-- **CI follow-up:** the PR workflow currently triggers the full certification surface for Draft as well as Ready PRs. This is a behavior mismatch with the documented Fast-vs-Certification model and should be handled in a dedicated CI-002 hardening chantier.
+- **CI follow-up:** the PR workflow currently triggers the full certification surface for Draft as well as Ready PRs. This is confirmed by PR #61 run `35858589551` and should be handled in a dedicated CI-002 hardening chantier.
+
+- **Current active product work:** P0 market/ESI retrieval reliability; target-PC root cause remains open and must be addressed with evidence rather than speculation.
 
 ## Structural gaps
 

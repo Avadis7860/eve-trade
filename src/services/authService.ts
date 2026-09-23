@@ -2,6 +2,8 @@ import { EveCharacterSession, SessionAuthStatus, FleetRole, TradingFleetOverview
 import { CharacterRepository } from '../domain/character/CharacterRepository';
 
 const memoryStore = new Map<string, string>();
+const PENDING_BROWSER_OAUTH_RESULT_KEY = 'eve_trade_oauth_result_v1';
+const PENDING_BROWSER_OAUTH_MAX_AGE_MS = 30_000;
 
 const safeStorage = {
   getItem(key: string): string | null {
@@ -369,7 +371,9 @@ export class AuthService {
   static getPreferredRedirectUri(): string {
     const stored = safeStorage.getItem('eve_sso_preferred_redirect_uri');
     if (stored && stored.trim()) return stored.trim();
-    return 'http://localhost:8000/callback';
+    const currentOrigin =
+      typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+    return `${currentOrigin}/auth/callback`;
   }
 
   /**
@@ -385,18 +389,63 @@ export class AuthService {
    * Suggested standard redirect URIs for EVE SSO based on environment.
    */
   static getSuggestedRedirectUris(): { id: string; label: string; uri: string }[] {
-    const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-    return [
-      { id: 'localhost8000', label: 'Localhost (8000)', uri: 'http://localhost:8000/callback' },
-      { id: 'cloudrun', label: 'App Host / Preview', uri: `${currentOrigin}/auth/callback` },
+    const currentOrigin =
+      typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+    const candidates = [
+      { id: 'app', label: 'Application actuelle', uri: `${currentOrigin}/auth/callback` },
       { id: 'localhost3000', label: 'Localhost (3000)', uri: 'http://localhost:3000/auth/callback' },
     ];
+    return candidates.filter(
+      (candidate, index, list) =>
+        list.findIndex((entry) => entry.uri === candidate.uri) === index
+    );
   }
 
   /**
-   * Exchanges an authorization code for access and refresh tokens.
+   * Consumes the one-shot OAuth result written by the server callback when a
+   * popup could not be opened. The bridge is same-origin and short-lived.
    */
-  static async exchangeCodeForSession(code: string, redirectUri?: string, state?: string): Promise<EveCharacterSession> {
+  static consumePendingBrowserOAuthResult(): EveCharacterSession | null {
+    const raw = safeStorage.getItem(PENDING_BROWSER_OAUTH_RESULT_KEY);
+    if (!raw) return null;
+
+    safeStorage.removeItem(PENDING_BROWSER_OAUTH_RESULT_KEY);
+
+    try {
+      const parsed = JSON.parse(raw) as {
+        version?: number;
+        createdAt?: number;
+        session?: Record<string, unknown>;
+      };
+
+      if (
+        parsed.version !== 1 ||
+        !Number.isFinite(parsed.createdAt) ||
+        Date.now() - Number(parsed.createdAt) > PENDING_BROWSER_OAUTH_MAX_AGE_MS ||
+        !parsed.session ||
+        typeof parsed.session.access_token !== 'string'
+      ) {
+        return null;
+      }
+
+      const characterId = Number(parsed.session.character_id);
+      if (!Number.isInteger(characterId) || characterId <= 0) return null;
+
+      const expiresIn = Number(parsed.session.expires_in);
+      return this.normalizeSession({
+        ...parsed.session,
+        character_id: characterId,
+        expires_at:
+          Date.now() +
+          (Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn * 1000 : 20 * 60 * 1000),
+        is_active: true,
+      });
+    } catch {
+      return null;
+    }
+  }
+
+(code: string, redirectUri?: string, state?: string): Promise<EveCharacterSession> {
     let cleanCode = code.trim();
     let effectiveRedirectUri = redirectUri || this.getPreferredRedirectUri();
     let effectiveState = state;

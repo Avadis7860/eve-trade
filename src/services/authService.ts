@@ -104,8 +104,19 @@ export class AuthService {
    */
   static normalizeSession(session: any): EveCharacterSession {
     const rawExpiresAt = Number(session.expires_at) || 0;
-    const status = this.computeSessionStatus({ ...session, expires_at: rawExpiresAt });
-    const isExpired = session.is_token_expired ?? (status === 'SESSION_EXPIRED' || status === 'SESSION_REVOKED' || rawExpiresAt <= 0);
+    const expiresIn = Number(session.expires_in);
+    const effectiveExpiresAt =
+      rawExpiresAt ||
+      (Number.isFinite(expiresIn) && expiresIn > 0
+        ? Date.now() + expiresIn * 1000
+        : 0);
+    const status = this.computeSessionStatus({
+      ...session,
+      expires_at: effectiveExpiresAt,
+    });
+    const isExpired =
+      session.is_token_expired ??
+      (status === 'SESSION_EXPIRED' || status === 'SESSION_REVOKED' || effectiveExpiresAt <= 0);
 
     return {
       character_id: Number(session.character_id),
@@ -113,7 +124,7 @@ export class AuthService {
       portrait_url: session.portrait_url || `https://images.evetech.net/characters/${session.character_id}/portrait?size=128`,
       access_token: session.access_token || '',
       refresh_token: session.refresh_token || '',
-      expires_at: rawExpiresAt,
+      expires_at: effectiveExpiresAt,
       last_sync: session.last_sync || new Date().toISOString(),
       is_active: Boolean(session.is_active),
       is_token_expired: isExpired,

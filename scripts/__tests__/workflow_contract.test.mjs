@@ -51,6 +51,8 @@ assert.match(
   'CI checkout must not persist the GitHub token in the repository config',
 );
 assert.match(ci, /node-version: 22\.23\.2/, 'CI runtime must pin the Node 22 patch release');
+assert.ok(ci.includes('test "$(node --version)" = "v22.23.2"'), 'CI must verify the selected Node runtime');
+assert.ok(ci.includes('test "$(npm --version)" = "10.9.8"'), 'CI must verify the npm version bundled with the pinned Node release');
 assert.match(
   ci,
   /Setup Node\.js 22\.23\.2[\s\S]*setup-node@/,
@@ -91,6 +93,8 @@ assert.ok(
   'SDE setup-node must remain pinned to an immutable SHA',
 );
 assert.ok(sde.includes('node-version: 22.23.2'), 'SDE must use the pinned Node 22 patch release');
+assert.ok(sde.includes('test "$(node --version)" = "v22.23.2"'), 'SDE must verify the selected Node runtime');
+assert.ok(sde.includes('test "$(npm --version)" = "10.9.8"'), 'SDE must verify the npm version bundled with the pinned Node release');
 assert.equal(
   (sde.match(/persist-credentials: false/g) || []).length,
   2,

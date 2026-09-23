@@ -7,7 +7,7 @@ Source of truth: code, tests, CI and current state documents
 ## UX / product gaps
 
 - The UI information architecture does not yet reflect the mature trading workflow of discovery -> operations -> performance -> allocation -> cockpit.
-- Operations remains a partial product surface, but the current browser decision-loop/lifecycle gate is closed for keep / adjust / relocate / cancel, active-order loading/empty, market CACHE/UNKNOWN, failed-refresh preservation and health-aware outbid filtering. Further UX-02 work remains around refresh coordination and broader source/row consistency coverage.
+- Operations remains a partial product surface, while the current deterministic gate now covers the decision loop, loading/empty, all market health states, failed-refresh preservation, refresh coordination, canonical market-source deduplication and row ↔ detail consistency. Remaining UX-02 work is broader product-surface scope, not an open lifecycle/data-truth gate.
 - Portfolio currently presents an allocation simulation but is fed from opportunities derived from the selected item, preventing genuine cross-item diversification.
 - The Journal remains manual despite authoritative ESI-derived transaction/order-history/journal data being available.
 - Parameters mix trading policy, logistics, treasury and technical maintenance; some visible controls have no demonstrated effective engine consumer.
@@ -18,14 +18,14 @@ Source of truth: code, tests, CI and current state documents
 - Target-PC public market-order retrieval is reported broken but remains NOT ROOT-CAUSED.
 - Some non-Operations market acquisition paths may still swallow errors; the Operations order-sync path now surfaces explicit failure instead of presenting an ordinary empty state.
 - Rate-limit/cache-aware scheduling for the public market-order group is not yet exposed as a product-level operational signal.
-- Market-data freshness/completeness/source remain inconsistent across the application; Operations now exposes per-order health and age using the UX-01 vocabulary, while automatic background market sync versus explicit refresh still lacks a dedicated concurrency acceptance gate.
+- Market-data freshness/completeness/source remain inconsistent across the application; Operations now exposes per-order health and age using the UX-01 vocabulary, and its background-versus-explicit refresh coordination is covered by a dedicated UX-02 test.
 
 ## Structural gaps
 
 - IndexedDbStore remains a large monolithic service; decomposition is explicitly DEFERRED by the UX-first sequencing gate.
 - Several UI files remain large; decomposition is explicitly DEFERRED until the relevant UX contracts are accepted.
 - Performance is not protected by a dedicated measurement gate.
-- Browser E2E still needs a dedicated gate for combined market-source/dedup behavior and full row ↔ detail value consistency; the current lifecycle/decision coverage is intentionally narrower.
+- Browser/unit acceptance now has dedicated coverage for combined market-source canonical deduplication and row ↔ detail value consistency; broader source heterogeneity outside Operations remains an application-wide gap.
 
 ## Domain gaps
 

@@ -1,10 +1,10 @@
 # Browser E2E Validation
 
-Status: READY FOR LOCAL ACCEPTANCE
+Status: COMPLETE — LOCAL REAL-CCP SMOKE PASS
 Scope: end-to-end browser proof
 Source of truth: application browser wiring, `playwright.config.ts`, deterministic harness and CI workflow
-Implementation: Playwright deterministic browser gate on E2E-001 branch
-CI gate: deterministic browser + full regression validated on PR #46; real-CCP acceptance remains separate
+Implementation: Playwright deterministic browser gate merged to `main`
+CI gate: deterministic browser + full regression validated and merged on PR #46; target-PC real-CCP acceptance PASS recorded
 
 ## Current proof model
 
@@ -156,13 +156,17 @@ The official EVE SSO flow uses a registered redirect URI, an authorization code,
 
 ### Acceptance result
 
-Record one of:
+**Recorded result: PASS — 2026-09-23.**
 
-- PASS — build starts, health is OK, CCP SSO returns to the registered callback, the expected character authenticates, and real ESI data loads;
-- BLOCKED — configuration, callback registration or external CCP service prevents the flow;
-- REGRESSION — the flow reaches eve-trade but the delivered behavior differs from the documented contract.
+The target-PC acceptance completed successfully:
+- production build and local server startup succeeded;
+- `/api/health` responded successfully;
+- real CCP SSO returned to the registered callback;
+- multiple characters authenticated without credential cross-contamination;
+- real authenticated ESI data loaded successfully;
+- logout returned to the unauthenticated state.
 
-A real-CCP failure must not be “fixed” by weakening the callback/state/JWT/ESI security checks.
+No authentication, callback, JWT or ESI security check was weakened to obtain this result.
 
 ## CI
 
@@ -183,4 +187,4 @@ The browser job has no CCP dependency and uploads Playwright diagnostics when av
 
 ## Completion gate
 
-E2E-001 is complete only when the browser job is green in CI, the existing regression gates remain green, the active documentation is synchronized, and the target-PC real-CCP smoke has been executed and recorded.
+E2E-001 is complete: deterministic browser CI is green, the established regression gates remain green, the active documentation is synchronized, PR #46 is merged to `main`, and the target-PC real-CCP smoke is recorded as PASS.

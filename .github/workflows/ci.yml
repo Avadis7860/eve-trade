@@ -14,99 +14,159 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  validate:
-    name: Validation & Non-Regression Gate
+  static:
+    name: Static / Config / Auth
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-
-      - name: Setup Node.js 22
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 22.23.2
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Verify Node.js and npm versions
-        run: |
-          test "$(node --version)" = "v22.23.2"
-          test "$(npm --version)" = "10.9.8"
-
-      - name: Install dependencies
-        run: npm ci --no-audit --no-fund
-
-      - name: Frontend typecheck
-        run: npm run typecheck
-
-      - name: Backend typecheck
-        run: npm run typecheck:server
-
-      - name: CI workflow contract tests
-        run: npm run test:ci-config
-
-      - name: Runtime configuration tests
-        run: npm run test:config
-
-      - name: EVE SSO JWT validation tests
-        run: npm run test:auth-token
-
-      - name: Catalog & Universe truth tests
-        run: npm run test:truth
-
-      - name: Corporation Treasury & ESI boundary tests
-        run: npm run test:corporation-boundary
-
-      - name: Unit tests
-        run: npm test
-
-      - name: API integration tests
-        run: npm run test:api
-
-      - name: Server smoke test
-        run: npm run test:smoke
-
-      - name: Security hardening tests
-        run: npm run test:security
-
-      - name: ESI hardening & mock tests
-        run: npm run test:esi
-
-      - name: Production build
-        run: npm run build
-
-  browser-e2e:
-    name: Browser E2E — OAuth/ESI composition
-    needs: validate
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          persist-credentials: false
-
       - name: Setup Node.js 22.23.2
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22.23.2
           cache: npm
           cache-dependency-path: package-lock.json
-
+      - name: Verify Node.js and npm versions
+        run: |
+          test "$(node --version)" = "v22.23.2"
+          test "$(npm --version)" = "10.9.8"
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
+      - name: Frontend typecheck
+        run: npm run typecheck
+      - name: Backend typecheck
+        run: npm run typecheck:server
+      - name: CI workflow contract tests
+        run: npm run test:ci-config
+      - name: Runtime configuration tests
+        run: npm run test:config
+      - name: EVE SSO JWT validation tests
+        run: npm run test:auth-token
 
+  unit_domain:
+    name: Unit / Domain Certification
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Setup Node.js 22.23.2
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Verify Node.js and npm versions
+        run: |
+          test "$(node --version)" = "v22.23.2"
+          test "$(npm --version)" = "10.9.8"
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Catalog & Universe truth tests
+        run: npm run test:truth
+      - name: Corporation Treasury & ESI boundary tests
+        run: npm run test:corporation-boundary
+      - name: Unit tests
+        run: npm test
+
+  server:
+    name: Server / API / Security / ESI
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Setup Node.js 22.23.2
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Verify Node.js and npm versions
+        run: |
+          test "$(node --version)" = "v22.23.2"
+          test "$(npm --version)" = "10.9.8"
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: API integration tests
+        run: npm run test:api
+      - name: Server smoke test
+        run: npm run test:smoke
+      - name: Security hardening tests
+        run: npm run test:security
+      - name: ESI hardening & mock tests
+        run: npm run test:esi
+
+  build:
+    name: Production Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Setup Node.js 22.23.2
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Verify Node.js and npm versions
+        run: |
+          test "$(node --version)" = "v22.23.2"
+          test "$(npm --version)" = "10.9.8"
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Production build
+        run: npm run build
+
+  validate:
+    name: Validation & Non-Regression Gate
+    if: ${{ always() }}
+    needs: [static, unit_domain, server, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify validation lanes
+        run: |
+          test "${{ needs.static.result }}" = "success"
+          test "${{ needs.unit_domain.result }}" = "success"
+          test "${{ needs.server.result }}" = "success"
+          test "${{ needs.build.result }}" = "success"
+
+  browser-e2e:
+    name: Browser E2E — OAuth/ESI composition
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Setup Node.js 22.23.2
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.23.2
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Verify Node.js and npm versions
+        run: |
+          test "$(node --version)" = "v22.23.2"
+          test "$(npm --version)" = "10.9.8"
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-
       - name: Browser E2E — deterministic OAuth/ESI
         run: npm run test:e2e
-
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

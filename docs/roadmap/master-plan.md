@@ -9,7 +9,7 @@ CI gate: PR CI
 
 ## Current state
 
-The functional E2E-001 baseline is stable and merged. The next product priority is now the UX-first trading terminal program established by the 2026-09-23 UI/UX audit.
+The functional E2E-001 baseline is stable and merged. The next product priority is the UX-first trading terminal program established by the 2026-09-23 UI/UX audit.
 
 The application has mature market, ESI, finance, order, prediction and portfolio foundations, but the presentation layer does not yet expose them as a coherent trading workflow.
 
@@ -56,6 +56,21 @@ Deferred until the UX gate:
 | TYPE-001 | DEFERRED | Reduce remaining legacy typing/facades where beneficial | preceding work | churn without user value | typecheck + regression |
 
 The order is intentionally product-first. The deferred items are not cancelled; they are blocked by the sequencing gate until their dependencies become meaningful.
+
+## Cross-cutting infrastructure tracks
+
+These tracks can be prepared in documentation before they are made active. Their presence does not automatically change the active product chantier.
+
+| ID | Status | Goal | Depends on | Priority |
+|---|---|---|---|---|
+| CI-001 | PLANNED / PRIORITY DECISION PENDING | Refonte du système CI, validation et gouvernance PR | current CI study | decision pending |
+
+CI-001 is documented in:
+- [CI Management Audit](../audits/ci-management-audit-2026-09-23.md)
+- [CI-001 — Refonte du système CI](ci-management-refactor.md)
+- [CI Validation](../validation/ci.md)
+
+The study found a combined topology, certification-taxonomy and PR-governance issue. The implementation plan is ready, but the current UX-02 priority is not changed by this documentation update.
 
 ## UX program completion gate
 

@@ -480,7 +480,7 @@ async function handleMock(req: http.IncomingMessage, res: http.ServerResponse): 
       range: 'region',
       issued: '2026-09-23T00:00:00.000Z',
       duration: 90,
-    } { 'X-Pages': '1' });
+    }], { 'X-Pages': '1' });
   }
 
   const corpOrdersMatch = esiPath.match(/^\/corporations\/(\d+)\/orders\/$/);

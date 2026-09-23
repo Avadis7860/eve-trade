@@ -383,7 +383,7 @@ await new Promise<void>((resolve, reject) => {
 
 process.env.EVE_SSO_METADATA_URL = `http://127.0.0.1:${MOCK_PORT}/.well-known/oauth-authorization-server`;
 process.env.ESI_BASE_URL = `http://127.0.0.1:${MOCK_PORT}`;
-process.env.E2E_OAUTH_STATE_TTL_MS = process.env.E2E_OAUTH_STATE_TTL_MS || '1000';
+process.env.E2E_OAUTH_STATE_TTL_MS = process.env.E2E_OAUTH_STATE_TTL_MS || '10000';
 process.env.EVE_CLIENT_ID = process.env.EVE_CLIENT_ID || E2E_CLIENT_ID;
 process.env.EVE_CLIENT_SECRET = process.env.EVE_CLIENT_SECRET || 'e2e-deterministic-secret';
 process.env.EVE_CALLBACK_URL = process.env.EVE_CALLBACK_URL || `http://127.0.0.1:${APP_PORT}/auth/callback`;

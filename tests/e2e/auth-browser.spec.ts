@@ -70,6 +70,22 @@ async function expectAuthenticatedCharacter(
   ).toBeVisible({ timeout: 15_000 });
 }
 
+async function launchSsoWithoutPopup(page: Page): Promise<void> {
+  await selectAppCallback(page);
+
+  const authResponsePromise = page.waitForResponse(response =>
+    response.url().includes('/api/auth/url') &&
+    response.request().method() === 'GET'
+  );
+
+  await page
+    .getByRole('button', { name: 'Ouvrir la Fenêtre Officielle EVE SSO' })
+    .click();
+
+  const authResponse = await authResponsePromise;
+  expect(authResponse.ok()).toBeTruthy();
+}
+
 async function launchSso(page: Page): Promise<{ popup: Page; authUrl: string }> {
   await selectAppCallback(page);
 
@@ -132,6 +148,21 @@ test.describe('E2E-001 — browser OAuth composition', () => {
     await page.reload();
     await expectAuthenticatedCharacter(page, ALPHA.name);
     expect(await page.evaluate(() => localStorage.getItem('eve_trade_character_store_v3'))).toContain(ALPHA.name);
+  });
+
+  test('recovers through the same-window callback when popup creation is blocked', async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(window, 'open', {
+        configurable: true,
+        value: () => null,
+      });
+    });
+
+    await launchSsoWithoutPopup(page);
+
+    await expectAuthenticatedCharacter(page, ALPHA.name);
+    expect(await page.evaluate(() => localStorage.getItem('eve_trade_character_store_v3'))).toContain(ALPHA.name);
+    expect(await page.evaluate(() => localStorage.getItem('eve_trade_oauth_result_v1'))).toBeNull();
   });
 
   test('rejects forged same-origin postMessage from the main window', async ({ page }) => {
@@ -284,7 +315,7 @@ test.describe('E2E-001 — browser OAuth composition', () => {
     expect(crossCharacterStatus).toBe(403);
 
     await page.getByRole('button', { name: /Flotte & Rôles \(2\)/ }).click();
-    await expect(page.getByText(/2 pilotes/)).toBeVisible();
+    await expect(page.getByText('2 pilotes', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Activer' })).toHaveCount(1);
 
     await page.getByRole('button', { name: 'Activer' }).click();

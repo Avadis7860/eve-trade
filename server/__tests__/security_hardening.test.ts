@@ -222,6 +222,23 @@ async function runTests() {
       assert(json.error === 'MISSING_STATE', `Expected MISSING_STATE, got ${json.error}`);
     });
 
+    await test('POST /api/auth/token rejects a valid state when the initiating browser cookie is absent', async () => {
+      const state = generateOAuthState('http://localhost:3000/auth/callback');
+      const res = await fetch(`${baseUrl}/api/auth/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: 'valid-looking-code-12345',
+          state,
+        }),
+      });
+      assert(res.status === 400, `Expected 400, got ${res.status}`);
+      const json = await res.json();
+      assert(json.error === 'BROWSER_STATE_MISMATCH', `Expected BROWSER_STATE_MISMATCH, got ${json.error}`);
+      assert(activeOAuthStates.has(state), 'State must remain unconsumed when browser binding fails');
+      activeOAuthStates.delete(state);
+    });
+
     await test('POST /api/auth/token rejects non-hex / arbitrary state tokens with HTTP 400 INVALID_OR_EXPIRED_STATE', async () => {
       const res = await fetch(`${baseUrl}/api/auth/token`, {
         method: 'POST',

@@ -1,9 +1,11 @@
 # P0-C — Target-PC Market Evidence Bundle
 
-Status: ACTIVE / IMPLEMENTATION
+Status: IMPLEMENTATION CERTIFIED / EXTERNAL EVIDENCE PENDING
 Date: 2026-09-24
-Branch: feat/p0-target-pc-evidence
+Branch: feat/p0-target-pc-evidence (historical; do not reuse)
 Base: main at c0ddc69ef424ed0cfd4de776758166c3ee8c1abe
+Merge: PR #67 → main at 31308676ec2d9104f7c6ffab29dae1e3f4f49a00
+Certification: CI #719 · SDE #480 · Main Smoke #8
 
 ## Purpose
 

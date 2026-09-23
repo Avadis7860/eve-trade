@@ -141,7 +141,7 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
     await page.locator('tbody tr').first().click();
     const detail = page.getByRole('dialog', { name: 'Détail opérationnel de l’ordre' });
     await expect(detail).toBeVisible();
-    await expect(detail.getByText('PARTIAL', { exact: true })).toBeVisible();
+    await expect(detail.locator('span.inline-flex').filter({ hasText: 'PARTIAL' })).toBeVisible();
     await expect(detail.getByText(/Aucune recommandation fiable|Aucune recommandation supplémentaire/)).toBeVisible();
   });
 
@@ -163,7 +163,7 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
     await page.locator('tbody tr').first().click();
     const detail = page.getByRole('dialog', { name: 'Détail opérationnel de l’ordre' });
     await expect(detail).toBeVisible();
-    await expect(detail.getByText('STALE', { exact: true })).toBeVisible();
+    await expect(detail.locator('span.inline-flex').filter({ hasText: 'STALE' })).toBeVisible();
     await expect(detail.getByText(/Âge des données/)).toBeVisible();
   });
 });

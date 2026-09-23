@@ -15,7 +15,7 @@
     "test:security": "tsx server/__tests__/security_hardening.test.ts",
     "test:esi": "tsx server/__tests__/esi_gateway.test.ts && tsx server/__tests__/market_esi_gateway.test.ts && tsx server/__tests__/character_esi_gateway.test.ts && tsx server/__tests__/corporation_esi_gateway.test.ts && tsx server/__tests__/corporation_esi_architecture.test.ts && tsx server/__tests__/esi_hardening.test.ts",
     "test:corporation-boundary": "tsx src/engine/__tests__/financial_config.test.ts && tsx src/engine/__tests__/treasury.test.ts && tsx src/services/__tests__/corporationTreasurySync.test.ts && tsx server/__tests__/corporation_esi_gateway.test.ts && tsx server/__tests__/character_routes_contract.test.ts && tsx server/__tests__/corporation_esi_architecture.test.ts",
-    "test:server": "npm run test:config && npm run test:api && npm run test:smoke && npm run test:security && npm run test:esi",
+    "test:server": "npm run test:config && npm run test:auth-token && npm run test:api && npm run test:smoke && npm run test:security && npm run test:esi",
     "start": "node --env-file-if-exists=.env dist/server.cjs",
     "preview": "vite preview --host 0.0.0.0 --port 3000",
     "test:truth": "tsx src/engine/__tests__/catalog_universe_truth.test.ts",
@@ -23,7 +23,8 @@
     "test:ci-config": "node scripts/__tests__/workflow_contract.test.mjs",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
-    "test:config": "tsx server/__tests__/runtime_config.test.ts"
+    "test:config": "tsx server/__tests__/runtime_config.test.ts",
+    "test:auth-token": "tsx server/__tests__/auth_token_validation.test.ts"
   },
   "dependencies": {
     "express": "^5.2.1",

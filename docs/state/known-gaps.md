@@ -41,6 +41,8 @@ See:
 - [CI-001 Baseline](../audits/ci-management-baseline-2026-09-23.md)
 - [CI-001 Evidence Map](../validation/ci-evidence-map.md)
 
+- **CI follow-up:** the PR workflow currently triggers the full certification surface for Draft as well as Ready PRs. This is a behavior mismatch with the documented Fast-vs-Certification model and should be handled in a dedicated CI-002 hardening chantier.
+
 ## Structural gaps
 
 - IndexedDbStore remains a large monolithic service; decomposition is explicitly DEFERRED by the UX-first sequencing gate.

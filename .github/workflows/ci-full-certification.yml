@@ -326,3 +326,4 @@ jobs:
           name: ci-observability-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/ci-observability.json
           if-no-files-found: error
+          retention-days: 30

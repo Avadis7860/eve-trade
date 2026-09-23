@@ -16,8 +16,8 @@ Prove that market-order acquisition no longer collapses transport failure into a
 A market snapshot may only short-circuit a fresh fetch when:
 - its source is ESI;
 - the last fetch has zero errors;
-- the dataset is complete;
-- its data state is VALID or an explicitly valid EMPTY result;
+- the dataset is complete, or is an explicitly valid empty ESI result;
+- its data state is VALID or EMPTY;
 - it is inside the five-minute freshness window.
 
 ERROR, PARTIAL and failed snapshots cannot become healthy cached data.
@@ -50,7 +50,10 @@ It also exposes age, order count, HTTP status and relevant ESI/cache diagnostics
 
 ## Regression proof
 
-The market quality suite now verifies that an ERROR snapshot does not suppress a later successful ESI request.
+The market quality suite now verifies:
+- an ERROR snapshot does not suppress a later successful ESI request;
+- a valid EMPTY ESI snapshot does not trigger a refetch loop;
+- a transport/parse exception degrades an older usable snapshot to explicit STALE cache.
 
 Expected behavior:
 1. seed an ERROR/empty snapshot;

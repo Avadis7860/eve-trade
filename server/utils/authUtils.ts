@@ -424,7 +424,7 @@ export async function verifyEveAccessToken(token: string): Promise<Record<string
   if (typeof payload.exp !== 'number' || !Number.isFinite(payload.exp) || payload.exp <= Math.floor(Date.now() / 1000)) {
     throw new Error('EVE_SSO_TOKEN_EXPIRED');
   }
-  if (typeof payload.sub !== 'string' || !/^CHARACTER:EVE:\\d+$/.test(payload.sub)) {
+  if (typeof payload.sub !== 'string' || !/^CHARACTER:EVE:\d+$/.test(payload.sub)) {
     throw new Error('EVE_SSO_SUBJECT_INVALID');
   }
 

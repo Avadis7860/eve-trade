@@ -1,9 +1,9 @@
 # CI Validation
 
-Status: CURRENT — CI-001J PRE-MERGE CLOSURE
+Status: CURRENT — CI-001 DONE / POST-MERGE
 Scope: GitHub Actions regression gate and certification model
 Source of truth: \`.github/workflows/ci.yml\` and \`.github/workflows/phase-2.7c-sde.yml\`
-Implementation: CI-001C/D/E/F/G harden security, topology, ownership, browser isolation and scope routing; CI-001H separates Main Smoke and Full Repository Certification; CI-001I adds durable timing/churn observability
+Implementation: CI-001 is merged on main; the current CI surface is the post-merge PR/Main/Full model with durable observability. Follow-up hardening is tracked separately.
 Tests: \`npm run test:ci-config\` plus all validation and browser gates below
 
 Baseline: [CI-001A/B — Baseline](../audits/ci-management-baseline-2026-09-23.md)

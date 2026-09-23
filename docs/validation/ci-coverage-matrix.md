@@ -1,6 +1,6 @@
 # CI-001 — Global Coverage Matrix
 
-Status: PRE-MERGE CLOSURE — CI-001J
+Status: CURRENT — CI-001 MERGED / FOLLOW-UP CLASSIFIED
 Date: 2026-09-23
 Scope: durable coverage of CI, validation, security, delivery and governance
 Parent: [CI-001 — Refonte du système CI](../roadmap/ci-management-refactor.md)
@@ -88,7 +88,7 @@ A future optimization is not accepted merely because it reduces wall-clock time.
 
 ## CI-001 closure classification
 
-The following are complete and part of the current merge gate: required-gate stability, test ownership/taxonomy, browser isolation at job level, general change detection, PR/concurrency governance, Main/Full separation, scheduled/manual Full workflow, CI observability, workflow permission hardening, rollback guidance and documentation synchronization.
+The following were complete as part of the CI-001 merge gate: required-gate stability, test ownership/taxonomy, browser isolation at job level, general change detection, PR/concurrency governance, Main/Full separation, scheduled/manual Full workflow, CI observability, workflow permission hardening, rollback guidance and documentation synchronization.
 
 The rows explicitly marked **DEFERRED / FOLLOW-UP** below are known, reviewable future hardening work. They are not unexplained blockers inside CI-001.
 

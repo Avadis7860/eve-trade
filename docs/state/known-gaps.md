@@ -31,7 +31,7 @@ Source of truth: code, tests, CI and current state documents
 - The SDE gate remains authoritative for PR SDE-sensitive changes; Full certification also contains an explicit SDE regeneration proof.
 - Conditional execution is routed through `CI / Change Scope` with conservative full-certification fallback; no workflow-level path filter is used on the required PR surface.
 - Branch protection/ruleset configuration for \`main\` could not be verified with the available integration and must be checked before any required-check rename.
-- CI-001 is now in PRE-MERGE CLOSURE — CI-001J. G is certified; H is implemented with dedicated Main/Full workflows and the CI recovery runbook; I is runtime-verified on PR run `35856208503` with durable workflow/job/step timing plus cancellation/rerun observability. Main Smoke and Full runtime proofs remain independent post-merge/scheduled health checks.
+- CI-001 is DONE / MERGED on main. G is certified; H is implemented with dedicated Main/Full workflows and the CI recovery runbook; I is runtime-verified on PR run `35856208503` with durable workflow/job/step timing plus cancellation/rerun observability. Main Smoke and Full runtime proofs remain independent post-merge/scheduled health checks.
 
 See:
 - [CI Validation](../validation/ci.md)

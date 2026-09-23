@@ -42,7 +42,7 @@ CI-001A/B froze the baseline/evidence map; C hardened workflow security/reproduc
 
 Post-merge behavior is now intentionally split: PR changes run the PR certification surface, while pushes to `main` run the short Main Smoke surface. Full Repository Certification is scheduled/manual.
 
-During CI-001E:
+Historically, during CI-001E:
 
 - `ci.yml` is the PR certification mechanism and owns the stable `CI / required-gate`;
 - the Main Smoke workflow owns push-to-main smoke validation;
@@ -79,7 +79,7 @@ The current engine/domain layers are ahead of the UI information architecture.
 
 - Target-PC public market-order retrieval failure is reported but not root-caused.
 - Market acquisition failures can be collapsed into apparent empty business state by silent error handling in some non-Operations paths.
-- Operations is partially implemented; the remaining gate is end-to-end validation of keep / adjust / relocate / cancel decisions with explicit data-health states.
+- Operations decision-loop validation is now certified on PR #61 run `35859213922`: keep / adjust / relocate / cancel plus explicit LIVE/ERROR/PARTIAL/STALE behavior are covered. UX-02 remains the active chantier until that certified PR is merged.
 - No coherent Real Portfolio vs Proposed Allocation split exists yet.
 - No automatic ESI-derived performance history replaces the manual journal yet.
 - No clear business Control Center exists yet.
@@ -87,11 +87,11 @@ The current engine/domain layers are ahead of the UI information architecture.
 
 ## Current chantier / sequencing
 
-**UX-02 is now active** after the CI-001 merge. The active branch for this chantier is `feat/ux-02-close-operations-gate` and it must remain the only active PR for UX-02.
+**UX-02 is now active and its close gate is certified** on `feat/ux-02-close-operations-gate`; PR #61 remains the only active PR for UX-02 until merge.
 
 UX-01 is technically implemented and merged. Its target-PC market-order incident remains NOT ROOT-CAUSED pending the required PC-side evidence.
 
-CI-001 is merged and is no longer an active chantier.
+CI-001 is merged and is no longer an active chantier. Its observed Draft-routing mismatch is recorded as a separate CI follow-up.
 
 PST-001, UI-001, E2E-002, UI-002, PERF-001 and TYPE-001 remain deferred behind the UX sequencing gate.
 

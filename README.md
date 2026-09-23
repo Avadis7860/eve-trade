@@ -33,7 +33,19 @@ npm run build
 
 Le serveur de développement se lance avec `npm run dev`.
 
-La CI de référence est [.github/workflows/ci.yml](.github/workflows/ci.yml). Elle couvre les typechecks frontend/backend, les gates catalogue/univers, corporation/treasury/ESI, les suites unitaires/API/smoke/security/ESI et le build de production.
+## Validation navigateur
+
+Le gate navigateur déterministe s'exécute sans CCP :
+
+```bash
+npm ci --no-audit --no-fund
+npx playwright install chromium
+npm run test:e2e
+```
+
+Le parcours CCP réel sur le PC cible est séparé de la CI et documenté dans [docs/validation/e2e.md](docs/validation/e2e.md#real-pc-installation-and-ccp-smoke).
+
+La CI de référence est [.github/workflows/ci.yml](.github/workflows/ci.yml). Elle couvre les typechecks frontend/backend, les gates catalogue/univers, corporation/treasury/ESI, les suites unitaires/API/smoke/security/ESI, le build de production et le gate browser E2E.
 
 ## Architecture de haut niveau
 

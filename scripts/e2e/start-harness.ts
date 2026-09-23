@@ -461,10 +461,10 @@ async function handleMock(req: http.IncomingMessage, res: http.ServerResponse): 
     if (resource === 'wallet/transactions') return json(res, 200, []);
     if (resource === 'wallet/journal') return json(res, 200, []);
     const operationOrder = {
-      keep: { order_id: 'op-keep', price: 100 },
-      adjust: { order_id: 'op-adjust', price: 100 },
-      relocate: { order_id: 'op-relocate', price: 100 },
-      cancel: { order_id: 'op-cancel', price: 100 },
+      keep: { order_id: 'op-keep', price: 100, volume: 100 },
+      adjust: { order_id: 'op-adjust', price: 100, volume: 100 },
+      relocate: { order_id: 'op-relocate', price: 100, volume: 1_000_000 },
+      cancel: { order_id: 'op-cancel', price: 100, volume: 100 },
     }[operationsScenario];
     return json(res, 200, [{
       order_id: operationOrder.order_id,
@@ -473,8 +473,8 @@ async function handleMock(req: http.IncomingMessage, res: http.ServerResponse): 
       system_id: 30000142,
       location_id: 60003760,
       price: operationOrder.price,
-      volume_remain: 100,
-      volume_total: 100,
+      volume_remain: operationOrder.volume,
+      volume_total: operationOrder.volume,
       min_volume: 1,
       is_buy_order: false,
       range: 'region',

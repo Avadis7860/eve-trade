@@ -44,7 +44,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!active) return;
 
       try {
-        const refreshed = await AuthService.ensureValidToken(active);
+        const needsRefresh =
+          active.is_token_expired === true ||
+          !active.expires_at ||
+          active.expires_at <= Date.now();
+
+        const refreshed = needsRefresh
+          ? await AuthService.refreshCharacterToken(active)
+          : active;
+
         if (!cancelled) {
           refreshState();
           if (refreshed.access_token && !refreshed.is_token_expired) {

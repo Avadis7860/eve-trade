@@ -61,24 +61,32 @@ async function launchSso(page: Page): Promise<void> {
   await popup.close();
 }
 
+async function prepareOperations(
+  page: Page,
+  request: APIRequestContext,
+  mode: 'live' | 'error' | 'partial',
+): Promise<void> {
+  await setMarketMode(request, mode);
+  await page.goto('/');
+  await openOrders(page);
+}
+
 async function expectOperationsLoaded(page: Page): Promise<void> {
   await expect(page.getByText('Ordres actifs', { exact: true })).toBeVisible();
   await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15_000 });
 }
 
 test.describe('UX-02 — Operations / Mes Ordres', () => {
-  test.beforeEach(async ({ page, request }) => {
+  test.beforeEach(async ({ request }) => {
     await resetFixture(request);
-    await setMarketMode(request, 'live');
-    await page.goto('/');
-    await openOrders(page);
   });
 
   test.afterEach(async ({ request }) => {
     await resetFixture(request);
   });
 
-  test('exposes the operational decision context for a real active order fixture', async ({ page }) => {
+  test('exposes the operational decision context for a real active order fixture', async ({ page, request }) => {
+    await prepareOperations(page, request, 'live');
     await launchSso(page);
     await expectOperationsLoaded(page);
 
@@ -102,7 +110,7 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
   });
 
   test('keeps active orders visible and refuses false decision state on market ERROR', async ({ page, request }) => {
-    await setMarketMode(request, 'error', 401);
+    await prepareOperations(page, request, 'error');
     await launchSso(page);
     await expectOperationsLoaded(page);
 
@@ -122,7 +130,7 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
   });
 
   test('preserves usable rows and marks the market PARTIAL when a later page fails', async ({ page, request }) => {
-    await setMarketMode(request, 'partial');
+    await prepareOperations(page, request, 'partial');
     await launchSso(page);
     await expectOperationsLoaded(page);
 
@@ -138,9 +146,13 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
   });
 
   test('degrades a previously observed market snapshot to STALE instead of dropping the order context', async ({ page, request }) => {
+    await prepareOperations(page, request, 'live');
     await launchSso(page);
     await expectOperationsLoaded(page);
     await expect(page.getByText('LIVE', { exact: true }).first()).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Sync Marché des Ordres' }),
+    ).toBeEnabled({ timeout: 15_000 });
 
     await setMarketMode(request, 'error', 401);
 

@@ -29,5 +29,7 @@ UX-01 technical implementation is merged and provides the shared market-data tru
 
 ## Validation
 
-UX-02 is complete when a trader can inspect an active order and decide keep / adjust / relocate / cancel from Operations without leaving for routine information, with explicit loading/empty/error/stale/partial behavior and focused browser validation.
+Current increment gate: PASS. Deterministic browser CI now proves the keep / adjust / relocate / cancel decision loop together with explicit loading/data-health semantics already covered by the Operations suite.
+
+UX-02 remains ACTIVE for the broader product scope; the target-PC incident is a separate UX-01 validation matter and remains NOT ROOT-CAUSED.
 

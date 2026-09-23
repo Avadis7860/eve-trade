@@ -67,6 +67,15 @@ assert.match(
   /browser-e2e:[\s\S]*npx playwright install --with-deps chromium[\s\S]*npm run test:e2e/,
   'CI must execute the deterministic Playwright browser gate',
 );
+assert.equal(
+  (ci.match(/persist-credentials: false/g) || []).length,
+  2,
+  'Both CI jobs must disable checkout credential persistence',
+);
+assert.ok(
+  !ci.match(/uses: actions\/(?:checkout|setup-node|upload-artifact)@v\d/),
+  'CI action references must use immutable SHAs, not moving version tags',
+);
 
 assert.match(
   sde,
@@ -82,6 +91,15 @@ assert.ok(
   'SDE setup-node must remain pinned to an immutable SHA',
 );
 assert.ok(sde.includes('node-version: 22.23.2'), 'SDE must use the pinned Node 22 patch release');
+assert.equal(
+  (sde.match(/persist-credentials: false/g) || []).length,
+  2,
+  'Both SDE checkouts must disable credential persistence',
+);
+assert.ok(
+  !sde.match(/uses: actions\/(?:checkout|setup-node)@v\d/),
+  'SDE action references must use immutable SHAs, not moving version tags',
+);
 
 assert.ok(
   sde.includes('fetch-depth: 0'),

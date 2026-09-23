@@ -144,7 +144,7 @@ authRouter.post('/token', async (req: Request, res: Response) => {
   }
 
   // Mandatory BLOCKING OAuth State Verification & Consumption (single-use anti-replay)
-  const stateCheck = validateAndConsumeOAuthState(state.trim());
+  const stateCheck = validateAndConsumeOAuthState(state.trim(), redirect_uri);
   if (!stateCheck.isValid) {
     logEvent('ERROR', 'SSO', 'OAuth state verification failed during /api/auth/token exchange - BLOCKED', {
       statePrefix: String(state).substring(0, 8),
@@ -154,6 +154,14 @@ authRouter.post('/token', async (req: Request, res: Response) => {
     return res.status(400).json({
       error: errorCode,
       message: `OAuth state validation failed (${stateCheck.error || 'INVALID'}). Token exchange was blocked for security.`,
+    });
+  }
+
+  redirect_uri = redirect_uri || stateCheck.redirectUri;
+  if (!redirect_uri) {
+    return res.status(400).json({
+      error: 'MISSING_REDIRECT_URI',
+      message: 'The OAuth state is not bound to a redirect URI. Token exchange blocked.',
     });
   }
 
@@ -296,30 +304,64 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
 });
 
 // 5. Callback handler for browser redirects and popups
+const OAUTH_BROWSER_RESULT_KEY = 'eve_trade_oauth_result_v1';
+
+function renderAuthSuccessHtml(session: Record<string, unknown>): string {
+  const sessionJson = safeJsonStringify(session);
+  const browserResultJson = safeJsonStringify({
+    version: 1,
+    createdAt: Date.now(),
+    session,
+  });
+
+  return [
+    '<!DOCTYPE html>',
+    '<html>',
+    '  <head>',
+    '    <meta charset="utf-8">',
+    '    <title>EVE SSO — Authentification</title>',
+    '    <style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#0e1117;color:#fafafa;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}.card{background:#161821;border:1px solid #262730;padding:28px 32px;border-radius:12px;text-align:center;max-width:440px;box-shadow:0 10px 30px rgba(0,0,0,.6)}.portrait{width:64px;height:64px;border-radius:50%;border:2px solid #00ff88;margin:0 auto 12px;display:block}h2{margin:0 0 8px;font-size:18px;color:#fafafa}p{margin:0;font-size:13px;color:#808495;line-height:1.5}</style>',
+    '  </head>',
+    '  <body>',
+    '    <div class="card">',
+    '      <img class="portrait" src="' + (session.portrait_url ? escapeHtml(String(session.portrait_url)) : '') + '" alt="Portrait" />',
+    '      <h2>Connexion EVE Online confirmée</h2>',
+    '      <p id="status-text">Session validée. Synchronisation avec EVE Trade...</p>',
+    '    </div>',
+    '    <script>',
+    '      const sessionData = ' + sessionJson + ';',
+    '      const browserResult = ' + browserResultJson + ';',
+    '      if (window.opener) {',
+    '        window.opener.postMessage({ type: "OAUTH_AUTH_SUCCESS", provider: "eve_sso", session: sessionData }, window.location.origin);',
+    '        setTimeout(() => window.close(), 250);',
+    '      } else {',
+    '        try {',
+    '          window.localStorage.setItem("' + OAUTH_BROWSER_RESULT_KEY + '", JSON.stringify(browserResult));',
+    '          window.location.replace("/");',
+    '        } catch (_error) {',
+    '          document.getElementById("status-text").textContent = "Session validée, mais le stockage navigateur est indisponible. Relancez la connexion.";',
+    '        }',
+    '      }',
+    '    </script>',
+    '  </body>',
+    '</html>',
+  ].join('\n');
+}
+
 export const callbackHandler = async (req: Request, res: Response) => {
   const code = req.query.code as string;
   const state = req.query.state as string;
   const error = req.query.error as string;
   const errorDesc = req.query.error_description as string;
 
-  let exchangedSession: any = null;
-
-  if (error) {
-    logEvent('WARN', 'SSO', 'Callback received error from CCP SSO', { error, errorDesc });
-    res.status(400).setHeader('Content-Type', 'text/html; charset=utf-8');
-    return res.send(renderAuthErrorHtml('Autorisation Refusée', errorDesc || error, error));
-  }
-
   if (!state) {
     logEvent('ERROR', 'SSO', 'Callback received without OAuth state parameter - BLOCKED');
     res.status(400).setHeader('Content-Type', 'text/html; charset=utf-8');
-    return res.send(
-      renderAuthErrorHtml(
-        'Sécurité CSRF : Jeton State Manquant',
-        'La requête d\'autorisation ne contient pas de paramètre state. Connexion bloquée pour protéger votre compte.',
-        'MISSING_STATE'
-      )
-    );
+    return res.send(renderAuthErrorHtml(
+      'Sécurité CSRF : Jeton State Manquant',
+      'La requête d\'autorisation ne contient pas de paramètre state. Connexion bloquée pour protéger votre compte.',
+      'MISSING_STATE'
+    ));
   }
 
   const stateCheck = validateAndConsumeOAuthState(state);
@@ -329,32 +371,51 @@ export const callbackHandler = async (req: Request, res: Response) => {
       error: stateCheck.error,
     });
     res.status(400).setHeader('Content-Type', 'text/html; charset=utf-8');
-    return res.send(
-      renderAuthErrorHtml(
-        'Sécurité CSRF : Jeton Invalide ou Expiré',
-        `Le jeton de sécurité de session est invalide ou a expiré (${stateCheck.error}). Veuillez relancer la connexion SSO.`,
-        stateCheck.error || 'INVALID_STATE'
-      )
-    );
+    return res.send(renderAuthErrorHtml(
+      'Sécurité CSRF : Jeton Invalide ou Expiré',
+      `Le jeton de sécurité de session est invalide ou a expiré (${stateCheck.error}). Veuillez relancer la connexion SSO.`,
+      stateCheck.error || 'INVALID_STATE'
+    ));
+  }
+
+  if (error) {
+    logEvent('WARN', 'SSO', 'Callback received error from CCP SSO', { error, errorDesc });
+    res.status(400).setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.send(renderAuthErrorHtml('Autorisation Refusée', errorDesc || error, error));
   }
 
   if (!code) {
     logEvent('WARN', 'SSO', 'Callback received without authorization code - BLOCKED');
     res.status(400).setHeader('Content-Type', 'text/html; charset=utf-8');
-    return res.send(
-      renderAuthErrorHtml(
-        'Code d\'autorisation manquant',
-        'Aucun code d\'autorisation n\'a été transmis par EVE Online.',
-        'MISSING_CODE'
-      )
-    );
+    return res.send(renderAuthErrorHtml(
+      'Code d\'autorisation manquant',
+      'Aucun code d\'autorisation n\'a été transmis par EVE Online.',
+      'MISSING_CODE'
+    ));
+  }
+
+  const redirectUri = stateCheck.redirectUri;
+  if (!redirectUri) {
+    logEvent('ERROR', 'SSO', 'OAuth state had no bound redirect URI - BLOCKED');
+    res.status(500).setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.send(renderAuthErrorHtml(
+      'Configuration OAuth invalide',
+      'Le flux SSO ne possède pas d\'URL de redirection liée à son état de sécurité.',
+      'MISSING_BOUND_REDIRECT_URI'
+    ));
+  }
+
+  if (!EVE_CLIENT_ID || !EVE_CLIENT_SECRET) {
+    logEvent('ERROR', 'SSO', 'Attempted callback exchange without EVE_CLIENT_ID or EVE_CLIENT_SECRET');
+    res.status(500).setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.send(renderAuthErrorHtml(
+      'SSO non configuré',
+      'Les paramètres d\'application EVE SSO sont incomplets côté serveur.',
+      'SSO_NOT_CONFIGURED'
+    ));
   }
 
   try {
-    const host = req.get('host') || 'localhost:3000';
-    const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
-    const redirectUri = EVE_CALLBACK_URL || `${protocol}://${host}${req.path}`;
-    
     const basicAuth = Buffer.from(`${EVE_CLIENT_ID}:${EVE_CLIENT_SECRET}`).toString('base64');
     const params = new URLSearchParams({
       grant_type: 'authorization_code',
@@ -373,140 +434,86 @@ export const callbackHandler = async (req: Request, res: Response) => {
       body: params.toString(),
     });
 
-    if (tokenRes.ok) {
-      const tokenData = await tokenRes.json();
-      const payload = parseJwt(tokenData.access_token);
+    if (!tokenRes.ok) {
+      const errText = await tokenRes.text().catch(() => '');
+      logEvent('WARN', 'SSO', 'Token exchange rejected by CCP', { status: tokenRes.status, details: errText });
+      res.status(502).setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(renderAuthErrorHtml(
+        'Échec de l\'authentification EVE SSO',
+        `Le serveur EVE SSO a refusé l\'échange du code (HTTP ${tokenRes.status}). Relancez la connexion.`,
+        'EVE_SSO_TOKEN_EXCHANGE_FAILED'
+      ));
+    }
 
-      let characterId: number | null = null;
-      let characterName: string | null = null;
+    const tokenData = await tokenRes.json() as { access_token?: string; refresh_token?: string; expires_in?: number };
+    if (!tokenData.access_token || typeof tokenData.access_token !== 'string') {
+      logEvent('ERROR', 'SSO', 'CCP token response did not contain a usable access token');
+      res.status(502).setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(renderAuthErrorHtml(
+        'Réponse SSO invalide',
+        'EVE SSO a répondu sans jeton d\'accès exploitable.',
+        'INVALID_TOKEN_RESPONSE'
+      ));
+    }
 
-      if (payload && payload.sub) {
-        const parts = payload.sub.split(':');
-        characterId = Number(parts[parts.length - 1]);
-        characterName = payload.name || null;
-      }
+    const payload = parseJwt(tokenData.access_token);
+    let characterId: number | null = null;
+    let characterName: string | null = null;
 
-      if (!characterId) {
-        try {
-          const verifyRes = await fetch(EVE_SSO_VERIFY_URL, {
-            headers: {
-              'Authorization': `Bearer ${tokenData.access_token}`,
-              'User-Agent': 'eve-trade-interregional/0.2',
-            },
-          });
-          if (verifyRes.ok) {
-            const verifyData = await verifyRes.json();
-            characterId = verifyData.CharacterID;
-            characterName = verifyData.CharacterName;
-          }
-        } catch {}
-      }
+    if (payload && payload.sub) {
+      const parts = String(payload.sub).split(':');
+      const parsedCharacterId = Number(parts[parts.length - 1]);
+      if (Number.isInteger(parsedCharacterId) && parsedCharacterId > 0) characterId = parsedCharacterId;
+      if (typeof payload.name === 'string' && payload.name.trim()) characterName = payload.name.trim();
+    }
 
-      if (characterId) {
-        exchangedSession = {
-          access_token: tokenData.access_token,
-          refresh_token: tokenData.refresh_token,
-          expires_in: tokenData.expires_in,
-          character_id: characterId,
-          character_name: characterName || `Character #${characterId}`,
-          portrait_url: `https://images.evetech.net/characters/${characterId}/portrait?size=128`,
-        };
+    if (!characterId) {
+      try {
+        const verifyRes = await fetch(EVE_SSO_VERIFY_URL, {
+          headers: {
+            'Authorization': `Bearer ${tokenData.access_token}`,
+            'User-Agent': 'eve-trade-interregional/0.2',
+          },
+        });
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json() as { CharacterID?: number; CharacterName?: string };
+          const verifiedId = Number(verifyData.CharacterID);
+          if (Number.isInteger(verifiedId) && verifiedId > 0) characterId = verifiedId;
+          if (typeof verifyData.CharacterName === 'string' && verifyData.CharacterName.trim()) characterName = verifyData.CharacterName.trim();
+        }
+      } catch (verifyError) {
+        logEvent('WARN', 'SSO', 'Character verification request failed after token exchange', { error: String(verifyError) });
       }
     }
+
+    if (!characterId) {
+      logEvent('ERROR', 'SSO', 'Token exchange succeeded but character identity could not be established');
+      res.status(502).setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.send(renderAuthErrorHtml(
+        'Identité EVE introuvable',
+        'Le jeton SSO a été reçu, mais le personnage EVE n\'a pas pu être identifié.',
+        'CHARACTER_IDENTITY_UNAVAILABLE'
+      ));
+    }
+
+    const exchangedSession: Record<string, unknown> = {
+      access_token: tokenData.access_token,
+      refresh_token: tokenData.refresh_token,
+      expires_in: Number(tokenData.expires_in) || 1200,
+      character_id: characterId,
+      character_name: characterName || `Character #${characterId}`,
+      portrait_url: `https://images.evetech.net/characters/${characterId}/portrait?size=128`,
+    };
+
+    res.status(200).setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.send(renderAuthSuccessHtml(exchangedSession));
   } catch (err) {
-    console.warn('Direct token exchange during callback failed, falling back to client exchange:', err);
+    logEvent('ERROR', 'SSO', 'Internal error during browser callback token exchange', { error: String(err) });
+    res.status(502).setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.send(renderAuthErrorHtml(
+      'Échec de l\'authentification EVE SSO',
+      'L\'échange du code SSO a échoué côté serveur. Relancez la connexion.',
+      'INTERNAL_TOKEN_EXCHANGE_ERROR'
+    ));
   }
-
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.send(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <title>EVE SSO — Authentification</title>
-        <style>
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: #0e1117;
-            color: #fafafa;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-          }
-          .card {
-            background: #161821;
-            border: 1px solid #262730;
-            padding: 28px 32px;
-            border-radius: 12px;
-            text-align: center;
-            max-width: 440px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
-          }
-          .spinner {
-            width: 38px;
-            height: 38px;
-            border: 3px solid rgba(255, 75, 75, 0.2);
-            border-top-color: #ff4b4b;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin: 0 auto 16px;
-          }
-          @keyframes spin { to { transform: rotate(360deg); } }
-          h2 { margin: 0 0 8px; font-size: 18px; color: #fafafa; }
-          p { margin: 0; font-size: 13px; color: #808495; line-height: 1.5; }
-          .portrait {
-            width: 64px;
-            height: 64px;
-            border-radius: 50%;
-            border: 2px solid #00ff88;
-            margin: 0 auto 12px;
-            display: block;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="card">
-          ${exchangedSession?.portrait_url ? `<img class="portrait" src="${escapeHtml(exchangedSession.portrait_url)}" alt="Portrait" />` : '<div class="spinner"></div>'}
-          <h2>${exchangedSession ? `Bienvenue, ${escapeHtml(exchangedSession.character_name)} !` : 'Connexion EVE Online SSO'}</h2>
-          <p id="status-text">${
-            exchangedSession
-              ? 'Session validée avec succès ! Synchronisation avec EVE Trade...'
-              : (error ? `Erreur SSO : ${escapeHtml(errorDesc || error)}` : 'Échange du jeton avec CCP EVE SSO...')
-          }</p>
-        </div>
-        <script>
-          const sessionData = ${safeJsonStringify(exchangedSession)};
-          const code = ${safeJsonStringify(code || null)};
-          const state = ${safeJsonStringify(state || null)};
-          const error = ${safeJsonStringify(error || null)};
-          const errorDesc = ${safeJsonStringify(errorDesc || null)};
-
-          const payload = {
-            type: 'OAUTH_AUTH_SUCCESS',
-            provider: 'eve_sso',
-            code: code,
-            state: state,
-            session: sessionData,
-            token: sessionData ? sessionData.access_token : null,
-            refresh_token: sessionData ? sessionData.refresh_token : null,
-            character_id: sessionData ? sessionData.character_id : null,
-            character_name: sessionData ? sessionData.character_name : null,
-            error: error,
-            errorDescription: errorDesc
-          };
-
-          if (window.opener) {
-            window.opener.postMessage(payload, window.location.origin);
-            setTimeout(() => window.close(), 1000);
-          } else {
-            setTimeout(() => {
-              window.location.href = '/?logged_in=' + encodeURIComponent(sessionData?.character_id || '1');
-            }, 1000);
-          }
-        </script>
-      </body>
-    </html>
-  `);
-};
+}

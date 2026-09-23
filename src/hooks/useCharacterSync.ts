@@ -21,6 +21,20 @@ export function useCharacterSync(
   const [characterOrders, setCharacterOrders] = useState<EveCharacterOrder[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState<boolean>(false);
   const ssoPopupRef = useRef<Window | null>(null);
+  const syncVersionByCharacterRef = useRef(new Map<number, number>());
+
+  const beginCharacterSync = (characterId: number): number => {
+    const nextVersion = (syncVersionByCharacterRef.current.get(characterId) ?? 0) + 1;
+    syncVersionByCharacterRef.current.set(characterId, nextVersion);
+    return nextVersion;
+  };
+
+  const isCurrentCharacterSync = (characterId: number, version: number): boolean =>
+    syncVersionByCharacterRef.current.get(characterId) === version;
+
+  const invalidateCharacterSync = (characterId: number): void => {
+    beginCharacterSync(characterId);
+  };
 
   const loadCharacterData = useCallback(
     async (
@@ -30,6 +44,7 @@ export function useCharacterSync(
       existingSession?: EveCharacterSession,
       makeActive: boolean = true
     ) => {
+      const syncVersion = beginCharacterSync(charId);
       const activeChar = AuthService.getActiveCharacter();
       const isTargetActive = makeActive || (activeChar ? activeChar.character_id === charId : true);
 
@@ -155,8 +170,23 @@ export function useCharacterSync(
           });
         }
 
-        if (isTargetActive) {
+        const currentActiveCharacter = AuthService.getActiveCharacter();
+        const characterStillLinked = AuthService.getLinkedCharacters().some(
+          (character) => character.character_id === charId,
+        );
+        const syncStillCurrent = isCurrentCharacterSync(charId, syncVersion);
+        const shouldApplyToActiveContext =
+          syncStillCurrent &&
+          characterStillLinked &&
+          isTargetActive &&
+          currentActiveCharacter?.character_id === charId;
+
+        if (shouldApplyToActiveContext) {
           setCharacterOrders(enrichedOrders);
+        }
+
+        if (!characterStillLinked || !syncStillCurrent) {
+          return;
         }
 
         CharacterRepository.getInstance().saveSnapshot(charId, {
@@ -190,12 +220,12 @@ export function useCharacterSync(
           accounting_skill: accountingLvl,
           broker_relations_skill: brokerRelLvl,
           last_sync: new Date().toISOString(),
-          is_active: isTargetActive,
+          is_active: shouldApplyToActiveContext,
           session_version: 2,
           auth_status: 'SESSION_VALID',
         };
 
-        if (isTargetActive) {
+        if (shouldApplyToActiveContext) {
           updateSession(sessionObj);
           setConfig((prev) => ({
             ...prev,
@@ -210,7 +240,6 @@ export function useCharacterSync(
             broker_fee: calculatedBrokerFee,
             sales_tax: calculatedSalesTax,
           }));
-
         } else {
           AuthService.saveCharacter(sessionObj, false);
         }
@@ -402,6 +431,7 @@ export function useCharacterSync(
 
   const handleLogoutCharacter = () => {
     if (characterSession) {
+      invalidateCharacterSync(characterSession.character_id);
       removeCharacter(characterSession.character_id);
     }
     setCharacterOrders([]);

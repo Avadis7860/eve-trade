@@ -4,7 +4,7 @@ const token = process.env.GITHUB_TOKEN;
 const repository = process.env.GITHUB_REPOSITORY;
 const runId = process.env.GITHUB_RUN_ID;
 const workflow = process.env.GITHUB_WORKFLOW || 'unknown';
-const sha = process.env.GITHUB_SHA || 'unknown';
+const runSha = process.env.GITHUB_SHA || 'unknown';\nconst certifiedSha = process.env.CI_CERTIFIED_SHA || runSha;
 const ref = process.env.GITHUB_REF_NAME || process.env.GITHUB_REF || 'unknown';
 const attempt = Number(process.env.GITHUB_RUN_ATTEMPT || '1');
 
@@ -134,7 +134,7 @@ fs.writeFileSync(outputPath, JSON.stringify(metrics, null, 2) + '\n');
 const summary = [];
 summary.push('## CI Observability');
 summary.push('');
-summary.push(`- Certified head: \`${sha}\``);
+summary.push(`- Certified head: \`${certifiedSha}\``);\nsummary.push(`- Workflow run SHA: \`${runSha}\``);
 summary.push(`- Run: \`${run.run_id}\` / attempt \`${attempt}\``);
 summary.push(`- Event: \`${run.event}\``);
 summary.push(`- Workflow elapsed at collection: \`${metrics.workflow.elapsed_seconds_at_collection ?? 'n/a'} s\``);

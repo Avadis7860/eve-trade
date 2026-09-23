@@ -1,13 +1,12 @@
 # Current Chunk
 
-Status: IN PROGRESS
+Status: COMPLETE
 Scope: E2E-001 — Reproducible Local OAuth / Browser Gate
-Branch: `e2e/e2e-001-browser-oauth-gate`
-PR: #46
-Base: `main` at `a31979c6c76ba93cc19a7437894f3935e69a01c7`
+PR: #46 — merged to `main`
+Merge: `9438bbedb2d44cf3f5f371144bcf72094955cd46`
 Objective: establish deterministic browser proof of the existing SSO → callback → session → authenticated ESI path, plus a separate real-CCP smoke procedure.
 
-## Proof required
+## Completed proof
 
 - real Playwright browser reaches the SSO popup path through `SsoConnectCard`;
 - real application callback and `postMessage` composition with a server-owned authorization-code exchange;
@@ -16,23 +15,16 @@ Objective: establish deterministic browser proof of the existing SSO → callbac
 - authenticated character and corporation ESI path through real application routes/gateways;
 - browser-level popup, state, OAuth-error, refresh, logout, popup-blocked recovery and multi-character isolation coverage;
 - deterministic CI execution without CCP credentials;
-- local real-CCP smoke procedure documented separately.
-
-## Main files
-
-- `tests/e2e/auth-browser.spec.ts`
-- `scripts/e2e/start-harness.ts`
-- `playwright.config.ts`
-- `server/routes/auth.ts`
-- `server/utils/authUtils.ts`
-- `server/utils/esiClient.ts`
-- `src/hooks/useCharacterSync.ts`
-- `.github/workflows/ci.yml`
+- target-PC real-CCP smoke executed successfully on 2026-09-23.
 
 ## Validation
 
-The existing unit/API/security/ESI/corporation/build gates remain authoritative for their layers. The new browser gate must be green in CI before E2E-001 can be declared complete.
+The unit/API/security/ESI/corporation/build gates remain green, the deterministic browser gate is green, and the real CCP SSO/ESI acceptance is PASS.
 
-## Blockers
+## Completion
 
-Final completion requires an actual green CI run for this branch/PR and the separate real-CCP smoke procedure on the target PC.
+E2E-001 is closed. No blocker remains on the authentication/browser acceptance track.
+
+## Next chantier
+
+PST-001 — Decompose the IndexedDB implementation without semantic drift.

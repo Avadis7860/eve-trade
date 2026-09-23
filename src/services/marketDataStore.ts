@@ -481,10 +481,18 @@ export class MarketDataStore {
                 const ageSec = Math.round((Date.now() - previousSnap.timestamp) / 1000);
                 const degradedQuality: MarketDataQuality = {
                   ...previousSnap.quality,
+                  source: 'cache',
                   freshness: 'stale',
+                  data_state: 'STALE',
+                  health_status: 'STALE',
                   age_seconds: ageSec,
                   confidence: Math.max(0.2, previousSnap.quality.confidence * 0.7),
                   last_error: quality.last_error || 'ESI sync issue, using cached snapshot',
+                  last_http_status: quality.last_http_status,
+                  cache_status: quality.cache_status,
+                  esi_error_limit_remaining: quality.esi_error_limit_remaining,
+                  esi_error_limit_reset_seconds: quality.esi_error_limit_reset_seconds,
+                  retry_after_seconds: quality.retry_after_seconds,
                 };
                 previousSnap.quality = degradedQuality;
                 orderBooks[hub.region_id] = previousSnap.orders;

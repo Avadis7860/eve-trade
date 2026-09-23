@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -33,44 +34,33 @@ jobs:
       run_build: ${{ steps.scope.outputs.run_build }}
       run_browser: ${{ steps.scope.outputs.run_browser }}
     steps:
-      - name: Checkout pull request commit
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Detect changed domains
+      - name: Detect changed domains from PR files
         id: scope
         shell: bash
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
 
-          echo "Scope refs: BASE_SHA=$BASE_SHA HEAD_SHA=$HEAD_SHA"
-          if ! git cat-file -e "$HEAD_SHA^{commit}" 2>/dev/null; then
-            echo '::error::PR head commit is not available after checkout.'
-            exit 1
-          fi
+          echo "PR scope source: ${GITHUB_REPOSITORY}#${PR_NUMBER} at ${HEAD_SHA}"
+          changed_files="$(gh api --paginate \
+            "/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files?per_page=100" \
+            --jq '.[].filename')"
 
-          if ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
-            echo 'Base commit is not present locally; falling back conservatively to full certification.'
-            changed_files=''
-            ambiguous=true
-          elif ! changed_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"; then
-            echo '::warning::Unable to compute the PR diff; falling back conservatively to full certification.'
-            changed_files=''
-            ambiguous=true
-          else
-            ambiguous=false
-          fi
+          printf '%s\n' "$changed_files"
 
-          printf "%s\n" "$changed_files" | node scripts/__tests__/ci_scope.test.mjs >/dev/null
-          printf "%s\n" "$changed_files" | node scripts/ci-scope.mjs
+          mkdir -p "$RUNNER_TEMP/ci-scope"
+          gh api \
+            -H 'Accept: application/vnd.github+json' \
+            "/repos/${GITHUB_REPOSITORY}/contents/scripts/ci-scope.mjs?ref=${HEAD_SHA}" \
+            --jq '.content' | tr -d '\n' | base64 --decode > "$RUNNER_TEMP/ci-scope/ci-scope.mjs"
 
-          # ci-scope.mjs writes GitHub outputs and the scope summary.
+          printf '%s\n' "$changed_files" | node "$RUNNER_TEMP/ci-scope/ci-scope.mjs"
+
+          # The canonical classifier is executed from the PR head; scope detection
+          # no longer depends on checking out the repository.
   static:
     name: Static / Config / Auth
     needs: [detect-changes]

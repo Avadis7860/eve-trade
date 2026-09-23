@@ -49,12 +49,21 @@ jobs:
         run: |
           set -euo pipefail
 
+          echo "Scope refs: BASE_SHA=$BASE_SHA HEAD_SHA=$HEAD_SHA"
+          if ! git cat-file -e "$HEAD_SHA^{commit}" 2>/dev/null; then
+            echo '::error::PR head commit is not available after checkout.'
+            exit 1
+          fi
+
           if ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
             echo 'Base commit is not present locally; falling back conservatively to full certification.'
             changed_files=''
             ambiguous=true
+          elif ! changed_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"; then
+            echo '::warning::Unable to compute the PR diff; falling back conservatively to full certification.'
+            changed_files=''
+            ambiguous=true
           else
-            changed_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
             ambiguous=false
           fi
 

@@ -44,6 +44,17 @@ async function blockMarketOrderRequests(page: Page): Promise<void> {
   });
 }
 
+
+async function settleCharacterOrderMarketSync(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const { MarketDataStore } = await import('/src/services/marketDataStore.ts');
+    await MarketDataStore.syncCharacterOrdersMarketData(
+      [34],
+      [{ active: true, region_id: 10000002 } as any],
+    );
+  });
+}
+
 async function setMarketMode(
   request: APIRequestContext,
   mode: 'live' | 'error' | 'partial',
@@ -190,6 +201,7 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
     await prepareDegradedOperations(page, request);
     await launchSso(page);
     await expectOperationsLoaded(page);
+    await settleCharacterOrderMarketSync(page);
 
     await page.evaluate(async () => {
       const { MarketDataStore } = await import('/src/services/marketDataStore.ts');
@@ -225,6 +237,7 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
     await prepareDegradedOperations(page, request);
     await launchSso(page);
     await expectOperationsLoaded(page);
+    await settleCharacterOrderMarketSync(page);
 
     await page.evaluate(async () => {
       const { MarketDataStore } = await import('/src/services/marketDataStore.ts');
@@ -249,6 +262,7 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
     const firstRow = page.locator('tbody tr').first();
     const cells = firstRow.getByRole('cell');
     const owner = (await cells.nth(0).innerText()).split('\n')[0].trim();
+    const ownerKind = (await cells.nth(0).innerText()).split('\n')[1].trim().toLowerCase();
     const item = (await cells.nth(2).innerText()).split('\n')[0].trim();
     const location = (await cells.nth(3).innerText()).split('\n')[0].trim();
     const remaining = (await cells.nth(5).innerText()).split('\n')[0].trim();
@@ -261,7 +275,7 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
     await expect(detail).toBeVisible();
     await expect(detail.getByText(item, { exact: true })).toBeVisible();
     await expect(detail.getByText(location, { exact: true })).toBeVisible();
-    await expect(detail.getByText(owner, { exact: true })).toBeVisible();
+    await expect(detail.getByText(`${owner} · ${ownerKind}`, { exact: true })).toBeVisible();
     await expect(detail.getByText(health, { exact: true }).first()).toBeVisible();
     await expect(detail.getByText(new RegExp('reliquat\\s+' + remaining + '\\b'))).toBeVisible();
     await expect(detail.getByText(/Ajuster le Prix à/)).toBeVisible();

@@ -1,6 +1,6 @@
 # CI-001B — Evidence Map
 
-Status: CURRENT — CI-001D
+Status: CURRENT — CI-001I
 Date: 2026-09-23
 Baseline: main @ `d7f245ec47a8746306792ce6017496f9123c23d6`
 Parent: [CI-001 — Refonte du système CI](../roadmap/ci-management-refactor.md)
@@ -12,7 +12,7 @@ Cette carte rend explicite la relation :
 
 > risque → invariant → test → job → déclencheur → environnement → preuve → récupération
 
-Elle est désormais synchronisée avec la topologie CI-001D réellement exécutée. Les jobs cibles de CI-001E/F/G/H/I/J pourront encore évoluer, mais ne doivent pas perdre l'invariant ni la preuve sans remplacement démontré.
+Elle est désormais synchronisée avec la topologie CI-001I réellement exécutée. Les étapes finales de gouvernance peuvent encore ajouter des preuves, mais ne doivent pas perdre l'invariant ni la preuve sans remplacement démontré.
 
 L'état `GAP` ou `UNKNOWN` signifie qu'aucune preuve durable n'est encore disponible dans la configuration actuelle ; ce statut doit conduire à une décision explicite, pas à une hypothèse silencieuse.
 
@@ -39,20 +39,20 @@ L'état `GAP` ou `UNKNOWN` signifie qu'aucune preuve durable n'est encore dispon
 | Server runtime | serveur démarre et expose la santé attendue | `test:smoke` | `server` | PR + push main | Node 22 | job log | conserver aussi dans futur post-merge smoke |
 | ESI | transport, gateways, erreurs et durcissement respectent les contrats | `test:esi` + service ESI tests | `server` | PR + push main | Node 22 | job log | préserver scénarios de failure/rate-limit |
 | Market truth | LIVE/CACHE/STALE/PARTIAL/ERROR/UNKNOWN ne sont pas confondus avec un état métier vide | `market_data_quality.test.ts` + Operations browser | `unit_domain` + `browser-e2e` | PR + push main | Node 22 / Playwright | job log + browser report | browser diagnostics ; pas de retry aveugle |
-| Browser Auth | OAuth popup/callback/CSRF/session/isolation restent déterministes | 13 scénarios `auth-browser.spec.ts` | `browser-e2e` | PR + push main | Node 22 + Chromium + E2E harness | Playwright report, trace/video/screenshot on failure | rerun ciblé ; investigation de flake avant retry policy |
-| Browser Operations | données opérationnelles et états dégradés sont visibles sans fausse décision | 4 scénarios `operations-browser.spec.ts` | `browser-e2e` | PR + push main | Node 22 + Chromium + E2E harness | Playwright report | conserver `workers: 1` avant isolation |
+| Browser Auth | OAuth popup/callback/CSRF/session/isolation restent déterministes | 13 scénarios `auth-browser.spec.ts` | `browser-auth` + `browser-e2e` | PR | Node 22 + Chromium + E2E harness | Playwright report, trace/video/screenshot on failure | rerun ciblé ; investigation de flake avant retry policy |
+| Browser Operations | données opérationnelles et états dégradés sont visibles sans fausse décision | 4 scénarios `operations-browser.spec.ts` | `browser-operations` + `browser-e2e` | PR | Node 22 + Chromium + E2E harness | Playwright report | conserver `workers: 1` avant isolation |
 | Browser isolation | chaque scénario doit être indépendant des contrôles globaux | état mutable `nextAuthControl` / `marketControl` dans harness | `browser-e2e` | PR + push main | même process de harness | aucune preuve d'isolation multi-worker actuellement | GAP/PARTIAL : isoler avant workers > 1 |
 | Build | la production build reste réalisable | `npm run build` | `build` | PR + push main | Node 22 | job log | conserver un build certification |
 | Lockfile / install | l'installation correspond au lockfile | `npm ci --no-audit --no-fund` | all five execution lanes | PR + push main | Node 22 | step log | ne pas passer à node_modules cache fragile |
-| Workflow token permissions | CI n'obtient pas plus de droits que nécessaire | `phase-2.7c-sde.yml` explicite `contents: read` ; `ci.yml` n'explicite pas les permissions | all CI lanes | PR / main | GitHub Actions | YAML review | GAP/PARTIAL : durcissement CI-001C |
-| Action supply chain | une action tierce ne dérive pas silencieusement | versions `@v4` actuellement utilisées | all CI lanes | PR / main | GitHub Actions | workflow source | GAP/PARTIAL : politique de pinning à décider |
+| Workflow token permissions | CI n'obtient pas plus de droits que nécessaire | CI/SDE declare `contents: read`; observability only adds `actions: read` | all CI lanes | PR / main / Full | GitHub Actions | YAML review + run log | covered in CI-001C/I |
+| Action supply chain | une action tierce ne dérive pas silencieusement | checkout/setup-node/upload-artifact pinned to immutable SHAs | all CI lanes | PR / main / Full | GitHub Actions | workflow source + runner log | covered; maintenance remains a J task |
 | Secrets | aucun secret n'est exposé ou écrit par la CI | pas de policy CI dédiée | all CI lanes | PR / main | GitHub Actions | configuration/secret audit | GAP/PARTIAL : formaliser règles |
 | Dependency security | les changements de dépendances critiques sont détectés | aucune dependency-review dédiée observée | aucune lane dédiée | — | — | aucune preuve durable | GAP / décision CI-001C/I |
 | SAST | défauts de code détectables automatiquement | aucun workflow CodeQL/SAST observé | aucun | — | — | aucune preuve durable | GAP / UNKNOWN ; décision explicite requise |
 | Dependency maintenance | mises à jour/alertes ont un propriétaire automatique | aucun Dependabot/Renovate observé | aucun | — | — | aucune preuve durable | GAP / UNKNOWN |
 | Documentation integrity | liens/statuts/docs actives restent cohérents | documentation guide + revue manuelle | aucun dédié | — | — | preuve manuelle seulement | PARTIAL : CI-001I/J |
-| General change detection | le périmètre est détecté sans cacher une validation requise | seul SDE a une détection dédiée | SDE seulement | PR | ubuntu-latest | job output `sde_changed` | GAP : généraliser avec fallback conservateur |
-| Required gate | chaque PR possède un check stable d'agrégation | aucun agrégateur dédié | aucun | — | — | aucun check `required-gate` | GAP : CI-001G avant modification protection |
+| General change detection | le périmètre est détecté sans cacher une validation requise | `scripts/ci-scope.mjs` + fixtures + `detect-changes` | `CI / Change Scope` | PR | ubuntu-latest | job output `sde_changed` | GAP : généraliser avec fallback conservateur |
+| Required gate | chaque PR possède un check stable d'agrégation | `CI / required-gate` always-evaluated | `required-gate` | PR | GitHub Actions | check/job log | stable surface; effective branch protection still needs admin verification |
 | Branch protection | le check réellement obligatoire est connu | API protection inaccessible | n/a | n/a | GitHub settings | 403 dans l'intégration | GAP/UNKNOWN : vérification admin obligatoire |
 | Merge queue | les checks sont compatibles avec une éventuelle queue | aucune preuve d'usage | n/a | n/a | GitHub | aucun usage observé | CONDITIONAL : ajouter `merge_group` seulement si queue adoptée |
 | Concurrency | les runs obsolètes d'une même PR sont annulés sans bloquer les changements indépendants | `github.workflow-github.ref` + cancel | workflow-level | PR / main | GitHub Actions | run history | conserver par PR ; ne pas globaliser sans mesure |
@@ -61,10 +61,10 @@ L'état `GAP` ou `UNKNOWN` signifie qu'aucune preuve durable n'est encore dispon
 | Retry / rerun | les reruns sont visibles et limités au transitoire | browser retry=1 ; rerun manuel possible | jobs | failures | GitHub Actions | run attempt | formaliser en H |
 | Diagnostics | une panne produit suffisamment de preuves | browser report/trace/video/screenshot | browser | failures | Playwright | artifacts | étendre aux lanes ciblées |
 | Timeout | un blocage ne consomme pas indéfiniment le runner | jobs timeout 15/20 min ; Playwright 45s | workflows | PR / main | GitHub Actions | cancelled/timeout | ajouter timeouts ciblés en H |
-| CI timing | les dérives de temps deviennent mesurables | historique manuel seulement | n/a | n/a | GitHub Actions | baseline run data | GAP : métriques durables |
-| Main smoke | `main` doit signaler rapidement une panne post-merge | actuellement certification complète | `validate` + browser | push main | Node 22 + Chromium | workflow result | CI-001H : smoke court |
-| Full certification | dépôt entier certifié indépendamment du merge courant | aucun workflow Full dédié | aucun | — | — | aucune preuve planifiée | GAP : CI-001H |
-| Rollback CI | chaque tranche de refactor peut être annulée sans perte de preuve | stratégie documentaire seulement | n/a | phase gate | Git | commit/branch history | GAP : runbook formel |
+| CI timing | les dérives de temps deviennent mesurables | `ci-observability.json` + run summary + history | `CI / observability` | PR / main / Full | GitHub Actions | JSON artifact + summary | runtime-verified by PR run `35856208503` |
+| Main smoke | `main` doit signaler rapidement une panne post-merge | dedicated `CI Main Post-Merge Smoke` | `main-smoke` | push main | Node 22 | workflow result | runtime proof after merge |
+| Full certification | dépôt entier certifié indépendamment du merge courant | dedicated `CI Full Repository Certification` | `full-gate` | manual / schedule | Node 22 + Chromium + SDE | workflow result | independent health proof, not hidden PR gate |
+| Rollback CI | chaque tranche de refactor peut être annulée sans perte de preuve | `docs/operations/ci-recovery.md` | n/a | recovery | GitHub + Git | runbook | documented and active |
 | Human runbook | équipe sait distinguer failure, cancel, flake, rerun et nouvelle PR | `CONTRIBUTING.md` partiel | n/a | incident | GitHub | documentation | compléter en H/J |
 
 ## Canonical test ownership — starting point
@@ -174,3 +174,7 @@ CI-001B peut être considéré comme documenté lorsque :
 - aucun test n'a été retiré ;
 - le premier incrément d'implémentation peut être choisi sans inventer de couverture.
 
+
+## CI-001I runtime evidence
+
+PR run `35856208503` on head `9d09d8affac903de6c2ca8f39156b5b662d4fef4` completed successfully. The stable required gate and all execution lanes succeeded, and the SDE Truth Gate `35856208652` also succeeded. Observability captured 49 completed historical runs: 39 cancelled, 5 failed, 5 successful (79.6% cancellation rate). Current measured lane durations: browser-auth ~139 s, browser-operations ~88 s, unit/domain ~59 s, static ~43 s, build ~38 s, server ~31 s.

@@ -6,6 +6,7 @@
 
 import assert from 'assert';
 import http from 'node:http';
+import type { RunningServer } from '../../server';
 
 process.env.EVE_CLIENT_ID = process.env.EVE_CLIENT_ID || 'e2e-api-test-client';
 process.env.EVE_CLIENT_SECRET = process.env.EVE_CLIENT_SECRET || 'e2e-api-test-secret';
@@ -28,7 +29,7 @@ const ssoFixture = http.createServer((req, res) => {
   res.end(JSON.stringify({ error: 'NOT_FOUND' }));
 });
 
-await new Promise((resolve, reject) => {
+await new Promise<void>((resolve, reject) => {
   ssoFixture.once('error', reject);
   ssoFixture.listen(0, '127.0.0.1', () => resolve());
 });

@@ -9,6 +9,7 @@ export interface EsiRuntimeConfig {
   authorizeUrl: string;
   tokenUrl: string;
   verifyUrl: string;
+  metadataUrl: string;
   esiBaseUrl: string;
 }
 
@@ -20,13 +21,15 @@ export interface RuntimeConfigStatus {
   authorizeUrl: string;
   tokenUrl: string;
   verifyUrl: string;
+  metadataUrl: string;
   esiBaseUrl: string;
 }
 
 const DEFAULTS = {
   authorizeUrl: 'https://login.eveonline.com/v2/oauth/authorize/',
   tokenUrl: 'https://login.eveonline.com/v2/oauth/token',
-  verifyUrl: 'https://login.eveonline.com/oauth/verify',
+  verifyUrl: 'https://login.eveonline.com/v2/oauth/verify',
+  metadataUrl: 'https://login.eveonline.com/.well-known/oauth-authorization-server',
   esiBaseUrl: 'https://esi.evetech.net',
 } as const;
 
@@ -37,6 +40,7 @@ export const ESI_RUNTIME_CONFIG: EsiRuntimeConfig = {
   authorizeUrl: readOptional('EVE_SSO_AUTHORIZE_URL') || DEFAULTS.authorizeUrl,
   tokenUrl: readOptional('EVE_SSO_TOKEN_URL') || DEFAULTS.tokenUrl,
   verifyUrl: readOptional('EVE_SSO_VERIFY_URL') || DEFAULTS.verifyUrl,
+  metadataUrl: readOptional('EVE_SSO_METADATA_URL') || DEFAULTS.metadataUrl,
   esiBaseUrl: readOptional('ESI_BASE_URL') || DEFAULTS.esiBaseUrl,
 };
 
@@ -49,6 +53,7 @@ export function getRuntimeConfigStatus(): RuntimeConfigStatus {
     authorizeUrl: ESI_RUNTIME_CONFIG.authorizeUrl,
     tokenUrl: ESI_RUNTIME_CONFIG.tokenUrl,
     verifyUrl: ESI_RUNTIME_CONFIG.verifyUrl,
+    metadataUrl: ESI_RUNTIME_CONFIG.metadataUrl,
     esiBaseUrl: ESI_RUNTIME_CONFIG.esiBaseUrl,
   };
 }

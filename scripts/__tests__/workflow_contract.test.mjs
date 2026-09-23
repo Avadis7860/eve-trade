@@ -48,7 +48,7 @@ for (const command of requiredCiCommands) {
   assert.ok(ci.includes(command), `CI gate lost required command: ${command}`);
 }
 
-const jobsSection = ci.match(/^jobs:\s*\n([\s\S]*)$/m)?.[1];
+const jobsSection = ci.match(/^jobs:[ \t]*\n([\s\S]*)$/m)?.[1];
 assert.ok(jobsSection, 'CI workflow must declare a jobs section');
 
 const jobIds = [...jobsSection.matchAll(/^  ([A-Za-z0-9_-]+):[ \t]*$/gm)].map((match) => match[1]);
@@ -80,26 +80,26 @@ for (const jobId of ['browser-auth', 'browser-operations']) {
   assert.doesNotMatch(jobBlock(jobId), /^\s+needs:/m, `Browser job ${jobId} must remain independently runnable`);
 }
 
-assert.match(ci, /permissions:\s*\n\s+contents:\s+read/, 'CI must declare read-only repository permissions');
+assert.match(ci, /permissions:[ \t]*\n[ \t]+contents:[ \t]+read/, 'CI must declare read-only repository permissions');
 
 assert.match(
   jobBlock('validate'),
-  /^\s+if: \$\{\{ always\(\) \}\}\s*$/m,
+  /^[ \t]+if: \$\{\{ always\(\) \}\}[ \t]*$/m,
   'The historical validate check must remain an unconditional compatibility aggregator',
 );
 assert.match(
   jobBlock('validate'),
-  /^\s+needs: \[static, unit_domain, server, build\]\s*$/m,
+  /^[ \t]+needs: \[static, unit_domain, server, build\][ \t]*$/m,
   'The historical validate check must continue aggregating the non-browser execution lanes',
 );
 assert.match(
   jobBlock('browser-e2e'),
-  /^\s+if: \$\{\{ always\(\) \}\}\s*$/m,
+  /^[ \t]+if: \$\{\{ always\(\) \}\}[ \t]*$/m,
   'The historical browser-e2e check must remain an unconditional compatibility aggregator',
 );
 assert.match(
   jobBlock('browser-e2e'),
-  /^\s+needs: \[browser-auth, browser-operations\]\s*$/m,
+  /^[ \t]+needs: \[browser-auth, browser-operations\][ \t]*$/m,
   'The historical browser-e2e check must continue aggregating both browser responsibility lanes',
 );
 

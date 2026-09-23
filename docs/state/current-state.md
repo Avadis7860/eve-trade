@@ -28,10 +28,11 @@ Current `main` is `a31979c6c76ba93cc19a7437894f3935e69a01c7`, the merge commit f
 ## Incomplete / to monitor
 
 - `IndexedDbStore` remains a large monolithic service; structural decomposition is not implemented.
-- Browser E2E is not yet a release/reference gate on `main`; E2E-001 is the active implementation branch.
+- Browser E2E is not yet a release/reference gate on `main`; E2E-001 remains the active implementation branch until its CI and real-CCP smoke gates are complete.
 - Initial-load/runtime performance is not a dedicated CI gate.
 - Corporation trading UI scope is less mature than the underlying domain boundary.
 - The current IndexedDB `http_cache` has no active private-data business consumer.
+- OAuth browser integration now uses a single server-owned authorization-code exchange, with the popup and popup-blocked paths converging on the same session synchronization flow.
 
 ## Current chantier
 

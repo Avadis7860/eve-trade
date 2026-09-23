@@ -34,6 +34,16 @@ async function setCharacterOrdersMode(
   expect(response.ok()).toBeTruthy();
 }
 
+async function blockMarketOrderRequests(page: Page): Promise<void> {
+  await page.route('**/api/markets/*/orders?*', async route => {
+    await route.fulfill({
+      status: 401,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'TEST_MARKET_TRANSPORT_BLOCKED' }),
+    });
+  });
+}
+
 async function setMarketMode(
   request: APIRequestContext,
   mode: 'live' | 'error' | 'partial',
@@ -162,6 +172,7 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
 
   test('exposes CACHE as an actionable health state', async ({ page, request }) => {
     await prepareOperations(page, request, 'error');
+    await blockMarketOrderRequests(page);
     await launchSso(page);
     await expectOperationsLoaded(page);
 
@@ -202,6 +213,7 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
 
   test('keeps an order UNKNOWN and non-actionable when market state is absent', async ({ page, request }) => {
     await prepareOperations(page, request, 'error');
+    await blockMarketOrderRequests(page);
     await launchSso(page);
     await expectOperationsLoaded(page);
 

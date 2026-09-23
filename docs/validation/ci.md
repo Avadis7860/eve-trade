@@ -1,9 +1,9 @@
 # CI Validation
 
-Status: CURRENT — CI-001H ACTIVE / G CERTIFIED
+Status: CURRENT — CI-001I ACTIVE / G CERTIFIED
 Scope: GitHub Actions regression gate and certification model
 Source of truth: \`.github/workflows/ci.yml\` and \`.github/workflows/phase-2.7c-sde.yml\`
-Implementation: CI-001C/D/E/F/G harden security, topology, ownership, browser isolation and scope routing; CI-001H separates Main Smoke and Full Repository Certification
+Implementation: CI-001C/D/E/F/G harden security, topology, ownership, browser isolation and scope routing; CI-001H separates Main Smoke and Full Repository Certification; CI-001I adds durable timing/churn observability
 Tests: \`npm run test:ci-config\` plus all validation and browser gates below
 
 Baseline: [CI-001A/B — Baseline](../audits/ci-management-baseline-2026-09-23.md)
@@ -128,6 +128,12 @@ The final architecture also includes a stable \`CI / required-gate\` aggregator 
 The actual branch protection/rulesets for \`main\` could not be inspected with the available GitHub integration because the relevant API endpoints returned \`403 Resource not accessible by integration\`.
 
 No check name should be changed during CI-001 until the effective protection configuration is verified with administrative access.
+
+## CI-001I observability
+
+The PR, Main Smoke and Full workflows expose a dedicated `CI / observability` job. It reads the current workflow's Jobs API with `actions: read` only, captures job and step timestamps, calculates recent workflow duration statistics, reports cancellation/rerun frequency, writes a machine-readable JSON artifact and publishes the slowest observed steps in the run summary. The collector never participates in the stable required-gate.
+
+Artifacts are retained for 30 days so several runs can be compared without changing functional gates.
 
 ## Documentation
 

@@ -2,7 +2,7 @@
 
 Status: ACTIVE / CLOSING
 Owner: UX-01 / market reliability
-Base: main `18e1556a4b00331b1089b98a060bbdc2b78030ad`
+Base: main `c0ddc69ef424ed0cfd4de776758166c3ee8c1abe`
 
 ## Objective
 
@@ -56,7 +56,7 @@ The increment is considered complete only after this documentation is merged wit
 
 ### P0-B — Rate-limit regression
 
-**Implementation: complete on `test/p0-market-429-retry-after`; CI certification pending.**
+**DONE / MERGED / CERTIFIED on main by PR #66.**
 
 Deterministic browser coverage now asserts:
 - the browser receives HTTP 429 on the controlled market-order request;
@@ -70,9 +70,11 @@ The existing E2E harness supplies `Retry-After: 7`, `X-ESI-Error-Limit-Remain: 9
 
 Validation details: [P0-B 429 / Retry-After](../validation/p0-b-429-retry-after.md).
 
-The increment is considered complete only after the single PR is CI-certified, merged, and followed by a green Main Smoke.
+The increment was certified by PR #66, including green CI required-gate/SDE-relevant checks and post-merge Main Smoke #7.
 
 ### P0-C — Target-PC evidence bundle
+
+**Implementation: ACTIVE on `feat/p0-target-pc-evidence`.**
 
 Capture on the affected PC, against real CCP/ESI:
 - UTC timestamp;
@@ -86,7 +88,9 @@ Capture on the affected PC, against real CCP/ESI:
 - whether the same request succeeds from a controlled comparison environment;
 - application/browser/OS context sufficient to reproduce the failure.
 
-The repository does not currently contain this real-PC evidence, so the incident remains NOT ROOT-CAUSED.
+The application now provides an exportable JSON bundle for repository-side diagnostics. The repository does not yet contain the real-PC evidence or the controlled comparison result, so the incident remains NOT ROOT-CAUSED.
+
+Validation details: [P0-C target-PC evidence](../validation/p0-c-target-pc-evidence.md).
 
 ### P0-D — Close or externally bound the incident
 

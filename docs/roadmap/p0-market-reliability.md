@@ -56,17 +56,21 @@ The increment is considered complete only after this documentation is merged wit
 
 ### P0-B — Rate-limit regression
 
-Extend deterministic browser coverage to HTTP 429.
+**Implementation: complete on `test/p0-market-429-retry-after`; CI certification pending.**
 
-Expected proof:
+Deterministic browser coverage now asserts:
+- the browser receives HTTP 429 on the controlled market-order request;
 - market health is `ERROR`;
 - active orders remain visible;
 - HTTP 429 is shown;
-- Retry-After is shown;
-- ESI budget metadata is shown;
-- no false empty market state is produced.
+- the accessible market-health diagnostics expose `cache MISS`, ESI budget `91` and `retry 7s`;
+- the false empty-state message is absent.
 
-No claim about real CCP behavior is inferred from the mock; this is a deterministic contract test.
+The existing E2E harness supplies `Retry-After: 7`, `X-ESI-Error-Limit-Remain: 91`, `X-ESI-Error-Limit-Reset: 42` and a deterministic cache/pagination envelope. No claim about real CCP behavior is inferred from the mock.
+
+Validation details: [P0-B 429 / Retry-After](../validation/p0-b-429-retry-after.md).
+
+The increment is considered complete only after the single PR is CI-certified, merged, and followed by a green Main Smoke.
 
 ### P0-C — Target-PC evidence bundle
 

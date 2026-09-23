@@ -76,6 +76,16 @@ assert.ok(detectionBlock.includes('BASE_SHA:'), 'Change detection must define an
 assert.ok(detectionBlock.includes('HEAD_SHA:'), 'Change detection must define an explicit head SHA');
 assert.ok(detectionBlock.includes('ambiguous=true'), 'Change detection must use a conservative ambiguity fallback');
 assert.ok(detectionBlock.includes('full_certification=true'), 'Change detection must fall back to full certification for high-impact or ambiguous scope');
+assert.ok(detectionBlock.includes('run_unit_domain='), 'Change detection must publish run_unit_domain selection');
+assert.ok(detectionBlock.includes('run_server='), 'Change detection must publish run_server selection');
+assert.ok(detectionBlock.includes('run_build='), 'Change detection must publish run_build selection');
+assert.ok(detectionBlock.includes('run_browser='), 'Change detection must publish run_browser selection');
+assert.ok(ci.includes('steps.scope.outputs.run_unit_domain'), 'CI must expose run_unit_domain output');
+assert.ok(ci.includes('steps.scope.outputs.run_server'), 'CI must expose run_server output');
+assert.ok(ci.includes('steps.scope.outputs.run_build'), 'CI must expose run_build output');
+assert.ok(ci.includes('steps.scope.outputs.run_browser'), 'CI must expose run_browser output');
+assert.ok(detectionBlock.includes('tests=true'), 'Test changes must force full certification');
+assert.ok(detectionBlock.includes('frontend=true'), 'Frontend changes must be detectable');
 assert.ok(detectionBlock.includes('GITHUB_STEP_SUMMARY'), 'Change detection must publish an observable scope summary');
 
 for (const jobId of EXECUTION_JOB_IDS) {
@@ -88,9 +98,10 @@ for (const jobId of EXECUTION_JOB_IDS) {
   assert.ok(block.includes('test "$(npm --version)" = "10.9.8"'), `Execution job ${jobId} must verify the npm version bundled with the pinned Node release`);
 }
 
-for (const jobId of ['browser-auth', 'browser-operations']) {
-  assert.doesNotMatch(jobBlock(jobId), /^\s+needs:/m, `Browser job ${jobId} must remain independently runnable`);
+for (const jobId of ['unit_domain', 'server', 'build', 'browser-auth', 'browser-operations']) {
+  assert.match(jobBlock(jobId), /^[ \t]+needs: \[detect-changes\][ \t]*$/m, `Conditional job ${jobId} must depend on the change detector`);
 }
+assert.doesNotMatch(jobBlock('static'), /^[ \t]+needs:/m, 'Static lane must remain available regardless of scope selection');
 
 assert.match(ci, /permissions:[ \t]*\n[ \t]+contents:[ \t]+read/, 'CI must declare read-only repository permissions');
 
@@ -129,6 +140,15 @@ assert.match(
 assert.ok(requiredGateBlock.includes('needs.detect-changes.result'), 'Stable required-gate must inspect change detection result');
 assert.ok(requiredGateBlock.includes('needs.validate.result'), 'Stable required-gate must inspect non-browser validation result');
 assert.ok(requiredGateBlock.includes('needs.browser-e2e.result'), 'Stable required-gate must inspect browser validation result');
+
+assert.match(jobBlock('validate'), /^[ \t]+needs: \[detect-changes, static, unit_domain, server, build\][ \t]*$/m, 'Validation compatibility gate must aggregate detector and non-browser lanes');
+assert.match(jobBlock('browser-e2e'), /^[ \t]+needs: \[detect-changes, browser-auth, browser-operations\][ \t]*$/m, 'Browser compatibility gate must aggregate detector and browser lanes');
+assert.ok(jobBlock('validate').includes('needs.detect-changes.outputs.run_unit_domain'), 'Validation gate must inspect unit/domain selection');
+assert.ok(jobBlock('validate').includes('needs.detect-changes.outputs.run_server'), 'Validation gate must inspect server selection');
+assert.ok(jobBlock('validate').includes('needs.detect-changes.outputs.run_build'), 'Validation gate must inspect build selection');
+assert.ok(jobBlock('browser-e2e').includes('needs.detect-changes.outputs.run_browser'), 'Browser gate must inspect browser selection');
+assert.ok(jobBlock('validate').includes('= "skipped"'), 'Validation gate must explicitly validate skipped lanes');
+assert.ok(jobBlock('browser-e2e').includes('= "skipped"'), 'Browser gate must explicitly validate skipped lanes');
 
 const expectedJobCommands = {
   static: [

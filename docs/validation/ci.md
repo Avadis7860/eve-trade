@@ -9,6 +9,7 @@ Tests: \`npm run test:ci-config\` plus all validation and browser gates below
 Baseline: [CI-001A/B — Baseline](../audits/ci-management-baseline-2026-09-23.md)
 Evidence map: [CI-001B — Evidence Map](ci-evidence-map.md)
 Test taxonomy: [CI-001E — Test Taxonomy](ci-test-taxonomy.md)
+Browser model: Auth/Operations are isolated by job; `workers: 1` remains mandatory
 CI gate: current PR CI; stable aggregator remains a future CI-001G gate
 
 ## Current pipeline
@@ -63,7 +64,8 @@ unit_domain ────────────┤
 server ────────────────┤──► validate (compatibility check)
 build ─────────────────┘
 
-browser-e2e ───────────────► independent
+browser-auth ────────────┐
+browser-operations ───────┤──► browser-e2e (compatibility check)
 \`\`\`
 
 CI-001 will first change this to independent jobs so the browser proof can progress while static/server validation is running.
@@ -138,6 +140,6 @@ No check name should be changed during CI-001 until the effective protection con
 
 The existing CI remains the current certification mechanism.
 
-**CI-001A/B and CI-001C are baselined; CI-001D is the active topology increment.**
+**CI-001A/B and CI-001C are baselined; CI-001D is proven on two representative runs; CI-001E/F are the active implementation slices.**
 
 The topology change is additive in proof ownership: existing commands remain present, the historical `validate` check name remains available, and browser execution is no longer downstream of non-browser validation.

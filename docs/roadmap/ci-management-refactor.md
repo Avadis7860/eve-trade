@@ -327,6 +327,36 @@ Un nouveau PR est justifié seulement par :
 - séparation volontaire d'un chantier ;
 - abandon explicite du chantier précédent.
 
+## CI operator tooling — future track
+
+CI-001 does not require a project-specific CLI, but a future operator layer may reduce procedural drift around PR certification and delivery governance.
+
+### Candidate: CI-OPS-001 — Oclif operator CLI
+
+Status: **CANDIDATE / DEFERRED — not an active phase of CI-001**.
+
+Boundary:
+- **GitHub Actions** remains the source of truth for CI and certification;
+- **GitHub CLI (gh)** remains the low-level interface for workflow runs, checks, PRs and reruns;
+- **Oclif** is considered only as the project's operator-facing CLI layer.
+
+Candidate commands:
+- `eve ci status`;
+- `eve ci watch`;
+- `eve ci rerun-failed`;
+- `eve ci certify`;
+- `eve pr status`.
+
+`eve ci certify` should enforce procedural prerequisites (correct current main, one active branch/PR, required checks green, relevant SDE/browser checks green, merge readiness, post-merge smoke) without moving certification itself out of GitHub Actions.
+
+Activation criteria:
+1. P0 market/ESI closure is complete, unless a separate CI-hardening decision explicitly opens the track earlier;
+2. the operator workflow has repeated enough manual friction to justify a CLI;
+3. the CLI remains thin and testable, with project rules implemented as reusable functions;
+4. no second CI orchestration layer is introduced inside GitHub Actions.
+
+This track must use its own branch and PR and must never be folded into an unrelated product or P0 certification PR.
+
 ## Programme phasé
 
 CI-001 est volontairement traité comme un **programme de maîtrise CI** et non comme un seul changement de workflow.

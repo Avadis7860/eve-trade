@@ -29,13 +29,15 @@ Source of truth: code, tests, CI and current state documents
 - The SDE gate is reliable and cheap but is not yet governed by the same future certification/concurrency model.
 - There is no stable conditional-check aggregator yet, so a future path-aware model must be introduced carefully.
 - Branch protection/ruleset configuration for \`main\` could not be verified with the available integration and must be checked before any required-check rename.
-- CI-001 is documented and implementation-ready, but remains PLANNED / PRIORITY DECISION PENDING.
+- CI-001 is now ACTIVE. CI-001A/B has frozen the baseline and evidence map; topology, required-gate and branch-protection changes remain gated by later phases.
 
 See:
 - [CI Validation](../validation/ci.md)
 - [CI Management Audit](../audits/ci-management-audit-2026-09-23.md)
 - [CI-001 — Refonte du système CI](../roadmap/ci-management-refactor.md)
 - [CI-001 Global Coverage Matrix](../validation/ci-coverage-matrix.md)
+- [CI-001 Baseline](../audits/ci-management-baseline-2026-09-23.md)
+- [CI-001 Evidence Map](../validation/ci-evidence-map.md)
 
 ## Structural gaps
 

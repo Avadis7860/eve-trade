@@ -119,6 +119,7 @@ P0-C is the active technical increment. UX-03 and all other deferred work remain
 [CI Management Audit](../audits/ci-management-audit-2026-09-23.md) ·
 [CI-001 Plan](../roadmap/ci-management-refactor.md) ·
 [P0 Market Reliability Plan](p0-market-reliability.md) ·
+[P0-C Target-PC Evidence](../validation/p0-c-target-pc-evidence.md) ·
 [UI/UX Product Audit](../audits/ui-ux-product-audit-2026-09-23.md) ·
 [UX Program](../roadmap/ux-program.md) ·
 [Master Plan](../roadmap/master-plan.md) ·

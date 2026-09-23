@@ -277,7 +277,10 @@ test.describe('E2E-001 — browser OAuth composition', () => {
     await expectAuthenticatedCharacter(page, ALPHA.name);
     await expect(page.getByRole('button', { name: 'Actualiser' })).toBeEnabled({ timeout: 15_000 });
 
-    await page.evaluate(() => {
+    // Install the expired-session mutation for the next document before
+    // reloading. This prevents the current page's background character sync
+    // from racing with the test and rewriting the persisted session first.
+    await page.addInitScript(() => {
       const raw = localStorage.getItem('eve_trade_character_store_v3');
       if (!raw) throw new Error('missing persisted character store');
       const store = JSON.parse(raw);

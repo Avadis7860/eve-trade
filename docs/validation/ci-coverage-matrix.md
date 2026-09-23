@@ -65,6 +65,9 @@ A future optimization is not accepted merely because it reduces wall-clock time.
 | Main post-merge validation | full CI reruns on main push | PARTIAL | H | short smoke by default |
 | Full repository certification | no dedicated scheduled full gate | GAP | H | scheduled/manual exhaustive proof |
 | Dependency vulnerability review | no dedicated dependency-review proof found | GAP / CONDITIONAL | C/I | PR dependency change detection + scheduled vulnerability scan when supported |
+| Static application security analysis | no CodeQL workflow/configuration found in repository search | GAP / UNKNOWN | C/I | establish or explicitly rule out SAST coverage |
+| Dependency maintenance automation | no Dependabot/Renovate configuration found in repository search | GAP / UNKNOWN | I | establish automated update/alert ownership or explicitly document another mechanism |
+| Documentation integrity | documentation guide requires link/status consistency; no dedicated CI link-integrity gate identified | PARTIAL | I/J | validate active documentation links and status consistency |
 | Workflow token permissions | SDE explicit; main CI not explicitly least-privileged | PARTIAL | C | explicit minimum permissions |
 | Action immutability | actions referenced by version tags | PARTIAL | C/I | reviewable pinning policy |
 | Secret handling | application tests cover auth boundaries; CI security policy not separately mapped | PARTIAL | C | explicit secret exposure rules |
@@ -92,6 +95,8 @@ The following cannot remain \`GAP\` at the end of CI-001:
 - scheduled/manual full certification;
 - CI timing observability;
 - workflow permission hardening;
+- application/dependency security monitoring;
+- documentation integrity monitoring;
 - action maintenance policy;
 - rollback procedure;
 - documentation/runbook synchronization.
@@ -109,6 +114,12 @@ No test is removed merely because another job "looks similar".
 No workflow is made conditional merely because a path appears unrelated.
 
 No required check is renamed without verifying the repository protection configuration.
+
+## Interpretation of unknowns
+
+A repository search cannot prove that GitHub-hosted security settings are disabled. Rows marked UNKNOWN therefore require an administrative/settings verification rather than an implementation guess.
+
+A feature that is intentionally not applicable is not a gap only after that decision is recorded with its scope.
 
 ## Final certification of CI-001
 

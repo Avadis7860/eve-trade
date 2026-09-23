@@ -1,6 +1,6 @@
 # CI-001B — Evidence Map
 
-Status: CURRENT — CI-001B
+Status: CURRENT — CI-001D
 Date: 2026-09-23
 Baseline: main @ `d7f245ec47a8746306792ce6017496f9123c23d6`
 Parent: [CI-001 — Refonte du système CI](../roadmap/ci-management-refactor.md)
@@ -12,7 +12,7 @@ Cette carte rend explicite la relation :
 
 > risque → invariant → test → job → déclencheur → environnement → preuve → récupération
 
-Elle est volontairement construite sur la CI réellement exécutée aujourd'hui. Les jobs cibles de CI-001D/E/F/G/H/I/J pourront évoluer, mais ne doivent pas perdre l'invariant ni la preuve sans remplacement démontré.
+Elle est désormais synchronisée avec la topologie CI-001D réellement exécutée. Les jobs cibles de CI-001E/F/G/H/I/J pourront encore évoluer, mais ne doivent pas perdre l'invariant ni la preuve sans remplacement démontré.
 
 L'état `GAP` ou `UNKNOWN` signifie qu'aucune preuve durable n'est encore disponible dans la configuration actuelle ; ce statut doit conduire à une décision explicite, pas à une hypothèse silencieuse.
 
@@ -20,33 +20,33 @@ L'état `GAP` ou `UNKNOWN` signifie qu'aucune preuve durable n'est encore dispon
 
 | Domaine / risque | Invariant protégé | Test / preuve actuelle | Job actuel | Déclencheur actuel | Environnement | Preuve observable | Récupération / garde-fou |
 |---|---|---|---|---|---|---|---|
-| Frontend | le code frontend reste typable | `npm run typecheck` | `validate` | PR + push main | ubuntu-latest, Node 22 | check/job log | corriger sur la même PR ; rerun si transitoire |
-| Backend | le serveur reste typable | `npm run typecheck:server` | `validate` | PR + push main | ubuntu-latest, Node 22 | check/job log | idem |
-| Workflow CI | les invariants structurels des workflows ne dérivent pas | `npm run test:ci-config` | `validate` | PR + push main | Node 22 | job log | corriger workflow + rerun |
-| Runtime config | la configuration minimale reste cohérente | `npm run test:config` | `validate` | PR + push main | Node 22 | job log | corriger config + rerun |
-| Auth / JWT | les tokens EVE acceptés respectent issuer/audience/signature/claims attendus | `npm run test:auth-token` + `test:security` | `validate` | PR + push main | Node 22 | job log | corriger sur même PR ; conserver les scénarios négatifs |
-| Catalogue | le catalogue embarqué respecte son contrat d'intégrité | `catalog_integrity.test.ts` via `npm test` | `validate` | PR + push main | Node 22 | job log | régénération/commit explicite si artefact concerné |
-| Universe truth | le graphe embarqué correspond à la vérité attendue | `test:truth` + SDE Truth Gate | `validate` + workflow SDE | PR + push main pour CI, PR ciblée pour SDE | Node 22 | logs + diff canonique | SDE gate read-only ; régénérer explicitement puis review |
+| Frontend | le code frontend reste typable | `npm run typecheck` | `static` | PR + push main | ubuntu-latest, Node 22 | check/job log | corriger sur la même PR ; rerun si transitoire |
+| Backend | le serveur reste typable | `npm run typecheck:server` | `static` | PR + push main | ubuntu-latest, Node 22 | check/job log | idem |
+| Workflow CI | les invariants structurels des workflows ne dérivent pas | `npm run test:ci-config` | `static` | PR + push main | Node 22 | job log | corriger workflow + rerun |
+| Runtime config | la configuration minimale reste cohérente | `npm run test:config` | `static` | PR + push main | Node 22 | job log | corriger config + rerun |
+| Auth / JWT | les tokens EVE acceptés respectent issuer/audience/signature/claims attendus | `npm run test:auth-token` + `test:security` | `static` | PR + push main | Node 22 | job log | corriger sur même PR ; conserver les scénarios négatifs |
+| Catalogue | le catalogue embarqué respecte son contrat d'intégrité | `catalog_integrity.test.ts` via `npm test` | `unit_domain` | PR + push main | Node 22 | job log | régénération/commit explicite si artefact concerné |
+| Universe truth | le graphe embarqué correspond à la vérité attendue | `test:truth` + SDE Truth Gate | `unit_domain` + workflow SDE | PR + push main pour CI, PR ciblée pour SDE | Node 22 | logs + diff canonique | SDE gate read-only ; régénérer explicitement puis review |
 | SDE build integrity | l'artefact canonique reste reproductible à partir du build CCP épinglé | `test:sde` + régénération SDE | `sde-truth` quand sensible | PR | Node 22, SDE build 3503375 | diff sur `universeGraph.json` / manifest | aucun auto-commit ; échec sur dérive |
-| Finance | les calculs financiers et la configuration restent cohérents | `financial_config.test.ts`, `financial_engine.test.ts`, `realized_financial_outcome.test.ts` via `npm test` | `validate` | PR + push main | Node 22 | job log | ne retirer aucune suite sans preuve équivalente |
-| Evidence / provenance | les décisions restent traçables jusqu'à une observation/preuve | `data_contracts_and_provenance.test.ts`, `evidence_chain.test.ts`, `observation_provenance_and_audit.test.ts` | `validate` | PR + push main | Node 22 | job log | conserver les tests de preuve lors du découpage |
-| Persistence | transactions/sessions persistent selon les invariants attendus | `character_transaction_persistence.test.ts`, `character_transaction_ingestion.test.ts` | `validate` | PR + push main | Node 22 | job log | conserver couverture de migration/persistence |
-| Execution / outcome | simulation, exécution et résultat réalisé restent cohérents | `execution_simulation.test.ts`, `execution_outcome.test.ts`, `execution_tracking_integration.test.ts`, `realized_financial_outcome.test.ts` | `validate` | PR + push main | Node 22 | job log | certification profonde requise |
-| Domain invariants | propriétés structurelles et frontières de domaine restent vraies | `property_invariants.test.ts`, `domain_repositories.test.ts`, `systemic_certification.test.ts` | `validate` | PR + push main | Node 22 | job log | canoniser la responsabilité avant déplacement |
-| Order / ownership | identité/scoping/ownership des ordres restent stricts | `order_identity.test.ts`, `order_scoping_contracts.test.ts`, `corporation_order.test.ts`, `fleetFinancial*` | `validate` | PR + push main | Node 22 | job log | préserver les frontières character/corporation |
-| Corporation boundary | un principal ne peut agir/lire hors de sa frontière | `test:corporation-boundary` + ESI tests + character routes | `validate` | PR + push main | Node 22 | job log | aucune simplification sans scénario négatif équivalent |
-| API | contrats/routes HTTP restent valides | `test:api` | `validate` | PR + push main | Node 22 | job log | corriger route/contrat + rerun |
-| Server runtime | serveur démarre et expose la santé attendue | `test:smoke` | `validate` | PR + push main | Node 22 | job log | conserver aussi dans futur post-merge smoke |
-| ESI | transport, gateways, erreurs et durcissement respectent les contrats | `test:esi` + service ESI tests | `validate` | PR + push main | Node 22 | job log | préserver scénarios de failure/rate-limit |
-| Market truth | LIVE/CACHE/STALE/PARTIAL/ERROR/UNKNOWN ne sont pas confondus avec un état métier vide | `market_data_quality.test.ts` + Operations browser | `validate` + browser | PR + push main | Node 22 / Playwright | job log + browser report | browser diagnostics ; pas de retry aveugle |
+| Finance | les calculs financiers et la configuration restent cohérents | `financial_config.test.ts`, `financial_engine.test.ts`, `realized_financial_outcome.test.ts` via `npm test` | `unit_domain` | PR + push main | Node 22 | job log | ne retirer aucune suite sans preuve équivalente |
+| Evidence / provenance | les décisions restent traçables jusqu'à une observation/preuve | `data_contracts_and_provenance.test.ts`, `evidence_chain.test.ts`, `observation_provenance_and_audit.test.ts` | `unit_domain` | PR + push main | Node 22 | job log | conserver les tests de preuve lors du découpage |
+| Persistence | transactions/sessions persistent selon les invariants attendus | `character_transaction_persistence.test.ts`, `character_transaction_ingestion.test.ts` | `unit_domain` | PR + push main | Node 22 | job log | conserver couverture de migration/persistence |
+| Execution / outcome | simulation, exécution et résultat réalisé restent cohérents | `execution_simulation.test.ts`, `execution_outcome.test.ts`, `execution_tracking_integration.test.ts`, `realized_financial_outcome.test.ts` | `unit_domain` | PR + push main | Node 22 | job log | certification profonde requise |
+| Domain invariants | propriétés structurelles et frontières de domaine restent vraies | `property_invariants.test.ts`, `domain_repositories.test.ts`, `systemic_certification.test.ts` | `unit_domain` | PR + push main | Node 22 | job log | canoniser la responsabilité avant déplacement |
+| Order / ownership | identité/scoping/ownership des ordres restent stricts | `order_identity.test.ts`, `order_scoping_contracts.test.ts`, `corporation_order.test.ts`, `fleetFinancial*` | `unit_domain` | PR + push main | Node 22 | job log | préserver les frontières character/corporation |
+| Corporation boundary | un principal ne peut agir/lire hors de sa frontière | `test:corporation-boundary` + ESI tests + character routes | `unit_domain` + `server` | PR + push main | Node 22 | job log | aucune simplification sans scénario négatif équivalent |
+| API | contrats/routes HTTP restent valides | `test:api` | `server` | PR + push main | Node 22 | job log | corriger route/contrat + rerun |
+| Server runtime | serveur démarre et expose la santé attendue | `test:smoke` | `server` | PR + push main | Node 22 | job log | conserver aussi dans futur post-merge smoke |
+| ESI | transport, gateways, erreurs et durcissement respectent les contrats | `test:esi` + service ESI tests | `server` | PR + push main | Node 22 | job log | préserver scénarios de failure/rate-limit |
+| Market truth | LIVE/CACHE/STALE/PARTIAL/ERROR/UNKNOWN ne sont pas confondus avec un état métier vide | `market_data_quality.test.ts` + Operations browser | `unit_domain` + `browser-e2e` | PR + push main | Node 22 / Playwright | job log + browser report | browser diagnostics ; pas de retry aveugle |
 | Browser Auth | OAuth popup/callback/CSRF/session/isolation restent déterministes | 13 scénarios `auth-browser.spec.ts` | `browser-e2e` | PR + push main | Node 22 + Chromium + E2E harness | Playwright report, trace/video/screenshot on failure | rerun ciblé ; investigation de flake avant retry policy |
 | Browser Operations | données opérationnelles et états dégradés sont visibles sans fausse décision | 4 scénarios `operations-browser.spec.ts` | `browser-e2e` | PR + push main | Node 22 + Chromium + E2E harness | Playwright report | conserver `workers: 1` avant isolation |
 | Browser isolation | chaque scénario doit être indépendant des contrôles globaux | état mutable `nextAuthControl` / `marketControl` dans harness | `browser-e2e` | PR + push main | même process de harness | aucune preuve d'isolation multi-worker actuellement | GAP/PARTIAL : isoler avant workers > 1 |
-| Build | la production build reste réalisable | `npm run build` | `validate` | PR + push main | Node 22 | job log | conserver un build certification |
-| Lockfile / install | l'installation correspond au lockfile | `npm ci --no-audit --no-fund` | `validate`, `browser-e2e` | PR + push main | Node 22 | step log | ne pas passer à node_modules cache fragile |
-| Workflow token permissions | CI n'obtient pas plus de droits que nécessaire | `phase-2.7c-sde.yml` explicite `contents: read` ; `ci.yml` n'explicite pas les permissions | SDE / CI | PR / main | GitHub Actions | YAML review | GAP/PARTIAL : durcissement CI-001C |
-| Action supply chain | une action tierce ne dérive pas silencieusement | versions `@v4` actuellement utilisées | tous workflows | PR / main | GitHub Actions | workflow source | GAP/PARTIAL : politique de pinning à décider |
-| Secrets | aucun secret n'est exposé ou écrit par la CI | pas de policy CI dédiée | tous workflows | PR / main | GitHub Actions | configuration/secret audit | GAP/PARTIAL : formaliser règles |
+| Build | la production build reste réalisable | `npm run build` | `build` | PR + push main | Node 22 | job log | conserver un build certification |
+| Lockfile / install | l'installation correspond au lockfile | `npm ci --no-audit --no-fund` | all five execution lanes | PR + push main | Node 22 | step log | ne pas passer à node_modules cache fragile |
+| Workflow token permissions | CI n'obtient pas plus de droits que nécessaire | `phase-2.7c-sde.yml` explicite `contents: read` ; `ci.yml` n'explicite pas les permissions | all CI lanes | PR / main | GitHub Actions | YAML review | GAP/PARTIAL : durcissement CI-001C |
+| Action supply chain | une action tierce ne dérive pas silencieusement | versions `@v4` actuellement utilisées | all CI lanes | PR / main | GitHub Actions | workflow source | GAP/PARTIAL : politique de pinning à décider |
+| Secrets | aucun secret n'est exposé ou écrit par la CI | pas de policy CI dédiée | all CI lanes | PR / main | GitHub Actions | configuration/secret audit | GAP/PARTIAL : formaliser règles |
 | Dependency security | les changements de dépendances critiques sont détectés | aucune dependency-review dédiée observée | aucune lane dédiée | — | — | aucune preuve durable | GAP / décision CI-001C/I |
 | SAST | défauts de code détectables automatiquement | aucun workflow CodeQL/SAST observé | aucun | — | — | aucune preuve durable | GAP / UNKNOWN ; décision explicite requise |
 | Dependency maintenance | mises à jour/alertes ont un propriétaire automatique | aucun Dependabot/Renovate observé | aucun | — | — | aucune preuve durable | GAP / UNKNOWN |
@@ -158,6 +158,10 @@ Pour chaque futur déplacement d'un test :
 Pour chaque future conditionalisation :
 
 > l'ambiguïté du périmètre déclenche la certification profonde, jamais l'absence de preuve.
+
+## CI-001D topology gate
+
+CI-001D exits only after the new lanes are green and representative runs show a lower wall-clock path than the monolithic baseline, without loss of command-level proof. The historical `validate` check remains to avoid a required-check rename during D.
 
 ## CI-001B gate
 

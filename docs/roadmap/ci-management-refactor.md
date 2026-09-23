@@ -1,6 +1,6 @@
 # CI-001 — Refonte du système CI, validation et gouvernance
 
-Status: ACTIVE — CI-001A/B
+Status: ACTIVE — CI-001D
 Scope: GitHub Actions, test certification, browser E2E et gouvernance des PR
 Owner: project maintainers
 Baseline: main @ \`d7f245ec47a8746306792ce6017496f9123c23d6\`
@@ -42,7 +42,9 @@ CI-001 ne vise pas à :
 
 CI-001 is now the single active cross-cutting chantier and the absolute CI priority. The active branch is `ci/ci-001a-baseline`; there must be no second active PR for CI-001.
 
-The first implementation increment is deliberately documentation and evidence only. Workflow topology, required checks, branch protection and Playwright workers remain unchanged during CI-001A/B.
+CI-001A/B and CI-001C are completed on the active branch. CI-001D is now the active execution slice.
+
+CI-001A/B established the baseline/evidence map and CI-001C hardened workflow permissions, action immutability and runtime reproducibility. CI-001D is now the active topology increment. Required-check naming, branch protection and Playwright workers remain unchanged.
 
 ## État actuel de référence
 
@@ -51,11 +53,13 @@ Le workflow principal est :
 \`\`\`
 pull_request/push main
         │
-        ▼
-   validate
-        │
-        ▼
- browser-e2e
+        ├────────► static
+        ├────────► unit-domain
+        ├────────► server
+        ├────────► build
+        └────────► browser-e2e
+                         │
+          validate ◄────┴─ compatibility aggregation
 \`\`\`
 
 Le job \`validate\` regroupe presque toutes les validations. Le browser E2E attend la totalité de ce job.
@@ -398,6 +402,8 @@ Gate :
 
 Objectif : supprimer les dépendances séquentielles sans modifier la couverture.
 
+État : ACTIVE — implémentation sur la branche CI-001 unique.
+
 Travail :
 
 - détacher browser de \`validate\` ;
@@ -555,10 +561,10 @@ En particulier :
 
 ## Priorité
 
-État actuel : **ACTIVE — CI-001A/B**.
+État actuel : **ACTIVE — CI-001D**.
 
 CI-001 est désormais le chantier prioritaire unique pour la CI et la gouvernance de livraison. UX-02 reste suspendu pendant cette tranche d'infrastructure.
 
-Le premier incrément actif est **CI-001A + CI-001B** : baseline, observabilité de départ, inventaire des risques et relation risque → preuve, sans modification significative de topologie.
+Le premier incrément est désormais accepté ; **CI-001D** est la tranche active : découpage static / unit-domain / server / build, détachement browser et mesure du chemin mural.
 
 La protection de branche et les required checks restent inchangés jusqu'à vérification administrative explicite.

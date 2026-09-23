@@ -122,7 +122,7 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
   });
 
   for (const scenario of [
-    { key: 'keep', row: /Position Optimale/, detail: /Position Optimale/ },
+    { key: 'keep', row: /Conserver/, detail: /Position Optimale/ },
     { key: 'adjust', row: /Ajuster :/, detail: /Ajuster le Prix à/ },
     { key: 'relocate', row: /Déplacer ➔ Amarr \(Domain\)/, detail: /Déplacer vers Amarr/ },
     { key: 'cancel', row: /Annuler l'Ordre/, detail: /Annuler : Concurrence Destructrice de Marge|Marché Inactif : Annulation Recommandée/ },

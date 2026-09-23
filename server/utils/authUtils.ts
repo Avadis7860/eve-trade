@@ -15,8 +15,9 @@ export const EVE_CALLBACK_URL = ESI_RUNTIME_CONFIG.callbackUrl;
 export const EVE_SSO_AUTHORIZE_URL = ESI_RUNTIME_CONFIG.authorizeUrl;
 export const EVE_SSO_TOKEN_URL = ESI_RUNTIME_CONFIG.tokenUrl;
 export const EVE_SSO_VERIFY_URL = ESI_RUNTIME_CONFIG.verifyUrl;
+export const EVE_SSO_METADATA_URL = ESI_RUNTIME_CONFIG.metadataUrl;
 
-export { getRuntimeConfigStatus } from '../config/environment';
+export { getRuntimeConfigStatus, assertOAuthRuntimeConfig } from '../config/environment';
 
 export const EVE_SCOPES = [
   'esi-markets.read_character_orders.v1',

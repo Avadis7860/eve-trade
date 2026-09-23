@@ -381,8 +381,6 @@ await new Promise<void>((resolve, reject) => {
   mockServer.listen(MOCK_PORT, '127.0.0.1', () => resolve());
 });
 
-process.env.EVE_SSO_AUTHORIZE_URL = `http://127.0.0.1:${MOCK_PORT}/v2/oauth/authorize/`;
-process.env.EVE_SSO_TOKEN_URL = `http://127.0.0.1:${MOCK_PORT}/v2/oauth/token`;
 process.env.EVE_SSO_METADATA_URL = `http://127.0.0.1:${MOCK_PORT}/.well-known/oauth-authorization-server`;
 process.env.ESI_BASE_URL = `http://127.0.0.1:${MOCK_PORT}`;
 process.env.E2E_OAUTH_STATE_TTL_MS = process.env.E2E_OAUTH_STATE_TTL_MS || '1000';

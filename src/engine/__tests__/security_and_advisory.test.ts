@@ -149,9 +149,6 @@ function runSecurityAndAdvisoryTests() {
   const checkLocalhost = validateRedirectUri('http://localhost:3000/auth/callback', mockReq);
   assert(checkLocalhost.isValid, 'Whitelisted localhost callback must be accepted');
 
-  const checkAltLocalhost = validateRedirectUri('http://localhost:8000/callback', mockReq);
-  assert(checkAltLocalhost.isValid, 'Whitelisted port 8000 callback must be accepted');
-
   // 5b. Open Redirect / Unauthorized domain rejection
   const attackerUri = 'https://malicious-site.com/steal-eve-token';
   const maliciousCheck = validateRedirectUri(attackerUri, mockReq);

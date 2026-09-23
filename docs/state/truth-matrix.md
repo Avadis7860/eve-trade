@@ -1,7 +1,7 @@
 # Truth Matrix
 
 Status: CURRENT
-Scope: synthetic state of current `main`
+Scope: synthetic state of current main plus active PR acceptance
 Source of truth: code, tests, CI and manifests at main `a31979c6c76ba93cc19a7437894f3935e69a01c7`
 
 | Domaine | État | Implémentation principale | Validation | Documentation | Suite |
@@ -19,4 +19,4 @@ Source of truth: code, tests, CI and manifests at main `a31979c6c76ba93cc19a7437
 | Persistence | STABLE | `IndexedDbStore` v5 / 11 stores | persistence tests | [persistence](../architecture/persistence.md) | structural refactor |
 | Security | STABLE | auth + ESI principal boundary | security/ESI | [security](../architecture/security-boundary.md) | new scopes |
 | UI | PARTIAL | React components/hooks | typecheck/build | [frontend](../architecture/frontend.md) | E2E + UX/performance |
-| Browser E2E | IN PROGRESS | deterministic Playwright OAuth/ESI composition on E2E-001 branch; server-owned Authorization Code exchange, verified EVE JWT and same-window recovery | validate + browser CI evidence pending | [e2e](../validation/e2e.md) | E2E-001 |
+| Browser E2E | READY FOR LOCAL ACCEPTANCE | deterministic Playwright OAuth/ESI composition on E2E-001 branch; server-owned Authorization Code exchange, verified EVE JWT and same-window recovery | validate + browser CI passed on PR #46; target-PC real CCP smoke pending | [e2e](../validation/e2e.md) | real CCP acceptance |

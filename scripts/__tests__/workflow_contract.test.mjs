@@ -77,7 +77,7 @@ assert.ok(detectionBlock.includes('HEAD_SHA:'), 'Change detection must define an
 const scopeClassifier = read('scripts/ci-scope.mjs');
 assert.ok(scopeClassifier.includes('ambiguous = paths.length === 0'), 'Scope classifier must use a conservative ambiguity fallback');
 assert.ok(scopeClassifier.includes('const full_certification = ambiguous || ci || config || domain || server || sde || tests;'), 'Scope classifier must force full certification for high-impact or ambiguous scope');
-assert.ok(detectionBlock.includes('run_static='), 'Change detection must publish run_static selection');
+assert.ok(detectionBlock.includes('run_static: ${{ steps.scope.outputs.run_static }}'), 'Change detection must publish run_static selection');
 assert.ok(detectionBlock.includes('run_unit_domain='), 'Change detection must publish run_unit_domain selection');
 assert.ok(detectionBlock.includes('run_server='), 'Change detection must publish run_server selection');
 assert.ok(detectionBlock.includes('run_build='), 'Change detection must publish run_build selection');

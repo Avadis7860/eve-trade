@@ -221,21 +221,28 @@ test.describe('E2E-001 — browser OAuth composition', () => {
   });
 
   test('rejects an unauthorized redirect URI before token exchange', async ({ page }) => {
-    const authData = await page.evaluate(async () => {
-      const response = await fetch('/api/auth/url');
-      return await response.json();
-    });
-    const tokenResponse = await page.context().request.post('/api/auth/token', {
-      data: {
-        code: 'e2e-code-alpha',
-        state: authData.state,
-        redirect_uri: 'http://127.0.0.1:3000/auth/callback?tampered=1',
-      },
+    const result = await page.evaluate(async () => {
+      const authResponse = await fetch('/api/auth/url');
+      const authData = await authResponse.json();
+
+      const tokenResponse = await fetch('/api/auth/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: 'e2e-code-alpha',
+          state: authData.state,
+          redirect_uri: 'http://127.0.0.1:3000/auth/callback?tampered=1',
+        }),
+      });
+
+      return {
+        status: tokenResponse.status,
+        body: await tokenResponse.json(),
+      };
     });
 
-    expect(tokenResponse.status()).toBe(400);
-    const body = await tokenResponse.json();
-    expect(body.error).toBe('INVALID_REDIRECT_URI');
+    expect(result.status).toBe(400);
+    expect(result.body.error).toBe('INVALID_REDIRECT_URI');
   });
 
   test('rejects a callback after the OAuth state TTL expires', async ({ page, request }) => {

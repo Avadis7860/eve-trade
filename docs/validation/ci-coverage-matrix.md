@@ -70,11 +70,11 @@ A future optimization is not accepted merely because it reduces wall-clock time.
 | Static application security analysis | no CodeQL workflow/configuration found in repository search | GAP / UNKNOWN | C/I | establish or explicitly rule out SAST coverage |
 | Dependency maintenance automation | no Dependabot/Renovate configuration found in repository search | GAP / UNKNOWN | I | establish automated update/alert ownership or explicitly document another mechanism |
 | Documentation integrity | documentation guide requires link/status consistency; no dedicated CI link-integrity gate identified | PARTIAL | I/J | validate active documentation links and status consistency |
-| Workflow token permissions | SDE explicit; main CI not explicitly least-privileged | PARTIAL | C | explicit minimum permissions |
-| Action immutability | actions referenced by version tags | PARTIAL | C/I | reviewable pinning policy |
+| Workflow token permissions | main CI + SDE explicitly declare \`contents: read\` | COVERED | C | explicit minimum permissions |
+| Action immutability | checkout/setup-node/upload-artifact pinned to immutable SHAs | COVERED | C/I | reviewable SHA maintenance policy |
 | Secret handling | application tests cover auth boundaries; CI security policy not separately mapped | PARTIAL | C | explicit secret exposure rules |
 | Dependency / lockfile reproducibility | \`npm ci\` + lockfile | COVERED | C | preserve locked installs |
-| Node/runtime reproducibility | Node 22 stated; runner/action runtime evolves | PARTIAL | C/I | explicit supported runtime + monitored action runtime |
+| Node/runtime reproducibility | Node 22.23.2 + npm 10.9.8 explicitly verified | COVERED | C/I | explicit supported runtime + monitored action runtime |
 | Runner environment drift | \`ubuntu-latest\` | PARTIAL | I | intentional runner policy or periodic verification |
 | Artifact provenance | no release-attestation requirement | CONDITIONAL | C/I | assess only if release/distribution requires it |
 | CI documentation | current workflow/runbook exists | COVERED | J | active docs + phase evidence |

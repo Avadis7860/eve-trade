@@ -13,6 +13,7 @@ export const EVE_CALLBACK_URL = ESI_RUNTIME_CONFIG.callbackUrl;
 // Upstream EVE SSO endpoints. Production defaults remain CCP; local E2E can
 // point these boundaries at deterministic fixtures without changing the flow.
 export const EVE_SSO_METADATA_URL = ESI_RUNTIME_CONFIG.metadataUrl;
+export const OAUTH_STATE_COOKIE = 'eve_trade_oauth_state_v1';
 
 export { getRuntimeConfigStatus, assertOAuthRuntimeConfig } from '../config/environment';
 
@@ -26,6 +27,43 @@ export const EVE_SCOPES = [
   'publicData',
 ].join(' ');
 
+export function readOAuthStateCookie(req: express.Request): string | null {
+  const raw = req.get('cookie');
+  if (!raw) return null;
+
+  for (const entry of raw.split(';')) {
+    const [name, ...valueParts] = entry.trim().split('=');
+    if (name !== OAUTH_STATE_COOKIE) continue;
+    return valueParts.join('=') || null;
+  }
+
+  return null;
+}
+
+export function buildOAuthStateCookie(state: string, req: express.Request): string {
+  const secure = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https';
+  return [
+    OAUTH_STATE_COOKIE + '=' + state,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Lax',
+    'Max-Age=' + Math.ceil(STATE_TTL_MS / 1000),
+    secure ? 'Secure' : '',
+  ].filter(Boolean).join('; ');
+}
+
+export function buildOAuthStateCookieClear(req: express.Request): string {
+  const secure = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https';
+  return [
+    OAUTH_STATE_COOKIE + '=',
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Lax',
+    'Max-Age=0',
+    'Expires=Thu, 01 Jan 1970 00:00:00 GMT',
+    secure ? 'Secure' : '',
+  ].filter(Boolean).join('; ');
+}
 export interface OAuthStateEntry {
   createdAt: number;
   redirectUri?: string;

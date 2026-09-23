@@ -306,7 +306,10 @@ export class AuthService {
         const response = await fetch('/api/auth/refresh', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refresh_token: session.refresh_token }),
+          body: JSON.stringify({
+            refresh_token: session.refresh_token,
+            character_id: session.character_id,
+          }),
         });
 
         if (!response.ok) {

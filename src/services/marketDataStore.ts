@@ -646,6 +646,17 @@ export class MarketDataStore {
       const chunk = uniqueTypeIds.slice(i, i + chunkSize);
       await Promise.all(
         chunk.map(async (typeId) => {
+          const fetchKey = `type_${typeId}`;
+          const inFlight = this.activeFetches.get(fetchKey);
+
+          if (inFlight) {
+            try {
+              await inFlight;
+            } catch {
+              // The explicit refresh below owns the final refresh result.
+            }
+          }
+
           await this.fetchLiveItemData(typeId, activeHubs, true);
         })
       );

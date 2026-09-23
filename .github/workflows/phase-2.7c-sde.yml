@@ -49,7 +49,7 @@ jobs:
       SDE_URL: 'https://developers.eveonline.com/static-data/tranquility/eve-online-static-data-3503375-jsonl.zip'
     steps:
       - name: Checkout pull request commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 1

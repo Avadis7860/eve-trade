@@ -161,7 +161,7 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
   });
 
   test('exposes CACHE as an actionable health state', async ({ page, request }) => {
-    await prepareOperations(page, request, 'live');
+    await prepareOperations(page, request, 'error');
     await launchSso(page);
     await expectOperationsLoaded(page);
 
@@ -196,7 +196,7 @@ test.describe('UX-02 — Operations / Mes Ordres', () => {
   });
 
   test('keeps an order UNKNOWN and non-actionable when market state is absent', async ({ page, request }) => {
-    await prepareOperations(page, request, 'live');
+    await prepareOperations(page, request, 'error');
     await launchSso(page);
     await expectOperationsLoaded(page);
 

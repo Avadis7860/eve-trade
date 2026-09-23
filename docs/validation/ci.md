@@ -8,6 +8,7 @@ Tests: \`npm run test:ci-config\` plus all validation and browser gates below
 
 Baseline: [CI-001A/B — Baseline](../audits/ci-management-baseline-2026-09-23.md)
 Evidence map: [CI-001B — Evidence Map](ci-evidence-map.md)
+Test taxonomy: [CI-001E — Test Taxonomy](ci-test-taxonomy.md)
 CI gate: current PR CI; stable aggregator remains a future CI-001G gate
 
 ## Current pipeline

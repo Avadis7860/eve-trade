@@ -6,13 +6,11 @@ const MOCK_BASE_URL = `http://127.0.0.1:${MOCK_PORT}`;
 const ALPHA = {
   id: 1001,
   name: 'E2E Character Alpha',
-  token: 'eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJDSEFSQUNURVI6RVZFOjEwMDEiLCJuYW1lIjoiRTJFIENoYXJhY3RlciBBbHBoYSJ9.e2e-signature',
 };
 
 const BETA = {
   id: 1002,
   name: 'E2E Character Beta',
-  token: 'eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiJDSEFSQUNURVI6RVZFOjEwMDIiLCJuYW1lIjoiRTJFIENoYXJhY3RlciBCZXRhIn0.e2e-signature',
 };
 
 async function openOrders(page: Page): Promise<void> {

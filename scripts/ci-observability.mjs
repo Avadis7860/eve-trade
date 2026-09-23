@@ -78,6 +78,15 @@ const countBy = (items, key) => items.reduce((acc, item) => {
   return acc;
 }, {});
 
+const workflowDurations = completedRuns
+  .map((item) => durationSeconds(item.run_started_at, item.updated_at))
+  .filter((value) => value !== null)
+  .sort((a, b) => a - b);
+const percentile = (values, fraction) => {
+  if (!values.length) return null;
+  const index = Math.min(values.length - 1, Math.max(0, Math.ceil(values.length * fraction) - 1));
+  return values[index];
+};
 const history = {
   sampled_runs: completedRuns.length,
   conclusions: countBy(completedRuns, 'conclusion'),
@@ -85,6 +94,12 @@ const history = {
   cancellation_rate: completedRuns.length
     ? Number(((completedRuns.filter((item) => item.conclusion === 'cancelled').length / completedRuns.length) * 100).toFixed(1))
     : 0,
+  workflow_duration_seconds: {
+    median: percentile(workflowDurations, 0.5),
+    p95: percentile(workflowDurations, 0.95),
+    minimum: workflowDurations[0] ?? null,
+    maximum: workflowDurations[workflowDurations.length - 1] ?? null,
+  },
   same_branch_sampled_runs: currentBranchRuns.length,
   same_branch_conclusions: countBy(currentBranchRuns, 'conclusion'),
 };

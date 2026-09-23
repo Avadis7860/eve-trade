@@ -24,7 +24,18 @@ function forwardMarketMetadata(res: Response, metadata: EsiResponseMetadata) {
   }
 }
 
-function sendMarketError(res: Response, result: { status: number; error?: { kind: string } }) {
+function sendMarketError(
+  res: Response,
+  result: {
+    status: number;
+    error?: { kind: string };
+    metadata: EsiResponseMetadata;
+    cacheStatus: 'HIT' | 'MISS' | 'REVALIDATED';
+  },
+) {
+  forwardMarketMetadata(res, result.metadata);
+  res.setHeader('X-Cache-Status', result.cacheStatus);
+
   return res.status(result.status).json({
     error: result.error?.kind || 'ESI_ERROR',
     status: result.status,

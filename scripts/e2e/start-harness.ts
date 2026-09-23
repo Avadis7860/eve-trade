@@ -179,6 +179,8 @@ async function handleMock(req: http.IncomingMessage, res: http.ServerResponse): 
 
     const key = control.character;
     const callback = new URL(redirectUri);
+    callback.searchParams.set('state', state);
+
     if (control.errorCode) {
       callback.searchParams.set('error', control.errorCode);
       callback.searchParams.set(
@@ -187,7 +189,6 @@ async function handleMock(req: http.IncomingMessage, res: http.ServerResponse): 
       );
     } else {
       callback.searchParams.set('code', 'e2e-code-' + key);
-      callback.searchParams.set('state', state);
     }
     return redirect(res, callback.toString());
   }

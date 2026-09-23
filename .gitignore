@@ -24,3 +24,5 @@ venv/
 # IDEs
 .vscode/
 .idea/
+playwright-report/
+test-results/

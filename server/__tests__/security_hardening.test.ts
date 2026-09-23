@@ -222,13 +222,34 @@ async function runTests() {
       assert(json.error === 'MISSING_STATE', `Expected MISSING_STATE, got ${json.error}`);
     });
 
-    await test('POST /api/auth/token rejects non-hex / arbitrary state tokens with HTTP 400 INVALID_OR_EXPIRED_STATE', async () => {
+    await test('POST /api/auth/token rejects a valid state when the initiating browser cookie is absent', async () => {
+      const state = generateOAuthState('http://localhost:3000/auth/callback');
       const res = await fetch(`${baseUrl}/api/auth/token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           code: 'valid-looking-code-12345',
-          state: 'malicious-forged-state',
+          state,
+        }),
+      });
+      assert(res.status === 400, `Expected 400, got ${res.status}`);
+      const json = await res.json();
+      assert(json.error === 'BROWSER_STATE_MISMATCH', `Expected BROWSER_STATE_MISMATCH, got ${json.error}`);
+      assert(activeOAuthStates.has(state), 'State must remain unconsumed when browser binding fails');
+      activeOAuthStates.delete(state);
+    });
+
+    await test('POST /api/auth/token rejects non-hex / arbitrary state tokens with HTTP 400 INVALID_OR_EXPIRED_STATE', async () => {
+      const maliciousState = 'malicious-forged-state';
+      const res = await fetch(`${baseUrl}/api/auth/token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: `eve_trade_oauth_state_v1=${maliciousState}`,
+        },
+        body: JSON.stringify({
+          code: 'valid-looking-code-12345',
+          state: maliciousState,
         }),
       });
       assert(res.status === 400, `Expected 400, got ${res.status}`);
@@ -246,7 +267,10 @@ async function runTests() {
 
       const res = await fetch(`${baseUrl}/api/auth/token`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: `eve_trade_oauth_state_v1=${expiredState}`,
+        },
         body: JSON.stringify({
           code: 'valid-looking-code-12345',
           state: expiredState,
@@ -265,7 +289,10 @@ async function runTests() {
       // but state MUST be consumed and purged from activeOAuthStates!
       const firstRes = await fetch(`${baseUrl}/api/auth/token`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: `eve_trade_oauth_state_v1=${state}`,
+        },
         body: JSON.stringify({
           code: 'test-code',
           state: state,
@@ -277,7 +304,10 @@ async function runTests() {
       // Second call (replay) with the same state MUST fail immediately with INVALID_OR_EXPIRED_STATE
       const replayRes = await fetch(`${baseUrl}/api/auth/token`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: `eve_trade_oauth_state_v1=${state}`,
+        },
         body: JSON.stringify({
           code: 'test-code',
           state: state,
@@ -290,12 +320,15 @@ async function runTests() {
     });
 
     await test('POST /api/auth/token auto-extracts code and state when full callback URL is provided', async () => {
-      const validState = generateOAuthState('http://127.0.0.1:3000/auth/callback');
-      const fullUrl = `http://localhost:3000/auth/callback?code=extracted-code-xyz&state=${validState}`;
+      const validState = generateOAuthState(`${baseUrl}/auth/callback`);
+      const fullUrl = `${baseUrl}/auth/callback?code=extracted-code-xyz&state=${validState}`;
 
       const res = await fetch(`${baseUrl}/api/auth/token`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: `eve_trade_oauth_state_v1=${validState}`,
+        },
         body: JSON.stringify({
           code: fullUrl,
         }),
@@ -328,8 +361,10 @@ async function runTests() {
 
     await test('GET /auth/callback neutralizes </script> breakout injection in script context', async () => {
       const injection = '</script><script>alert("XSS")</script>';
+      const state = generateOAuthState(`${baseUrl}/auth/callback`);
       const xssRes = await fetch(
-        `${baseUrl}/auth/callback?error=invalid_grant&error_description=${encodeURIComponent(injection)}`
+        `${baseUrl}/auth/callback?state=${state}&error=invalid_grant&error_description=${encodeURIComponent(injection)}`,
+        { headers: { Cookie: `eve_trade_oauth_state_v1=${state}` } },
       );
       assert(xssRes.status === 400, `Expected 400 HTML page, got ${xssRes.status}`);
       const html = await xssRes.text();
@@ -338,10 +373,23 @@ async function runTests() {
       assert(html.includes('&lt;/script&gt;'), 'HTML DOM body must encode < as &lt;');
     });
 
+    await test('GET /auth/callback rejects a state issued for a different callback URI', async () => {
+      const state = generateOAuthState('http://localhost:3000/auth/callback');
+      const response = await fetch(
+        `${baseUrl}/auth/callback?state=${state}&error=access_denied&error_description=cancelled`,
+        { headers: { Cookie: `eve_trade_oauth_state_v1=${state}` } },
+      );
+      assert(response.status === 400, `Expected 400, got ${response.status}`);
+      const html = await response.text();
+      assert(html.includes('REDIRECT_URI_MISMATCH'), 'Expected redirect URI mismatch error');
+    });
+
     await test('GET /auth/callback safely escapes quotes, ampersands, and special chars in script payload', async () => {
       const trickyPayload = 'Injection "with" \'quotes\' & <tags> and \\backslash';
+      const state = generateOAuthState(`${baseUrl}/auth/callback`);
       const trickyRes = await fetch(
-        `${baseUrl}/auth/callback?error=test_error&error_description=${encodeURIComponent(trickyPayload)}`
+        `${baseUrl}/auth/callback?state=${state}&error=test_error&error_description=${encodeURIComponent(trickyPayload)}`,
+        { headers: { Cookie: `eve_trade_oauth_state_v1=${state}` } },
       );
       assert(trickyRes.status === 400, `Expected 400, got ${trickyRes.status}`);
       const html = await trickyRes.text();

@@ -1,24 +1,39 @@
 # Authentication Contract
 
-Status: STABLE
+Status: IN PROGRESS
 Owner: auth boundary
-Implementation: `server/routes/auth.ts`, `server/utils/authUtils.ts`, `src/services/authService.ts`
-Validation: `server/__tests__/security_hardening.test.ts`, API tests
+Implementation: `server/routes/auth.ts`, `server/utils/authUtils.ts`, `server/config/environment.ts`, `src/services/authService.ts`
+Validation: security/API suites + `server/__tests__/auth_token_validation.test.ts`
 
 ## Purpose
 
-Maintain secure EVE SSO v2 authentication and character-scoped credentials.
+Maintain EVE SSO v2 Authorization Code authentication and character-scoped credentials without trusting unverified browser or JWT claims.
 
 ## Contract shape
 
-Sessions are associated with a character identity and token lifecycle. OAuth callback validation uses a cryptographic `state` and rejects replay.
+The client secret remains server-side. The browser returns to the registered callback with an authorization code and state; the server validates and consumes the state, discovers the current authorization/token/JWKS endpoints from CCP's well-known metadata document, exchanges the code at the discovered token endpoint, verifies the returned JWT, and only then exposes the validated session to the browser.
+
+CCP's official SSO documentation is the authority for the OAuth/JWT contract: https://developers.eveonline.com/docs/services/sso/.
 
 ## Semantic rules
 
-Character credentials are never interchangeable. Authenticated character routes require a Bearer credential. Refresh operations are coordinated to avoid concurrent token invalidation races.
+- OAuth state is random, single-use, TTL-bound, bound to the selected redirect URI, and bound to the browser session by an HttpOnly SameSite cookie.
+- EVE access-token JWTs are accepted only after signature verification against the JWKS advertised by CCP's SSO metadata, then issuer, audience and expiration validation.
+- The JWT subject must use the EVE character form `CHARACTER:EVE:<character-id>`.
+- Character credentials are never interchangeable.
+- Raw authorization codes and OAuth state are not forwarded to the frontend for a second exchange. The auxiliary `/api/auth/token` path enforces the same browser-state binding and is not a weaker OAuth route.
+- Callback documents are `no-store` and `no-referrer`.
+
+## ESI relationship
+
+Authenticated ESI calls use the validated EVE SSO access token and send `X-Compatibility-Date`. The production transport uses the ESI root endpoint and does not rely on the legacy `/latest` URL prefix.
+
+CCP references:
+- https://developers.eveonline.com/docs/services/esi/overview/
+- https://developers.eveonline.com/blog/changing-versions-v42-was-getting-out-of-hand/
 
 ## Failure semantics
 
-Invalid state, unauthorized credentials, expired/revoked tokens and upstream failures remain explicit HTTP/error states.
+Invalid state, JWT signature/issuer/audience/expiration failures, unauthorized credentials, expired/revoked tokens and upstream failures remain explicit error states.
 
 [Character isolation](../invariants/character-isolation.md) · [Security](../architecture/security-boundary.md)

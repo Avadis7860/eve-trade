@@ -17,7 +17,7 @@ import {
 
 interface SsoConnectCardProps {
   onSessionReady?: (session: EveCharacterSession) => void | Promise<void>;
-  onConnectSSO?: (redirectUri: string) => void;
+  onConnectSSO: (redirectUri: string) => void;
   compact?: boolean;
   title?: string;
   subtitle?: string;
@@ -34,7 +34,7 @@ export const SsoConnectCard: React.FC<SsoConnectCardProps> = ({
   const [selectedMode, setSelectedMode] = useState<string>(() => {
     const preferred = AuthService.getPreferredRedirectUri();
     const match = suggestedUris.find((u) => u.uri === preferred);
-    return match ? match.id : 'localhost8000';
+    return match ? match.id : (suggestedUris[0]?.id || 'app');
   });
   const [customUri, setCustomUri] = useState<string>('');
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
@@ -51,8 +51,10 @@ export const SsoConnectCard: React.FC<SsoConnectCardProps> = ({
 
   const activeRedirectUri =
     selectedMode === 'custom'
-      ? customUri.trim() || 'http://localhost:8000/callback'
-      : suggestedUris.find((u) => u.id === selectedMode)?.uri || 'http://localhost:8000/callback';
+      ? customUri.trim() || suggestedUris[0]?.uri || 'http://localhost:3000/auth/callback'
+      : suggestedUris.find((u) => u.id === selectedMode)?.uri ||
+        suggestedUris[0]?.uri ||
+        'http://localhost:3000/auth/callback';
 
   useEffect(() => {
     AuthService.setPreferredRedirectUri(activeRedirectUri);
@@ -64,44 +66,10 @@ export const SsoConnectCard: React.FC<SsoConnectCardProps> = ({
     setTimeout(() => setCopiedUrl(null), 2000);
   };
 
-  const handleLaunchSSO = async () => {
+  const handleLaunchSSO = () => {
     setErrorMessage(null);
     setSuccessMessage(null);
-
-    if (onConnectSSO) {
-      onConnectSSO(activeRedirectUri);
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      const urlParam = `?redirect_uri=${encodeURIComponent(activeRedirectUri)}`;
-      const res = await fetch(`/api/auth/url${urlParam}`);
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.message || 'Impossible de générer l\'URL d\'authentification CCP SSO');
-      }
-      const data = await res.json();
-      const authUrl = data.url;
-
-      const width = 600;
-      const height = 750;
-      const left = window.screen.width / 2 - width / 2;
-      const top = window.screen.height / 2 - height / 2;
-      const popup = window.open(
-        authUrl,
-        'eve_sso_login',
-        `toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=yes, resizable=yes, copyhistory=no, width=${width}, height=${height}, top=${top}, left=${left}`
-      );
-
-      if (!popup) {
-        window.location.href = authUrl;
-      }
-    } catch (err) {
-      setErrorMessage(String(err));
-    } finally {
-      setIsLoading(false);
-    }
+    onConnectSSO(activeRedirectUri);
   };
 
   const handleManualCodeSubmit = async (e: React.FormEvent) => {
@@ -113,9 +81,12 @@ export const SsoConnectCard: React.FC<SsoConnectCardProps> = ({
     setSuccessMessage(null);
 
     try {
+      if (!/[?&]state=[^&#]+/.test(manualCode.trim())) {
+        throw new Error("Collez l'URL complète du callback EVE SSO contenant le paramètre state.");
+      }
       const session = await AuthService.exchangeCodeForSession(
         manualCode.trim(),
-        activeRedirectUri
+        undefined
       );
       setSuccessMessage(`Personnage ${session.character_name} authentifié avec succès !`);
       setManualCode('');
@@ -335,7 +306,7 @@ export const SsoConnectCard: React.FC<SsoConnectCardProps> = ({
         {activeTab === 'manual_code' && (
           <form onSubmit={handleManualCodeSubmit} className="bg-[#0e1117] p-4 rounded-xl border border-[#262730] space-y-3">
             <p className="text-[#808495] text-xs leading-relaxed">
-              Si la fenêtre popup est bloquée par votre navigateur ou si vous utilisez un callback local/distant, collez ici soit le code d'autorisation brut, soit l'URL complète retournée (ex. <code className="text-emerald-400">{activeRedirectUri}?code=...&state=...</code>) :
+              Si la fenêtre popup est bloquée par votre navigateur, utilisez l'URL complète du callback retournée par EVE SSO avec les paramètres <code className="text-emerald-400">code</code> et <code className="text-emerald-400">state</code>. Le code brut seul n'est pas accepté.
             </p>
             <div className="flex gap-2">
               <input

@@ -149,8 +149,8 @@ function runSecurityAndAdvisoryTests() {
   const checkLocalhost = validateRedirectUri('http://localhost:3000/auth/callback', mockReq);
   assert(checkLocalhost.isValid, 'Whitelisted localhost callback must be accepted');
 
-  const checkAltLocalhost = validateRedirectUri('http://localhost:8000/callback', mockReq);
-  assert(checkAltLocalhost.isValid, 'Whitelisted port 8000 callback must be accepted');
+  const queryTamperedCallback = validateRedirectUri('http://localhost:3000/auth/callback?tampered=1', mockReq);
+  assert(!queryTamperedCallback.isValid, 'Callback query parameters MUST NOT broaden the registered redirect URI whitelist');
 
   // 5b. Open Redirect / Unauthorized domain rejection
   const attackerUri = 'https://malicious-site.com/steal-eve-token';

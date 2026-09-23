@@ -6,6 +6,7 @@
  */
 
 import { logEvent } from './logger';
+import { ESI_RUNTIME_CONFIG } from '../config/environment';
 import { ESI_COMPATIBILITY_DATE } from './esiTypes';
 import type { EsiResponseMetadata } from './esiTypes';
 
@@ -45,6 +46,7 @@ export interface EsiFetchResult<T = unknown> {
 const DEFAULT_USER_AGENT = 'eve-trade-interregional/0.3 (https://github.com/eve-trade)';
 const DEFAULT_TIMEOUT_MS = 12000;
 const MAX_RETRIES = 2;
+const ESI_BASE_URL = ESI_RUNTIME_CONFIG.esiBaseUrl.replace(/\/+$/, '');
 
 let globalMockFetch: EsiFetchFn | null = null;
 
@@ -77,7 +79,7 @@ export async function fetchEsi<T = unknown>(
 
   const url = endpoint.startsWith('http')
     ? endpoint
-    : `https://esi.evetech.net/latest${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+    : `${ESI_BASE_URL}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
 
   const requestHeaders: Record<string, string> = {
     ...(headers as Record<string, string>),

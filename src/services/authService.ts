@@ -2,6 +2,8 @@ import { EveCharacterSession, SessionAuthStatus, FleetRole, TradingFleetOverview
 import { CharacterRepository } from '../domain/character/CharacterRepository';
 
 const memoryStore = new Map<string, string>();
+const PENDING_BROWSER_OAUTH_RESULT_KEY = 'eve_trade_oauth_result_v1';
+const PENDING_BROWSER_OAUTH_MAX_AGE_MS = 30_000;
 
 const safeStorage = {
   getItem(key: string): string | null {
@@ -102,8 +104,19 @@ export class AuthService {
    */
   static normalizeSession(session: any): EveCharacterSession {
     const rawExpiresAt = Number(session.expires_at) || 0;
-    const status = this.computeSessionStatus({ ...session, expires_at: rawExpiresAt });
-    const isExpired = session.is_token_expired ?? (status === 'SESSION_EXPIRED' || status === 'SESSION_REVOKED' || rawExpiresAt <= 0);
+    const expiresIn = Number(session.expires_in);
+    const effectiveExpiresAt =
+      rawExpiresAt ||
+      (Number.isFinite(expiresIn) && expiresIn > 0
+        ? Date.now() + expiresIn * 1000
+        : 0);
+    const status = this.computeSessionStatus({
+      ...session,
+      expires_at: effectiveExpiresAt,
+    });
+    const isExpired =
+      session.is_token_expired ??
+      (status === 'SESSION_EXPIRED' || status === 'SESSION_REVOKED' || effectiveExpiresAt <= 0);
 
     return {
       character_id: Number(session.character_id),
@@ -111,7 +124,7 @@ export class AuthService {
       portrait_url: session.portrait_url || `https://images.evetech.net/characters/${session.character_id}/portrait?size=128`,
       access_token: session.access_token || '',
       refresh_token: session.refresh_token || '',
-      expires_at: rawExpiresAt,
+      expires_at: effectiveExpiresAt,
       last_sync: session.last_sync || new Date().toISOString(),
       is_active: Boolean(session.is_active),
       is_token_expired: isExpired,
@@ -293,7 +306,10 @@ export class AuthService {
         const response = await fetch('/api/auth/refresh', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refresh_token: session.refresh_token }),
+          body: JSON.stringify({
+            refresh_token: session.refresh_token,
+            character_id: session.character_id,
+          }),
         });
 
         if (!response.ok) {
@@ -364,12 +380,14 @@ export class AuthService {
   }
 
   /**
-   * Gets the preferred redirect URI for EVE SSO (defaults to localhost:8000/callback or app callback).
+   * Gets the canonical redirect URI for EVE SSO.
    */
   static getPreferredRedirectUri(): string {
     const stored = safeStorage.getItem('eve_sso_preferred_redirect_uri');
     if (stored && stored.trim()) return stored.trim();
-    return 'http://localhost:8000/callback';
+    const currentOrigin =
+      typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+    return `${currentOrigin}/auth/callback`;
   }
 
   /**
@@ -385,12 +403,60 @@ export class AuthService {
    * Suggested standard redirect URIs for EVE SSO based on environment.
    */
   static getSuggestedRedirectUris(): { id: string; label: string; uri: string }[] {
-    const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-    return [
-      { id: 'localhost8000', label: 'Localhost (8000)', uri: 'http://localhost:8000/callback' },
-      { id: 'cloudrun', label: 'App Host / Preview', uri: `${currentOrigin}/auth/callback` },
+    const currentOrigin =
+      typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+    const candidates = [
+      { id: 'app', label: 'Application actuelle', uri: `${currentOrigin}/auth/callback` },
       { id: 'localhost3000', label: 'Localhost (3000)', uri: 'http://localhost:3000/auth/callback' },
     ];
+    return candidates.filter(
+      (candidate, index, list) =>
+        list.findIndex((entry) => entry.uri === candidate.uri) === index
+    );
+  }
+
+  /**
+   * Consumes the one-shot OAuth result written by the server callback when a
+   * popup could not be opened. The bridge is same-origin and short-lived.
+   */
+  static consumePendingBrowserOAuthResult(): EveCharacterSession | null {
+    const raw = safeStorage.getItem(PENDING_BROWSER_OAUTH_RESULT_KEY);
+    if (!raw) return null;
+
+    safeStorage.removeItem(PENDING_BROWSER_OAUTH_RESULT_KEY);
+
+    try {
+      const parsed = JSON.parse(raw) as {
+        version?: number;
+        createdAt?: number;
+        session?: Record<string, unknown>;
+      };
+
+      if (
+        parsed.version !== 1 ||
+        !Number.isFinite(parsed.createdAt) ||
+        Date.now() - Number(parsed.createdAt) > PENDING_BROWSER_OAUTH_MAX_AGE_MS ||
+        !parsed.session ||
+        typeof parsed.session.access_token !== 'string'
+      ) {
+        return null;
+      }
+
+      const characterId = Number(parsed.session.character_id);
+      if (!Number.isInteger(characterId) || characterId <= 0) return null;
+
+      const expiresIn = Number(parsed.session.expires_in);
+      return this.normalizeSession({
+        ...parsed.session,
+        character_id: characterId,
+        expires_at:
+          Date.now() +
+          (Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn * 1000 : 20 * 60 * 1000),
+        is_active: true,
+      });
+    } catch {
+      return null;
+    }
   }
 
   /**

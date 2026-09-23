@@ -23,6 +23,7 @@ interface NextAuthControl {
 }
 
 type MarketControlMode = 'live' | 'error' | 'partial';
+type OperationsDecisionScenario = 'default' | 'keep' | 'adjust' | 'relocate' | 'cancel';
 
 interface MarketControl {
   mode: MarketControlMode;
@@ -31,6 +32,7 @@ interface MarketControl {
 
 let nextAuthControl: NextAuthControl = { character: 'alpha' };
 let marketControl: MarketControl = { mode: 'live', errorStatus: 401 };
+let operationsDecisionScenario: OperationsDecisionScenario = 'default';
 type MarketEsiGatewayInstance = typeof import('../../server/gateways/marketEsiGateway').marketEsiGateway;
 let marketEsiGatewayControl: MarketEsiGatewayInstance | null = null;
 
@@ -183,8 +185,38 @@ async function handleMock(req: http.IncomingMessage, res: http.ServerResponse): 
   if (req.method === 'POST' && url.pathname === '/__control__/reset') {
     nextAuthControl = { character: 'alpha' };
     marketControl = { mode: 'live', errorStatus: 401 };
+    operationsDecisionScenario = 'default';
     marketEsiGatewayControl?.clearCache();
     return json(res, 200, { ok: true });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/__control__/operations') {
+    let body: unknown = {};
+    try {
+      const raw = await readBody(req);
+      body = raw ? JSON.parse(raw) : {};
+    } catch {
+      return json(res, 400, { error: 'INVALID_CONTROL_PAYLOAD' });
+    }
+
+    const control = body as { scenario?: OperationsDecisionScenario };
+    const scenario =
+      control.scenario === 'keep' ||
+      control.scenario === 'adjust' ||
+      control.scenario === 'relocate' ||
+      control.scenario === 'cancel'
+        ? control.scenario
+        : control.scenario === 'default'
+          ? 'default'
+          : null;
+
+    if (!scenario) {
+      return json(res, 400, { error: 'INVALID_OPERATIONS_SCENARIO' });
+    }
+
+    operationsDecisionScenario = scenario;
+    marketEsiGateway.clearCache();
+    return json(res, 200, { ok: true, operations: { scenario } });
   }
 
   if (req.method === 'POST' && url.pathname === '/__control__/market') {
@@ -329,59 +361,93 @@ async function handleMock(req: http.IncomingMessage, res: http.ServerResponse): 
       );
     }
 
-    const baseOrders = [
-      {
-        order_id: typeId === 34 ? 501 : 601,
-        type_id: typeId,
-        region_id: regionId,
-        system_id: 30000142,
-        location_id: 60003760,
-        price: typeId === 34 ? 100 : 200,
-        volume_remain: typeId === 34 ? 10 : 20,
-        volume_total: typeId === 34 ? 10 : 20,
-        min_volume: 1,
-        is_buy_order: false,
-        range: 'region',
-        issued: '2026-09-23T00:00:00.000Z',
-        duration: 90,
-      },
-      {
-        order_id: typeId === 34 ? 502 : 602,
-        type_id: typeId,
-        region_id: regionId,
-        system_id: 30000142,
-        location_id: 60003760,
-        price: typeId === 34 ? 95 : 195,
-        volume_remain: 25,
-        volume_total: 25,
-        min_volume: 1,
-        is_buy_order: false,
-        range: 'region',
-        issued: '2026-09-23T00:00:00.000Z',
-        duration: 90,
-      },
-      {
-        order_id: typeId === 34 ? 503 : 603,
-        type_id: typeId,
-        region_id: regionId,
-        system_id: 30000142,
-        location_id: 60003760,
-        price: typeId === 34 ? 90 : 190,
-        volume_remain: 100,
-        volume_total: 100,
-        min_volume: 1,
-        is_buy_order: true,
-        range: 'region',
-        issued: '2026-09-23T00:00:00.000Z',
-        duration: 90,
-      },
-    ];
+    const currentOrderPrice =
+      operationsDecisionScenario === 'keep' ? 100 :
+      operationsDecisionScenario === 'adjust' ? 100 :
+      operationsDecisionScenario === 'relocate' ? 100 :
+      operationsDecisionScenario === 'cancel' ? 100 :
+      (typeId === 34 ? 100 : 200);
+    const currentOrderVolume =
+      operationsDecisionScenario === 'relocate' ? 100_000 :
+      operationsDecisionScenario === 'cancel' ? 1_000 :
+      (typeId === 34 ? 10 : 20);
+    const currentCompetingSellPrice =
+      operationsDecisionScenario === 'keep' ? 101 :
+      operationsDecisionScenario === 'adjust' || operationsDecisionScenario === 'cancel' ? 95 :
+      operationsDecisionScenario === 'relocate' ? 110 :
+      (typeId === 34 ? 95 : 195);
+    const regionalOrders =
+      operationsDecisionScenario === 'relocate' && regionId === 10000043
+        ? [
+            {
+              order_id: 9401,
+              type_id: typeId,
+              region_id: regionId,
+              system_id: 30002187,
+              location_id: 60008494,
+              price: 200,
+              volume_remain: 100_000,
+              volume_total: 100_000,
+              min_volume: 1,
+              is_buy_order: false,
+              range: 'region',
+              issued: '2026-09-23T00:00:00.000Z',
+              duration: 90,
+            },
+          ]
+        : [
+            {
+              order_id: typeId === 34 ? 501 : 601,
+              type_id: typeId,
+              region_id: regionId,
+              system_id: 30000142,
+              location_id: 60003760,
+              price: currentOrderPrice,
+              volume_remain: currentOrderVolume,
+              volume_total: currentOrderVolume,
+              min_volume: 1,
+              is_buy_order: false,
+              range: 'region',
+              issued: '2026-09-23T00:00:00.000Z',
+              duration: 90,
+            },
+            {
+              order_id: typeId === 34 ? 502 : 602,
+              type_id: typeId,
+              region_id: regionId,
+              system_id: 30000142,
+              location_id: 60003760,
+              price: currentCompetingSellPrice,
+              volume_remain: 25,
+              volume_total: 25,
+              min_volume: 1,
+              is_buy_order: false,
+              range: 'region',
+              issued: '2026-09-23T00:00:00.000Z',
+              duration: 90,
+            },
+            {
+              order_id: typeId === 34 ? 503 : 603,
+              type_id: typeId,
+              region_id: regionId,
+              system_id: 30000142,
+              location_id: 60003760,
+              price: 90,
+              volume_remain: 100,
+              volume_total: 100,
+              min_volume: 1,
+              is_buy_order: true,
+              range: 'region',
+              issued: '2026-09-23T00:00:00.000Z',
+              duration: 90,
+            },
+          ];
 
     if (marketControl.mode === 'partial') {
       return json(
         res,
         200,
-        baseOrders,
+        regionalOrders,
         {
           'X-Cache-Status': 'MISS',
           'X-Pages': '2',
@@ -394,7 +460,7 @@ async function handleMock(req: http.IncomingMessage, res: http.ServerResponse): 
     return json(
       res,
       200,
-      baseOrders,
+      regionalOrders,
       {
         'X-Cache-Status': 'MISS',
         'X-Pages': '1',
@@ -402,6 +468,21 @@ async function handleMock(req: http.IncomingMessage, res: http.ServerResponse): 
         'X-ESI-Error-Limit-Reset': '44',
       },
     );
+  }
+
+  const marketHistoryMatch = url.pathname.match(/^\/markets\/(\d+)\/history\/$/);
+  if (marketHistoryMatch && req.method === 'GET') {
+    const regionId = Number(marketHistoryMatch[1]);
+    const volume = operationsDecisionScenario === 'cancel' && regionId === 10000002 ? 0.1 : 10;
+    const history = Array.from({ length: 30 }, (_, index) => ({
+      date: `2026-09-${String(index + 1).padStart(2, '0')}`,
+      order_count: operationsDecisionScenario === 'cancel' && regionId === 10000002 ? 2 : 25,
+      volume,
+      average: regionId === 10000043 ? 200 : 100,
+      highest: regionId === 10000043 ? 205 : 105,
+      lowest: regionId === 10000043 ? 195 : 95,
+    }));
+    return json(res, 200, history);
   }
 
   const compatibilityDate = req.headers['x-compatibility-date'];
@@ -459,16 +540,22 @@ async function handleMock(req: http.IncomingMessage, res: http.ServerResponse): 
     }
     if (resource === 'wallet/transactions') return json(res, 200, []);
     if (resource === 'wallet/journal') return json(res, 200, []);
+    const orderTypeId = fixture === fixtures.alpha ? 34 : 35;
+    const orderVolume =
+      operationsDecisionScenario === 'relocate' ? 100_000 :
+      operationsDecisionScenario === 'cancel' ? 1_000 :
+      (fixture === fixtures.alpha ? 10 : 20);
+
     return json(res, 200, [
       {
         order_id: fixture === fixtures.alpha ? 501 : 601,
-        type_id: fixture === fixtures.alpha ? 34 : 35,
+        type_id: orderTypeId,
         region_id: 10000002,
         system_id: 30000142,
         location_id: 60003760,
         price: fixture === fixtures.alpha ? 100 : 200,
-        volume_remain: fixture === fixtures.alpha ? 10 : 20,
-        volume_total: fixture === fixtures.alpha ? 10 : 20,
+        volume_remain: orderVolume,
+        volume_total: orderVolume,
         min_volume: 1,
         is_buy_order: false,
         range: 'region',
@@ -476,7 +563,6 @@ async function handleMock(req: http.IncomingMessage, res: http.ServerResponse): 
         duration: 90,
       },
     ], { 'X-Pages': '1' });
-  }
 
   const corpOrdersMatch = esiPath.match(/^\/corporations\/(\d+)\/orders\/$/);
   if (corpOrdersMatch && req.method === 'GET') {

@@ -294,7 +294,7 @@ async function handleMock(req: http.IncomingMessage, res: http.ServerResponse): 
     return json(res, 400, { error: 'UNSUPPORTED_GRANT' });
   }
 
-  const preCompatibilityMatch = url.pathname.match(/^\/markets\/(\\d+)\/orders\/$/);
+  const preCompatibilityMatch = url.pathname.match(/^\/markets\/(\d+)\/orders\/$/);
   if (preCompatibilityMatch && req.method === 'GET') {
     const regionId = Number(preCompatibilityMatch[1]);
     const typeId = Number(url.searchParams.get('type_id') || 0);

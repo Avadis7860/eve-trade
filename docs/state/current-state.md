@@ -42,6 +42,17 @@ Post-merge behavior is now intentionally split: PR changes run the PR certificat
 
 The single-active-branch/PR rule remains mandatory: one delivery branch at a time, and merged branches are not reused for new work.
 
+## CI operator tooling status
+
+Oclif is **planned / not implemented** as a future project CLI operator layer. It is intentionally not part of the active P0-B branch scope.
+
+The intended separation is:
+- GitHub Actions = CI and certification authority;
+- gh = GitHub workflow/PR/run control;
+- Oclif = optional project-facing operator commands and enforcement of the repository's delivery procedure.
+
+Activation is deferred until P0 is closed, or until a separately approved CI-hardening need makes the operator layer materially useful. The implementation, if activated, gets its own branch and PR.
+
 ## Stable foundations
 
 - Canonical catalog protected by version/count/checksum manifest.

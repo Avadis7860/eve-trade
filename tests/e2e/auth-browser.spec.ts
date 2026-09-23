@@ -23,7 +23,7 @@ async function openOrders(page: Page): Promise<void> {
 }
 
 async function selectAppCallback(page: Page): Promise<void> {
-  await page.getByText('App Host / Preview').click();
+  await page.getByText('Application actuelle').click();
 }
 
 async function configureNextAuth(

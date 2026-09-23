@@ -29,6 +29,10 @@ jobs:
       docs: ${{ steps.scope.outputs.docs }}
       ambiguous: ${{ steps.scope.outputs.ambiguous }}
       full_certification: ${{ steps.scope.outputs.full_certification }}
+      run_unit_domain: ${{ steps.scope.outputs.run_unit_domain }}
+      run_server: ${{ steps.scope.outputs.run_server }}
+      run_build: ${{ steps.scope.outputs.run_build }}
+      run_browser: ${{ steps.scope.outputs.run_browser }}
     steps:
       - name: Checkout pull request commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -102,8 +106,18 @@ jobs:
           done <<< "$changed_files"
 
           full_certification=false
-          if [ "$ambiguous" = true ] || [ "$ci" = true ] || [ "$config" = true ] || [ "$domain" = true ] || [ "$server" = true ] || [ "$sde" = true ]; then
+          if [ "$ambiguous" = true ] || [ "$ci" = true ] || [ "$config" = true ] || [ "$domain" = true ] || [ "$server" = true ] || [ "$sde" = true ] || [ "$tests" = true ]; then
             full_certification=true
+          fi
+
+          run_unit_domain="$full_certification"
+          run_server="$full_certification"
+          run_build="$full_certification"
+          run_browser="$full_certification"
+
+          if [ "$frontend" = true ]; then
+            run_build=true
+            run_browser=true
           fi
 
           {
@@ -117,6 +131,10 @@ jobs:
             echo "docs=$docs"
             echo "ambiguous=$ambiguous"
             echo "full_certification=$full_certification"
+            echo "run_unit_domain=$run_unit_domain"
+            echo "run_server=$run_server"
+            echo "run_build=$run_build"
+            echo "run_browser=$run_browser"
           } >> "$GITHUB_OUTPUT"
 
           {
@@ -174,6 +192,8 @@ jobs:
 
   unit_domain:
     name: Unit / Domain Certification
+    needs: [detect-changes]
+    if: ${{ needs.detect-changes.outputs.run_unit_domain == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -202,6 +222,8 @@ jobs:
 
   server:
     name: Server / API / Security / ESI
+    needs: [detect-changes]
+    if: ${{ needs.detect-changes.outputs.run_server == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -232,6 +254,8 @@ jobs:
 
   build:
     name: Production Build
+    needs: [detect-changes]
+    if: ${{ needs.detect-changes.outputs.run_build == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -256,6 +280,8 @@ jobs:
 
   browser-auth:
     name: Browser E2E — Auth
+    needs: [detect-changes]
+    if: ${{ needs.detect-changes.outputs.run_browser == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -291,6 +317,8 @@ jobs:
 
   browser-operations:
     name: Browser E2E — Operations
+    needs: [detect-changes]
+    if: ${{ needs.detect-changes.outputs.run_browser == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -327,28 +355,53 @@ jobs:
   validate:
     name: Validation & Non-Regression Gate
     if: ${{ always() }}
-    needs: [static, unit_domain, server, build]
+    needs: [detect-changes, static, unit_domain, server, build]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Verify validation lanes
+      - name: Verify selected validation lanes
         run: |
+          set -euo pipefail
+          test "${{ needs.detect-changes.result }}" = "success"
           test "${{ needs.static.result }}" = "success"
-          test "${{ needs.unit_domain.result }}" = "success"
-          test "${{ needs.server.result }}" = "success"
-          test "${{ needs.build.result }}" = "success"
+
+          if [ "${{ needs.detect-changes.outputs.run_unit_domain }}" = "true" ]; then
+            test "${{ needs.unit_domain.result }}" = "success"
+          else
+            test "${{ needs.unit_domain.result }}" = "skipped"
+          fi
+
+          if [ "${{ needs.detect-changes.outputs.run_server }}" = "true" ]; then
+            test "${{ needs.server.result }}" = "success"
+          else
+            test "${{ needs.server.result }}" = "skipped"
+          fi
+
+          if [ "${{ needs.detect-changes.outputs.run_build }}" = "true" ]; then
+            test "${{ needs.build.result }}" = "success"
+          else
+            test "${{ needs.build.result }}" = "skipped"
+          fi
 
   browser-e2e:
     name: Browser E2E — OAuth/ESI composition
     if: ${{ always() }}
-    needs: [browser-auth, browser-operations]
+    needs: [detect-changes, browser-auth, browser-operations]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Verify browser responsibility lanes
+      - name: Verify selected browser lanes
         run: |
-          test "${{ needs.browser-auth.result }}" = "success"
-          test "${{ needs.browser-operations.result }}" = "success"
+          set -euo pipefail
+          test "${{ needs.detect-changes.result }}" = "success"
+
+          if [ "${{ needs.detect-changes.outputs.run_browser }}" = "true" ]; then
+            test "${{ needs.browser-auth.result }}" = "success"
+            test "${{ needs.browser-operations.result }}" = "success"
+          else
+            test "${{ needs.browser-auth.result }}" = "skipped"
+            test "${{ needs.browser-operations.result }}" = "skipped"
+          fi
   required-gate:
     name: CI / required-gate
     if: ${{ always() }}

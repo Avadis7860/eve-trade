@@ -1,12 +1,14 @@
 # CI-001 — Refonte du système CI, validation et gouvernance
 
-Status: PLANNED / PRIORITY DECISION PENDING
+Status: ACTIVE — CI-001A/B
 Scope: GitHub Actions, test certification, browser E2E et gouvernance des PR
 Owner: project maintainers
-Baseline: main @ \`6e3f611f8bdce6ad42236f7082b3dc044582dbef\`
+Baseline: main @ \`d7f245ec47a8746306792ce6017496f9123c23d6\`
 Study: [Audit CI — gestion, performance et gouvernance](../audits/ci-management-audit-2026-09-23.md)
 Current validation: [CI Validation](../validation/ci.md)
 Coverage model: [CI-001 Global Coverage Matrix](../validation/ci-coverage-matrix.md)
+Current baseline: [CI-001A/B — Baseline](../audits/ci-management-baseline-2026-09-23.md)
+Evidence map: [CI-001B — Evidence Map](../validation/ci-evidence-map.md)
 
 ## Objective
 
@@ -35,6 +37,12 @@ CI-001 ne vise pas à :
 ## Principe directeur
 
 > Une modification doit recevoir le signal dont elle a besoin au moment où elle en a besoin : debug rapide pendant l'itération, certification profonde avant merge, santé courte après merge, certification exhaustive planifiée.
+
+## Current execution state
+
+CI-001 is now the single active cross-cutting chantier and the absolute CI priority. The active branch is `ci/ci-001a-baseline`; there must be no second active PR for CI-001.
+
+The first implementation increment is deliberately documentation and evidence only. Workflow topology, required checks, branch protection and Playwright workers remain unchanged during CI-001A/B.
 
 ## État actuel de référence
 
@@ -547,8 +555,10 @@ En particulier :
 
 ## Priorité
 
-État actuel : **PRIORITY DECISION PENDING**.
+État actuel : **ACTIVE — CI-001A/B**.
 
-Cette roadmap est prête à devenir le chantier prioritaire, mais elle ne modifie pas encore l'ordre produit actuel.
+CI-001 est désormais le chantier prioritaire unique pour la CI et la gouvernance de livraison. UX-02 reste suspendu pendant cette tranche d'infrastructure.
 
-Si CI-001 devient la priorité absolue, le premier incrément à lancer est **CI-001A + CI-001B**, sans toucher immédiatement aux règles de protection de branche.
+Le premier incrément actif est **CI-001A + CI-001B** : baseline, observabilité de départ, inventaire des risques et relation risque → preuve, sans modification significative de topologie.
+
+La protection de branche et les required checks restent inchangés jusqu'à vérification administrative explicite.

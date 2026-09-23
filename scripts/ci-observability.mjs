@@ -3,7 +3,6 @@ import fs from 'node:fs';
 const token = process.env.GITHUB_TOKEN;
 const repository = process.env.GITHUB_REPOSITORY;
 const runId = process.env.GITHUB_RUN_ID;
-const workflow = process.env.GITHUB_WORKFLOW || 'unknown';
 const runSha = process.env.GITHUB_SHA || 'unknown';
 const certifiedSha = process.env.CI_CERTIFIED_SHA || runSha;
 const ref = process.env.GITHUB_REF_NAME || process.env.GITHUB_REF || 'unknown';
@@ -117,7 +116,8 @@ const metrics = {
     event: run.event,
     ref,
     head_branch: run.head_branch,
-    sha,
+    sha: runSha,
+    certified_sha: certifiedSha,
     status: run.status,
     conclusion: run.conclusion,
     run_started_at: run.run_started_at,

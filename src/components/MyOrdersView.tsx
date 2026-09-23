@@ -2,58 +2,38 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
   EveCharacterSession,
   EveCharacterOrder,
-  EveTypeDetail,
   MarketHub,
   FinancialConfig,
   RawMarketOrder,
   HistoricalStats,
-  TraderPerformanceMetrics,
   OrderAdvisorRecommendation,
   OrderCollection,
   OrderScope,
-  PerformanceScope,
-  CharacterFinancialResult,
 } from '../types';
 import { fmtIsk, fmtNumber } from '../engine/money';
-import { FleetFinancialEngine } from '../engine/fleetFinancial';
-import { EsiService } from '../services/esi';
 import { AuthService } from '../services/authService';
-import { TraderAnalyticsService } from '../services/traderAnalytics';
-import { CharacterTransactionSyncService } from '../services/characterTransactionSyncService';
 import { OrderAdvisorService } from '../services/orderAdvisor';
 import { getOrderLockedValue, getOrderMarketDistance, getOrderTiming } from '../engine/orderOperations';
 import { GlobalMarketSyncService } from '../services/globalMarketSync';
 import { MarketDataStore } from '../services/marketDataStore';
-import { IndexedDbStore } from '../services/indexedDbStore';
 import { CatalogRepository } from '../domain/catalog/CatalogRepository';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
 import { OrderAdvisorModal } from './OrderAdvisorModal';
 import { OrderOperationsDetail } from './OrderOperationsDetail';
-import { TraderPerformanceModal } from './TraderPerformanceModal';
 import { SsoConnectCard } from './SsoConnectCard';
 import {
-  Shield,
-  Coins,
   RefreshCw,
   ExternalLink,
   AlertCircle,
   CheckCircle2,
   TrendingDown,
   ShoppingBag,
-  Tag,
   Search,
-  Copy,
-  Check,
   Zap,
   LogOut,
-  Trophy,
   Truck,
   XCircle,
-  Sparkles,
-  Award,
   Clock,
-  Percent,
-  SlidersHorizontal,
   Globe,
   Users,
   User,
@@ -477,11 +457,6 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                     Connecté ESI
                   </span>
                 )}
-                {traderMetrics && (
-                  <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold border ${traderMetrics.trader_badge_color}`}>
-                    {traderMetrics.trader_title}
-                  </span>
-                )}
               </div>
               <div className="flex items-center gap-4 text-xs text-[#808495] flex-wrap">
                 <span>ID Pilote : <strong className="text-[#fafafa]">{session.character_id}</strong></span>
@@ -517,11 +492,11 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
 
             <button
               onClick={onRefreshOrders}
-              disabled={isLoadingOrders || isLoadingAnalytics}
+              disabled={isLoadingOrders}
               className="flex items-center gap-1.5 bg-[#262730] hover:bg-[#31333f] text-[#fafafa] text-xs font-semibold px-3.5 py-2 rounded-lg border border-[#31333f] transition-colors disabled:opacity-50"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingOrders || isLoadingAnalytics ? 'animate-spin' : ''}`} />
-              <span>{isLoadingOrders || isLoadingAnalytics ? 'Actualisation...' : 'Actualiser'}</span>
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingOrders ? 'animate-spin' : ''}`} />
+              <span>{isLoadingOrders ? 'Actualisation...' : 'Actualiser'}</span>
             </button>
 
             <button

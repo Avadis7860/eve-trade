@@ -1,4 +1,5 @@
 import http from 'node:http';
+import crypto from 'node:crypto';
 
 type CharacterKey = 'alpha' | 'beta';
 
@@ -46,15 +47,30 @@ function base64Url(value: string): string {
   return Buffer.from(value, 'utf8').toString('base64url');
 }
 
+const E2E_CLIENT_ID = 'e2e-deterministic-client';
+const E2E_KEY_ID = 'e2e-sso-key';
+const { privateKey: e2eSigningKey, publicKey: e2ePublicKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
+const e2ePublicJwk = {
+  ...(e2ePublicKey.export({ format: 'jwk' }) as Record<string, string>),
+  kid: E2E_KEY_ID,
+  alg: 'RS256',
+  use: 'sig',
+};
+
 function makeJwt(character: CharacterFixture): string {
-  return [
-    base64Url(JSON.stringify({ alg: 'none', typ: 'JWT' })),
-    base64Url(JSON.stringify({
-      sub: `CHARACTER:EVE:${character.id}`,
-      name: character.name,
-    })),
-    'e2e-signature',
-  ].join('.');
+  const header = base64Url(JSON.stringify({ alg: 'RS256', typ: 'JWT', kid: E2E_KEY_ID }));
+  const payload = base64Url(JSON.stringify({
+    iss: 'https://login.eveonline.com/',
+    sub: `CHARACTER:EVE:${character.id}`,
+    name: character.name,
+    aud: [E2E_CLIENT_ID, 'EVE Online'],
+    scp: ['esi-markets.read_character_orders.v1'],
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + 1200,
+  }));
+  const signingInput = `${header}.${payload}`;
+  const signature = crypto.sign('RSA-SHA256', Buffer.from(signingInput, 'ascii'), e2eSigningKey).toString('base64url');
+  return `${signingInput}.${signature}`;
 }
 
 const accessTokens: Record<CharacterKey, string> = {
@@ -159,6 +175,19 @@ async function handleMock(req: http.IncomingMessage, res: http.ServerResponse): 
     return json(res, 200, { ok: true });
   }
 
+  if (req.method === 'GET' && url.pathname === '/.well-known/oauth-authorization-server') {
+    return json(res, 200, {
+      issuer: 'https://login.eveonline.com/',
+      authorization_endpoint: `http://127.0.0.1:${MOCK_PORT}/v2/oauth/authorize/`,
+      token_endpoint: `http://127.0.0.1:${MOCK_PORT}/v2/oauth/token`,
+      jwks_uri: `http://127.0.0.1:${MOCK_PORT}/oauth/jwks`,
+    });
+  }
+
+  if (req.method === 'GET' && url.pathname === '/oauth/jwks') {
+    return json(res, 200, { keys: [e2ePublicJwk] });
+  }
+
   if (req.method === 'GET' && url.pathname === '/health') {
     return json(res, 200, { ok: true, service: 'eve-trade-e2e-mock' });
   }
@@ -225,21 +254,12 @@ async function handleMock(req: http.IncomingMessage, res: http.ServerResponse): 
     return json(res, 400, { error: 'UNSUPPORTED_GRANT' });
   }
 
-  if (req.method === 'GET' && url.pathname === '/oauth/verify') {
-    const character = characterFromAuthorization(req.headers.authorization);
-    if (!character) return json(res, 401, { error: 'INVALID_TOKEN' });
-    const fixture = fixtures[character];
-    return json(res, 200, {
-      CharacterID: fixture.id,
-      CharacterName: fixture.name,
-    });
+  const compatibilityDate = req.headers['x-compatibility-date'];
+  if (!compatibilityDate || Array.isArray(compatibilityDate)) {
+    return json(res, 400, { error: 'MISSING_COMPATIBILITY_DATE' });
   }
 
-  if (!url.pathname.startsWith('/latest/')) {
-    return json(res, 404, { error: 'NOT_FOUND' });
-  }
-
-  const esiPath = url.pathname.slice('/latest'.length);
+  const esiPath = url.pathname;
   const authCharacter = characterFromAuthorization(req.headers.authorization);
 
   const characterMatch = esiPath.match(/^\/characters\/(\d+)\/$/);
@@ -363,10 +383,10 @@ await new Promise<void>((resolve, reject) => {
 
 process.env.EVE_SSO_AUTHORIZE_URL = `http://127.0.0.1:${MOCK_PORT}/v2/oauth/authorize/`;
 process.env.EVE_SSO_TOKEN_URL = `http://127.0.0.1:${MOCK_PORT}/v2/oauth/token`;
-process.env.EVE_SSO_VERIFY_URL = `http://127.0.0.1:${MOCK_PORT}/oauth/verify`;
-process.env.ESI_BASE_URL = `http://127.0.0.1:${MOCK_PORT}/latest`;
+process.env.EVE_SSO_METADATA_URL = `http://127.0.0.1:${MOCK_PORT}/.well-known/oauth-authorization-server`;
+process.env.ESI_BASE_URL = `http://127.0.0.1:${MOCK_PORT}`;
 process.env.E2E_OAUTH_STATE_TTL_MS = process.env.E2E_OAUTH_STATE_TTL_MS || '1000';
-process.env.EVE_CLIENT_ID = process.env.EVE_CLIENT_ID || 'e2e-deterministic-client';
+process.env.EVE_CLIENT_ID = process.env.EVE_CLIENT_ID || E2E_CLIENT_ID;
 process.env.EVE_CLIENT_SECRET = process.env.EVE_CLIENT_SECRET || 'e2e-deterministic-secret';
 process.env.EVE_CALLBACK_URL = process.env.EVE_CALLBACK_URL || `http://127.0.0.1:${APP_PORT}/auth/callback`;
 

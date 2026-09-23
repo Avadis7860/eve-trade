@@ -74,7 +74,7 @@ The increment was certified by PR #66, including green CI required-gate/SDE-rele
 
 ### P0-C — Target-PC evidence bundle
 
-**Implementation: ACTIVE on `feat/p0-target-pc-evidence`.**
+**Implementation: DONE / MERGED / CERTIFIED on main by PR #67 at `31308676ec2d9104f7c6ffab29dae1e3f4f49a00`.**
 
 Capture on the affected PC, against real CCP/ESI:
 - UTC timestamp;
@@ -88,7 +88,7 @@ Capture on the affected PC, against real CCP/ESI:
 - whether the same request succeeds from a controlled comparison environment;
 - application/browser/OS context sufficient to reproduce the failure.
 
-The application now provides an exportable JSON bundle for repository-side diagnostics. The repository does not yet contain the real-PC evidence or the controlled comparison result, so the incident remains NOT ROOT-CAUSED.
+The application now provides an exportable JSON bundle for repository-side diagnostics. PR CI #719, SDE #480 and Main Smoke #8 are green. The repository does not yet contain the real-PC evidence or the controlled comparison result, so the incident remains NOT ROOT-CAUSED.
 
 Validation details: [P0-C target-PC evidence](../validation/p0-c-target-pc-evidence.md).
 

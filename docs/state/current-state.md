@@ -38,7 +38,7 @@ A dedicated study is recorded in [CI management audit](../audits/ci-management-a
 
 ### Current CI management decision
 
-CI-001 is **ACTIVE — CI-001I** and remains the project-wide CI priority.
+CI-001 is **PRE-MERGE CLOSURE — CI-001J**; the implementation is complete on the active PR and only human/governance closure remains.
 
 CI-001A/B froze the baseline/evidence map; CI-001C hardened workflow security/reproducibility; CI-001D split the validation topology; CI-001E formalized canonical test ownership; CI-001F isolated browser Auth/Operations jobs; CI-001G established and certified scope routing plus `CI / required-gate`; CI-001H separated Main/Full and recovery; CI-001I adds durable CI timing/churn observability.
 

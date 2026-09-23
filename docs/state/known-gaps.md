@@ -18,7 +18,7 @@ Source of truth: code, tests, CI and current state documents
 - Target-PC public market-order retrieval is reported broken but remains NOT ROOT-CAUSED.
 - Some non-Operations market acquisition paths may still swallow errors; the Operations order-sync path now surfaces explicit failure instead of presenting an ordinary empty state.
 - Rate-limit/cache-aware scheduling for the public market-order group is not yet exposed as a product-level operational signal.
-- Market-data freshness/completeness/source remain inconsistent across the application; Operations now exposes per-order health and age using the UX-01 vocabulary.
+- Market-data freshness/completeness/source remain inconsistent across the application; Operations now exposes per-order health and age using the UX-01 vocabulary, while automatic background market sync versus explicit refresh still lacks a dedicated concurrency acceptance gate.
 
 ## Structural gaps
 

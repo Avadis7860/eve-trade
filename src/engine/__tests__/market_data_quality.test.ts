@@ -1,4 +1,5 @@
 import { EsiService } from '../../services/esi';
+import { FailureSemantics } from '../failureSemantics';
 import { MarketDataStore } from '../../services/marketDataStore';
 import { setBackendApiFetchForTesting } from '../../services/backendApiClient';
 import { InterRegionalScanner } from '../../services/scanner';
@@ -340,6 +341,22 @@ async function runQualityTests() {
 
   // 4. Test Anomaly Detection with Partial or Stale Data
   console.log('4. Testing Anomaly Flagging on Degraded Market Data...');
+  const partialTransportQuality: MarketDataQuality = {
+    ...sampleQuality,
+    health_status: 'PARTIAL',
+    data_state: 'PARTIAL',
+    completeness: 'partial',
+    pages_fetched: 1,
+    expected_pages: 2,
+    error_count: 1,
+    last_error: 'HTTP 401 on page 2',
+  };
+  assert(
+    FailureSemantics.evaluateHealth(partialTransportQuality) === 'PARTIAL',
+    'A usable partial paginated result must remain PARTIAL even with a later-page error',
+  );
+  console.log('✅ Partial transport errors remain distinct from fatal ERROR.');
+
   const partialQuality: MarketDataQuality = {
     ...sampleQuality,
     completeness: 'partial',

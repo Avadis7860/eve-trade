@@ -22,7 +22,17 @@ interface NextAuthControl {
   delayMs?: number;
 }
 
+type MarketControlMode = 'live' | 'error' | 'partial';
+
+interface MarketControl {
+  mode: MarketControlMode;
+  errorStatus: 401 | 403 | 429 | 500;
+}
+
 let nextAuthControl: NextAuthControl = { character: 'alpha' };
+let marketControl: MarketControl = { mode: 'live', errorStatus: 401 };
+type MarketEsiGatewayInstance = typeof import('../../server/gateways/marketEsiGateway').marketEsiGateway;
+let marketEsiGatewayControl: MarketEsiGatewayInstance | null = null;
 
 const fixtures: Record<CharacterKey, CharacterFixture> = {
   alpha: {
@@ -172,7 +182,37 @@ async function handleMock(req: http.IncomingMessage, res: http.ServerResponse): 
 
   if (req.method === 'POST' && url.pathname === '/__control__/reset') {
     nextAuthControl = { character: 'alpha' };
+    marketControl = { mode: 'live', errorStatus: 401 };
+    marketEsiGatewayControl?.clearCache();
     return json(res, 200, { ok: true });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/__control__/market') {
+    let body: unknown = {};
+    try {
+      const raw = await readBody(req);
+      body = raw ? JSON.parse(raw) : {};
+    } catch {
+      return json(res, 400, { error: 'INVALID_CONTROL_PAYLOAD' });
+    }
+
+    const control = body as Partial<MarketControl>;
+    const mode =
+      control.mode === 'error' || control.mode === 'partial' || control.mode === 'live'
+        ? control.mode
+        : null;
+    if (!mode) {
+      return json(res, 400, { error: 'INVALID_MARKET_MODE' });
+    }
+
+    const status =
+      control.errorStatus === 403 || control.errorStatus === 429 || control.errorStatus === 500
+        ? control.errorStatus
+        : 401;
+
+    marketControl = { mode, errorStatus: status };
+    marketEsiGateway.clearCache();
+    return json(res, 200, { ok: true, market: marketControl });
   }
 
   if (req.method === 'GET' && url.pathname === '/.well-known/oauth-authorization-server') {
@@ -252,6 +292,116 @@ async function handleMock(req: http.IncomingMessage, res: http.ServerResponse): 
     }
 
     return json(res, 400, { error: 'UNSUPPORTED_GRANT' });
+  }
+
+  const preCompatibilityMatch = url.pathname.match(/^\/markets\/(\d+)\/orders\/$/);
+  if (preCompatibilityMatch && req.method === 'GET') {
+    const regionId = Number(preCompatibilityMatch[1]);
+    const typeId = Number(url.searchParams.get('type_id') || 0);
+    const page = Number(url.searchParams.get('page') || 1);
+
+    if (marketControl.mode === 'error') {
+      return json(
+        res,
+        marketControl.errorStatus,
+        { error: 'E2E_CONTROLLED_MARKET_FAILURE', region_id: regionId, type_id: typeId, page },
+        {
+          'X-Cache-Status': 'MISS',
+          'X-Pages': '1',
+          'X-ESI-Error-Limit-Remain': '91',
+          'X-ESI-Error-Limit-Reset': '42',
+          ...(marketControl.errorStatus === 429 ? { 'Retry-After': '7' } : {}),
+        },
+      );
+    }
+
+    if (marketControl.mode === 'partial' && page > 1) {
+      return json(
+        res,
+        401,
+        { error: 'E2E_CONTROLLED_MARKET_PARTIAL_FAILURE', region_id: regionId, type_id: typeId, page },
+        {
+          'X-Cache-Status': 'MISS',
+          'X-Pages': '2',
+          'X-ESI-Error-Limit-Remain': '90',
+          'X-ESI-Error-Limit-Reset': '41',
+        },
+      );
+    }
+
+    const baseOrders = [
+      {
+        order_id: typeId === 34 ? 501 : 601,
+        type_id: typeId,
+        region_id: regionId,
+        system_id: 30000142,
+        location_id: 60003760,
+        price: typeId === 34 ? 100 : 200,
+        volume_remain: typeId === 34 ? 10 : 20,
+        volume_total: typeId === 34 ? 10 : 20,
+        min_volume: 1,
+        is_buy_order: false,
+        range: 'region',
+        issued: '2026-09-23T00:00:00.000Z',
+        duration: 90,
+      },
+      {
+        order_id: typeId === 34 ? 502 : 602,
+        type_id: typeId,
+        region_id: regionId,
+        system_id: 30000142,
+        location_id: 60003760,
+        price: typeId === 34 ? 95 : 195,
+        volume_remain: 25,
+        volume_total: 25,
+        min_volume: 1,
+        is_buy_order: false,
+        range: 'region',
+        issued: '2026-09-23T00:00:00.000Z',
+        duration: 90,
+      },
+      {
+        order_id: typeId === 34 ? 503 : 603,
+        type_id: typeId,
+        region_id: regionId,
+        system_id: 30000142,
+        location_id: 60003760,
+        price: typeId === 34 ? 90 : 190,
+        volume_remain: 100,
+        volume_total: 100,
+        min_volume: 1,
+        is_buy_order: true,
+        range: 'region',
+        issued: '2026-09-23T00:00:00.000Z',
+        duration: 90,
+      },
+    ];
+
+    if (marketControl.mode === 'partial') {
+      return json(
+        res,
+        200,
+        baseOrders,
+        {
+          'X-Cache-Status': 'MISS',
+          'X-Pages': '2',
+          'X-ESI-Error-Limit-Remain': '92',
+          'X-ESI-Error-Limit-Reset': '43',
+        },
+      );
+    }
+
+    return json(
+      res,
+      200,
+      baseOrders,
+      {
+        'X-Cache-Status': 'MISS',
+        'X-Pages': '1',
+        'X-ESI-Error-Limit-Remain': '93',
+        'X-ESI-Error-Limit-Reset': '44',
+      },
+    );
   }
 
   const compatibilityDate = req.headers['x-compatibility-date'];
@@ -387,6 +537,9 @@ process.env.E2E_OAUTH_STATE_TTL_MS = process.env.E2E_OAUTH_STATE_TTL_MS || '1000
 process.env.EVE_CLIENT_ID = process.env.EVE_CLIENT_ID || E2E_CLIENT_ID;
 process.env.EVE_CLIENT_SECRET = process.env.EVE_CLIENT_SECRET || 'e2e-deterministic-secret';
 process.env.EVE_CALLBACK_URL = process.env.EVE_CALLBACK_URL || `http://127.0.0.1:${APP_PORT}/auth/callback`;
+
+const { marketEsiGateway } = await import('../../server/gateways/marketEsiGateway');
+marketEsiGatewayControl = marketEsiGateway;
 
 const { startServer } = await import('../../server.ts');
 const appServer = await startServer(APP_PORT);

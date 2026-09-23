@@ -16,9 +16,9 @@ The authoritative product backlog is [UX-First Trading Terminal Program](ux-prog
 - Reproduce and diagnose the reported target-PC failure to retrieve market orders.
 - Add regression coverage for ERROR, PARTIAL and STALE states.
 
-### P1 — Operations / Mes Ordres
+### P1 — Operations / Mes Ordres — ACTIVE
 
-- Replace the current overloaded order table with an operational market-position console.
+- Replace the current overloaded order table with an operational market-position console. First increment landed on the dedicated UX-02 branch.
 - Expose capital, escrow, active sell value, order age, fill ratio, remaining locked capital, estimated turnover, expected remaining return, market distance and data health.
 - Separate economic ownership scope from performance-analysis scope.
 - Keep the existing order advisor but make its decision context inspectable.

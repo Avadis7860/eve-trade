@@ -7,7 +7,7 @@ Source of truth: code, tests, CI and current state documents
 ## UX / product gaps
 
 - The UI information architecture does not yet reflect the mature trading workflow of discovery -> operations -> performance -> allocation -> cockpit.
-- Mes Ordres is overloaded and does not provide a dedicated operational decision surface for active market positions.
+- Operations is partially implemented: the active-order console now exposes the main operational context, but browser validation of the complete decision loop is still open.
 - Portfolio currently presents an allocation simulation but is fed from opportunities derived from the selected item, preventing genuine cross-item diversification.
 - The Journal remains manual despite authoritative ESI-derived transaction/order-history/journal data being available.
 - Parameters mix trading policy, logistics, treasury and technical maintenance; some visible controls have no demonstrated effective engine consumer.
@@ -16,9 +16,9 @@ Source of truth: code, tests, CI and current state documents
 ## Market / ESI operational gaps
 
 - Target-PC public market-order retrieval is reported broken but remains NOT ROOT-CAUSED.
-- Some frontend market acquisition paths swallow errors and can make ERROR/UNAVAILABLE states look like empty business results.
+- Some non-Operations market acquisition paths may still swallow errors; the Operations order-sync path now surfaces explicit failure instead of presenting an ordinary empty state.
 - Rate-limit/cache-aware scheduling for the public market-order group is not yet exposed as a product-level operational signal.
-- Market-data freshness/completeness/source are not consistently first-class in the UI.
+- Market-data freshness/completeness/source remain inconsistent across the application; Operations now exposes per-order health and age using the UX-01 vocabulary.
 
 ## Structural gaps
 

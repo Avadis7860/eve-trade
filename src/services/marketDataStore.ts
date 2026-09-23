@@ -562,6 +562,14 @@ export class MarketDataStore {
                 confidence: 0,
                 sync_duration_ms: 0,
               };
+              const failedSnapshot: MarketDataSnapshot = {
+                type_id: typeId,
+                region_id: hub.region_id,
+                orders: [],
+                timestamp: Date.now(),
+                quality: failedQuality,
+              };
+              this.setSnapshot(failedSnapshot);
               orderBooks[hub.region_id] = [];
               qualities[hub.region_id] = failedQuality;
             }
@@ -605,7 +613,7 @@ export class MarketDataStore {
     for (const tid of uniqueTypeIds) {
       const needsFetch = activeHubs.some((hub) => {
         const snap = this.getSnapshot(tid, hub.region_id);
-        return !snap || snap.quality.source !== 'esi' || snap.timestamp < fiveMinutesAgo;
+        return !snap || FailureSemantics.evaluateHealth(snap.quality) !== 'LIVE' || snap.timestamp < fiveMinutesAgo;
       });
       if (needsFetch) {
         typesToFetch.push(tid);
@@ -625,6 +633,42 @@ export class MarketDataStore {
       );
     }
 
+    this.notifyListeners();
+  }
+
+  /**
+   * Force-refresh market context for all item types present in the active-order scope.
+   * This method is reserved for explicit user refresh actions; background synchronization
+   * continues to use the freshness-aware syncCharacterOrdersMarketData path.
+   */
+  static async refreshCharacterOrdersMarketData(
+    typeIds: number[],
+    hubs: MarketHub[]
+  ): Promise<void> {
+    const uniqueTypeIds = Array.from(new Set(typeIds)).filter((id) => id > 0);
+    const activeHubs = hubs.filter((h) => h.active);
+    if (uniqueTypeIds.length === 0 || activeHubs.length === 0) return;
+
+    const chunkSize = 4;
+    for (let i = 0; i < uniqueTypeIds.length; i += chunkSize) {
+      const chunk = uniqueTypeIds.slice(i, i + chunkSize);
+      await Promise.all(
+        chunk.map(async (typeId) => {
+          const fetchKey = `type_${typeId}`;
+          const inFlight = this.activeFetches.get(fetchKey);
+
+          if (inFlight) {
+            try {
+              await inFlight;
+            } catch {
+              // The explicit refresh below owns the final refresh result.
+            }
+          }
+
+          await this.fetchLiveItemData(typeId, activeHubs, true);
+        })
+      );
+    }
     this.notifyListeners();
   }
 

@@ -11,7 +11,7 @@ CI gate: [../validation/ci.md](../validation/ci.md)
 
 The functional E2E-001 baseline is 9438bbedb2d44cf3f5f371144bcf72094955cd46. Deterministic browser CI is green and the target-PC real-CCP SSO/ESI smoke PASS was recorded on 2026-09-23.
 
-The current documentation update establishes the UX-first product program as the next sequencing authority.
+The current UX-first program is now in UX-02 Operations implementation. UX-01 is technically implemented; its target-PC market-order incident remains NOT ROOT-CAUSED.
 
 ## Stable foundations
 
@@ -32,7 +32,7 @@ The current documentation update establishes the UX-first product program as the
 The current engine/domain layers are ahead of the UI information architecture.
 
 - Global discovery is useful and remains the principal discovery surface.
-- Mes Ordres is overloaded and currently combines operational orders, market sync, advisor, analytics and authentication concerns.
+- Mes Ordres has entered UX-02 implementation: it now has an operational KPI/order surface and a focused order-detail path; character synchronization still owns acquisition while Performance remains a separate surface.
 - Portfolio allocation supports concentration by item type/group, but the current React opportunity input is derived from the selected item, so the UI cannot express the intended cross-item diversified allocation.
 - Journal remains manual despite ESI-derived transactions, order history and wallet journal already being available.
 - Parameter UI contains real controls, but business-critical decision thresholds are not surfaced with the same priority and some exposed flags do not have a demonstrated current consumer.
@@ -42,7 +42,7 @@ The current engine/domain layers are ahead of the UI information architecture.
 
 - Target-PC public market-order retrieval failure is reported but not root-caused.
 - Market acquisition failures can be collapsed into apparent empty business state by silent error handling.
-- No coherent Operations surface exists yet.
+- Operations is partially implemented; the remaining gate is end-to-end validation of keep / adjust / relocate / cancel decisions with explicit data-health states.
 - No coherent Real Portfolio vs Proposed Allocation split exists yet.
 - No automatic ESI-derived performance history replaces the manual journal yet.
 - No clear business Control Center exists yet.
@@ -50,9 +50,9 @@ The current engine/domain layers are ahead of the UI information architecture.
 
 ## Current chantier / sequencing
 
-UX-00 is the next work item and is BLOCKING.
+UX-02 is the active implementation chantier.
 
-UX-01 is the only implementation chantier explicitly permitted before the UX baseline is accepted because it establishes data truth for the current operational incident.
+UX-01 is technically implemented and merged. Its target-PC market-order incident remains NOT ROOT-CAUSED pending capture of the required PC-side evidence.
 
 PST-001, UI-001, E2E-002, UI-002, PERF-001 and TYPE-001 are DEFERRED until the UX sequencing gate is passed.
 

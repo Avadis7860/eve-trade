@@ -28,6 +28,7 @@ import {
   CheckCircle2,
   TrendingDown,
   ShoppingBag,
+  Sparkles,
   Search,
   Zap,
   LogOut,

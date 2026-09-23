@@ -339,6 +339,16 @@ async function runTests() {
       assert(html.includes('&lt;/script&gt;'), 'HTML DOM body must encode < as &lt;');
     });
 
+    await test('GET /auth/callback rejects a state issued for a different callback URI', async () => {
+      const state = generateOAuthState('http://localhost:3000/auth/callback');
+      const response = await fetch(
+        `${baseUrl}/auth/callback?state=${state}&error=access_denied&error_description=cancelled`,
+      );
+      assert.strictEqual(response.status, 400);
+      const html = await response.text();
+      assert(html.includes('REDIRECT_URI_MISMATCH'));
+    });
+
     await test('GET /auth/callback safely escapes quotes, ampersands, and special chars in script payload', async () => {
       const trickyPayload = 'Injection "with" \'quotes\' & <tags> and \\backslash';
       const state = generateOAuthState(`${baseUrl}/auth/callback`);

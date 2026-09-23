@@ -231,7 +231,7 @@ assert.ok(fullCertification.includes('permissions:\n  contents: read'), 'Full ce
 const fullJobsSection = fullCertification.match(/^jobs:[ \t]*\n([\s\S]*)$/m)?.[1];
 assert.ok(fullJobsSection, 'Full certification must declare jobs');
 const fullJobIds = [...fullJobsSection.matchAll(/^  ([A-Za-z0-9_-]+):[ \t]*$/gm)].map((match) => match[1]);
-assert.deepEqual(fullJobIds, ['static', 'unit_domain', 'server', 'build', 'browser-auth', 'browser-operations', 'sde-truth', 'full-gate'], 'Full certification topology drifted');
+assert.deepEqual(fullJobIds, ['static', 'unit_domain', 'server', 'build', 'browser-auth', 'browser-operations', 'sde-truth', 'full-gate', 'observability'], 'Full certification topology drifted');
 for (const command of requiredCiCommands) assert.ok(fullCertification.includes(command), `Full certification lost required command: ${command}`);
 for (const jobId of ['static', 'unit_domain', 'server', 'build', 'browser-auth', 'browser-operations', 'sde-truth']) {
   const block = fullJobsSection.split(/\n(?=  [A-Za-z0-9_-]+:[ \t]*(?:\n|$))/).find((candidate) => candidate.startsWith(`  ${jobId}:`));

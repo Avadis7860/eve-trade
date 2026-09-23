@@ -6,6 +6,7 @@ Owner: project maintainers
 Baseline: main @ \`6e3f611f8bdce6ad42236f7082b3dc044582dbef\`
 Study: [Audit CI — gestion, performance et gouvernance](../audits/ci-management-audit-2026-09-23.md)
 Current validation: [CI Validation](../validation/ci.md)
+Coverage model: [CI-001 Global Coverage Matrix](../validation/ci-coverage-matrix.md)
 
 ## Objective
 
@@ -307,74 +308,216 @@ Un nouveau PR est justifié seulement par :
 - séparation volontaire d'un chantier ;
 - abandon explicite du chantier précédent.
 
-## Ordre d'implémentation
+## Programme phasé
 
-### CI-001A — Baseline et observabilité
+CI-001 est volontairement traité comme un **programme de maîtrise CI** et non comme un seul changement de workflow.
 
-- figer les mesures de référence ;
-- ajouter le résumé des temps dans la documentation ;
-- établir la matrice test → niveau → responsabilité ;
-- identifier les duplications.
+Chaque phase possède :
+
+- un périmètre fermé ;
+- des preuves attendues ;
+- un gate de sortie ;
+- une stratégie de rollback ;
+- une mise à jour documentaire ;
+- une vérification de la matrice globale.
+
+Aucune phase ne doit supprimer une preuve sans identifier explicitement l'invariant qu'elle protégeait et son remplacement.
+
+### CI-001A — Freeze, baseline et observabilité de départ
+
+Objectif : établir l'état de référence avant optimisation.
+
+Travail :
+
+- figer SHA, workflows et scripts de référence ;
+- mesurer plusieurs runs représentatifs ;
+- mesurer durée par job et par suite ;
+- comptabiliser success/cancel/failure/rerun ;
+- identifier les jobs coûteux ;
+- recenser les checks requis lorsque l'accès admin sera disponible ;
+- valider la matrice de couverture initiale.
 
 Gate :
-les durées et responsabilités sont mesurables avant changement de topologie.
 
-### CI-001B — Parallélisation sans changement de contrat
+> aucune modification de topologie tant que le baseline et les zones inconnues ne sont pas documentés.
+
+### CI-001B — Inventaire risques → preuves → déclencheurs
+
+Objectif : vérifier qu'aucun domaine critique ne reste sans preuve.
+
+Construire la relation :
+
+\`risque → invariant → test → job → trigger → environnement → preuve\`
+
+Couvertures à recenser :
+
+- typecheck ;
+- domaine/engine ;
+- finance/evidence/persistence ;
+- API/server ;
+- ESI/rate-limit/auth ;
+- market truth ;
+- corporation boundary ;
+- browser ;
+- SDE ;
+- build/runtime ;
+- documentation/workflow.
+
+Gate :
+
+> chaque risque critique possède une preuve identifiable ou une lacune explicitement assumée comme conditionnelle.
+
+### CI-001C — Reproductibilité et sécurité de la supply chain CI
+
+Objectif : rendre l'exécution CI elle-même robuste et minimale.
+
+Travail :
+
+- permissions explicites au minimum nécessaire ;
+- politique de secrets ;
+- politique de pinning des actions ;
+- vérification Node/npm/lockfile ;
+- contrôle de dérive runner ;
+- revue des dépendances lorsque disponible ;
+- évaluation de l'attestation de build si le mode de distribution la rend pertinente ;
+- tests des contrats de workflow.
+
+Gate :
+
+> le pipeline dispose d'un modèle de sécurité et de reproductibilité documenté, sans élargissement implicite des permissions.
+
+### CI-001D — Topologie et parallélisation contrôlée
+
+Objectif : supprimer les dépendances séquentielles sans modifier la couverture.
+
+Travail :
 
 - détacher browser de \`validate\` ;
-- paralléliser les familles indépendantes ;
-- conserver la certification fonctionnelle existante.
+- découper static / unit-domain / server / build ;
+- conserver les tests fonctionnels ;
+- mesurer le chemin mural ;
+- surveiller le coût des installations parallèles.
 
 Gate :
-mêmes preuves fonctionnelles, chemin mural réduit, aucun check obligatoire supprimé.
 
-### CI-001C — Test ownership et déduplication
+> la couverture fonctionnelle reste au moins équivalente et le chemin mural diminue sur plusieurs runs représentatifs.
 
-- redessiner les scripts npm ;
-- supprimer les exécutions redondantes ;
-- conserver une suite canonique par responsabilité.
+### CI-001E — Taxonomie et ownership des tests
 
-Gate :
-chaque test de certification a un propriétaire logique et un niveau explicite.
+Objectif : rendre la certification intelligible et sans doublons injustifiés.
 
-### CI-001D — Browser composition
+Travail :
 
-- séparer Auth et Operations ;
-- conserver un worker par job ;
-- stabiliser le harness ;
-- mesurer les gains.
+- matrice test → responsabilité ;
+- suite canonique par responsabilité ;
+- séparation Fast / Certification / Full ;
+- suppression des ré-exécutions historiques non justifiées ;
+- politique explicite pour les tests lents ;
+- politique de flaky tests : détecter, classifier, corriger, réactiver.
 
 Gate :
-E2E parallèle au reste de la CI et diagnostics lisibles.
 
-### CI-001E — Fast / Certification / Main / Full
+> aucun test de certification n'a une responsabilité ambiguë ou plusieurs propriétaires implicites.
 
-- introduire l'état Draft vs Ready for Review ;
-- créer le post-merge smoke ;
-- déplacer la certification exhaustive vers Full.
+### CI-001F — Browser E2E isolation et composition
 
-Gate :
-l'itération courante ne paie plus systématiquement la certification complète.
+Objectif : accélérer l'E2E sans introduire de flakiness.
 
-### CI-001F — Change detection + required gate
+Travail :
 
-- ajouter la détection de périmètre ;
-- ajouter \`required-gate\` ;
-- vérifier manuellement la branch protection ;
-- stabiliser les noms de checks.
+- séparer Auth et Operations en jobs ;
+- conserver \`workers: 1\` au départ ;
+- isoler les contrôles globaux ;
+- améliorer diagnostics/artefacts ;
+- mesurer le coût browser setup versus execution ;
+- n'autoriser sharding/workers supplémentaires qu'après preuve d'isolation.
 
 Gate :
-les validations conditionnelles peuvent être utilisées sans fragiliser la fusion.
 
-### CI-001G — Governance et maintenance
+> les jobs browser sont indépendants du reste de la CI et les scénarios restent reproductibles.
 
-- documenter la règle un chantier/une PR ;
-- documenter rerun vs nouveau PR ;
-- mettre à niveau les actions GitHub ;
-- mettre à jour les métriques de référence.
+Playwright recommande la stabilité/reproductibilité avec un seul worker en CI et propose le sharding lorsque la parallélisation doit devenir plus large ; l'isolation de l'état externe doit être établie avant cette étape.
+
+### CI-001G — Change detection et required-gate
+
+Objectif : rendre les validations conditionnelles sûres.
+
+Travail :
+
+- détection de domaines impactés ;
+- fallback conservateur en cas d'ambiguïté ;
+- \`required-gate\` stable ;
+- jobs conditionnels sans workflow-level path filtering dangereux ;
+- vérification réelle de la branch protection ;
+- prise en charge de \`merge_group\` si une merge queue est activée.
 
 Gate :
-le système technique et le comportement d'équipe racontent la même histoire.
+
+> chaque PR obtient un signal de fusion stable et aucune validation requise ne peut rester silencieusement en attente.
+
+### CI-001H — Cycle Main : post-merge, Full et récupération
+
+Objectif : séparer santé immédiate et certification exhaustive.
+
+Travail :
+
+- smoke post-merge court ;
+- Full Repository Certification planifiée/manuelle ;
+- tests de régression transversale ;
+- timeouts explicites ;
+- politique retry/rerun ;
+- diagnostics de panne ;
+- procédure de rollback CI.
+
+Gate :
+
+> un merge normal ne répète plus inutilement toute la certification profonde, tandis qu'une certification complète reste disponible et traçable.
+
+### CI-001I — Observabilité durable et contrôle de performance
+
+Objectif : transformer les gains ponctuels en système mesurable.
+
+Travail :
+
+- durée workflow/job/test ;
+- taux d'annulation ;
+- taux de rerun ;
+- flakiness ;
+- coût relatif des lanes ;
+- fréquence des certifications Full ;
+- top lenteurs ;
+- seuils d'alerte/dérive.
+
+Gate :
+
+> une dégradation significative de la CI devient observable sans nouvel audit manuel complet.
+
+### CI-001J — Final certification, documentation et handover
+
+Objectif : vérifier la couverture complète avant clôture.
+
+Travail :
+
+- rejouer la matrice globale ;
+- exécuter une certification Full ;
+- vérifier tests/meta-tests ;
+- vérifier workflows et permissions ;
+- vérifier branch protection/rulesets ;
+- vérifier runbook ;
+- mettre à jour Master Plan, Current State, Known Gaps et validation ;
+- reclasser les gaps restants : \`closed\`, \`conditional\` ou \`known/accepted\`.
+
+Gate de clôture :
+
+> aucune lacune requise n'est inexpliquée dans [CI-001 Global Coverage Matrix](../validation/ci-coverage-matrix.md).
+
+## Règle de progression entre phases
+
+Une phase peut produire du code, de la documentation ou des métadonnées, mais elle ne devient la nouvelle base qu'après son gate.
+
+Les phases peuvent être regroupées dans une même PR uniquement lorsque leur dépendance est strictement linéaire et que cela ne rend pas le rollback ou le diagnostic ambigu.
+
+Le découpage en phases est donc une **barrière de sécurité contre les gaps**, pas une obligation de multiplier les PR.
 
 ## Critères de succès
 

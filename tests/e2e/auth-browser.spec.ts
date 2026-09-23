@@ -140,6 +140,12 @@ test.describe('E2E-001 — browser OAuth composition', () => {
     });
 
     await expectAuthenticatedCharacter(page, ALPHA.name);
+    const persistedSession = await page.evaluate(() => {
+      const store = JSON.parse(localStorage.getItem('eve_trade_character_store_v3')!);
+      return store.characters.find((character: any) => character.character_id === 1001);
+    });
+    expect(persistedSession.is_token_expired).toBeFalsy();
+    expect(persistedSession.expires_at).toBeGreaterThan(Date.now());
     expect(await page.evaluate(() => localStorage.getItem('eve_trade_character_store_v3'))).toContain(ALPHA.name);
     expect(
       backendRequests.some(url => url.includes(`/api/character/${ALPHA.id}/orders`)),

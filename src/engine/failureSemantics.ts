@@ -23,13 +23,12 @@ export class FailureSemantics {
   static evaluateHealth(quality?: Partial<MarketDataQuality> | null): DataHealthStatus {
     if (!quality) return 'UNKNOWN';
 
-    // 1. Explicit or implicit errors
+    // 1. Explicit fatal errors
     if (
       quality.health_status === 'ERROR' ||
       quality.data_state === 'ERROR' ||
       quality.source === 'unavailable' ||
-      quality.validation_status === 'invalid' ||
-      (quality.error_count !== undefined && quality.error_count > 0)
+      quality.validation_status === 'invalid'
     ) {
       return 'ERROR';
     }
@@ -39,7 +38,8 @@ export class FailureSemantics {
       return 'ERROR';
     }
 
-    // 3. Partial data
+    // 3. Partial data remains distinct from a fatal transport error.
+    // A usable page set plus a failed later page is PARTIAL, even when error_count > 0.
     if (
       quality.health_status === 'PARTIAL' ||
       quality.data_state === 'PARTIAL' ||
@@ -50,6 +50,11 @@ export class FailureSemantics {
         quality.pages_fetched < quality.expected_pages)
     ) {
       return 'PARTIAL';
+    }
+
+    // A non-partial observation carrying an error count is fatal.
+    if (quality.error_count !== undefined && quality.error_count > 0) {
+      return 'ERROR';
     }
 
     // 4. Stale data (TTL expired)

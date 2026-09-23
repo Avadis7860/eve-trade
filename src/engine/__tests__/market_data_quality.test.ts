@@ -111,6 +111,40 @@ async function runQualityTests() {
   assert(expQuality !== null, 'Expired quality should exist');
   assert(expQuality!.freshness === 'expired', '1 hour old data must degrade to expired');
 
+  // A valid empty ESI snapshot is also cacheable; it must not trigger a refetch loop.
+  const emptyCacheQuality: MarketDataQuality = {
+    ...sampleQuality,
+    completeness: 'empty',
+    orders_fetched: 0,
+    orders_valid: 0,
+    data_state: 'EMPTY',
+    health_status: 'LIVE',
+  };
+  MarketDataStore.setOrders(38, 10000002, [], true, emptyCacheQuality);
+
+  let emptyCacheCalls = 0;
+  setBackendApiFetchForTesting(async () => {
+    emptyCacheCalls++;
+    throw new Error('A valid empty ESI snapshot must be served from cache');
+  });
+  const emptyCacheResult = await MarketDataStore.fetchLiveItemData(38, [{
+    id: 'empty-cache-jita',
+    name: 'Jita 4-4',
+    region: 'The Forge',
+    region_id: 10000002,
+    solar_system: 'Jita',
+    system_id: 30000142,
+    station: 'Jita IV - Moon 4 - Assembly Plant',
+    station_id: 60003760,
+    security_status: 0.9,
+    priority: 1,
+    active: true,
+    hub_type: 'npc_major',
+  }], false);
+  assert(emptyCacheCalls === 0, 'A valid empty ESI snapshot must remain eligible for five-minute caching');
+  assert(emptyCacheResult.successCount === 1, 'A cached empty ESI snapshot counts as a successful synchronized hub');
+  setBackendApiFetchForTesting(null);
+
   // A failed/partial snapshot must not become a five-minute "healthy" cache.
   // Otherwise the UI can remain empty even after ESI becomes reachable again.
   const recoveryHub: MarketHub = {

@@ -17,11 +17,11 @@ CCP's official SSO documentation is the authority for the OAuth/JWT contract: ht
 
 ## Semantic rules
 
-- OAuth state is random, single-use, TTL-bound and bound to the selected redirect URI.
+- OAuth state is random, single-use, TTL-bound, bound to the selected redirect URI, and bound to the browser session by an HttpOnly SameSite cookie.
 - EVE access-token JWTs are accepted only after signature verification against the JWKS advertised by CCP's SSO metadata, then issuer, audience and expiration validation.
 - The JWT subject must use the EVE character form `CHARACTER:EVE:<character-id>`.
 - Character credentials are never interchangeable.
-- Raw authorization codes and OAuth state are not forwarded to the frontend for a second exchange.
+- Raw authorization codes and OAuth state are not forwarded to the frontend for a second exchange. The auxiliary `/api/auth/token` path enforces the same browser-state binding and is not a weaker OAuth route.
 - Callback documents are `no-store` and `no-referrer`.
 
 ## ESI relationship

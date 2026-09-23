@@ -246,7 +246,7 @@ test.describe('E2E-001 — browser OAuth composition', () => {
   });
 
   test('rejects a callback after the OAuth state TTL expires', async ({ page, request }) => {
-    await configureNextAuth(request, { delayMs: 1500 });
+    await configureNextAuth(request, { delayMs: 11_000 });
 
     const { popup } = await launchSso(page);
     await waitForOAuthCallback(popup);

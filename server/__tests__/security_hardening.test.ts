@@ -346,9 +346,9 @@ async function runTests() {
         `${baseUrl}/auth/callback?state=${state}&error=access_denied&error_description=cancelled`,
         { headers: { Cookie: `eve_trade_oauth_state_v1=${state}` } },
       );
-      assert.strictEqual(response.status, 400);
+      assert(response.status === 400, `Expected 400, got ${response.status}`);
       const html = await response.text();
-      assert(html.includes('REDIRECT_URI_MISMATCH'));
+      assert(html.includes('REDIRECT_URI_MISMATCH'), 'Expected redirect URI mismatch error');
     });
 
     await test('GET /auth/callback safely escapes quotes, ampersands, and special chars in script payload', async () => {

@@ -28,7 +28,8 @@ Optional boundary overrides exist for deterministic tests:
 
 - `EVE_SSO_AUTHORIZE_URL`
 - `EVE_SSO_TOKEN_URL`
-- `EVE_SSO_VERIFY_URL`
+- `EVE_SSO_VERIFY_URL` (legacy compatibility override)
+- `EVE_SSO_METADATA_URL`
 - `ESI_BASE_URL`
 
 Leaving these optional variables empty uses the official CCP/ESI production endpoints.

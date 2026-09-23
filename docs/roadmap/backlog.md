@@ -21,8 +21,11 @@ Completed:
 - Documentation of the P0-A caller matrix and the latent legacy-helper hazard.
 
 Remaining:
-- Add deterministic HTTP 429 / Retry-After regression coverage.
+- Certify and merge deterministic HTTP 429 / Retry-After browser coverage.
 - Capture the real target-PC evidence bundle and classify the incident as ROOT-CAUSED or EXTERNALLY BOUNDED.
+- Capture the real target-PC evidence bundle and classify the incident as ROOT-CAUSED or EXTERNALLY BOUNDED.
+
+P0-B implementation is present on the active branch; it is not marked complete until its single PR is CI-certified, merged, and followed by a green Main Smoke.
 
 ### P1 — Operations / Mes Ordres — DONE / MERGED
 

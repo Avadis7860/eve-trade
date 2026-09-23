@@ -16,9 +16,10 @@ The authoritative product backlog is [UX-First Trading Terminal Program](ux-prog
 - Reproduce and diagnose the reported target-PC failure to retrieve market orders.
 - Add regression coverage for ERROR, PARTIAL and STALE states.
 
-### P1 — Operations / Mes Ordres — ACTIVE
+### P1 — Operations / Mes Ordres — ACTIVE / CLOSE OPERATIONS GATE
 
-- Replace the current overloaded order table with an operational market-position console. First increment landed on the dedicated UX-02 branch.
+- Continue the Operations console from the merged first increment; active branch: `feat/ux-02-close-operations-gate`.
+- Close the browser decision gate for keep / adjust / relocate / cancel with deterministic fixtures and explicit degraded-data behavior.
 - Expose capital, escrow, active sell value, order age, fill ratio, remaining locked capital, estimated turnover, expected remaining return, market distance and data health.
 - Separate economic ownership scope from performance-analysis scope.
 - Keep the existing order advisor but make its decision context inspectable.
@@ -90,3 +91,5 @@ Reference:
 Historical issues are not copied into the active backlog unless they remain reproducibly open today.
 
 The UX-first sequencing gate is mandatory: no deferred technical item is promoted ahead of UX-00/UX-01 and the relevant surface contract without an explicit roadmap update.
+
+CI-001 is merged; no CI-only branch remains active. The next product chantier starts from the merged `main` head.

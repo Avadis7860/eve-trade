@@ -419,7 +419,14 @@ export class MarketDataStore {
       activeHubs.length > 0 &&
       activeHubs.every((hub) => {
         const snap = this.getSnapshot(typeId, hub.region_id);
-        return snap && snap.timestamp > fiveMinutesAgo && snap.quality.source === 'esi' && snap.quality.error_count === 0 && snap.quality.completeness === 'complete' && (snap.quality.data_state === 'VALID' || snap.quality.data_state === 'EMPTY');
+        return Boolean(
+          snap &&
+          snap.timestamp > fiveMinutesAgo &&
+          snap.quality.source === 'esi' &&
+          snap.quality.error_count === 0 &&
+          (snap.quality.completeness === 'complete' || snap.quality.completeness === 'empty') &&
+          (snap.quality.data_state === 'VALID' || snap.quality.data_state === 'EMPTY')
+        );
       });
 
     if (isAlreadyCached) {
@@ -523,7 +530,10 @@ export class MarketDataStore {
               const ageSec = Math.round((Date.now() - previousSnap.timestamp) / 1000);
               const degradedQuality: MarketDataQuality = {
                 ...previousSnap.quality,
+                source: 'cache',
                 freshness: 'stale',
+                data_state: 'STALE',
+                health_status: 'STALE',
                 age_seconds: ageSec,
                 confidence: Math.max(0.2, previousSnap.quality.confidence * 0.6),
                 last_error: String(err),
@@ -537,6 +547,8 @@ export class MarketDataStore {
                 freshness: 'expired',
                 completeness: 'empty',
                 validation_status: 'invalid',
+                data_state: 'ERROR',
+                health_status: 'ERROR',
                 fetched_at: new Date().toISOString(),
                 age_seconds: 0,
                 pages_fetched: 0,

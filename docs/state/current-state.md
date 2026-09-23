@@ -15,15 +15,13 @@ The current UX-first program is now in UX-02 Operations implementation. UX-01 is
 
 ## CI / delivery state
 
-The current CI is **functionally valid but operationally inefficient**.
+The current CI is **operationally restructured and certification-safe** after CI-001. Its post-merge Main Smoke and scheduled/manual Full Certification are separate from the PR gate.
 
-Reference main:
-\`d7f245ec47a8746306792ce6017496f9123c23d6\`
+CI-001 merged on main at `7fc6fe7ca65454d0d29843bc0eace336b2da864c`.
 
-Reference successful CI run:
-\`35826687206\`
+Reference CI-001 certification run: `35856208503`.
 
-Observed baseline:
+Observed implementation evidence:
 
 - \`validate\` ≈ 104 s;
 - \`browser-e2e\` ≈ 166 s;
@@ -38,16 +36,19 @@ A dedicated study is recorded in [CI management audit](../audits/ci-management-a
 
 ### Current CI management decision
 
-CI-001 is **PRE-MERGE CLOSURE — CI-001J**; the implementation is complete on the active PR and only human/governance closure remains.
+CI-001 is **DONE / MERGED** on main at `7fc6fe7ca65454d0d29843bc0eace336b2da864c`.
 
-CI-001A/B froze the baseline/evidence map; CI-001C hardened workflow security/reproducibility; CI-001D split the validation topology; CI-001E formalized canonical test ownership; CI-001F isolated browser Auth/Operations jobs; CI-001G established and certified scope routing plus `CI / required-gate`; CI-001H separated Main/Full and recovery; CI-001I adds durable CI timing/churn observability.
+CI-001A/B froze the baseline/evidence map; C hardened workflow security/reproducibility; D split the validation topology; E formalized canonical ownership; F isolated browser Auth/Operations; G established scope routing plus `CI / required-gate`; H separated Main/Full and recovery; I added durable timing/churn observability; J synchronized closure documentation.
+
+Post-merge behavior is now intentionally split: PR changes run the PR certification surface, while pushes to `main` run the short Main Smoke surface. Full Repository Certification is scheduled/manual.
 
 During CI-001E:
 
-- the current \`ci.yml\` remains the certification mechanism;
-- the current SDE Truth Gate remains authoritative for SDE-sensitive changes;
-- no required check name should be changed without first verifying main branch protection;
-- the single active branch/PR rule remains mandatory; a new PR must not be opened solely to obtain a new CI signal.
+- `ci.yml` is the PR certification mechanism and owns the stable `CI / required-gate`;
+- the Main Smoke workflow owns push-to-main smoke validation;
+- the SDE Truth Gate remains authoritative for SDE-sensitive changes;
+- no required check name should be changed without administrative branch-protection verification;
+- the single active branch/PR rule remains mandatory; never reuse a merged branch for the next chantier.
 
 ## Stable foundations
 
@@ -86,13 +87,13 @@ The current engine/domain layers are ahead of the UI information architecture.
 
 ## Current chantier / sequencing
 
-UX-02 is paused while CI-001 is the active infrastructure chantier.
+**UX-02 is now active** after the CI-001 merge. The active branch for this chantier is `feat/ux-02-close-operations-gate` and it must remain the only active PR for UX-02.
 
-UX-01 is technically implemented and merged. Its target-PC market-order incident remains NOT ROOT-CAUSED pending capture of the required PC-side evidence.
+UX-01 is technically implemented and merged. Its target-PC market-order incident remains NOT ROOT-CAUSED pending the required PC-side evidence.
 
-CI-001 is the active cross-cutting infrastructure chantier. CI-001A/B is baselined, CI-001C is completed, CI-001D is proven on two green runs, CI-001E/F are implemented, CI-001G is certified on head `bc2ff6c24a6b4b419311b287ddd0b206489093c3`, CI-001H is implemented with dedicated Main/Full separation and recovery, and CI-001I is the current execution slice: durable timing/churn observability. The active PR/branch remains the only CI-001 delivery surface.
+CI-001 is merged and is no longer an active chantier.
 
-PST-001, UI-001, E2E-002, UI-002, PERF-001 and TYPE-001 remain deferred until the UX sequencing gate is passed unless their dependency is explicitly reclassified.
+PST-001, UI-001, E2E-002, UI-002, PERF-001 and TYPE-001 remain deferred behind the UX sequencing gate.
 
 ## Reference paths
 

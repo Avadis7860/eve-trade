@@ -16,7 +16,13 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url || '/', 'http://127.0.0.1');
   if (url.pathname === '/.well-known/oauth-authorization-server') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ jwks_uri: `http://127.0.0.1:${(server.address() as { port: number }).port}/jwks` }));
+    const port = (server.address() as { port: number }).port;
+    res.end(JSON.stringify({
+      issuer: 'https://login.eveonline.com/',
+      authorization_endpoint: `http://127.0.0.1:${port}/authorize`,
+      token_endpoint: `http://127.0.0.1:${port}/token`,
+      jwks_uri: `http://127.0.0.1:${port}/jwks`,
+    }));
     return;
   }
   if (url.pathname === '/jwks') {

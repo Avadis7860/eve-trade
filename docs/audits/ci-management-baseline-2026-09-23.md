@@ -1,6 +1,6 @@
 # CI-001A/B — Baseline et photographie de départ
 
-Status: CURRENT — CI-001A/B
+Status: CURRENT BASELINE + D IMPLEMENTATION EVIDENCE
 Date: 2026-09-23
 Baseline main: `d7f245ec47a8746306792ce6017496f9123c23d6`
 Branch: `ci/ci-001a-baseline`
@@ -427,3 +427,20 @@ CI-001C does not yet change the runner image, change detection, required gate, P
 Le rollback de CI-001A/B est trivial : supprimer les nouveaux documents et revenir au SHA `d7f245ec...`.
 
 Aucune logique d'exécution existante n'est modifiée dans cette phase.
+
+
+## CI-001D — Controlled topology split
+
+Applied after the green CI-001C gate on the same branch/PR.
+
+The main workflow now executes five independent execution lanes: `static`, `unit_domain`, `server`, `build` and `browser-e2e`. The historical `validate` job remains as **Validation & Non-Regression Gate**, depending on the four non-browser lanes.
+
+The browser job no longer declares `needs: validate`, so browser setup/execution can progress in parallel with the non-browser lanes. No command was removed, no Playwright worker increase was made, and no branch-protection or required-check rename was introduced.
+
+The first D run (`35845353011`) completed successfully. Observed job durations were approximately: static 46 s, unit/domain 60 s, server 26 s, build 31 s, browser 180 s, compatibility validate 4 s. The four non-browser lanes and browser started concurrently; the workflow therefore no longer paid the former validate-then-browser serialization.
+
+D remains open until representative post-change runs confirm the behavior rather than treating one run as a sufficient performance sample.
+
+### Rollback
+
+If topology introduces an unexplained race, coverage regression or material performance regression, revert the workflow and workflow-contract test to the preceding green CI-001C state on the same branch. The full historical command set remains intact for proof-safe rollback.

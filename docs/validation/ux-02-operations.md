@@ -11,14 +11,15 @@ CI gate: Playwright browser E2E + full regression CI
 |---|---|---|
 | Active order + LIVE market | Operational KPIs, row context and detail are available | PASS on previous run |
 | Market ERROR without prior market snapshot | Active order remains visible; health is ERROR; no recommendation is invented | PASS via UX-02 browser suite |
-| Market PARTIAL | Usable page/order data remains visible; market health is PARTIAL | PENDING after PARTIAL-vs-ERROR fix |
-| Existing market snapshot followed by fetch failure | Previous market context remains visible as STALE and carries the latest failure | PENDING after explicit-refresh serialization fix |
+| Market PARTIAL | Usable page/order data remains visible; market health is PARTIAL and no operational recommendation is presented as reliable | pending CI |
+| Existing market snapshot followed by fetch failure | Previous market context remains visible as STALE and carries the latest failure; no operational recommendation is presented as current | pending CI |
 | Order detail | Ownership, observation, expected remaining result and decision context are visible | PASS via UX-02 browser suite |
 | Projected vs realized values | Remaining sell value is labeled projected; Operations does not claim realized P&L | Covered by typecheck + detail implementation |
 
 ## Invariants
 
 - ERROR / UNKNOWN are not converted into an empty business collection.
+- PARTIAL / STALE are inspectable states but are not actionable recommendation states; operational recommendations require LIVE or CACHE data.
 - LIVE, CACHE, STALE, PARTIAL, ERROR and UNKNOWN remain distinct.
 - Economic ownership remains authoritative; observer identity is separate.
 - Remaining order value is operational exposure/projection, not realized financial outcome.

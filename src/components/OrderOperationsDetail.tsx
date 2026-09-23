@@ -10,6 +10,7 @@ import type {
 } from '../types';
 import { fmtIsk, fmtNumber } from '../engine/money';
 import { getOrderLockedValue, getOrderMarketDistance, getOrderTiming } from '../engine/orderOperations';
+import { FailureSemantics } from '../engine/failureSemantics';
 
 interface OrderOperationsDetailProps {
   order: EveCharacterOrder;
@@ -195,7 +196,7 @@ export const OrderOperationsDetail: React.FC<OrderOperationsDetailProps> = ({
               </div>
             ) : (
               <div className="text-xs text-[#a0a4b5]">
-                {health === 'ERROR' || health === 'UNKNOWN'
+                {!FailureSemantics.isActionable(health)
                   ? 'Aucune recommandation fiable n’est produite tant que les données marché ne permettent pas d’établir un contexte suffisamment sûr.'
                   : 'Aucune recommandation supplémentaire n’est disponible pour cet ordre.'}
               </div>

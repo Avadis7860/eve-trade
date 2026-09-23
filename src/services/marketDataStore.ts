@@ -613,7 +613,7 @@ export class MarketDataStore {
     for (const tid of uniqueTypeIds) {
       const needsFetch = activeHubs.some((hub) => {
         const snap = this.getSnapshot(tid, hub.region_id);
-        return !snap || snap.quality.source !== 'esi' || snap.timestamp < fiveMinutesAgo;
+        return !snap || FailureSemantics.evaluateHealth(snap.quality) !== 'LIVE' || snap.timestamp < fiveMinutesAgo;
       });
       if (needsFetch) {
         typesToFetch.push(tid);

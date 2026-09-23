@@ -16,6 +16,7 @@ import { OrderAdvisorService } from '../services/orderAdvisor';
 import { getOrderLockedValue, getOrderMarketDistance, getOrderTiming } from '../engine/orderOperations';
 import { GlobalMarketSyncService } from '../services/globalMarketSync';
 import { MarketDataStore } from '../services/marketDataStore';
+import { FailureSemantics } from '../engine/failureSemantics';
 import { CatalogRepository } from '../domain/catalog/CatalogRepository';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
 import { OrderAdvisorModal } from './OrderAdvisorModal';
@@ -142,16 +143,20 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
     const syncOrders = GlobalMarketSyncService.getLatestRegionalOrders();
     const result: Record<number, RawMarketOrder[]> = { ...orderBooks };
 
+    const addOrders = (regionId: number, ordersList: RawMarketOrder[]) => {
+      const current = result[regionId] ?? [];
+      const byOrderId = new Map<string, RawMarketOrder>();
+      for (const order of current) byOrderId.set(order.order_id, order);
+      for (const order of ordersList) byOrderId.set(order.order_id, order);
+      result[regionId] = Array.from(byOrderId.values());
+    };
+
     for (const [regIdStr, ordersList] of Object.entries(storeOrders)) {
-      const regId = Number(regIdStr);
-      if (!result[regId]) result[regId] = [];
-      result[regId] = [...result[regId], ...ordersList];
+      addOrders(Number(regIdStr), ordersList);
     }
 
     for (const [regIdStr, ordersList] of Object.entries(syncOrders)) {
-      const regId = Number(regIdStr);
-      if (!result[regId]) result[regId] = [];
-      result[regId] = [...result[regId], ...ordersList];
+      addOrders(Number(regIdStr), ordersList);
     }
     return result;
   }, [orderBooks, storeTick]);
@@ -189,7 +194,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
     const map = new Map<string, OrderAdvisorRecommendation>();
     for (const order of orders) {
       const context = orderMarketContexts.get(order.order_id);
-      if (context?.health === 'ERROR' || context?.health === 'UNKNOWN') continue;
+      if (!context || !FailureSemantics.isActionable(context.health)) continue;
 
       const rec = OrderAdvisorService.analyzeOrder(
         order,
@@ -829,7 +834,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                           {recommendation ? renderAdvicePill(recommendation) : (
                             <div className="space-y-1">
                               <div className={`text-[10px] font-semibold ${health === 'ERROR' ? 'text-red-300' : health === 'UNKNOWN' ? 'text-zinc-300' : 'text-amber-300'}`}>
-                                {health === 'ERROR' ? 'Décision indisponible' : health === 'UNKNOWN' ? 'Données insuffisantes' : 'Pas de recommandation'}
+                                {health === 'ERROR' || health === 'PARTIAL' || health === 'STALE' ? 'Décision indisponible' : health === 'UNKNOWN' ? 'Données insuffisantes' : 'Pas de recommandation'}
                               </div>
                               <div className="text-[9px] text-[#808495]">Ouvrir le détail pour le contexte.</div>
                             </div>

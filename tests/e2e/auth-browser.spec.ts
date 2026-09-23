@@ -242,7 +242,8 @@ test.describe('E2E-001 — browser OAuth composition', () => {
     });
 
     expect(result.status).toBe(400);
-    expect(result.body.error).toBe('INVALID_REDIRECT_URI');
+    expect(result.body.error).toBe('INVALID_OR_EXPIRED_STATE');
+    expect(result.body.message).toContain('REDIRECT_URI_MISMATCH');
   });
 
   test('rejects a callback after the OAuth state TTL expires', async ({ page, request }) => {

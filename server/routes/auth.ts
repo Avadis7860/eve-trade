@@ -294,12 +294,12 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
       refresh_token: refresh_token,
     });
 
-    const response = await fetch(EVE_SSO_TOKEN_URL, {
+    const metadata = await getEveSsoMetadata();
+    const response = await fetch(metadata.token_endpoint, {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${basicAuth}`,
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Host': 'login.eveonline.com',
         'User-Agent': 'eve-trade-interregional/0.2',
       },
       body: params.toString(),

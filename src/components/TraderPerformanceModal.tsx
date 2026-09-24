@@ -219,7 +219,7 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                 : 'text-[#808495] hover:text-[#fafafa]'
             }`}
           >
-            Cycles Réalisés ({metrics.recent_trade_cycles.length})
+            Cessions réalisées ({metrics.recent_trade_cycles.length})
           </button>
           <button
             onClick={() => setActiveTab('categories')}
@@ -266,7 +266,7 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                     {metrics.win_rate_pct.toFixed(1)}%
                   </div>
                   <div className="text-[10px] text-[#808495]">
-                    {metrics.profitable_trades} gagnants / {metrics.total_closed_trades} cycles
+                    {metrics.profitable_trades} positions clôturées gagnantes / {metrics.total_closed_trades} clôturées
                   </div>
                 </div>
 
@@ -279,7 +279,7 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                     +{(metrics.average_realized_roi * 100).toFixed(1)}%
                   </div>
                   <div className="text-[10px] text-[#808495]">
-                    Rendement net moyen par cycle
+                    Rendement net moyen par position clôturée
                   </div>
                 </div>
 
@@ -506,7 +506,7 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
             </div>
           )}
 
-          {/* TAB 3: TRADE CYCLES */}
+          {/* TAB 3: REALIZED DISPOSALS */}
           {activeTab === 'cycles' && (
             <div className="space-y-3">
               <div className="relative">
@@ -527,8 +527,8 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                       <th className="py-2 px-3">Date Vente</th>
                       {isFleetMode && <th className="py-2 px-2">Pilote</th>}
                       <th className="py-2 px-3">Objet</th>
-                      <th className="py-2 px-2">Statut</th>
-                      <th className="py-2 px-2">Quantité</th>
+                      <th className="py-2 px-2">État position</th>
+                      <th className="py-2 px-2">Qté cédée</th>
                       <th className="py-2 px-2">Prix Achat Moy.</th>
                       <th className="py-2 px-2">Prix Vente Moy.</th>
                       <th className="py-2 px-2">Durée</th>
@@ -581,26 +581,21 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                           ) : null}
                         </td>
                         <td className="py-2 px-2">
-                          <span
-                            className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold border ${
-                              cycle.financial_completeness === 'OBSERVED'
-                                ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                                : cycle.financial_completeness === 'PARTIAL'
-                                ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-                                : cycle.financial_completeness === 'UNAVAILABLE'
-                                ? 'bg-zinc-500/15 text-zinc-400 border-zinc-500/30'
-                                : 'bg-blue-500/15 text-blue-400 border-blue-500/30'
-                            }`}
-                            title={
-                              cycle.financial_completeness === 'UNAVAILABLE'
-                                ? 'Frais non configurés (non disponibles)'
-                                : cycle.is_net_estimated
-                                ? 'Frais estimés basés sur compétences'
-                                : 'Frais certifiés'
-                            }
-                          >
-                            {cycle.financial_completeness || 'ESTIMATED'}
-                          </span>
+                          <div className="font-mono text-[10px]">
+                            {cycle.is_position_closed
+                              ? 'CLOSED'
+                              : cycle.position_lifecycle === 'PARTIALLY_REALIZED'
+                              ? 'PARTIALLY_REALIZED'
+                              : cycle.position_lifecycle || 'UNKNOWN'}
+                          </div>
+                          <div className="text-[9px] text-[#808495]">
+                            {cycle.position_remaining_quantity !== undefined
+                              ? String(fmtNumber(cycle.position_remaining_quantity)) + ' restantes'
+                              : 'Reliquat inconnu'}
+                          </div>
+                          <div className="text-[9px] text-[#808495]">
+                            Financier : {cycle.financial_completeness || 'UNKNOWN'}
+                          </div>
                         </td>
                         <td className="py-2 px-2 font-mono">{fmtNumber(cycle.quantity)}</td>
                         <td className="py-2 px-2 font-mono text-[#808495]">{fmtIsk(cycle.avg_buy_price)}</td>

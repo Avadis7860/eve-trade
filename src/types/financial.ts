@@ -552,6 +552,8 @@ export interface PositionLedgerResult {
   readonly principal_scope: string;
   /** All economic position segments reconstructed for this scope + type. */
   readonly position_segments: readonly EconomicPositionSegment[];
+  /** All disposition events, including unmatched disposals that are not attributable to a segment. */
+  readonly all_disposition_states: readonly PositionDispositionState[];
   /** The active segment when one remains open; otherwise the most recently closed segment. */
   readonly position: CurrentPosition;
 }

@@ -1,5 +1,6 @@
 import { EveCharacterSession, SessionAuthStatus } from '../../types';
 import { CharacterSnapshot, CharacterStoreSchemaV3, FreshnessStatus } from './CharacterTypes';
+import type { CharacterTransactionSyncSummary } from '../../types/execution';
 
 const STORAGE_KEY_V3 = 'eve_trade_character_store_v3';
 const LEGACY_STORAGE_KEY = 'eve_char_session';
@@ -324,7 +325,7 @@ export class CharacterRepository {
   /** Stores transaction sync evidence without changing the freshness timestamp of market/order snapshots. */
   saveTransactionSyncSummary(
     characterId: number,
-    summary: import('./CharacterTypes').CharacterStoreSchemaV3['transaction_sync_summaries'] extends Record<number, infer T> ? T : never,
+    summary: CharacterTransactionSyncSummary,
   ): void {
     if (!Number.isSafeInteger(characterId) || characterId <= 0) {
       throw new Error('Invalid characterId for transaction sync summary');

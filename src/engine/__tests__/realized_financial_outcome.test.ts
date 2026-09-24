@@ -165,7 +165,7 @@ async function runAllTests() {
     assert(outcome.realized_acquisition_cost === 100000, 'Acquisition cost must be 100,000 ISK');
     assert(outcome.realized_revenue === 150000, 'Revenue must be 150,000 ISK');
     assert(outcome.gross_realized_profit === 50000, 'Gross profit must be 50,000 ISK');
-    assert(outcome.fees.fee_mode === 'ESTIMATED', 'Fee mode must be ESTIMATED');
+    if (outcome.fees.fee_mode !== 'ESTIMATED') throw new Error('Configured outcome must expose ESTIMATED fee mode');
     assert(outcome.fees.estimated_sales_tax === 5400, 'Sales tax 3.6% of 150k = 5400 ISK');
     assert(outcome.fees.estimated_buy_broker_fee === 0, 'Taker buy broker fee = 0 ISK');
     assert(outcome.fees.estimated_sell_broker_fee === 0, 'Taker sell broker fee = 0 ISK');
@@ -442,6 +442,7 @@ async function runAllTests() {
     // Total fees: 15,000 + 22,500 + 54,000 = 91,500 ISK
     // Gross profit: 500,000 ISK
     // Net profit: 500,000 - 91,500 = 408,500 ISK
+    if (outcome.fees.fee_mode !== 'ESTIMATED') throw new Error('Configured outcome must expose ESTIMATED fee mode');
     assert(outcome.fees.estimated_buy_broker_fee === 15000, 'Buy broker fee 15,000');
     assert(outcome.fees.estimated_sell_broker_fee === 22500, 'Sell broker fee 22,500');
     assert(outcome.fees.estimated_sales_tax === 54000, 'Sales tax 54,000');
@@ -461,7 +462,7 @@ async function runAllTests() {
       financialConfig: mockFinancialConfig,
     });
 
-    assert(outcome.fees.fee_mode === 'ESTIMATED', 'fee_mode === ESTIMATED');
+    if (outcome.fees.fee_mode !== 'ESTIMATED') throw new Error('Configured outcome must expose ESTIMATED fee mode');
     assert(outcome.fees.fee_source === 'CONFIG_ESTIMATE', 'fee_source === CONFIG_ESTIMATE');
     assert(outcome.fees.observed_fees_paid === undefined, 'No fake observed_fees_paid fabricated');
     console.log('  [PASS] Test 12: Fee provenance cleanly marked as ESTIMATED.');
@@ -1265,6 +1266,8 @@ async function runAllTests() {
       executionFeeMode: 'TAKER_TAKER',
     });
 
+    if (makerOutcome.fees.fee_mode === 'UNAVAILABLE') throw new Error('Configured maker outcome unexpectedly has unavailable fees');
+    if (takerOutcome.fees.fee_mode === 'UNAVAILABLE') throw new Error('Configured taker outcome unexpectedly has unavailable fees');
     assert(makerOutcome.fees.estimated_buy_broker_fee > 0, 'Adv 3.3: MAKER buy has broker fee');
     assert(makerOutcome.fees.estimated_sell_broker_fee > 0, 'Adv 3.3: MAKER sell has broker fee');
     assert(takerOutcome.fees.estimated_buy_broker_fee === 0, 'Adv 3.3: TAKER buy has 0% broker fee');
@@ -1334,6 +1337,7 @@ async function runAllTests() {
     assert(outcome.gross_realized_profit === 25000, 'Gross profit = 5000 * (15 - 10) = 25000 ISK');
     assert(outcome.financial_completeness === 'ESTIMATED', 'Financial completeness is ESTIMATED (MAKER fees)');
     assert(outcome.is_net_estimated === true, 'is_net_estimated is true');
+    if (outcome.fees.fee_mode === 'UNAVAILABLE') throw new Error('Configured outcome unexpectedly has unavailable fees');
     assert(outcome.fees.estimated_total_fees > 0, 'Estimated fees > 0');
     if (outcome.net_realized_profit === null) throw new Error('Configured outcome must expose numeric net profit');
     assert(outcome.net_realized_profit < outcome.gross_realized_profit, 'Net profit = Gross - Fees');
@@ -1397,7 +1401,8 @@ async function runAllTests() {
     assert(cycle.estimated_fees_paid !== undefined && cycle.estimated_fees_paid > 0, 'estimated_fees_paid recorded');
     assert(cycle.unmatched_sell_quantity === 0, 'Cycle unmatched_sell_quantity is 0');
     assert(cycle.fees_breakdown !== undefined, 'Fees breakdown populated');
-    assert(cycle.fees_breakdown?.estimated_sales_tax !== undefined && cycle.fees_breakdown.estimated_sales_tax > 0, 'Sales tax present');
+    if (cycle.fees_breakdown?.fee_mode === 'UNAVAILABLE') throw new Error('Configured cycle unexpectedly has unavailable fees');
+    assert(cycle.fees_breakdown.estimated_sales_tax > 0, 'Sales tax present');
 
     console.log('  [PASS] Gate 3B-4A.2.2: TraderAnalyticsService delegation & enrichment verified.');
   }
@@ -1516,6 +1521,7 @@ async function runAllTests() {
 
     assert(cycle.net_profit === outcome.net_realized_profit, `Cycle net profit (${cycle.net_profit}) matches outcome (${outcome.net_realized_profit})`);
     assert(cycle.gross_profit === outcome.gross_realized_profit, `Cycle gross profit matches outcome`);
+    if (outcome.fees.fee_mode === 'UNAVAILABLE') throw new Error('Configured outcome unexpectedly has unavailable fees');
     assert(cycle.estimated_fees_paid === outcome.fees.estimated_total_fees, `Cycle fees match outcome total fees`);
     assert(cycle.total_buy_cost === outcome.realized_acquisition_cost, `Cycle buy cost matches outcome acquisition cost`);
     assert(cycle.total_sell_revenue === outcome.realized_revenue, `Cycle sell revenue matches outcome revenue`);
@@ -1552,6 +1558,7 @@ async function runAllTests() {
 
     assert(sumCycleNetProfit === outcome.net_realized_profit, `Sum of cycle net profit (${sumCycleNetProfit}) equals outcome (${outcome.net_realized_profit})`);
     assert(sumCycleGrossProfit === outcome.gross_realized_profit, `Sum of cycle gross profit (${sumCycleGrossProfit}) equals outcome (${outcome.gross_realized_profit})`);
+    if (outcome.fees.fee_mode === 'UNAVAILABLE') throw new Error('Configured outcome unexpectedly has unavailable fees');
     assert(sumCycleFees === outcome.fees.estimated_total_fees, `Sum of cycle fees (${sumCycleFees}) equals outcome fees (${outcome.fees.estimated_total_fees})`);
 
     console.log('  [PASS] Test 2: Agrégation verified with exact ISK conservation.');
@@ -1586,6 +1593,7 @@ async function runAllTests() {
     assert(cycle.total_sell_revenue === 8750, `Sell revenue matches 8750 ISK`);
     assert(cycle.quantity === 350, `Cycle quantity is 350`);
     assert(cycle.net_profit === outcome.net_realized_profit, `Net profit matches outcome`);
+    if (outcome.fees.fee_mode === 'UNAVAILABLE') throw new Error('Configured outcome unexpectedly has unavailable fees');
     assert(cycle.estimated_fees_paid === outcome.fees.estimated_total_fees, `Estimated fees match outcome`);
 
     console.log('  [PASS] Test 3: Multi-lots allocation consistency verified.');
@@ -2147,7 +2155,7 @@ async function runAllTests() {
 
     // INVARIANT 2: Exact fee conservation
     assert(
-      sumCycleFees === outcome.fees.estimated_total_fees,
+      outcome.fees.fee_mode !== 'UNAVAILABLE' && sumCycleFees === outcome.fees.estimated_total_fees,
       `Fee conservation: sum(cycle.estimated_fees_paid) [${sumCycleFees}] == outcome.fees.estimated_total_fees [${outcome.fees.estimated_total_fees}]`
     );
 

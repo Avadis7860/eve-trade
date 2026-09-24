@@ -322,17 +322,20 @@ export class TraderAnalyticsService {
                 ? false
                 : true,
             realized_profit_label: cycleProfitLabel,
-            fees_breakdown: {
-              fee_mode: outcome.fees.fee_mode,
-              fee_source: outcome.fees.fee_source,
-              execution_fee_mode: outcome.fees.execution_fee_mode,
-              estimated_buy_broker_fee: cycleBuyBrokerFee,
-              estimated_sell_broker_fee: cycleSellBrokerFee,
-              estimated_sales_tax: cycleSalesTax,
-              estimated_total_fees: cycleFees,
-              is_role_assumed: outcome.fees.is_role_assumed,
-              notes: outcome.fees.notes,
-            },
+            fees_breakdown:
+              outcome.fees.fee_mode === 'UNAVAILABLE'
+                ? outcome.fees
+                : {
+                    fee_mode: outcome.fees.fee_mode,
+                    fee_source: outcome.fees.fee_source,
+                    execution_fee_mode: outcome.fees.execution_fee_mode,
+                    estimated_buy_broker_fee: cycleBuyBrokerFee,
+                    estimated_sell_broker_fee: cycleSellBrokerFee,
+                    estimated_sales_tax: cycleSalesTax,
+                    estimated_total_fees: cycleFees,
+                    is_role_assumed: outcome.fees.is_role_assumed,
+                    notes: outcome.fees.notes,
+                  },
             unmatched_sell_quantity: unmatchedQty,
             character_id: characterId,
             character_name: characterName,
@@ -389,19 +392,22 @@ export class TraderAnalyticsService {
             financial_completeness: 'PARTIAL',
             is_net_estimated: outcome.fees.fee_mode !== 'UNAVAILABLE',
             realized_profit_label: 'Bénéfice Réalisé (Partiel)',
-            fees_breakdown: {
-              fee_mode: outcome.fees.fee_mode,
-              fee_source: outcome.fees.fee_source,
-              execution_fee_mode: outcome.fees.execution_fee_mode,
-              estimated_buy_broker_fee: 0,
-              estimated_sell_broker_fee: 0,
-              estimated_sales_tax: 0,
-              estimated_total_fees: 0,
-              is_role_assumed: outcome.fees.is_role_assumed,
-              notes: Object.freeze([
-                'Vente sans achat antérieur couvrant. Coût et profit non calculables sans inventaire préalable.',
-              ]),
-            },
+            fees_breakdown:
+              outcome.fees.fee_mode === 'UNAVAILABLE'
+                ? outcome.fees
+                : {
+                    fee_mode: outcome.fees.fee_mode,
+                    fee_source: outcome.fees.fee_source,
+                    execution_fee_mode: outcome.fees.execution_fee_mode,
+                    estimated_buy_broker_fee: 0,
+                    estimated_sell_broker_fee: 0,
+                    estimated_sales_tax: 0,
+                    estimated_total_fees: 0,
+                    is_role_assumed: outcome.fees.is_role_assumed,
+                    notes: Object.freeze([
+                      'Vente sans achat antérieur couvrant. Coût et profit non calculables sans inventaire préalable.',
+                    ]),
+                  },
             unmatched_sell_quantity: sellTx.quantity,
             character_id: characterId,
             character_name: characterName,

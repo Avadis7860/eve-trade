@@ -329,6 +329,7 @@ function runEndToEndIntegrationTests() {
   }
 
   // Build character metrics records
+  if (outcomeAlpha.fees.fee_mode === 'UNAVAILABLE') throw new Error('Configured Alpha outcome unexpectedly has unavailable fees');
   const metricsAlpha: TraderPerformanceMetrics = {
     character_id: 1001,
     character_name: 'Pilot Alpha',
@@ -384,6 +385,7 @@ function runEndToEndIntegrationTests() {
     unmatched_trades_count: 0,
   };
 
+  if (outcomeBeta.fees.fee_mode === 'UNAVAILABLE') throw new Error('Configured Beta outcome unexpectedly has unavailable fees');
   const metricsBeta: TraderPerformanceMetrics = {
     character_id: 1002,
     character_name: 'Pilot Beta',

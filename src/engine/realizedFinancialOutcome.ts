@@ -233,7 +233,7 @@ export class RealizedFinancialOutcomeEngine {
     const feeMode = fees?.fee_mode ?? 'UNAVAILABLE';
     const executionFeeMode = fees?.execution_fee_mode ?? 'UNKNOWN';
     const netRealizedProfit =
-      feeMode === 'UNAVAILABLE'
+      fees.fee_mode === 'UNAVAILABLE'
         ? null
         : roundIsk(grossRealizedProfit - fees.estimated_total_fees);
 

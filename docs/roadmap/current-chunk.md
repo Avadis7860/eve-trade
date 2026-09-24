@@ -25,6 +25,7 @@ Reduce the context reconstruction cost for human and AI agents without introduci
 7. State, roadmap and known-gaps synchronization.
 8. Final CLOSING lifecycle state so merged main does not inherit an ACTIVE chantier.
 9. Local validation where the execution environment permits it, followed by full PR CI certification.
+10. Stable proof using the pre-merge main integration anchor, so merge-created SHA changes require no unreviewed post-merge mutation.
 
 ## Scope exclusions
 
@@ -42,4 +43,4 @@ The recovered financial reasoning is documented in the historical ADR and reconc
 
 ## Completion gate
 
-The chantier is complete only when the stable map contains no dead current-file or CI references, PR certification proves the active/closing branch and base metadata, stable-mode context validation rejects an ACTIVE main state and verifies the actual main HEAD in current-state, bootstrap/routing contracts are CI-owned, historical financial contradictions remain explicitly non-normative, and state/roadmap/known-gaps describe the final reality.
+The chantier is complete only when the stable map contains no dead current-file or CI references, PR certification proves the active/closing branch and base metadata, stable-mode context validation rejects an ACTIVE main state and verifies the stable integration anchor against the checked-out main history, bootstrap/routing contracts are CI-owned, historical financial contradictions remain explicitly non-normative, and state/roadmap/known-gaps describe the final reality.

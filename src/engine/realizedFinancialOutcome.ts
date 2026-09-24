@@ -220,6 +220,7 @@ export class RealizedFinancialOutcomeEngine {
       realizedNetEstimated = null;
       isFinanciallyComplete = false;
     } else if (
+      sourceCoverage === 'PARTIAL' ||
       positionLedger.position.invalid_transaction_ids.length > 0 ||
       hasUnmatchedSellQuantity ||
       (matchedQuantity === 0 && totalSellQuantity > 0)

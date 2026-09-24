@@ -211,6 +211,8 @@ export class TraderAnalyticsService {
     let totalBrokerFeesPaid: number | null = 0;
     let totalSalesTaxPaid: number | null = 0;
     let totalEstimatedFees: number | null = 0;
+    let realizedProfitHistoryCoverage: FinancialHistoryCoverage = 'COMPLETE_FOR_SCOPE';
+    let realizedProfitOriginCoverage: EconomicOriginCoverage = 'COMPLETE_FOR_SCOPE';
     let hasUnmatchedTrades = false;
     let unmatchedTradesCount = 0;
     let hasPartial = false;
@@ -303,6 +305,15 @@ export class TraderAnalyticsService {
           totalEstimatedFees = roundIsk(totalEstimatedFees + outcome.fees.estimated_total_fees);
         }
       }
+
+      realizedProfitHistoryCoverage = mergeCoverage(
+        realizedProfitHistoryCoverage,
+        outcome.history_coverage,
+      );
+      realizedProfitOriginCoverage = mergeOriginCoverage(
+        realizedProfitOriginCoverage,
+        outcome.economic_origin_coverage,
+      );
 
       if (outcome.financial_completeness === 'PARTIAL' || outcome.source_coverage === 'PARTIAL') {
         hasPartial = true;
@@ -986,6 +997,8 @@ export class TraderAnalyticsService {
           : Math.min(1.3, Math.max(0.7, 1 + (winRatePct - 50) / 100)),
       // Financial Truth & Completeness metrics (Chantier 3B-4A.2 & Final Gate)
       financial_completeness: overallCompleteness,
+      realized_profit_history_coverage: realizedProfitHistoryCoverage,
+      realized_profit_economic_origin_coverage: realizedProfitOriginCoverage,
       is_net_estimated: isNetEstimated,
       realized_profit_label: metricsProfitLabel,
       execution_fee_mode: calcOptions.executionFeeMode,

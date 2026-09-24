@@ -1967,7 +1967,15 @@ async function runAllTests() {
       character_id: charId,
       accounting_scope_id: 'ecosystem:test',
       source_coverage: 'MARKET_TRACEABLE',
-      position_disposition_states: [],
+      position_disposition_states: [
+        {
+          disposition_transaction_id: 8102,
+          disposed_quantity: 100,
+          unmatched_quantity: 0,
+          remaining_position_quantity: 0,
+          lifecycle_status: 'CLOSED',
+        },
+      ],
       observation_id: 'obs_test_34',
       type_id: typeId,
 

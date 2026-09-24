@@ -651,8 +651,18 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                         <td className="py-2 px-2 font-mono text-[#808495]">{fmtIsk(cycle.avg_buy_price)}</td>
                         <td className="py-2 px-2 font-mono text-[#fafafa]">{fmtIsk(cycle.avg_sell_price)}</td>
                         <td className="py-2 px-2 font-mono text-amber-400">~{cycle.hold_days}j</td>
-                        <td className={`py-2 px-2 font-mono font-bold ${cycle.is_profitable ? 'text-emerald-400' : 'text-red-400'}`}>
-                          {cycle.is_profitable ? `+${(cycle.roi * 100).toFixed(1)}%` : `${(cycle.roi * 100).toFixed(1)}%`}
+                        <td className={`py-2 px-2 font-mono font-bold ${
+                          cycle.roi === null
+                            ? 'text-[#808495]'
+                            : cycle.is_profitable
+                              ? 'text-emerald-400'
+                              : 'text-red-400'
+                        }`}>
+                          {cycle.roi === null
+                            ? '—'
+                            : cycle.is_profitable
+                              ? `+${(cycle.roi * 100).toFixed(1)}%`
+                              : `${(cycle.roi * 100).toFixed(1)}%`}
                         </td>
                         <td className={`py-2 px-3 text-right font-mono font-bold ${cycle.is_profitable ? 'text-emerald-400' : 'text-red-400'}`}>
                           <div>{cycle.is_profitable ? `+${fmtIsk(cycle.net_profit)}` : fmtIsk(cycle.net_profit)}</div>

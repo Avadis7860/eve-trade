@@ -8,8 +8,8 @@ Source of truth: code, tests, CI and manifests
 |---|---|---|---|---|---|
 | Catalog | STABLE | CatalogRepository, CatalogValidator, manifest | truth/catalog suites | [catalog](../domains/catalog.md) | refresh governance |
 | Universe | STABLE | graph repository + route engine + manifest | route/SDE truth | [universe](../domains/universe.md) | SDE refresh/performance |
-| Market data | IMPLEMENTED / UX P0 | EsiService, MarketDataStore, MarketEsiGateway | quality + ESI | [market-data](../domains/market-data.md) | retrieval observability + empirical turnover |
-| Trading orders | STABLE / UX P1 | order identity/scoping/normalization | order/corporation suites | [orders](../domains/trading/orders.md) | Operations UI |
+| Market data | STABLE / UX-01 DONE | EsiService, MarketDataStore, MarketEsiGateway | quality + ESI + browser diagnostics | [market-data](../domains/market-data.md) | retrieval observability maintenance + empirical turnover |
+| Trading orders | STABLE / UX-02 DONE | order identity/scoping/normalization | order/corporation + Operations browser suites | [orders](../domains/trading/orders.md) | allocation/performance consumers |
 | Corporation ESI | STABLE | corporation gateway + EsiService | corporation boundary + ESI | [corporation trading](../domains/trading/corporation-trading.md) | corporation UI after UX gate |
 | Finance | IMPLEMENTED | fee/profit/treasury engines | financial/treasury | [finance](../domains/finance/overview.md) | accounting consumers |
 | Financial Truth | STABLE / UX P1 | RealizedFinancialOutcomeEngine | realized-financial | [financial truth](../domains/finance/financial-truth.md) | automatic Performance UI |

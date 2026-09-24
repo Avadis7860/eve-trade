@@ -72,6 +72,12 @@ export interface PortfolioCandidateUniverseSnapshot {
   candidates: UniverseWideOpportunity[];
 }
 
+export interface PortfolioCapitalProvenance {
+  source_kind: 'OBSERVED_ESI' | 'MANUAL' | 'UNAVAILABLE';
+  source_id: string;
+  principal_scope: string;
+}
+
 export interface PortfolioPositionRationale {
   rationale: string[];
   expected_profit_basis: 'EXPECTED_REALIZED_PROFIT' | 'CAPTURABLE_PROFIT';

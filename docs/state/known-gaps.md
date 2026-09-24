@@ -15,9 +15,15 @@ These findings are current and block dependent financial UX work:
 - **Partial disposal semantics are too strong in analytics.** A sale of 1 unit from a 10,000-unit acquisition can produce realized P&L on 1 unit, but the underlying position remains OPEN/PARTIALLY_REALIZED. Current sale-sized TradeCycleRecord aggregation can still count that matched sale as a closed trade.
 - **Incomplete history must remain incomplete.** Missing prior acquisition history must not be reconstructed from active BUY orders or from current order-book observations.
 
+## E2E UX findings — 2026-09-24
+
+- **Operational character view of corporation orders:** the canonical ownership model is correct, but the current UI projection is too restrictive for a hub-isolation workflow. A corporation-owned order observed/issued by a character should be surfacable in that character's operational workflow without changing economic ownership.
+- **Orders table density:** the current operational table can require horizontal scrolling before the most useful fields are simultaneously visible. User-controlled column visibility is required for a practical large-order workflow.
+- **Portfolio information density:** repeated DATA_ISSUE cards and verbose per-row Evidence content consume disproportionate vertical/horizontal space. The UI should group repeated diagnostics and separate decision-critical allocation fields from secondary evidence/provenance details while preserving degraded-data semantics.
+
 ## UX / product gaps
 
-- The UI information architecture still requires the UX-03/UX-04 financial contract reset before certification.
+- The UI information architecture still requires final UX-03/UX-04 financial certification. Manual E2E has additionally identified operational visibility and information-density follow-up.
 - Portfolio allocation scaffolding exists, but Real Portfolio cost basis and open-position exposure require the accepted AcquisitionLot / CurrentPosition model.
 - Journal remains manual despite ESI-derived transaction/order-history/journal data being available.
 - Parameters mix trading policy, logistics, treasury and technical maintenance.
@@ -38,7 +44,7 @@ These findings are current and block dependent financial UX work:
 
 ## CI / delivery gaps
 
-- CI-003 / #76: current UX-03 head has a red Unit/Domain Certification lane caused by the new exact corporation-payload test harness and auth mocking interaction. Fix the harness only.
+- CI-003 / #76 is historical maintenance work; the current branch gate is green.
 - CI-002 remains the separate Draft/Ready PR routing hardening item.
 - Branch protection/ruleset configuration remains administratively unverified.
 

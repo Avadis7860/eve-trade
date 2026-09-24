@@ -371,6 +371,11 @@ export interface TraderPerformanceMetrics {
   total_buy_volume: number; // in ISK
   total_sell_volume: number; // in ISK
   total_turnover: number; // in ISK
+  /**
+   * Fulfilled market-order activity observed from order history.
+   * This is market/order evidence only and never an accounting buy/sell direction.
+   */
+  observed_fulfilled_order_activity_isk?: number;
   total_closed_trades: number;
   profitable_trades: number;
   unprofitable_trades: number;

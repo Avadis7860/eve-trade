@@ -11,7 +11,7 @@ import type { OrderId } from '../types/order';
 import { normalizeOrderId } from './orderIdentity';
 import { roundIsk } from './money';
 
-export type PositionPositionLedgerTransaction = {
+export type PositionLedgerTransaction = {
   readonly transaction_id: number;
   readonly character_id?: number;
   readonly type_id: number;
@@ -56,11 +56,11 @@ function validProvenance(provenance: FinancialProvenance | undefined): boolean {
     provenance.principal_scope.length > 0;
 }
 
-function transactionProvenance(tx: PositionPositionLedgerTransaction): FinancialProvenance {
+function transactionProvenance(tx: PositionLedgerTransaction): FinancialProvenance {
   return tx.provenance;
 }
 
-function validTransaction(tx: PositionPositionLedgerTransaction, characterId: number): boolean {
+function validTransaction(tx: PositionLedgerTransaction, characterId: number): boolean {
   return (
     Number.isSafeInteger(tx.transaction_id) &&
     tx.transaction_id > 0 &&
@@ -78,7 +78,7 @@ function validTransaction(tx: PositionPositionLedgerTransaction, characterId: nu
   );
 }
 
-function relatedOrderId(tx: PositionPositionLedgerTransaction): OrderId | undefined {
+function relatedOrderId(tx: PositionLedgerTransaction): OrderId | undefined {
   if (!tx.order_id) return undefined;
   return normalizeOrderId(tx.order_id) ?? undefined;
 }
@@ -106,7 +106,7 @@ function statusFor(
 export function reconstructPositionLedger(
   characterId: number,
   typeId: number,
-  transactions: readonly PositionPositionLedgerTransaction[],
+  transactions: readonly PositionLedgerTransaction[],
 ): PositionLedgerResult {
   if (!Number.isSafeInteger(characterId) || characterId <= 0) {
     throw new Error(`Invalid characterId: ${characterId}`);
@@ -195,7 +195,7 @@ export function reconstructPositionLedger(
         disposition_transaction_id: sell.transaction_id,
         acquisition_lot_id: lot.lot_id,
         acquisition_transaction_id: lot.transaction_id,
-        provenance: transactionProvenance(sell, characterId),
+        provenance: transactionProvenance(sell),
         allocated_quantity: allocated,
         acquisition_unit_cost: lot.unit_cost,
         disposal_unit_price: sell.unit_price,

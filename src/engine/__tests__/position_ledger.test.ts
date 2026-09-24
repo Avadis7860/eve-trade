@@ -83,7 +83,7 @@ function run() {
       tx(330, true, 10_000, 100, '2026-09-22T10:00:00Z'),
       tx(340, false, 1, 50, '2026-09-23T10:00:00Z'),
     ]);
-    const [firstOperation, secondOperation] = result.position.disposition_states;
+    const [firstOperation, secondOperation] = result.all_disposition_states;
     assert(firstOperation.lifecycle_status === 'CLOSED', 'a later acquisition must not keep the earlier operation open');
     assert(firstOperation.operation_recovery_state === 'POSITIVE', 'closed operation should expose positive recovery state');
     assert(firstOperation.operation_recovery_delta === 400_000, 'first operation recovery delta must use its own capital');

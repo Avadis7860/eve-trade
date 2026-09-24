@@ -155,9 +155,26 @@ async function run() {
   setBackendApiFetchForTesting(async (input, init) => {
     const url = String(input);
 
-    // Keep the regression mock scoped to the exact route under test. Other
-    // requests can still be in flight from the preceding auth/collection
-    // contract checks and must not make this focused assertion flaky.
+    // Keep the regression mock focused while still serving the valid 1001
+    // corporation request made by the preceding contract scenario.
+    if (url.includes('/api/character/1001/corporation/orders')) {
+      return new Response(JSON.stringify([{
+        order_id: '92001',
+        type_id: 34,
+        region_id: 10000002,
+        location_id: 60003760,
+        price: 6.5,
+        volume_remain: 30,
+        volume_total: 30,
+        is_buy_order: true,
+        issued: '2026-09-22T00:00:00Z',
+        duration: 90,
+      }]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     if (!url.includes('/api/character/2124224223/corporation/orders')) {
       return new Response(JSON.stringify([]), {
         status: 200,

@@ -125,7 +125,7 @@ function checkWorkflowLane(lane, context) {
 function checkRouting(domainName, domain) {
   const probes = (domain.canonical_code || [])
     .filter((file) => typeof file === 'string' && exists(file))
-    .map((file) => ({ file, result: classifyPaths([file]) }));
+    .map((file) => ({ file, result: classifyPaths([file], { respectContextCritical: false }) }));
 
   mark(probes.length > 0, `${domainName}: no routable canonical_code path`);
 
@@ -139,18 +139,17 @@ function checkRouting(domainName, domain) {
         'browser-auth': 'run_browser',
         'browser-operations': 'run_browser',
       };
-      const output = outputByJob[lane.job];
-      if (output) {
+      if (lane.route) {
         mark(
-          probes.some(({ result }) => result[output] === true),
-          `${domainName}: canonical paths do not route to required CI output ${output}`
+          probes.some(({ result }) => result[lane.route] === true),
+          `${domainName}: canonical paths do not classify for routing class ${lane.route}`
         );
       }
     }
-    if (lane.workflow === '.github/workflows/phase-2.7c-sde.yml' && lane.job === 'sde-truth') {
+    if (lane.workflow === '.github/workflows/phase-2.7c-sde.yml' && lane.job === 'sde-truth' && lane.route) {
       mark(
-        probes.some(({ result }) => result.sde === true),
-        `${domainName}: no canonical path routes to the SDE truth lane`
+        probes.some(({ result }) => result[lane.route] === true),
+        `${domainName}: no canonical path classifies for routing class ${lane.route}`
       );
     }
   }
@@ -217,14 +216,20 @@ if (mode === 'active') {
   }
 } else {
   mark(work.state !== 'ACTIVE', 'stable main context cannot remain ACTIVE after a delivery is merged');
+  let anchor = '';
   let head = '';
   try {
-    head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim();
+    const parents = execFileSync('git', ['rev-list', '--parents', '-n', '1', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim().split(/\s+/);
+    head = parents[0] || '';
+    anchor = parents[1] || head;
   } catch (error) {
-    fail('git HEAD verification failed: ' + error.message);
+    fail('git stable-anchor verification failed: ' + error.message);
     failed = true;
   }
-  if (head) mark(currentState.includes(head), `current-state is stale for stable HEAD ${head}`);
+  if (anchor) {
+    mark(currentState.includes(anchor), `current-state must identify stable integration anchor ${anchor}`);
+    mark(work.base_sha === anchor, `stable integration anchor mismatch: manifest=${work.base_sha} git-first-parent=${anchor}`);
+  }
 }
 
 if (failed) {

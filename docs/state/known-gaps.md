@@ -43,7 +43,7 @@ These findings are retained as durable model rules; ORD-001 and FIN-001 themselv
 
 ## CI / delivery gaps
 
-- CI status for the active branch is dynamic and must be read from the current PR #71 workflow runs; `test:context` is now part of the Static certification gate.
+- CI status for the active branch is dynamic and must be read from the current PR #71 workflow runs; `test:context` is now part of the Static and Full certification gates. The context manifest is not considered valid until that check passes.
 - CI-002 remains the separate Draft/Ready PR routing hardening item.
 - Branch protection/ruleset configuration remains administratively unverified.
 

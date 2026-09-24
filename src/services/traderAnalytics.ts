@@ -266,53 +266,51 @@ export class TraderAnalyticsService {
         unmatchedTradesCount += 1;
       }
 
-      // Capital recovery is projected by the canonical outcome/position ledger.
-      // TraderAnalytics must not reconstruct a second FIFO ledger.
-      if (outcome.financial_completeness === 'PARTIAL' || outcome.source_coverage === 'PARTIAL') {
-        capitalRecoveryPartial = true;
-      }
-      if (outcome.capital_committed !== null && outcome.cash_recovered !== null) {
+      // Capital recovery is projected from every canonical economic position segment.
+      // TraderAnalytics must never collapse sequential segments for the same type into one balance.
+      const positionSegments = outcome.position_segments ?? [];
+      for (const segment of positionSegments) {
         capitalRecoveryHistoryCoverage = mergeCoverage(
           capitalRecoveryHistoryCoverage,
-          outcome.history_coverage,
+          segment.history_coverage,
         );
         capitalRecoveryOriginCoverage = mergeOriginCoverage(
           capitalRecoveryOriginCoverage,
-          outcome.economic_origin_coverage,
+          segment.economic_origin_coverage,
         );
-        capitalCommittedTotal = roundIsk(
-          capitalCommittedTotal + outcome.capital_committed,
-        );
-        cashRecoveredTotal = roundIsk(
-          cashRecoveredTotal + outcome.cash_recovered,
-        );
-        remainingQuantityTotal += outcome.position_remaining_quantity;
-        remainingCostBasisTotal = roundIsk(
-          remainingCostBasisTotal + outcome.remaining_inventory_cost_basis,
-        );
-        knownCapitalPositions += 1;
 
-        for (const allocation of outcome.fifo_allocations) {
-          capitalRecoveryProvenance.set(
-            allocation.provenance.source_kind + '|' +
-              allocation.provenance.source_id + '|' +
-              allocation.provenance.principal_scope,
-            allocation.provenance,
-          );
-        }
-        for (const lot of outcome.remaining_lots) {
-          capitalRecoveryProvenance.set(
-            lot.provenance.source_kind + '|' +
-              lot.provenance.source_id + '|' +
-              lot.provenance.principal_scope,
-            lot.provenance,
-          );
+        if (segment.position_completeness === 'PARTIAL' || segment.source_coverage === 'PARTIAL') {
+          capitalRecoveryPartial = true;
         }
 
-        if (outcome.position_lifecycle === 'OPEN') openCapitalPositions += 1;
-        if (outcome.position_lifecycle === 'PARTIALLY_REALIZED') partialCapitalPositions += 1;
-        if (outcome.position_lifecycle === 'CLOSED') closedCapitalPositions += 1;
+        if (segment.capital_committed !== null && segment.cash_recovered !== null) {
+          capitalCommittedTotal = roundIsk(
+            capitalCommittedTotal + segment.capital_committed,
+          );
+          cashRecoveredTotal = roundIsk(
+            cashRecoveredTotal + segment.cash_recovered,
+          );
+          remainingQuantityTotal += segment.remaining_quantity;
+          remainingCostBasisTotal = roundIsk(
+            remainingCostBasisTotal + segment.remaining_cost_basis,
+          );
+          knownCapitalPositions += 1;
+
+          for (const provenance of segment.provenance) {
+            capitalRecoveryProvenance.set(
+              provenance.source_kind + '|' +
+                provenance.source_id + '|' +
+                provenance.principal_scope,
+              provenance,
+            );
+          }
+
+          if (segment.lifecycle_status === 'OPEN') openCapitalPositions += 1;
+          if (segment.lifecycle_status === 'PARTIALLY_REALIZED') partialCapitalPositions += 1;
+          if (segment.lifecycle_status === 'CLOSED') closedCapitalPositions += 1;
+        }
       }
+
 
       const allocationsBySellTx: Record<number, typeof outcome.fifo_allocations[number][]> = {};
       for (const alloc of outcome.fifo_allocations) {

@@ -203,6 +203,14 @@ function run() {
     'analytics cycles must preserve canonical position segment identity',
   );
   assert(
+    sequentialSegmentMetrics.recent_trade_cycles.every(
+      (cycle) =>
+        cycle.history_coverage === 'COMPLETE_FOR_SCOPE' &&
+        cycle.economic_origin_coverage === 'COMPLETE_FOR_SCOPE',
+    ),
+    'analytics cycles must preserve segment coverage evidence',
+  );
+  assert(
     sequentialSegmentMetrics.total_closed_trades === 1,
     'analytics must count the first segment as closed and the second segment as still open',
   );

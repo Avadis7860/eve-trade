@@ -33,8 +33,10 @@ import {
   normalizeEsiCharacterTransactions,
   RawEsiTransactionInput,
 } from '../engine/characterTransaction';
+import type { FinancialHistoryCoverage, EconomicOriginCoverage } from '../types/financial';
 import { IndexedDbStore } from './indexedDbStore';
 import { AuthService } from './authService';
+import { CharacterRepository } from '../domain/character/CharacterRepository';
 
 export const REQUIRED_WALLET_TRANSACTION_SCOPE = 'esi-wallet.read_character_wallet.v1';
 export const DEFAULT_MAX_PAGES = 50;
@@ -185,7 +187,7 @@ export class CharacterTransactionSyncService {
 
     // 1. Validation of character identifier
     if (!Number.isSafeInteger(characterId) || characterId <= 0) {
-      return this.buildSummary({
+      return this.persistSummary({
         characterId: characterId || 0,
         startedAt,
         completedAt: startedAt,
@@ -211,7 +213,7 @@ export class CharacterTransactionSyncService {
     );
 
     if (!session || !session.access_token) {
-      return this.buildSummary({
+      return this.persistSummary({
         characterId,
         startedAt,
         completedAt: startedAt,
@@ -240,7 +242,7 @@ export class CharacterTransactionSyncService {
       }
 
       if (session.is_token_expired || !session.access_token) {
-        return this.buildSummary({
+        return this.persistSummary({
           characterId,
           startedAt,
           completedAt: new Date().toISOString(),
@@ -625,7 +627,7 @@ export class CharacterTransactionSyncService {
     const completedAt = options?.now ? options.now() : new Date().toISOString();
     const durationMs = Math.max(0, Date.now() - startTimeMs);
 
-    return this.buildSummary({
+    return this.persistSummary({
       characterId,
       startedAt,
       completedAt,
@@ -648,12 +650,25 @@ export class CharacterTransactionSyncService {
     });
   }
 
+  private static persistSummary(
+    params: Parameters<typeof CharacterTransactionSyncService.buildSummary>[0],
+  ): CharacterTransactionSyncSummary {
+    const summary = CharacterTransactionSyncService.buildSummary(params);
+    try {
+      CharacterRepository.getInstance().saveTransactionSyncSummary(summary.character_id, summary);
+    } catch (error) {
+      console.warn('[CharacterTransactionSyncService] Failed to persist coverage summary:', error);
+    }
+    return summary;
+  }
+
   private static buildSummary(params: {
     characterId: number;
     startedAt: string;
     completedAt: string;
     durationMs: number;
     pagesFetched: number;
+    fullHistoryRequested?: boolean;
     transactionsReceived: number;
     transactionsValid: number;
     transactionsInvalid: number;
@@ -669,6 +684,19 @@ export class CharacterTransactionSyncService {
     dataState: DataState;
     healthStatus: DataHealthStatus;
   }): CharacterTransactionSyncSummary {
+    const historyCoverage: FinancialHistoryCoverage =
+      params.stoppedReason === 'NO_MORE_DATA' &&
+      (params.fullHistoryRequested === true || params.lastKnownTransactionIdBeforeSync === undefined)
+        ? 'COMPLETE_FOR_SCOPE'
+        : params.transactionsReceived > 0 &&
+            params.stoppedReason !== 'VALIDATION_ERROR' &&
+            params.stoppedReason !== 'AUTH_REQUIRED' &&
+            params.stoppedReason !== 'NO_NEW_DATA'
+          ? 'PARTIAL'
+          : 'UNKNOWN';
+
+    const economicOriginCoverage: EconomicOriginCoverage = 'UNKNOWN';
+
     return {
       character_id: params.characterId,
       started_at: params.startedAt,

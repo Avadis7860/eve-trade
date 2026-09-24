@@ -54,6 +54,7 @@ export interface PortfolioPosition {
     route_share: number;
   };
   rationale?: import('./portfolio').PortfolioPositionRationale;
+  capital_provenance?: import('./portfolio').PortfolioCapitalProvenance;
 }
 
 export interface PortfolioSimulation {

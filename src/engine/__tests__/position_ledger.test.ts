@@ -279,6 +279,20 @@ function run() {
     );
   }
 
+  {
+    const result = reconstructPositionLedger('ecosystem:owner-boundary', 34, [
+      tx(921, true, 10, 100, '2026-09-20T10:00:00Z', 1001, 'ecosystem:owner-boundary'),
+    ]);
+    assert(
+      result.position.economic_owner_type === 'unknown',
+      'observer character must not be inferred as economic owner without explicit ownership evidence',
+    );
+    assert(
+      result.position.economic_owner_id === null,
+      'economic owner ID must remain unknown without explicit ownership evidence',
+    );
+  }
+
   console.log('[PASS] FIN-001 position ledger scenarios validated.');
 }
 

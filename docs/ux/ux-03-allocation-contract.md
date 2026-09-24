@@ -1,6 +1,6 @@
 # UX-03 — Allocation / Portefeuille — Contrat métier détaillé
 
-Status: CONTRACT ENRICHMENT / NOT IMPLEMENTED
+Status: IMPLEMENTATION INCREMENT 1 / CERTIFICATION PENDING
 Scope: UX-03 preparation, economic truth, opportunity universe, allocation semantics and validation
 Base: `main` `aec4c62691723e8fa2ee2bb2f9126249152ad57f`
 Related:
@@ -10,6 +10,10 @@ Related:
 - [Known Gaps](../state/known-gaps.md)
 
 ## 1. Purpose
+
+### Implementation increment 1
+
+Implemented and CI-verified on `ux-03/allocation-contract`: the typed portfolio aggregation boundary, cross-item allocator, Real Portfolio / Proposed Allocation UI split, explicit freshness/coverage behavior, allocation rationale and unallocated reason codes. Character Assets remains out of scope; inventory is therefore still UNKNOWN/PARTIAL rather than zero.
 
 UX-03 must turn Portefeuille into a decision surface with two explicitly separated lenses:
 

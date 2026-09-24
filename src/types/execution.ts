@@ -4,6 +4,7 @@ import type {
   FinancialConfig,
   ExecutionFeeRoleMode,
   RealizedFinancialOutcome,
+  EconomicOwnerType,
 } from './financial';
 import type { InterRegionalOpportunity, OpportunityObservation } from './opportunity';
 import type { PersistedCharacterTransaction } from './character';
@@ -144,6 +145,9 @@ export interface ExecutionTransactionRef {
   readonly observation_id?: string;
   /** Explicit economic accounting scope; not derived from character identity. */
   readonly accounting_scope_id?: string;
+  /** Explicit economic owner attribution. Never used as an accounting silo. */
+  readonly economic_owner_type?: Exclude<EconomicOwnerType, 'mixed'>;
+  readonly economic_owner_id?: number | string | null;
   /** Explicit financial source when this reference crosses the accounting boundary. */
   readonly provenance?: FinancialProvenance;
 }

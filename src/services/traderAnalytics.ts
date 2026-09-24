@@ -493,7 +493,7 @@ export class TraderAnalyticsService {
     const closedRoiCycles = closedCycles.filter((c) => c.roi !== null);
     const avgRealizedRoi =
       closedRoiCycles.length > 0
-        ? closedRoiCycles.reduce((acc, c) => acc + c.roi, 0) / closedRoiCycles.length
+        ? closedRoiCycles.reduce((acc, c) => c.roi === null ? acc : acc + c.roi, 0) / closedRoiCycles.length
         : 0;
 
     const avgHoldDays =
@@ -602,7 +602,7 @@ export class TraderAnalyticsService {
       const catRoiCycles = catCycles.filter((c) => c.roi !== null);
       categorySuccessRate[cat].avg_roi =
         catRoiCycles.length > 0
-          ? catRoiCycles.reduce((a, b) => a + b.roi, 0) / catRoiCycles.length
+          ? catRoiCycles.reduce((a, b) => b.roi === null ? a : a + b.roi, 0) / catRoiCycles.length
           : 0;
       const status = deriveFinancialStatus(catCycles);
       categorySuccessRate[cat].profit_label = status.label;
@@ -1348,7 +1348,7 @@ export class TraderAnalyticsService {
     const legacyRoiCycles = completedCycles.filter((c) => c.quantity > 0 && c.roi !== null);
     const avgRealizedRoi =
       legacyRoiCycles.length > 0
-        ? legacyRoiCycles.reduce((acc, c) => acc + c.roi, 0) / legacyRoiCycles.length
+        ? legacyRoiCycles.reduce((acc, c) => c.roi === null ? acc : acc + c.roi, 0) / legacyRoiCycles.length
         : 0;
     const avgHoldDays =
       totalClosedTrades > 0

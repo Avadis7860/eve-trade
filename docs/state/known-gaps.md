@@ -6,13 +6,13 @@ Source of truth: code, tests, CI and current state documents
 
 ## Contract-reset findings
 
-These findings are current and block dependent financial UX work:
+These findings are retained as durable model rules; ORD-001 and FIN-001 themselves are now certified.
 
 - **Economic direction is not market order side.** A trader can acquire by taking an existing SELL order and later dispose through a SELL order of their own. Therefore `is_buy_order` is a market-mechanism fact, not the accounting direction.
 - **Wallet transaction is the accounting fact.** An order ID is corroborating market provenance when available, not a required financial identity.
 - **Order identity dimensions are already available.** The order model carries OrderId and ownership/provenance fields; Character and Corporation should remain scope/ownership dimensions rather than separate market-order entity classes.
-- **No first-class position ledger exists yet.** FIFO lots are rebuilt locally by the current financial engine instead of being authoritative persisted position state.
-- **Partial disposal semantics are too strong in analytics.** A sale of 1 unit from a 10,000-unit acquisition can produce realized P&L on 1 unit, but the underlying position remains OPEN/PARTIALLY_REALIZED. Current sale-sized TradeCycleRecord aggregation can still count that matched sale as a closed trade.
+- **No durable position store exists.** The certified position ledger is a deterministic calculation boundary over source transactions; persistence of AcquisitionLot/CurrentPosition is intentionally deferred.
+- **Performance remains the next financial gate.** FIN-002 must finish the migration of all Performance/KPI consumers to position lifecycle semantics and ensure no legacy sale-sized metric remains authoritative.
 - **Incomplete history must remain incomplete.** Missing prior acquisition history must not be reconstructed from active BUY orders or from current order-book observations.
 
 ## E2E UX findings — 2026-09-24
@@ -24,7 +24,7 @@ These findings are current and block dependent financial UX work:
 ## UX / product gaps
 
 - The UI information architecture still requires final UX-03/UX-04 financial certification. Manual E2E has additionally identified operational visibility and information-density follow-up.
-- Portfolio allocation scaffolding exists, but Real Portfolio cost basis and open-position exposure require the accepted AcquisitionLot / CurrentPosition model.
+- Portfolio allocation scaffolding can now consume the accepted position model, but final Real Portfolio exposure certification remains blocked by FIN-002 and the missing Assets source.
 - Journal remains manual despite ESI-derived transaction/order-history/journal data being available.
 - Parameters mix trading policy, logistics, treasury and technical maintenance.
 
@@ -37,7 +37,7 @@ These findings are current and block dependent financial UX work:
 
 ## Financial / data-quality gaps
 
-- Some defensive numeric paths convert invalid/non-finite values to 0 inside financial calculations. DATA-001 must determine whether validation guarantees make this unreachable; if not, preserve explicit incomplete state instead.
+- Some defensive numeric paths still convert invalid/non-finite values to 0 inside financial calculations; these remain candidates for the next data-quality hardening pass where evidence shows the conversion can be reached.
 - A “no cycles” analytics fallback currently labels realized profit as ESTIMATED. Absence of matched cycles is not evidence of an estimate and needs reclassification.
 - Order-history fulfilled volume may be useful as activity evidence, but must never be used as acquisition cost basis or realized financial truth.
 - Character Assets are not implemented; current inventory quantity/location coverage therefore cannot be assumed complete.

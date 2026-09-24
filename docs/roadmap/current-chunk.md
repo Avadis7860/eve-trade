@@ -1,6 +1,6 @@
 # Current Chunk
 
-Status: DOCUMENTATION REBASE COMPLETE / CODE CHANGES FROZEN PENDING CI REPAIR
+Status: FIN-001 CERTIFIED / FIN-002 NEXT / UX-03 FEATURE WORK FROZEN
 Scope: UX-03 allocation workstream held pending financial/order model correction
 Reference: UX-03 Allocation Contract
 Decision: ADR-0003 — Economic Transactions, Acquisition Lots and Canonical Market Orders
@@ -8,7 +8,7 @@ Financial workstream: Financial Truth Rebase
 
 ## Objective
 
-The previous UX-03 implementation increment is now treated as scaffolding, not a certified financial contract.
+The previous UX-03 implementation increment remains scaffolding. The financial contract reset is now partially certified: ORD-001 and FIN-001 are closed; FIN-002 is the next gate.
 
 Deep review of the active branch identified three model-level issues:
 
@@ -39,15 +39,13 @@ Market observation, economic transaction, position lifecycle, realized financial
 
 ## Priority work
 
-1. FIN-001 / issue #72 — acquisition lots + position ledger.
-2. ORD-001 / issue #73 — one canonical MarketOrder with issuer / owner / observer dimensions.
-3. FIN-002 / issue #74 — Performance lifecycle and position-level capital recovery.
-4. DATA-001 / issue #75 — provenance and zero-fallback audit.
-5. CI-003 / issue #76 — repair the red CI validation without weakening the financial contract.
+1. FIN-002 / issue #74 — Performance lifecycle and position-level capital recovery.
+2. Final UX-03 implementation — order visibility/column personalization and Portfolio decision-vs-diagnostic density.
+3. UX-04 Performance — after the financial lifecycle contract is accepted.
 
 ## Explicit freeze
 
-Until the contract reset is accepted:
+Until FIN-002 and the remaining UX/data acceptance gates are certified:
 
 - no new allocation feature;
 - no new realized-profit KPI;
@@ -66,9 +64,8 @@ P0 market/ESI reliability and UX-02 Operations remain certified historical found
 Implementation may resume only after:
 
 - ADR-0003 is accepted;
-- FIN-001 has an executable AcquisitionLot/CurrentPosition contract and regressions;
-- ORD-001 has canonical order provenance regressions;
-- FIN-002 has position-lifecycle and capital-recovery acceptance cases;
+- FIN-001 has an executable AcquisitionLot/CurrentPosition contract and regressions, and is CI-certified;
+- ORD-001 has canonical order provenance regressions, and is certified;
+- FIN-002 has position-lifecycle and capital-recovery acceptance cases and is next;
 - DATA-001 has completed the first data-state audit;
-- existing CI red failures are corrected;
-- CI is green on the branch.
+- CI regressions are corrected and the branch is green on CI #920.

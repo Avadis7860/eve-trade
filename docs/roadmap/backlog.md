@@ -4,20 +4,20 @@ Status: CURRENT
 Scope: open work only
 Source of truth: revalidated code, tests, CI and current state documents
 
-## P0 — Financial Truth / Position Model — IMPLEMENTATION IN PROGRESS
+## P0 — Financial Truth / Position Model — FIN-001 CLOSED / FIN-002 NEXT
 
 These items block further finance, performance and portfolio development until their contracts are accepted.
 
-- **FIN-001 / #72:** derive economic acquisitions from real transactions; create first-class Acquisition Lots with source/provenance, remaining quantity and cost basis; derive Current Position from open lots.
-- **ORD-001 / #73:** keep one canonical MarketOrder model; character/corporation remain ownership/scope dimensions; issuer and observer remain explicit provenance.
-- **FIN-002 / #74:** rebuild Performance around OPEN -> PARTIALLY_REALIZED -> CLOSED. A partial sale realizes P&L on the allocated quantity but does not close the underlying position.
-- **DATA-001 / #75:** audit every financial path for UNKNOWN/PARTIAL/ERROR/ABSENT -> 0 collapse and provenance loss.
+- **FIN-001 / #72 — CERTIFIED:** economic acquisitions are derived from real transactions; Acquisition Lots and Current Position carry source/provenance, remaining quantity, cost basis and lifecycle.
+- **ORD-001 / #73 — CERTIFIED:** one canonical MarketOrder model; character/corporation remain ownership/scope dimensions; issuer and observer remain explicit provenance.
+- **FIN-002 / #74 — NEXT:** rebuild Performance around OPEN -> PARTIALLY_REALIZED -> CLOSED. A partial sale realizes P&L on the allocated quantity but does not close the underlying position.
+- **DATA-001 / #75 — FIRST AUDIT CERTIFIED:** audit every financial path for UNKNOWN/PARTIAL/ERROR/ABSENT -> 0 collapse and provenance loss.
 - Active BUY orders may reserve capital but are not acquisition facts.
 - Market order side must never be treated as economic acquisition/disposition direction.
 
 ## P0 — CI regression harness
 
-**CI-003 / #76** is a narrow maintenance fix for the current red Unit/Domain Certification lane on the UX-03 branch. It must repair the test harness only and preserve the exact real-corporation-payload regression.
+**CI-003 / #76 — RESOLVED.** The CI harness regression was corrected without weakening the corporation payload contract.
 
 ## P0 — Market / ESI truth and retrieval reliability — DONE / CLOSED
 
@@ -39,15 +39,15 @@ The Operations console and its browser decision loop are merged and certified.
 
 ## P1 — Allocation / Portefeuille
 
-Status: IMPLEMENTED SCAFFOLD / CERTIFICATION BLOCKED
+Status: IMPLEMENTED SCAFFOLD / FINANCIAL REBASE PARTIALLY CERTIFIED
 
 Manual E2E follow-up is now recorded: the final UX pass must separate decision-critical allocation information from diagnostic evidence and group repeated DATA_ISSUE explanations without suppressing the underlying state.
 
-The UX-03 implementation is retained as scaffolding but must be re-based on FIN-001/ORD-001/FIN-002/DATA-001 before final certification.
+The UX-03 implementation is retained as scaffolding. FIN-001/ORD-001 are certified; FIN-002 remains the next financial gate before final Portfolio/Performance certification.
 
 The Real Portfolio cost basis must come from the position/lot contract, not active BUY orders.
 
-## P1 — Performance / Journal — BLOCKED BY FIN-001/FIN-002
+## P1 — Performance / Journal — NEXT AFTER FIN-001
 
 - Replace manual financial truth with ESI-derived trade reconstruction.
 - Reconcile transactions, acquisition lots, disposal allocations, fees and realized outcomes.

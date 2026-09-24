@@ -1,6 +1,6 @@
 # Financial Truth Validation
 
-Status: SEMANTIC REBASE IN PROGRESS
+Status: FIN-001 CERTIFIED / FIN-002 NEXT
 Scope: economic acquisition, position lifecycle, realized accounting, capital recovery and data completeness
 Source of truth: src/engine/positionLedger.ts, src/engine/realizedFinancialOutcome.ts
 Implementation: position ledger + realized calculation primitive
@@ -28,8 +28,8 @@ TraderAnalyticsService and FleetFinancialEngine must remain projections of the a
 
 ## Latest CI certification state
 
-Latest verified branch head: c169c6516592c31e6d57ea2f5ef83f318585427f.
+Latest verified branch head: e971954e4040b673fd23f5360878ed7a9f99a12f.
 
-CI Foundation & Regression Gate #893 is GREEN, with all required lanes completed successfully. Phase 2.7C SDE Truth Gate #654 is also GREEN.
+CI Foundation & Regression Gate #920 is GREEN, with all required lanes completed successfully. Phase 2.7C SDE Truth Gate #681 is also GREEN.
 
-ORD-001 is certified. Its scope is canonical MarketOrder identity/ownership/observation semantics; it does not close the broader financial rebase. FIN-001 is the next code gate for the AcquisitionLot / CurrentPosition boundary.
+FIN-001 is certified. Its scope is the deterministic AcquisitionLot / DisposalAllocation / CurrentPosition boundary, causal FIFO, lifecycle, capital recovery separation and provenance preservation. FIN-002 is the next code gate for Performance analytics.

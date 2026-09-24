@@ -1,6 +1,6 @@
 # Financial Truth Rebase
 
-Status: PRIORITY / ORD-001 CERTIFIED / FIN-001 NEXT
+Status: PRIORITY / FIN-001 CERTIFIED / FIN-002 NEXT
 Scope: FIN-001, ORD-001, FIN-002, DATA-001, CI-003
 Related decision: ADR-0003
 
@@ -91,7 +91,7 @@ The semantic correction is documented before the next code change:
 - partial disposal never closes a position;
 - current-market valuation remains separate from realized accounting.
 
-### FIN-001 — issue #72
+### FIN-001 — issue #72 — CERTIFIED
 
 Create and validate the AcquisitionLot / CurrentPosition boundary. Preserve provenance and incomplete-history states.
 
@@ -103,15 +103,17 @@ Current implementation:
 - optional `order_id` is preserved only as normalized corroborating provenance;
 - executable position-ledger regressions cover partial, closed, FIFO, causal and incomplete-source scenarios;
 - no durable IndexedDB position source has been introduced.
+- CI Foundation & Regression Gate #920: GREEN.
+- Phase 2.7C SDE Truth Gate #681: GREEN.
 
-Acceptance:
+Certification:
 - 10,000 acquired + 1 disposed => 9,999 remain;
 - the disposed unit can have realized P&L;
 - the lot remains PARTIALLY_REALIZED;
 - position-level recovery delta is negative when less than the acquisition capital has been recovered;
 - no synthetic cost is created for unmatched dispositions.
 
-### ORD-001 — issue #73
+### ORD-001 — issue #73 — CERTIFIED
 
 Make the canonical MarketOrder model explicit. Keep order identity, market side, issuer, economic owner and observer separate.
 
@@ -119,14 +121,14 @@ Current implementation:
 - canonical order identity and multi-observer regressions are certified;
 - real corporation payload without an explicit is_buy_order: false is accepted under the documented ESI optional-boolean semantics;
 - CI Foundation & Regression Gate #893 is green;
-- ORD-001 is certified on branch head `c169c6516592c31e6d57ea2f5ef83f318585427f`.
+- ORD-001 is certified on branch head `e971954e4040b673fd23f5360878ed7a9f99a12f`.
 
 Acceptance:
 - one order ID can be observed through multiple principals;
 - corporation ownership never becomes character ownership;
 - market side does not affect financial transaction direction.
 
-### FIN-002 — issue #74
+### FIN-002 — issue #74 — NEXT IMPLEMENTATION GATE
 
 Rebuild Performance around lot/position lifecycle, not “a sale creates a closed cycle”.
 
@@ -145,7 +147,7 @@ Acceptance:
 - recovery delta never becomes realized P&L or whole-operation ROI;
 - no current-market valuation is inferred from the recovery summary.
 
-### DATA-001 — issue #75
+### DATA-001 — issue #75 — CERTIFIED FIRST AUDIT
 
 Audit numeric fallbacks and provenance.
 
@@ -163,11 +165,11 @@ Acceptance:
 - valid zeroes remain distinguishable from missing/invalid data;
 - unresolved physical type data cannot enter a certified calculation as a fabricated volume.
 
-### CI-003 — issue #76
+### CI-003 — issue #76 — RESOLVED
 
 Repair the CI validation without weakening the contract.
 
-Resolved on validated code head 4d4694955a1e75532455a8d924922bdc23999d8e:
+Resolved during the certified contract rebase; latest validated branch head is `e971954e4040b673fd23f5360878ed7a9f99a12f`:
 - frontend typecheck fixture reconciled with lifecycle fields;
 - division-by-zero legacy fixture reconciled with the positive type-id invariant;
 - corporation ESI mock isolation/credential assertions reconciled with the real request sequence;
@@ -177,6 +179,6 @@ The fixes updated test contracts/fixtures deliberately rather than relaxing ledg
 
 ## Blocking rule
 
-No new financial KPI, profitability ranking, order-to-transaction inference or financial UI certification is allowed before FIN-001/ORD-001/FIN-002/DATA-001 are accepted.
+No additional financial KPI, profitability ranking, order-to-transaction inference or financial UI certification is allowed until FIN-002 and the remaining data-quality/UX acceptance gates are certified.
 
 UX-03 allocation implementation may resume after the contract gate; proposed allocation remains prospective and must not become a substitute for financial truth.

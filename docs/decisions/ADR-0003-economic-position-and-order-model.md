@@ -1,6 +1,6 @@
 # ADR-0003 — Economic Transactions, Acquisition Lots and Canonical Market Orders
 
-Status: ACCEPTED / ORD-001 CERTIFIED; FIN-001 IMPLEMENTATION NEXT
+Status: ACCEPTED / ORD-001 + FIN-001 CERTIFIED; FIN-002 NEXT
 Date: 2026-09-24
 Scope: financial truth, performance, portfolio and market-order provenance
 
@@ -136,13 +136,13 @@ ESI wallet transactions do not provide a trustworthy order ID for this accountin
 
 The existing FIFO engine remains a useful deterministic matching primitive.
 
-The required architectural change is to move from transient calculation-only lots and sale-sized TradeCycleRecord semantics toward a first-class AcquisitionLot / CurrentPosition calculation boundary.
+The first required architectural change is complete and certified: the calculation boundary now exposes AcquisitionLot / DisposalAllocation / CurrentPosition with deterministic lifecycle, capital recovery and provenance. Performance remains the next boundary for FIN-002.
 
 Performance must expose realized disposal outcomes separately from position-level capital recovery. A future valuation surface may add current-market value, but it cannot be used to backfill realized accounting.
 
 No durable position store is mandated by this ADR. Wallet transactions remain durable FACTS; position/lots are deterministic projections unless a later decision explicitly introduces persistence.
 
-ORD-001 is implemented and certified. FIN-001 remains the next implementation gate for the AcquisitionLot / CurrentPosition boundary; broader Real Portfolio and Performance certification remains blocked until the financial sequence is complete.
+ORD-001 and FIN-001 are implemented and certified. FIN-002 remains the next implementation gate; broader Real Portfolio and Performance certification remains blocked until the Performance lifecycle contract is accepted.
 
 ## Required regression scenarios
 

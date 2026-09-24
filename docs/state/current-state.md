@@ -12,7 +12,7 @@ The market/ESI retrieval reliability gate is closed and UX-02 Operations is merg
 
 ## Active working branch reality
 
-The only active product branch is ux-03/allocation-contract, associated with PR #71. It remains FROZEN FOR UX-03 FEATURE DEVELOPMENT pending completion of FIN-001 / FIN-002 / DATA-001; ORD-001 is now certified and the financial/order contract rebase plus CI repair are green.
+The only active product branch is ux-03/allocation-contract, associated with PR #71. It remains FROZEN FOR UX-03 FEATURE DEVELOPMENT pending completion of FIN-002 and the remaining data-quality/UX acceptance gates; FIN-001, ORD-001 and the first DATA-001 audit are certified and the financial/order contract rebase plus CI repair are green.
 
 The branch currently expresses the following boundaries:
 
@@ -27,10 +27,11 @@ The branch currently expresses the following boundaries:
 - position-level capital recovery is a dedicated derived axis and is projected through CurrentPosition / RealizedFinancialOutcome into Performance metrics; realized P&L and ROI remain separate.
 
 Priority sequence:
-- FIN-001 #72 — next implementation gate
-- FIN-002 #74
-- DATA-001 #75
-- CI-003 #76
+- FIN-001 #72 — CERTIFIED
+- ORD-001 #73 — CERTIFIED
+- FIN-002 #74 — NEXT IMPLEMENTATION GATE
+- DATA-001 #75 — CERTIFIED (first audit)
+- CI-003 #76 — RESOLVED / HISTORICAL
 
 ORD-001 #73 is certified and no longer an active implementation blocker.
 
@@ -55,7 +56,7 @@ The current engine/domain layers remain ahead of the UI, but the financial bound
 - UX-03 allocation scaffolding exists, but Real Portfolio certification is blocked by the position/lot contract.
 - Journal remains manual.
 - Character Assets are not implemented; therefore current inventory coverage cannot be assumed complete.
-- Performance analytics now has both a position-lifecycle boundary and a dedicated capital-recovery projection, but broader certification still depends on the remaining FIN-001 / FIN-002 / DATA-001 gates.
+- Performance analytics now has both a position-lifecycle boundary and a dedicated capital-recovery projection; broader certification remains gated by FIN-002 and the remaining UX/data-quality acceptance work.
 - A complete whole-operation result is not inferred from a single matched disposal.
 
 ## Active gaps
@@ -69,7 +70,7 @@ The current engine/domain layers remain ahead of the UI, but the financial bound
 
 ## Latest CI verification
 
-Validated code head: c169c6516592c31e6d57ea2f5ef83f318585427f
+Validated code head: e971954e4040b673fd23f5360878ed7a9f99a12f
 
 CI Foundation & Regression Gate: GREEN
 Phase 2.7C SDE Truth Gate: GREEN
@@ -86,10 +87,10 @@ The full gate passed including:
 - Validation & Non-Regression Gate;
 - required-gate and observability completion.
 
-ORD-001 certification completed after resolving the stale type imports exposed by CI #892; no financial or positive-ID invariant was weakened.
+ORD-001 and FIN-001 certification completed after resolving the stale type/provenance regressions exposed by CI #892/#919; no financial or positive-ID invariant was weakened.
 
 ## Sequencing
 
-Documentation is now aligned with the certified order contract. The next code changes target FIN-001 under the frozen contract; FIN-002 and DATA-001 remain subsequent gates.
+Documentation is now aligned with the certified order and position contracts. The next code changes target FIN-002; remaining UX-03 feature work stays blocked until the financial sequence is accepted.
 
-UX-03 resumes only after FIN-001/ORD-001/FIN-002/DATA-001 and the CI gate are accepted.
+UX-03 feature work resumes after FIN-002 and the remaining acceptance gates are certified.

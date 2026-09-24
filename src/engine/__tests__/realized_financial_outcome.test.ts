@@ -2175,10 +2175,14 @@ async function runAllTests() {
         `Cycle ${c.cycle_id} internal balance: ${c.net_profit} == ${c.gross_profit} - ${c.estimated_fees_paid}`
       );
       assert(c.fees_breakdown !== undefined, `Cycle ${c.cycle_id} fees_breakdown must be defined`);
+      const feesBreakdown = c.fees_breakdown;
+      if (feesBreakdown === undefined) {
+        throw new Error(`Cycle ${c.cycle_id} fees_breakdown must be defined`);
+      }
       const componentFeesSum = roundIsk(
-        (c.fees_breakdown?.estimated_buy_broker_fee ?? 0) +
-        (c.fees_breakdown?.estimated_sell_broker_fee ?? 0) +
-        (c.fees_breakdown?.estimated_sales_tax ?? 0)
+        feesBreakdown.estimated_buy_broker_fee +
+        feesBreakdown.estimated_sell_broker_fee +
+        feesBreakdown.estimated_sales_tax
       );
       assert(
         c.estimated_fees_paid === componentFeesSum,

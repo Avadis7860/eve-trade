@@ -9,3 +9,4 @@ Source of truth: [master-plan.md](master-plan.md)
 - [Current Chunk](current-chunk.md) — only the active chantier.
 - [Completed](completed.md) — compact history of completed major gates.
 - [Backlog](backlog.md) — current technical/documentation/functional debt.
+- [Public Readiness](public-readiness.md) — public-repository credibility and showcase preparation.

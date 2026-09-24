@@ -97,8 +97,6 @@ export class TraderAnalyticsService {
       client_id: tx.client_id,
       client_name: tx.client_name,
       journal_ref_id: tx.journal_ref_id,
-      accounting_scope_id: (tx as EveCharacterTransaction).accounting_scope_id,
-      provenance: (tx as EveCharacterTransaction).provenance,
     }));
 
     const coverageEvidence =

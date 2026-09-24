@@ -50,7 +50,7 @@ export class TraderAnalyticsService {
     const knownTransactionCharacterIds = new Set(
       transactions
         .map((tx) => tx.character_id)
-        .filter((id): id is number => Number.isSafeInteger(id) && id > 0),
+        .filter((id): id is number => typeof id === 'number' && Number.isSafeInteger(id) && id > 0),
     );
 
     if (!explicitAccountingScope && knownTransactionCharacterIds.size > 1) {

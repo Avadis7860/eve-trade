@@ -2293,11 +2293,18 @@ async function runAllTests() {
       ],
       position_disposition_states: [
         {
+          position_segment_id: 'operation_test',
           disposition_transaction_id: 8102,
           disposed_quantity: 100,
           unmatched_quantity: 0,
           remaining_position_quantity: 0,
           lifecycle_status: 'CLOSED',
+          position_quantity_acquired: 100,
+          position_capital_committed: 1000,
+          position_cash_recovered: 1500,
+          position_recovery_delta: 500,
+          position_recovery_ratio: 1.5,
+          position_recovery_state: 'POSITIVE',
         },
       ],
       observation_id: 'obs_test_34',

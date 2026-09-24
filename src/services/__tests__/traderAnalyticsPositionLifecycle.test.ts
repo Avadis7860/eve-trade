@@ -79,6 +79,29 @@ function run() {
     metrics.recent_trade_cycles[0].is_position_closed === false,
     'the partial sale event must not be marked closed',
   );
+  assert(metrics.recent_trade_cycles[0].operation_id !== undefined, 'partial disposal must expose its economic operation identity');
+  assert(metrics.recent_trade_cycles[0].operation_recovery_delta === -999_860, 'analytics must expose cumulative operation recovery delta');
+  assert(metrics.recent_trade_cycles[0].operation_recovery_state === 'NEGATIVE', 'analytics must expose negative recovery state');
+
+
+  const progressiveMetrics = TraderAnalyticsService.processTransactions(
+    1001,
+    'Test Trader',
+    [
+      tx(250, true, 10_000, 100, '2026-09-20T10:00:00Z'),
+      tx(260, false, 7_143, 140, '2026-09-21T10:00:00Z'),
+    ],
+    [],
+    [],
+    5,
+    5,
+    { executionFeeMode: 'TAKER_TAKER' },
+  );
+  const progressiveCycle = progressiveMetrics.recent_trade_cycles[0];
+  assert(progressiveCycle.position_lifecycle === 'PARTIALLY_REALIZED', 'progressive recovery must not close the position');
+  assert(progressiveCycle.operation_recovery_delta === 20, 'operation recovery must reach +20 ISK');
+  assert(progressiveCycle.operation_recovery_state === 'POSITIVE', 'positive recovery must be visible before closure');
+  assert(progressiveCycle.position_remaining_quantity === 2_857, 'progressive recovery must keep remaining exposure visible');
 
   const closedMetrics = TraderAnalyticsService.processTransactions(
     1001,

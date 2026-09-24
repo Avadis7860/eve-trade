@@ -355,12 +355,19 @@ export class CatalogRepository {
     }
 
     // 3. Fallback details provided (e.g. from opportunity or scanner)
-    if (fallbackDetails && fallbackDetails.name) {
+    // A dynamic type without authoritative physical volume stays TYPE_UNKNOWN;
+    // it must never receive a fabricated default volume.
+    if (
+      fallbackDetails &&
+      fallbackDetails.name &&
+      Number.isFinite(fallbackDetails.volume) &&
+      fallbackDetails.volume > 0
+    ) {
       const dynamicType: EveTypeDetail = {
         type_id: typeId,
         name: fallbackDetails.name,
         description: fallbackDetails.description || '',
-        volume: fallbackDetails.volume && fallbackDetails.volume > 0 ? fallbackDetails.volume : 0.01,
+        volume: fallbackDetails.volume,
         group_id: fallbackDetails.group_id || 0,
         group_name: fallbackDetails.group_name,
         category_id: fallbackDetails.category_id || 0,
@@ -391,7 +398,7 @@ export class CatalogRepository {
       type: undefined,
       type_id: typeId,
       name: `Type #${typeId}`,
-      volume: 0.01,
+      volume: null,
       group_id: 0,
       category_id: 0,
       source: 'none',
@@ -428,11 +435,16 @@ export class CatalogRepository {
       const res = await fetch(`/api/types/lookup/${typeId}`);
       if (res.ok) {
         const data = await res.json();
-        if (data && data.name) {
+        if (
+          data &&
+          data.name &&
+          Number.isFinite(Number(data.volume ?? data.packaged_volume)) &&
+          Number(data.volume ?? data.packaged_volume) > 0
+        ) {
           const detail: EveTypeDetail = {
             type_id: typeId,
             name: data.name,
-            volume: typeof data.volume === 'number' ? data.volume : 0.01,
+            volume: Number(data.volume ?? data.packaged_volume),
             group_id: typeof data.group_id === 'number' ? data.group_id : 0,
             category_id: typeof data.category_id === 'number' ? data.category_id : 0,
             average_price: data.average_price,

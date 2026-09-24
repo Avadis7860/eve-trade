@@ -4,6 +4,18 @@ Status: CURRENT
 Scope: open work only
 Source of truth: revalidated code and current state documents
 
+## Repository / Agent Governance
+
+### CONTEXT-001 — Agent Context Hardening — ACTIVE
+
+- Stable machine-readable context map.
+- Separate active-work manifest.
+- Automated current-file and workflow-job integrity.
+- CI-owned `npm run test:context`.
+- Historical archive separation and reconciliation documentation.
+
+This is the only active delivery chantier on branch `chore/agent-context-hardening` / PR #78.
+
 ## Product / UX program
 
 The authoritative product backlog is [UX-First Trading Terminal Program](ux-program.md).
@@ -37,13 +49,19 @@ There is no active P0 technical branch.
 - Separate economic ownership scope from performance-analysis scope.
 - Keep the existing order advisor but make its decision context inspectable.
 
-### P1 — Allocation / Portefeuille
+### P1 — Allocation / Portefeuille — FUTURE / NOT ACTIVE
 
 - Split Real Portfolio from Proposed Allocation.
 - Feed allocation with a cross-item opportunity universe instead of the currently selected item only.
 - Preserve and extend concentration controls.
 - Explain invested capital, unused capital, concentration and allocation rationale.
 - Optimize for projected ROI/profit/day/liquidity/capturability/risk rather than a single top-scoring item.
+
+### Financial Truth reconciliation gate — NEXT FINANCIAL STEP
+
+- Reconcile historical position/recovery semantics against current main before any new financial implementation.
+- Explicitly decide the relationship between disposal-level realized P&L, cumulative recovery, position lifecycle and whole-operation profitability.
+- Keep the archive implementation non-authoritative and do not import it wholesale.
 
 ### P1 — Performance / Journal
 

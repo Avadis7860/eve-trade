@@ -9,7 +9,7 @@ CI gate: [../validation/ci.md](../validation/ci.md)
 
 ## Current baseline
 
-Current main head is `95e970933a1d440fb61d25a6f677742731b697aa` after PR #68. The functional E2E-001 baseline was `9438bbedb2d44cf3f5f371144bcf72094955cd46`. Deterministic browser CI is green and the target-PC real-CCP SSO/ESI smoke PASS was recorded on 2026-09-23.
+Current main head is `aec4c62691723e8fa2ee2bb2f9126249152ad57f`. The functional E2E-001 baseline was `9438bbedb2d44cf3f5f371144bcf72094955cd46`. Deterministic browser CI is green and the target-PC real-CCP SSO/ESI smoke PASS was recorded on 2026-09-23.
 
 The UX-first program has closed the P0 market/ESI retrieval reliability gate. UX-01 is DONE / EXTERNALLY BOUNDED; the previously reported target-PC market-display symptom is resolved and the current application is functional.
 
@@ -103,15 +103,25 @@ Certified and merged:
 
 The previously reported target-PC market-display symptom is resolved. The application is currently functional, and the operator confirmed that insufficient available data explained the symptom. No persistent application defect is currently identified. P0 no longer blocks product work.
 
+## Agent context hardening
+
+This is the active technical chantier on branch `chore/agent-context-hardening`, based on main `aec4c62691723e8fa2ee2bb2f9126249152ad57f`, PR #78.
+
+The chantier is limited to repository navigation, active-work governance, context integrity, CI ownership and historical documentation reconciliation. It must not import UX-03 or archived Financial Truth implementation.
+
+The stable navigation layer is `.eve-trade/context-map.json`; the active operational state is `.eve-trade/current-work.json`; validation is `npm run test:context`.
+
 ## Current chantier / sequencing
 
-**Current product sequence:** UX-03 Allocation / Portefeuille is the next product build. The present documentation branch is a maintenance synchronization step and is not a product implementation branch.
+**Active technical chantier:** Agent Context Hardening is the only active delivery branch/PR. UX-03 branches/PRs #71 and #77 are closed without merge and their archive is reference-only.
 
-The P0-B and P0-C delivery branches are historical and must not be reused. There is no active technical delivery branch after this documentation sync.
+After this maintenance chantier is certified, the next financial gate is an explicit Financial Truth semantic reconciliation/re-acceptance step. It is not an instruction to reuse the archived implementation. UX-03 remains a separate future product chantier and must receive its own fresh branch/PR after its contract and financial dependencies are accepted.
 
 UX-02 is DONE / MERGED. CI-001 is DONE / MERGED. UX-01/P0 is DONE / EXTERNALLY BOUNDED.
 
-Public Readiness is a separate maintenance track; PUB-002 and PUB-003 are the highest-priority items before portfolio publication.
+Public Readiness remains a separate maintenance track; it is not merged into this chantier.
+
+References: [Agent Context](../operations/agent-context.md) · [Financial Truth Reconciliation](../roadmap/financial-truth-reconciliation.md)
 
 ## Reference paths
 

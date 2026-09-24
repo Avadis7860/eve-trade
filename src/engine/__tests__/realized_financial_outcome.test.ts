@@ -893,7 +893,7 @@ async function runAllTests() {
     );
   }
 
-  console.log('\n==========================================================================');
+
   console.log('--- RUNNING CHANTIER 3B-4A.1 FINANCIAL CORRECTNESS GATE (CASES A -> F) ---');
   console.log('==========================================================================');
 

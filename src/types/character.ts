@@ -345,7 +345,7 @@ export interface TraderPerformanceMetrics {
   /** Null when no fully closed position provides a valid acquisition-cost denominator. */
   average_realized_roi: number | null; // Disposal-closing ROI; denominator = allocated acquisition cost
   /** ROI sample is based on whole positions that reached closure. */
-  average_realized_roi_scope: 'CLOSED_POSITIONS' | 'CLOSING_DISPOSAL_ALLOCATIONS';
+  average_realized_roi_scope: 'CLOSED_POSITIONS';
   average_hold_days: number;
   /** Position/whole-operation progress; never a substitute for realized P&L. */
   capital_recovery?: CapitalRecoverySummary;

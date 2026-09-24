@@ -45,7 +45,7 @@ const createMockMetrics = (
   unprofitable_trades: profit <= 0 ? closedTrades : 0,
   win_rate_pct: profit > 0 ? 100 : 0,
   average_realized_roi: buyVol > 0 ? profit / buyVol : 0,
-  average_realized_roi_scope: 'CLOSING_DISPOSAL_ALLOCATIONS',
+  average_realized_roi_scope: 'CLOSED_POSITIONS',
   average_hold_days: 1.5,
   capital_recovery: {
     scope: 'KNOWN_POSITIONS',

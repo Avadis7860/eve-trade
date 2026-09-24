@@ -68,7 +68,7 @@ function createMockCharacterMetrics(overrides: Partial<TraderPerformanceMetrics>
     unprofitable_trades: overrides.unprofitable_trades ?? 2,
     win_rate_pct: overrides.win_rate_pct ?? 80.0,
     average_realized_roi: overrides.average_realized_roi ?? 0.20,
-    average_realized_roi_scope: 'CLOSING_DISPOSAL_ALLOCATIONS',
+    average_realized_roi_scope: 'CLOSED_POSITIONS',
     average_hold_days: overrides.average_hold_days ?? 2.5,
     total_broker_fees_paid: overrides.total_broker_fees_paid ?? 10_000_000,
     total_sales_tax_paid: overrides.total_sales_tax_paid ?? 15_000_000,

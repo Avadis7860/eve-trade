@@ -16,7 +16,6 @@ import {
   FinancialProvenance,
   FinancialHistoryCoverage,
   EconomicOriginCoverage,
-  EveCharacterSession,
 } from '../types';
 import { CatalogRepository } from '../domain/catalog/CatalogRepository';
 import { CharacterRepository } from '../domain/character/CharacterRepository';

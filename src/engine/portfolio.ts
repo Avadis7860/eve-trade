@@ -13,6 +13,12 @@ export interface PortfolioOptimizationOptions {
   allocation_budget?: number | null;
   /** Policy reserve is kept outside allocation_budget and is reported by the aggregation boundary. */
   policy_reserve?: number;
+  /** Economic scope/provenance carried into each proposed position. */
+  capital_provenance?: {
+    source_kind: 'OBSERVED_ESI' | 'MANUAL' | 'UNAVAILABLE';
+    source_id: string;
+    principal_scope: string;
+  };
 }
 
 const BLOCKING_HEALTH: ReadonlySet<DataHealthStatus> = new Set([
@@ -436,6 +442,7 @@ export class PortfolioOptimizer {
           hasPrediction,
           allowedCapital,
         ),
+        capital_provenance: options.capital_provenance,
       };
 
       positions.push(position);

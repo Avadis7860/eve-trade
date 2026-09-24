@@ -46,6 +46,9 @@ function createMockTradeCycle(overrides: Partial<TradeCycleRecord>): TradeCycleR
       notes: [],
     },
     unmatched_sell_quantity: overrides.unmatched_sell_quantity ?? 0,
+    position_lifecycle: overrides.position_lifecycle ?? 'CLOSED',
+    position_remaining_quantity: overrides.position_remaining_quantity ?? 0,
+    is_position_closed: overrides.is_position_closed ?? true,
     character_id: overrides.character_id ?? 1001,
     character_name: overrides.character_name ?? 'Pilot A',
   };

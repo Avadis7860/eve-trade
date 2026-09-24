@@ -21,7 +21,6 @@ import {
   Info,
   Building2,
   Wallet,
-  Users,
   Coins,
   RefreshCw,
   CheckCircle2,
@@ -339,7 +338,7 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
         </div>
       </div>
 
-      {/* 🏛️ GESTION DE LA TRÉSORERIE & PORTEFEUILLE DE CORPORATION / FLOTTE */}
+      {/* 🏛️ GESTION DE LA TRÉSORERIE & PORTEFEUILLE DE CORPORATION */}
       <div className="bg-[#0e1117] p-4 rounded-xl border border-[#262730] space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#262730] pb-2.5">
           <div className="flex items-center gap-2">
@@ -362,7 +361,7 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
           <label className="block text-[#808495] text-[11px] mb-2 font-semibold">
             Sélectionnez la source de fonds utilisée par le moteur pour calibrer les achats :
           </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {/* Mode 1: Corporation */}
             <button
               type="button"
@@ -387,31 +386,7 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
               </p>
             </button>
 
-            {/* Mode 2: Flotte Consolidée */}
-            <button
-              type="button"
-              onClick={() => setForm((prev) => ({ ...prev, treasury_source_mode: 'fleet_consolidated' }))}
-              className={`p-3 rounded-lg border text-left transition-all ${
-                form.treasury_source_mode === 'fleet_consolidated'
-                  ? 'bg-cyan-500/15 border-cyan-500/60 text-[#fafafa] shadow-md'
-                  : 'bg-[#161821] border-[#262730] text-[#808495] hover:text-[#fafafa] hover:border-[#3a3d4d]'
-              }`}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="font-bold text-xs flex items-center gap-1.5 text-cyan-300">
-                  <Users className="w-3.5 h-3.5" />
-                  Flotte Consolidée
-                </span>
-                {form.treasury_source_mode === 'fleet_consolidated' && (
-                  <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />
-                )}
-              </div>
-              <p className="text-[10px] text-[#a0a4b5] leading-tight">
-                Cumul automatique des soldes de tous les personnages connectés.
-              </p>
-            </button>
-
-            {/* Mode 3: Pilote Actif */}
+            {/* Mode 2: Pilote Actif */}
             <button
               type="button"
               onClick={() => setForm((prev) => ({ ...prev, treasury_source_mode: 'active_character' }))}

@@ -52,9 +52,9 @@ export const ConnectedCharactersModal: React.FC<ConnectedCharactersModalProps> =
 
     const syncCharacters = () => {
       setCharacters(AuthService.getLinkedCharacters());
-      // OAuth callbacks update AuthService outside this modal component. When
-      // a new character is committed, return to the authoritative character
-      // list rather than leaving the user stranded on the connect tab.
+      // OAuth callbacks update AuthService outside this modal. Keep the modal
+      // synchronized with the authoritative character registry and return to
+      // the character list once a new session is committed.
       setActiveTab('characters');
     };
 
@@ -389,3 +389,27 @@ export const ConnectedCharactersModal: React.FC<ConnectedCharactersModalProps> =
               onConnectSSO={onConnectSSO}
               title={characters.length === 0 ? 'Connexion EVE Online SSO v2' : 'Ajouter un autre pilote'}
               subtitle={
+                characters.length === 0
+                  ? 'Connectez votre personnage principal ou vos alts pour synchroniser vos données ESI.'
+                  : 'Associez vos personnages aux hubs où vous gérez vos ordres.'
+              }
+            />
+          )}
+        </div>
+
+        <div className="p-4 border-t border-[#262730] bg-[#0e1117] flex items-center justify-between">
+          <div className="text-[11px] text-[#808495] flex items-center gap-1.5">
+            <Shield className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Les personnages restent des principaux distincts ; la corporation porte la vue globale de ses ordres.</span>
+          </div>
+          <button
+            onClick={onClose}
+            className="px-5 py-2 bg-[#262730] hover:bg-[#31333f] text-[#fafafa] rounded-lg font-bold text-xs transition-colors"
+          >
+            Fermer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};

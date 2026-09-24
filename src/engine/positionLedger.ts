@@ -302,6 +302,13 @@ export function reconstructPositionLedger(
         unmatched_quantity: remainingSellQuantity,
         remaining_position_quantity: remainingPositionQuantity,
         lifecycle_status: state,
+        position_quantity_acquired: operationQuantityAcquired,
+        position_capital_committed: operationCapitalCommitted,
+        position_cash_recovered: operationCashRecovered,
+        position_recovery_delta: recoveryDelta,
+        position_recovery_ratio: recoveryRatio,
+        position_recovery_state: operationRecoveryState(recoveryDelta),
+        // Compatibility aliases for consumers that have not migrated yet.
         operation_id: operationIdAtDisposition,
         operation_quantity_acquired: operationQuantityAcquired,
         operation_capital_committed: operationCapitalCommitted,

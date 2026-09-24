@@ -13,7 +13,8 @@ import {
 import { InterRegionalScanner } from '../services/scanner';
 import { GlobalMarketSyncService } from '../services/globalMarketSync';
 import { MarketDataStore } from '../services/marketDataStore';
-import { buildPortfolioSnapshots } from '../engine/portfolioAggregation';
+import { buildPortfolioSnapshots, buildProposedAllocationSnapshot } from '../engine/portfolioAggregation';
+import type { PortfolioSimulation } from '../types';
 
 export function useTradingOpportunities(
   selectedType: EveTypeDetail,
@@ -104,7 +105,32 @@ export function useTradingOpportunities(
     globalSyncProgress,
   ]);
 
-  const portfolioSimulation = portfolioSnapshots.simulation;
+  const [lastReliableSimulation, setLastReliableSimulation] = useState<PortfolioSimulation | null>(null);
+
+  useEffect(() => {
+    if (!portfolioSnapshots.proposedAllocation.proposal_blocked) {
+      setLastReliableSimulation(portfolioSnapshots.simulation);
+    }
+  }, [portfolioSnapshots]);
+
+  const proposedAllocationSnapshot = useMemo(() => {
+    if (
+      portfolioSnapshots.proposedAllocation.proposal_blocked &&
+      lastReliableSimulation
+    ) {
+      return buildProposedAllocationSnapshot(
+        portfolioSnapshots.treasury,
+        portfolioSnapshots.candidateUniverse,
+        lastReliableSimulation,
+      );
+    }
+    return portfolioSnapshots.proposedAllocation;
+  }, [
+    portfolioSnapshots,
+    lastReliableSimulation,
+  ]);
+
+  const portfolioSimulation = proposedAllocationSnapshot.simulation;
 
   return {
     opportunities,
@@ -114,7 +140,7 @@ export function useTradingOpportunities(
     globalSyncProgress,
     portfolioTreasury: portfolioSnapshots.treasury,
     candidateUniverseSnapshot: portfolioSnapshots.candidateUniverse,
-    proposedAllocationSnapshot: portfolioSnapshots.proposedAllocation,
+    proposedAllocationSnapshot,
     realPortfolioSnapshot: portfolioSnapshots.realPortfolio,
   };
 }

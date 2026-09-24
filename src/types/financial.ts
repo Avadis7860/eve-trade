@@ -319,6 +319,14 @@ export interface RealizedFinancialOutcome {
   // Inventory Cost Basis (Unrealized holding cost)
   readonly remaining_inventory_cost_basis: number;
 
+  // Position-level capital recovery. These values are derived from known
+  // acquisition lots and causally allocated disposal revenue only. They never
+  // replace realized P&L or disposal-level ROI.
+  readonly capital_committed: number | null;
+  readonly cash_recovered: number | null;
+  readonly capital_recovery_delta: number | null;
+  readonly capital_recovery_ratio: number | null;
+
   // Position lifecycle is distinct from transaction/event-level execution status.
   readonly position_lifecycle: PositionLifecycleStatus;
   readonly position_remaining_quantity: number;
@@ -416,6 +424,13 @@ export interface CurrentPosition {
   readonly remaining_quantity: number;
   readonly remaining_cost_basis: number;
   readonly realized_gross_profit: number;
+
+  // Position-level capital recovery, kept separate from realized P&L.
+  readonly capital_committed: number | null;
+  readonly cash_recovered: number | null;
+  readonly capital_recovery_delta: number | null;
+  readonly capital_recovery_ratio: number | null;
+
   readonly lifecycle_status: PositionLifecycleStatus;
   readonly financial_completeness: FinancialCompleteness;
   readonly lots: readonly AcquisitionLot[];

@@ -171,6 +171,13 @@ export class RealizedFinancialOutcomeEngine {
     const grossRealizedProfit = roundIsk(realizedRevenue - realizedAcquisitionCost);
     const remainingInventoryCostBasis = roundIsk(lots.reduce((acc, l) => acc + l.total_remaining_cost, 0));
 
+    // Capital recovery is projected directly from the canonical position ledger.
+    // It is intentionally independent from realized P&L and disposal-level ROI.
+    const capitalCommitted = positionLedger.position.capital_committed;
+    const cashRecovered = positionLedger.position.cash_recovered;
+    const capitalRecoveryDelta = positionLedger.position.capital_recovery_delta;
+    const capitalRecoveryRatio = positionLedger.position.capital_recovery_ratio;
+
     // 6. Fee Calculations via FeeEngine
     const fees = this.calculateFees(
       realizedAcquisitionCost,
@@ -348,6 +355,11 @@ export class RealizedFinancialOutcomeEngine {
       profit_per_unit: profitPerUnit,
 
       remaining_inventory_cost_basis: remainingInventoryCostBasis,
+      capital_committed: capitalCommitted,
+      cash_recovered: cashRecovered,
+      capital_recovery_delta: capitalRecoveryDelta,
+      capital_recovery_ratio: capitalRecoveryRatio,
+
       position_lifecycle: positionLifecycle,
       position_remaining_quantity: positionRemainingQuantity,
 

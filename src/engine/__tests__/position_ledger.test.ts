@@ -41,6 +41,16 @@ function run() {
     assert(p.remaining_quantity === 9_999, '9,999 units must remain open');
     assert(p.remaining_cost_basis === 999_900, 'remaining cost basis must remain 999,900 ISK');
     assert(p.realized_gross_profit === 40, 'realized gross profit must be +40 ISK');
+
+    assert(p.capital_committed === 1_000_000, 'capital committed must be 1,000,000 ISK');
+    assert(p.cash_recovered === 140, 'cash recovered must be 140 ISK');
+    assert(p.capital_recovery_delta === -999_860, 'capital recovery delta must be -999,860 ISK');
+    assert(
+      p.capital_recovery_ratio !== null &&
+        Math.abs(p.capital_recovery_ratio - 0.00014) < Number.EPSILON,
+      'capital recovery ratio must be approximately 0.014%'
+    );
+
     assert(p.lifecycle_status === 'PARTIALLY_REALIZED', 'large position must remain partially realized');
     assert(p.lots.length === 1 && p.lots[0].remaining_quantity === 9_999, 'lot must retain 9,999 units');
     assert(p.allocations.length === 1 && p.allocations[0].allocated_quantity === 1, 'one disposal allocation must exist');
@@ -76,6 +86,10 @@ function run() {
     assert(result.position.unmatched_disposition_quantity === 10, 'disposition before acquisition must remain unmatched');
     assert(result.position.financial_completeness === 'PARTIAL', 'causal inventory deficit must be PARTIAL');
     assert(result.position.realized_gross_profit === 0, 'unmatched disposition must not fabricate profit');
+    assert(result.position.capital_committed === null, 'no causally known acquisition means committed capital is UNKNOWN');
+    assert(result.position.cash_recovered === null, 'orphan disposal must not fabricate recoverable capital');
+    assert(result.position.capital_recovery_delta === null, 'orphan disposal must not fabricate recovery delta');
+    assert(result.position.capital_recovery_ratio === null, 'orphan disposal must keep recovery ratio UNKNOWN');
   }
 
   {

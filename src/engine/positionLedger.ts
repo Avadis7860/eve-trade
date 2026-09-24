@@ -234,6 +234,28 @@ export function reconstructPositionLedger(
     allocations.reduce((sum, allocation) => sum + allocation.gross_realized_profit, 0),
   );
 
+  // Capital recovery is position-level progress, not realized P&L:
+  // - committed = original cost of known acquisition lots;
+  // - recovered = revenue from causally allocated disposals only;
+  // - unmatched/orphan disposal revenue is never credited to a known acquisition position;
+  // - no known acquisition means recovery is UNKNOWN/null rather than synthetic zero.
+  const capitalCommitted =
+    quantityAcquired > 0
+      ? roundIsk(lots.reduce((sum, lot) => sum + lot.total_original_cost, 0))
+      : null;
+  const cashRecovered =
+    quantityAcquired > 0
+      ? roundIsk(allocations.reduce((sum, allocation) => sum + allocation.disposal_revenue, 0))
+      : null;
+  const capitalRecoveryDelta =
+    capitalCommitted !== null && cashRecovered !== null
+      ? roundIsk(cashRecovered - capitalCommitted)
+      : null;
+  const capitalRecoveryRatio =
+    capitalCommitted !== null && capitalCommitted > 0 && cashRecovered !== null
+      ? cashRecovered / capitalCommitted
+      : null;
+
   const position: CurrentPosition = Object.freeze({
     position_id: `position_${characterId}_${typeId}`,
     type_id: typeId,
@@ -244,6 +266,10 @@ export function reconstructPositionLedger(
     remaining_quantity: remainingQuantity,
     remaining_cost_basis: remainingCostBasis,
     realized_gross_profit: realizedGrossProfit,
+    capital_committed: capitalCommitted,
+    cash_recovered: cashRecovered,
+    capital_recovery_delta: capitalRecoveryDelta,
+    capital_recovery_ratio: capitalRecoveryRatio,
     lifecycle_status: statusFor(lots, quantityAcquired, quantityDisposed, unmatchedDispositionQuantity),
     financial_completeness:
       invalidTransactionIds.length > 0 || unmatchedDispositionQuantity > 0

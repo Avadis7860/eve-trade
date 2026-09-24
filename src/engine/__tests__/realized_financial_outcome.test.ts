@@ -367,6 +367,15 @@ async function runAllTests() {
 
     assert(outcome.remaining_inventory_quantity === 4000, '4000 units remaining');
     assert(outcome.remaining_inventory_cost_basis === 400000, '400,000 ISK remaining cost basis');
+    assert(outcome.capital_committed === 1_000_000, 'Capital committed remains the full acquisition cost');
+    assert(outcome.cash_recovered === 600_000, 'Cash recovered is only the revenue from the 6,000 allocated disposals');
+    assert(outcome.capital_recovery_delta === -400_000, 'Capital recovery delta is distinct from realized P&L');
+    assert(
+      outcome.capital_recovery_ratio !== null &&
+        Math.abs(outcome.capital_recovery_ratio - 0.6) < Number.EPSILON,
+      'Capital recovery ratio is scoped to the whole known position'
+    );
+    assert(outcome.gross_realized_profit === 300_000, 'Realized gross P&L remains +300,000 ISK');
     assert(outcome.remaining_lots.length === 1, '1 open lot');
     assert(outcome.remaining_lots[0].remaining_quantity === 4000, 'Lot remaining 4000');
     assert(outcome.position_lifecycle === 'PARTIALLY_REALIZED', 'Position must remain partial while inventory remains');
@@ -1910,6 +1919,10 @@ async function runAllTests() {
       profit_per_unit: 4.4,
 
       remaining_inventory_cost_basis: 0,
+      capital_committed: 1000,
+      cash_recovered: 1500,
+      capital_recovery_delta: 500,
+      capital_recovery_ratio: 1.5,
       position_lifecycle: 'CLOSED',
       position_remaining_quantity: 0,
 

@@ -1,6 +1,6 @@
 # Current Chunk
 
-Status: UX-03 CONTRACT ENRICHMENT ACTIVE
+Status: UX-03 IMPLEMENTATION INCREMENT 1 ACTIVE
 Scope: UX-03 contract enrichment + public-readiness maintenance follow-up
 Reference: [UI/UX Product Audit](../audits/ui-ux-product-audit-2026-09-23.md)
 Program: [UX-First Trading Terminal Program](ux-program.md)
@@ -12,7 +12,7 @@ Public-readiness audit: [Public Readiness Audit](../audits/public-readiness-audi
 
 ## Objective
 
-Prepare the next product chantier without losing the verified state of the repository. P0/UX-01 is closed; the next product build is UX-03 Allocation / Portefeuille. Public-readiness hardening is tracked separately and is not an active implementation branch.
+Deliver UX-03 Allocation / Portefeuille incrementally without losing the verified state of the repository. P0/UX-01 is closed; UX-03 is now the active product build. Public-readiness hardening is tracked separately and is not an active implementation branch.
 
 ## Completed increments
 
@@ -41,10 +41,17 @@ P0-C implementation is **DONE / MERGED / CERTIFIED** on main by PR #67 at merge 
 
 The target-PC evidence workflow now includes a browser-visible JSON export containing the market request template, per-hub HTTP/cache/pagination/ESI/Retry-After diagnostics, data-health state, timestamp and non-secret browser context. PR CI #719, SDE #480, and post-merge Main Smoke #8 are green. The exported bundle deliberately records the controlled comparison result as `not_recorded`; that field must be established from the affected PC and a controlled comparison environment. Validation: [P0-C target-PC evidence](../validation/p0-c-target-pc-evidence.md).
 
+## UX-03 increment 1 evidence
+
+- Portfolio aggregation boundary added for treasury, scoped order exposure, candidate universe and Real/Proposed snapshots.
+- Portfolio optimizer now consumes the cross-item universe with explicit hard gates, deployed-capital concentration and safe quantity/capital arithmetic.
+- Portfolio UI now separates observed portfolio state from proposed allocation and preserves prior reliable proposals across blocked refresh states.
+- UX-03 domain and browser coverage is included in CI; current CI validation has passed typecheck, build, unit/domain certification and Operations browser E2E.
+
 ## Next increments
 
-1. Freeze and review the enriched UX-03 Allocation / Portefeuille contract on the dedicated branch.
-2. Continue UX-03 implementation from that same dedicated branch only after the contract is accepted.
+1. Complete UX-03 surface certification, including the final browser surface assertions and review of rationale/coverage/freshness presentation.
+2. Synchronize the UX-03 acceptance evidence after that certification.
 3. Address public-readiness maintenance items PUB-002/PUB-003 before the first portfolio showcase release.
 4. Keep the public-readiness audit synchronized with any material change in capabilities, security posture or release state.
 
@@ -70,7 +77,7 @@ PST-001, UI-001, E2E-002, UI-002, PERF-001 and TYPE-001 remain deferred.
 
 UX-02 is DONE / MERGED and is not an active branch.
 
-UX-03 contract enrichment is active on `ux-03/allocation-contract`. No UX-03 product implementation code is committed yet, and this branch is not to be merged merely for documentation.
+UX-03 increment 1 is active on `ux-03/allocation-contract`. The branch contains product implementation and tests; it must not be merged as a documentation-only change.
 
 ## Validation
 

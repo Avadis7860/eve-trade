@@ -20,7 +20,7 @@ Reduce the context reconstruction cost for human and AI agents without introduci
 6. Explicit reconciliation memo for the unresolved whole-operation profitability semantics.
 7. State, roadmap and known-gaps synchronization.
 8. Final CLOSING lifecycle state so merged main does not inherit an ACTIVE chantier.
-8. Local validation where the execution environment permits it, followed by full PR CI certification.
+9. Local validation where the execution environment permits it, followed by full PR CI certification.
 
 ## Scope exclusions
 
@@ -38,4 +38,4 @@ The recovered financial reasoning is documented in the historical ADR and reconc
 
 ## Completion gate
 
-The chantier is complete only when the stable map contains no dead current-file or CI references, the active-work manifest matches the delivery branch/PR/base in certification, test:context is owned by CI, historical financial contradictions are documented without arbitrary resolution, and state/roadmap/known-gaps describe the final reality.
+The chantier is complete only when the stable map contains no dead current-file or CI references, PR certification proves the active/closing branch and base metadata, stable-mode context validation rejects an ACTIVE main state and verifies the actual main HEAD in current-state, bootstrap/routing contracts are CI-owned, historical financial contradictions remain explicitly non-normative, and state/roadmap/known-gaps describe the final reality.

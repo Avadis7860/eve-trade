@@ -345,12 +345,14 @@ function getObservedCharacterIds(order: EveCharacterOrder): number[] {
     ids.add(ownership.principal_character_id);
   }
 
+  const legacyCharacterId = order.character_id;
   if (
     !ownership &&
-    Number.isInteger(order.character_id) &&
-    order.character_id > 0
+    typeof legacyCharacterId === 'number' &&
+    Number.isInteger(legacyCharacterId) &&
+    legacyCharacterId > 0
   ) {
-    ids.add(order.character_id);
+    ids.add(legacyCharacterId);
   }
 
   return Array.from(ids).sort((a, b) => a - b);

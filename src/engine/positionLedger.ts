@@ -153,7 +153,10 @@ export function reconstructPositionLedger(
       : accountingScopeInput.trim();
 
   if (!accountingScopeId) throw new Error('Invalid accountingScopeId: empty scope');
-  if (!Number.isSafeInteger(typeId) || typeId <= 0) throw new Error('Invalid typeId: ' + typeId);
+  const allowEmptyTypeId = typeId === 0 && transactions.length === 0;
+  if (!allowEmptyTypeId && (!Number.isSafeInteger(typeId) || typeId <= 0)) {
+    throw new Error('Invalid typeId: ' + typeId);
+  }
 
   const historyCoverage: FinancialHistoryCoverage =
     coverageEvidence?.history_coverage ?? 'UNKNOWN';

@@ -87,6 +87,7 @@ const mark = (condition, message) => {
 if (!map || !work) process.exit(1);
 mark(['active', 'stable'].includes(mode), 'CONTEXT_MODE must be active or stable');
 mark(map.schema_version === 4, 'unsupported context map schema_version');
+mark(map.ci_routing?.route_property === 'ci_lanes[].route', 'context map must declare functional CI routing semantics');
 mark(work.schema_version === 2, 'unsupported current-work schema_version');
 mark(['ACTIVE', 'CLOSING', 'IDLE'].includes(work.state), 'current-work state must be ACTIVE, CLOSING or IDLE');
 mark(!Object.prototype.hasOwnProperty.call(map, 'current_work'), 'stable context map must not embed current work state');
@@ -108,6 +109,7 @@ function checkWorkflowLane(lane, context) {
     `${context}: invalid ci_lanes entry`
   );
   if (!lane || typeof lane.workflow !== 'string' || typeof lane.job !== 'string') return;
+  const supportedRoutes = new Set(Object.keys(map.ci_routing?.classes || {}));
 
   if (!exists(lane.workflow)) {
     fail(`${context}: missing workflow file ${lane.workflow}`);
@@ -120,7 +122,6 @@ function checkWorkflowLane(lane, context) {
     workflowCache.set(lane.workflow, ids);
   }
   mark(ids.has(lane.job), `${context}: CI job does not exist: ${lane.workflow}#${lane.job}`);
-  const supportedRoutes = new Set(['frontend', 'domain', 'server', 'sde', 'ci', 'config', 'tests', 'docs', 'ambiguous', 'full_certification']);
   mark(supportedRoutes.has(lane.route), `${context}: unsupported functional routing class ${lane.route}`);
 }
 
@@ -133,11 +134,26 @@ function checkRouting(domainName, domain) {
 
   for (const lane of domain.ci_lanes || []) {
     if (lane.workflow === '.github/workflows/ci.yml') {
+      const outputByJob = {
+        static: 'run_static',
+        unit_domain: 'run_unit_domain',
+        server: 'run_server',
+        build: 'run_build',
+        'browser-auth': 'run_browser',
+        'browser-operations': 'run_browser',
+      };
+      const output = outputByJob[lane.job];
       if (lane.route) {
         mark(
           probes.some(({ result }) => result[lane.route] === true),
           `${domainName}: canonical paths do not classify for routing class ${lane.route}`
         );
+        if (output) {
+          mark(
+            probes.some(({ result }) => result[lane.route] === true && result[output] === true),
+            `${domainName}: routing class ${lane.route} does not activate CI output ${output}`
+          );
+        }
       }
     }
     if (lane.workflow === '.github/workflows/phase-2.7c-sde.yml' && lane.job === 'sde-truth' && lane.route) {

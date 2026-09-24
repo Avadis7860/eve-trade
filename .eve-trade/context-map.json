@@ -458,22 +458,15 @@
       "4d9714648972c665c720543bfba3649d3afcbb78",
       "774110fbba92f534bbd20d63c3bbe858af74d0f5"
     ],
-    "historical_documents": [
-      "docs/decisions/ADR-0003-economic-position-and-order-model.md",
-      "docs/roadmap/financial-truth-rebase.md",
-      "docs/contracts/financial.md",
-      "docs/domains/finance/financial-truth.md",
-      "docs/ux/ux-03-allocation-contract.md",
-      "docs/ux/trading-terminal-surface-contracts.md",
-      "docs/roadmap/master-plan.md",
-      "docs/roadmap/backlog.md",
-      "docs/roadmap/current-chunk.md",
-      "docs/roadmap/ux-program.md",
-      "docs/state/current-state.md",
-      "docs/state/known-gaps.md",
-      "docs/state/truth-matrix.md",
-      "docs/validation/ux-03-data-availability.md"
+    "archive": {
+      "branch": "archive/ux-03-allocation-contract-2026-09-24",
+      "head": "75df2e8f77d8ccc0cd5a2a631661902d1b54fab6",
+      "rule": "Archive content is historical evidence only. Its product and financial implementation is not part of current main and must not be imported by bulk copy or cherry-pick."
+    },
+    "current_documents": [
+      "docs/decisions/historical/ADR-0003-economic-position-and-order-model.md",
+      "docs/roadmap/financial-truth-reconciliation.md"
     ],
-    "rule": "Historical documents are evidence for future reconciliation. They are not copied into the current implementation contract without revalidation against main."
+    "rule": "Historical decisions are preserved in explicitly non-normative documents. Before a future financial implementation, contradictions must be resolved in an accepted contract/decision against current main."
   }
 }

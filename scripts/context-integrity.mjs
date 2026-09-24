@@ -86,6 +86,8 @@ for (const [domainName, domain] of Object.entries(map.domains || {})) {
   for (const lane of domain.ci_lanes) checkWorkflowLane(lane, domainName);
 }
 
+for (const file of map.history?.current_documents || []) if (!exists(file)) fail('history: missing current document ' + file);
+
 for (const [hotspotGroup, paths] of Object.entries(map.hotspots || {})) {
   if (hotspotGroup === 'rule') continue;
   for (const file of paths || []) if (!exists(file)) fail(`hotspot ${hotspotGroup}: missing referenced path ${file}`);

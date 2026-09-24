@@ -57,4 +57,5 @@ It is expected to be operationally specific to a chantier and must not become a 
 
 ## Historical archive rule
 
-The UX-03 archive is reference material only. Its financial implementation, tests and documents must be re-derived against current main before any future reuse. In particular, historical financial language that conflicts with later owner decisions is recorded as a reconciliation problem, not silently normalized by this navigation layer.
+The UX-03 archive is reference material only. Its financial implementation, tests and documents must be re-derived against current main before any future reuse. The historical financial decision record and reconciliation memo are explicitly non-normative; the historical progressive-recovery vocabulary is preserved as a contradiction to be resolved before any new financial code.
+

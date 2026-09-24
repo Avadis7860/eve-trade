@@ -287,3 +287,18 @@ The fixes updated test contracts/fixtures deliberately rather than relaxing ledg
 No additional financial KPI, profitability ranking, order-to-transaction inference or financial UI certification is allowed until FIN-002 and the remaining data-quality/UX acceptance gates are certified.
 
 UX-03 allocation implementation may resume after the contract gate; proposed allocation remains prospective and must not become a substitute for financial truth.
+
+## FIN-002 implementation contract — locked
+
+The implementation boundary is explicit:
+
+- accounting_scope_id identifies the configured economic ecosystem and is paired with type_id for position accounting;
+- character, corporation, issuer, observer and authenticated principal remain attribution/provenance dimensions, not automatic accounting silos;
+- AcquisitionLot.economic_origin is the generic economic-origin axis; FIN-002 currently emits only MARKET_ACQUISITION from the existing market transaction source;
+- source coverage is exposed separately as MARKET_TRACEABLE, PARTIAL or UNAVAILABLE;
+- coverage uncertainty never becomes zero cost or synthetic ROI;
+- position lifecycle is reconstructed once by the canonical position ledger and consumed by RealizedFinancialOutcome and TraderAnalytics;
+- consolidated multi-participant reporting must enter one shared accounting scope before aggregation;
+- PI/Industry remain future sources and are not ingested or inferred in FIN-002.
+
+Legacy mono-character callers may omit accounting_scope_id and receive a character:<id> compatibility scope. This preserves existing single-character behavior without permitting implicit cross-character matching.

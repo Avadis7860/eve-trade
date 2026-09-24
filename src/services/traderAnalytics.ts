@@ -14,6 +14,8 @@ import {
   RealizedFinancialOutcome,
   CapitalRecoverySummary,
   FinancialProvenance,
+  FinancialHistoryCoverage,
+  EconomicOriginCoverage,
 } from '../types';
 import { CatalogRepository } from '../domain/catalog/CatalogRepository';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
@@ -28,6 +30,30 @@ const LEGACY_STORAGE_KEY_PREFIX = 'eve_trader_analytics_';
 function analyticsStorageKey(characterId: number, accountingScopeId?: string): string {
   const scope = accountingScopeId?.trim() || 'character:' + characterId;
   return STORAGE_KEY_PREFIX + encodeURIComponent(scope);
+}
+
+function mergeCoverage(
+  current: FinancialHistoryCoverage,
+  next: FinancialHistoryCoverage,
+): FinancialHistoryCoverage {
+  const rank: Record<FinancialHistoryCoverage, number> = {
+    COMPLETE_FOR_SCOPE: 0,
+    PARTIAL: 1,
+    UNKNOWN: 2,
+  };
+  return rank[next] > rank[current] ? next : current;
+}
+
+function mergeOriginCoverage(
+  current: EconomicOriginCoverage,
+  next: EconomicOriginCoverage,
+): EconomicOriginCoverage {
+  const rank: Record<EconomicOriginCoverage, number> = {
+    COMPLETE_FOR_SCOPE: 0,
+    PARTIAL: 1,
+    UNKNOWN: 2,
+  };
+  return rank[next] > rank[current] ? next : current;
 }
 
 export class TraderAnalyticsService {
@@ -150,6 +176,8 @@ export class TraderAnalyticsService {
     let partialCapitalPositions = 0;
     let closedCapitalPositions = 0;
     let capitalRecoveryPartial = false;
+    let capitalRecoveryHistoryCoverage: FinancialHistoryCoverage = 'COMPLETE_FOR_SCOPE';
+    let capitalRecoveryOriginCoverage: EconomicOriginCoverage = 'COMPLETE_FOR_SCOPE';
     const capitalRecoveryProvenance = new Map<string, FinancialProvenance>();
 
     // Determine effective financial configuration
@@ -244,6 +272,14 @@ export class TraderAnalyticsService {
         capitalRecoveryPartial = true;
       }
       if (outcome.capital_committed !== null && outcome.cash_recovered !== null) {
+        capitalRecoveryHistoryCoverage = mergeCoverage(
+          capitalRecoveryHistoryCoverage,
+          outcome.history_coverage,
+        );
+        capitalRecoveryOriginCoverage = mergeOriginCoverage(
+          capitalRecoveryOriginCoverage,
+          outcome.economic_origin_coverage,
+        );
         capitalCommittedTotal = roundIsk(
           capitalCommittedTotal + outcome.capital_committed,
         );
@@ -812,6 +848,8 @@ export class TraderAnalyticsService {
         ? Object.freeze({
             scope: 'KNOWN_POSITIONS',
             financial_completeness: capitalRecoveryPartial ? 'PARTIAL' : 'OBSERVED',
+            history_coverage: capitalRecoveryHistoryCoverage,
+            economic_origin_coverage: capitalRecoveryOriginCoverage,
             capital_committed: capitalCommittedTotal,
             cash_recovered: cashRecoveredTotal,
             capital_recovery_delta: roundIsk(cashRecoveredTotal - capitalCommittedTotal),

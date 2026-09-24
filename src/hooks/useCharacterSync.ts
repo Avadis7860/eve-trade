@@ -83,9 +83,15 @@ export function useCharacterSync(
 
             if (
               corporationOrdersResult.state === 'AVAILABLE' ||
-              corporationOrdersResult.state === 'EMPTY'
+              corporationOrdersResult.state === 'EMPTY' ||
+              corporationOrdersResult.state === 'PARTIAL'
             ) {
               corporationOrders = corporationOrdersResult.data;
+              if (corporationOrdersResult.state === 'PARTIAL') {
+                console.warn(
+                  `[useCharacterSync] Corporation orders partially normalized for #${charId}: ${corporationOrdersResult.error || 'source partially usable'}`,
+                );
+              }
             } else {
               console.warn(
                 `[useCharacterSync] Corporation orders unavailable for #${charId}: ${corporationOrdersResult.state}`,

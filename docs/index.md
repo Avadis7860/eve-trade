@@ -29,7 +29,8 @@ The CI delivery model now also has a dedicated study and plan:
 - [CI Validation](validation/ci.md)
 - [Public Readiness Audit](audits/public-readiness-audit-2026-09-24.md)
 - [Public Readiness Roadmap](roadmap/public-readiness.md)
+- [Agent Context & Change Navigation](operations/agent-context.md)
 
-A chantier must normally be understood with 2 to 5 specialized documents. The UX program remains the sequencing authority for product delivery. CI-001 is merged and stable; its remaining hardening items are tracked separately. Public Readiness is a maintenance track for the new public repository.
+A chantier must normally be understood with 2 to 5 specialized documents. The agent context layer is the navigation/governance entrypoint for the active checkout and is not itself a source of business truth. The UX program remains the sequencing authority for product delivery. CI-001 is merged and stable; its remaining hardening items are tracked separately. Public Readiness is a maintenance track for the new public repository.
 
 Voir [documentation-guide.md](documentation-guide.md) pour la gouvernance.

@@ -62,6 +62,7 @@ These tracks can be prepared in documentation before they are made active. Their
 |---|---|---|---|---|
 | CI-001 | DONE / MERGED | Refonte du système CI, validation et gouvernance PR | current CI study | maintenance only; follow-up hardening is separate |
 | CI-OPS-001 | CANDIDATE / DEFERRED | Project operator CLI with Oclif around the existing CI/PR model | P0 closure; explicit CI-hardening need | maintenance candidate; separate branch/PR |
+| PUBLIC-READINESS | ACTIVE MAINTENANCE | Strengthen public repository credibility, security posture, licensing and release/showcase hygiene | public repository state | maintenance track; does not replace UX delivery |
 
 CI-001 remains the stable PR certification base. Its Draft-routing mismatch stays separate as a future CI hardening item.
 

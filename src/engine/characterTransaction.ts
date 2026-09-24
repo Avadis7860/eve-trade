@@ -437,7 +437,7 @@ export function persistedTransactionToRef(
     unit_price: tx.unit_price,
     timestamp: tx.timestamp,
     provenance: {
-      source_kind: 'ESI_WALLET_TRANSACTION',
+      source_kind: 'ESI_WALLET_TRANSACTION' as const,
       source_id: String(tx.transaction_id),
       principal_scope: `character:${tx.character_id}`,
     },

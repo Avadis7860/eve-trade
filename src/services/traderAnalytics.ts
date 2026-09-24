@@ -1112,7 +1112,7 @@ export class TraderAnalyticsService {
     cycleBuyBrokerFee: number;
     cycleSellBrokerFee: number;
     cycleSalesTax: number;
-    cycleFees: number;
+    cycleFees: number | null;
     netProfit: number | null;
   } {
     if (outcome.fees.fee_mode === 'UNAVAILABLE') {
@@ -1120,7 +1120,7 @@ export class TraderAnalyticsService {
         cycleBuyBrokerFee: 0,
         cycleSellBrokerFee: 0,
         cycleSalesTax: 0,
-        cycleFees: 0,
+        cycleFees: null,
         netProfit: null,
       };
     }

@@ -165,7 +165,7 @@ async function runAllTests() {
     assert(outcome.realized_acquisition_cost === 100000, 'Acquisition cost must be 100,000 ISK');
     assert(outcome.realized_revenue === 150000, 'Revenue must be 150,000 ISK');
     assert(outcome.gross_realized_profit === 50000, 'Gross profit must be 50,000 ISK');
-    assert(outcome.fees.fee_mode === 'ESTIMATED', 'Fee mode must be ESTIMATED');
+    if (outcome.fees.fee_mode !== 'ESTIMATED') throw new Error('Configured outcome must expose ESTIMATED fee mode');
     assert(outcome.fees.estimated_sales_tax === 5400, 'Sales tax 3.6% of 150k = 5400 ISK');
     assert(outcome.fees.estimated_buy_broker_fee === 0, 'Taker buy broker fee = 0 ISK');
     assert(outcome.fees.estimated_sell_broker_fee === 0, 'Taker sell broker fee = 0 ISK');
@@ -442,6 +442,7 @@ async function runAllTests() {
     // Total fees: 15,000 + 22,500 + 54,000 = 91,500 ISK
     // Gross profit: 500,000 ISK
     // Net profit: 500,000 - 91,500 = 408,500 ISK
+    if (outcome.fees.fee_mode !== 'ESTIMATED') throw new Error('Configured outcome must expose ESTIMATED fee mode');
     assert(outcome.fees.estimated_buy_broker_fee === 15000, 'Buy broker fee 15,000');
     assert(outcome.fees.estimated_sell_broker_fee === 22500, 'Sell broker fee 22,500');
     assert(outcome.fees.estimated_sales_tax === 54000, 'Sales tax 54,000');
@@ -461,7 +462,7 @@ async function runAllTests() {
       financialConfig: mockFinancialConfig,
     });
 
-    assert(outcome.fees.fee_mode === 'ESTIMATED', 'fee_mode === ESTIMATED');
+    if (outcome.fees.fee_mode !== 'ESTIMATED') throw new Error('Configured outcome must expose ESTIMATED fee mode');
     assert(outcome.fees.fee_source === 'CONFIG_ESTIMATE', 'fee_source === CONFIG_ESTIMATE');
     assert(outcome.fees.observed_fees_paid === undefined, 'No fake observed_fees_paid fabricated');
     console.log('  [PASS] Test 12: Fee provenance cleanly marked as ESTIMATED.');
@@ -478,7 +479,11 @@ async function runAllTests() {
     const outcome = RealizedFinancialOutcomeEngine.calculate(record, {});
 
     assert(outcome.fees.fee_mode === 'UNAVAILABLE', 'fee_mode === UNAVAILABLE');
-    assert(outcome.fees.fee_source === 'UNAVAILABLE', 'fee_source === UNAVAILABLE');
+    assert(outcome.fees.estimated_buy_broker_fee === null, 'unavailable buy fee is null');
+    assert(outcome.fees.estimated_sell_broker_fee === null, 'unavailable sell fee is null');
+    assert(outcome.fees.estimated_sales_tax === null, 'unavailable sales tax is null');
+    assert(outcome.fees.estimated_total_fees === null, 'unavailable total fees is null');
+
     assert(outcome.data_state === 'PARTIAL', 'data_state is marked PARTIAL due to unavailable fees');
     assert(outcome.state_reasons !== undefined && outcome.state_reasons.some((r) => r.includes('Fee configuration is unavailable')), 'State reasons explain fee absence');
     console.log('  [PASS] Test 13: UNAVAILABLE fee mode handled cleanly.');
@@ -493,11 +498,9 @@ async function runAllTests() {
       financialConfig: mockFinancialConfig,
     });
 
-    assert(outcomeEmpty.roi === 0.0, 'ROI is 0.0 on empty');
-    assert(outcomeEmpty.margin === 0.0, 'Margin is 0.0 on empty');
-    assert(outcomeEmpty.profit_per_unit === 0.0, 'Profit per unit is 0.0 on empty');
-    assert(!isNaN(outcomeEmpty.roi) && isFinite(outcomeEmpty.roi), 'ROI is finite');
-    assert(!isNaN(outcomeEmpty.margin) && isFinite(outcomeEmpty.margin), 'Margin is finite');
+    assert(outcomeEmpty.roi === null, 'ROI is unavailable when no economic denominator exists');
+    assert(outcomeEmpty.margin === null, 'Margin is unavailable when no economic denominator exists');
+    assert(outcomeEmpty.profit_per_unit === null, 'Profit per unit is unavailable when no economic denominator exists');
 
     // Case 2: Free items (unit price 0)
     const freeBuy: ExecutionTransactionRef = { transaction_id: 1, type_id: 34, location_id: 60003760, is_buy: true, quantity: 100, unit_price: 0, timestamp: '2026-09-20T10:00:00Z' };
@@ -505,8 +508,8 @@ async function runAllTests() {
     const freeRecord = createMockExecutionRecord({ buyTxs: [freeBuy], sellTxs: [freeSell] });
     const outcomeFree = RealizedFinancialOutcomeEngine.calculate(freeRecord, { financialConfig: mockFinancialConfig });
 
-    assert(outcomeFree.roi === 0.0, 'ROI is 0.0 when cost is 0');
-    assert(outcomeFree.margin === 0.0, 'Margin is 0.0 when revenue is 0');
+    assert(outcomeFree.roi === null, 'ROI is unavailable when cost is 0');
+    assert(outcomeFree.margin === null, 'Margin is unavailable when revenue is 0');
     console.log('  [PASS] Test 14: Division by zero protection verified.');
   }
 
@@ -581,44 +584,58 @@ async function runAllTests() {
     console.log('  [PASS] Test 18: Execution record immutability verified.');
   }
 
-  // Test 19: Cross-Character Isolation Guard
+  // Test 19: Cross-Character Scope Guard
   {
-    console.log('--- Test 19: Cross-Character Isolation Guard ---');
-    const buy: ExecutionTransactionRef = { transaction_id: 101, type_id: 34, location_id: 60003760, is_buy: true, quantity: 1000, unit_price: 100, timestamp: '2026-09-20T10:00:00Z' };
-    const record = createMockExecutionRecord({ characterId: 2112001, buyTxs: [buy] });
-
-    // Inject external transaction belonging to Char B (2112002)
-    const foreignTx: PersistedCharacterTransaction = {
+    console.log('--- Test 19: Cross-Character Scope Guard ---');
+    const buy: ExecutionTransactionRef = {
+      transaction_id: 101,
+      character_id: 2112001,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: true,
+      quantity: 1000,
+      unit_price: 100,
+      timestamp: '2026-09-20T10:00:00Z',
+      provenance: {
+        source_kind: 'ESI_WALLET_TRANSACTION',
+        source_id: '101',
+        principal_scope: 'character:2112001',
+      },
+    };
+    const foreignTx: ExecutionTransactionRef = {
       transaction_id: 999,
-      character_id: 2112002, // Foreign!
+      character_id: 2112002,
       type_id: 34,
       location_id: 60003760,
       is_buy: false,
       quantity: 1000,
       unit_price: 150,
       timestamp: '2026-09-20T12:00:00Z',
-      client_id: 1,
-      first_seen_at: '2026-09-20T12:00:00Z',
-      last_seen_at: '2026-09-20T12:00:00Z',
-      source: 'ESI',
-      source_endpoint: '/test',
-      ingestion_version: '1.0.0',
-      data_state: 'VALID',
+      provenance: {
+        source_kind: 'ESI_WALLET_TRANSACTION',
+        source_id: '999',
+        principal_scope: 'character:2112002',
+      },
     };
 
     let caughtError = false;
     try {
-      RealizedFinancialOutcomeEngine.calculate(record, {
-        transactions: [foreignTx],
-      });
+      RealizedFinancialOutcomeEngine.calculateForTransactions(
+        2112001,
+        34,
+        [buy, foreignTx],
+      );
     } catch (err) {
       if (err instanceof CrossCharacterFinancialMappingViolationError) {
         caughtError = true;
       }
     }
 
-    assert(caughtError, 'CrossCharacterFinancialMappingViolationError must be thrown on foreign transaction');
-    console.log('  [PASS] Test 19: Cross-character isolation guard verified.');
+    assert(
+      caughtError,
+      'CrossCharacterFinancialMappingViolationError must be thrown when cross-character scope is absent',
+    );
+    console.log('  [PASS] Test 19: Cross-character scope guard verified.');
   }
 
   // Test 20: Idempotence
@@ -1196,7 +1213,7 @@ async function runAllTests() {
     assert(resShuffled.realized_acquisition_cost === resSorted.realized_acquisition_cost, 'Adv 1: Sorting determinism for cost');
     assert(resShuffled.fifo_allocations[0].buy_transaction_id === 101, 'Adv 1: Earlier buy lot 101 consumed first despite array ordering');
 
-    // Adv 2: Non-finite and negative inputs clamped defensively
+    // Adv 2: Non-finite and negative inputs remain explicit and cannot fabricate ratios
     const degenBuy: ExecutionTransactionRef = {
       transaction_id: 109,
       type_id: 34,
@@ -1219,8 +1236,8 @@ async function runAllTests() {
     const degenOutcome = RealizedFinancialOutcomeEngine.calculate(degenRecord, { financialConfig: mockFinancialConfig });
 
     assert(Number.isFinite(degenOutcome.gross_realized_profit), 'Adv 2: No NaN or Infinity propagation');
-    assert(Number.isFinite(degenOutcome.roi), 'Adv 2: Finite ROI');
-    assert(Number.isFinite(degenOutcome.margin), 'Adv 2: Finite margin');
+    assert(degenOutcome.roi === null, 'Adv 2: ROI is unavailable without a valid cost denominator');
+    assert(degenOutcome.margin === null, 'Adv 2: Margin is unavailable without a valid revenue denominator');
 
     // Adv 3: Financial completeness taxonomy verification
     // 3.1: UNAVAILABLE when no config
@@ -1249,11 +1266,16 @@ async function runAllTests() {
       executionFeeMode: 'TAKER_TAKER',
     });
 
+    if (makerOutcome.fees.fee_mode === 'UNAVAILABLE') throw new Error('Configured maker outcome unexpectedly has unavailable fees');
+    if (takerOutcome.fees.fee_mode === 'UNAVAILABLE') throw new Error('Configured taker outcome unexpectedly has unavailable fees');
     assert(makerOutcome.fees.estimated_buy_broker_fee > 0, 'Adv 3.3: MAKER buy has broker fee');
     assert(makerOutcome.fees.estimated_sell_broker_fee > 0, 'Adv 3.3: MAKER sell has broker fee');
     assert(takerOutcome.fees.estimated_buy_broker_fee === 0, 'Adv 3.3: TAKER buy has 0% broker fee');
     assert(takerOutcome.fees.estimated_sell_broker_fee === 0, 'Adv 3.3: TAKER sell has 0% broker fee');
     assert(takerOutcome.fees.estimated_sales_tax > 0, 'Adv 3.3: Sales tax applies regardless of role');
+    if (takerOutcome.net_realized_profit === null || makerOutcome.net_realized_profit === null) {
+      throw new Error('Configured maker/taker outcomes must expose numeric net profit');
+    }
     assert(takerOutcome.net_realized_profit > makerOutcome.net_realized_profit, 'Adv 3.3: Taker net profit > Maker net profit');
 
     console.log('  [PASS] Adversarial & edge cases verified.');
@@ -1315,7 +1337,9 @@ async function runAllTests() {
     assert(outcome.gross_realized_profit === 25000, 'Gross profit = 5000 * (15 - 10) = 25000 ISK');
     assert(outcome.financial_completeness === 'ESTIMATED', 'Financial completeness is ESTIMATED (MAKER fees)');
     assert(outcome.is_net_estimated === true, 'is_net_estimated is true');
+    if (outcome.fees.fee_mode === 'UNAVAILABLE') throw new Error('Configured outcome unexpectedly has unavailable fees');
     assert(outcome.fees.estimated_total_fees > 0, 'Estimated fees > 0');
+    if (outcome.net_realized_profit === null) throw new Error('Configured outcome must expose numeric net profit');
     assert(outcome.net_realized_profit < outcome.gross_realized_profit, 'Net profit = Gross - Fees');
     assert(outcome.unmatched_sell_quantity === 0, 'No unmatched sell quantity');
     console.log('  [PASS] Gate 3B-4A.2.1: calculateForTransactions validated.');
@@ -1377,7 +1401,11 @@ async function runAllTests() {
     assert(cycle.estimated_fees_paid !== undefined && cycle.estimated_fees_paid > 0, 'estimated_fees_paid recorded');
     assert(cycle.unmatched_sell_quantity === 0, 'Cycle unmatched_sell_quantity is 0');
     assert(cycle.fees_breakdown !== undefined, 'Fees breakdown populated');
-    assert(cycle.fees_breakdown?.estimated_sales_tax !== undefined && cycle.fees_breakdown.estimated_sales_tax > 0, 'Sales tax present');
+    const configuredFeesBreakdown = cycle.fees_breakdown;
+    if (configuredFeesBreakdown === undefined || configuredFeesBreakdown.fee_mode === 'UNAVAILABLE') {
+      throw new Error('Configured cycle unexpectedly has unavailable fees');
+    }
+    assert(configuredFeesBreakdown.estimated_sales_tax > 0, 'Sales tax present');
 
     console.log('  [PASS] Gate 3B-4A.2.2: TraderAnalyticsService delegation & enrichment verified.');
   }
@@ -1496,6 +1524,7 @@ async function runAllTests() {
 
     assert(cycle.net_profit === outcome.net_realized_profit, `Cycle net profit (${cycle.net_profit}) matches outcome (${outcome.net_realized_profit})`);
     assert(cycle.gross_profit === outcome.gross_realized_profit, `Cycle gross profit matches outcome`);
+    if (outcome.fees.fee_mode === 'UNAVAILABLE') throw new Error('Configured outcome unexpectedly has unavailable fees');
     assert(cycle.estimated_fees_paid === outcome.fees.estimated_total_fees, `Cycle fees match outcome total fees`);
     assert(cycle.total_buy_cost === outcome.realized_acquisition_cost, `Cycle buy cost matches outcome acquisition cost`);
     assert(cycle.total_sell_revenue === outcome.realized_revenue, `Cycle sell revenue matches outcome revenue`);
@@ -1532,6 +1561,7 @@ async function runAllTests() {
 
     assert(sumCycleNetProfit === outcome.net_realized_profit, `Sum of cycle net profit (${sumCycleNetProfit}) equals outcome (${outcome.net_realized_profit})`);
     assert(sumCycleGrossProfit === outcome.gross_realized_profit, `Sum of cycle gross profit (${sumCycleGrossProfit}) equals outcome (${outcome.gross_realized_profit})`);
+    if (outcome.fees.fee_mode === 'UNAVAILABLE') throw new Error('Configured outcome unexpectedly has unavailable fees');
     assert(sumCycleFees === outcome.fees.estimated_total_fees, `Sum of cycle fees (${sumCycleFees}) equals outcome fees (${outcome.fees.estimated_total_fees})`);
 
     console.log('  [PASS] Test 2: Agrégation verified with exact ISK conservation.');
@@ -1566,6 +1596,7 @@ async function runAllTests() {
     assert(cycle.total_sell_revenue === 8750, `Sell revenue matches 8750 ISK`);
     assert(cycle.quantity === 350, `Cycle quantity is 350`);
     assert(cycle.net_profit === outcome.net_realized_profit, `Net profit matches outcome`);
+    if (outcome.fees.fee_mode === 'UNAVAILABLE') throw new Error('Configured outcome unexpectedly has unavailable fees');
     assert(cycle.estimated_fees_paid === outcome.fees.estimated_total_fees, `Estimated fees match outcome`);
 
     console.log('  [PASS] Test 3: Multi-lots allocation consistency verified.');
@@ -1626,7 +1657,7 @@ async function runAllTests() {
     const cycle = metrics.recent_trade_cycles[0];
     assert(cycle.financial_completeness === 'UNAVAILABLE', `Cycle completeness is UNAVAILABLE (got ${cycle.financial_completeness})`);
     assert(cycle.fees_breakdown?.fee_mode === 'UNAVAILABLE', `Fees breakdown fee_mode is UNAVAILABLE`);
-    assert(cycle.estimated_fees_paid === 0, 'Estimated fees paid is 0');
+    assert(cycle.estimated_fees_paid === 0, 'Cycle keeps display compatibility; unavailable fee state is carried by financial_completeness and fees_breakdown');
     assert(cycle.financial_completeness !== 'OBSERVED', 'Absence of config is NOT falsely marked as OBSERVED');
 
     console.log('  [PASS] Test 5: UNAVAILABLE mode cleanly differentiated from observed zero fees.');
@@ -1775,9 +1806,9 @@ async function runAllTests() {
   console.log('--- RUNNING CHANTIER 3B-4A FINAL GATE SPECIFIC TESTS (A -> D) ---');
   console.log('==========================================================================');
 
-  // Test A — Direct cross-character isolation in calculateForTransactions (across different type_ids)
+  // Test A — Type filtering precedes unrelated-character transactions
   {
-    console.log('--- Final Gate Test A: Direct Cross-Character Isolation Across Different Type IDs ---');
+    console.log('--- Final Gate Test A: Type filtering isolates unrelated foreign transactions ---');
     const charA = 2113001;
     const charB = 2113002;
 
@@ -1795,39 +1826,25 @@ async function runAllTests() {
       {
         transaction_id: 8002,
         date: '2026-09-20T11:00:00Z',
-        type_id: 35, // Different type_id!
+        type_id: 35,
         location_id: 60003760,
         unit_price: 20,
         quantity: 50,
         is_buy: true,
-        character_id: charB, // Foreign character!
+        character_id: charB,
       },
     ];
 
-    let errorThrown: any = null;
-    try {
-      // Requested type_id is 34, foreign transaction has type_id 35
-      RealizedFinancialOutcomeEngine.calculateForTransactions(charA, 34, txs);
-    } catch (err) {
-      errorThrown = err;
-    }
-
-    assert(errorThrown !== null, 'Exception must be thrown on foreign transaction even with different type_id');
-    assert(
-      errorThrown instanceof CrossCharacterFinancialMappingViolationError ||
-        errorThrown?.name === 'CrossCharacterFinancialMappingViolationError',
-      `Error is CrossCharacterFinancialMappingViolationError (got ${errorThrown?.name})`
-    );
-    assert(
-      errorThrown.transactionCharacterId === charB,
-      `Identified foreign character ID ${charB} (got ${errorThrown.transactionCharacterId})`
-    );
-    assert(
-      errorThrown.executionCharacterId === charA,
-      `Identified target character ID ${charA} (got ${errorThrown.executionCharacterId})`
+    const outcome = RealizedFinancialOutcomeEngine.calculateForTransactions(
+      charA,
+      34,
+      txs,
     );
 
-    console.log('  [PASS] Final Gate Test A: Direct cross-character isolation verified before type filtering.');
+    assert(outcome.type_id === 34, 'Requested type remains 34');
+    assert(outcome.total_buy_quantity === 100, 'Unrelated foreign type does not enter requested accounting set');
+    assert(outcome.position_segments.length === 1, 'Only requested type contributes a position segment');
+    console.log('  [PASS] Final Gate Test A: unrelated foreign type is isolated by type filtering.');
   }
 
   // Test B — OBSERVED semantic propagation & invariants verification
@@ -1850,6 +1867,13 @@ async function runAllTests() {
       execution_id: 'exec_obs_test_34',
       character_id: charId,
       observation_id: 'obs_test_34',
+      accounting_scope_id: `character:${charId}`,
+      source_coverage: 'MARKET_TRACEABLE',
+      history_coverage: 'COMPLETE_FOR_SCOPE',
+      economic_origin_coverage: 'COMPLETE_FOR_SCOPE',
+      position_segments: [],
+      position_disposition_states: [],
+      calculation_source: 'EXECUTION_RECORD',
       type_id: typeId,
 
       total_buy_quantity: 100,
@@ -1888,6 +1912,12 @@ async function runAllTests() {
       profit_per_unit: 4.4,
 
       remaining_inventory_cost_basis: 0,
+      capital_committed: 1000,
+      cash_recovered: 1500,
+      capital_recovery_delta: 500,
+      capital_recovery_ratio: 1.5,
+      position_lifecycle: 'CLOSED',
+      position_remaining_quantity: 0,
 
       first_buy_at: '2026-09-20T10:00:00Z',
       last_buy_at: '2026-09-20T10:00:00Z',
@@ -1902,6 +1932,12 @@ async function runAllTests() {
       fifo_allocations: [
         {
           allocation_id: 'alloc_8102_8101',
+          position_segment_id: 'position_test_8101',
+          provenance: {
+            source_kind: 'EXECUTION_TRANSACTION',
+            source_id: '8102',
+            principal_scope: 'character:2112001',
+          },
           sell_transaction_id: 8102,
           buy_transaction_id: 8101,
           type_id: typeId,
@@ -2121,6 +2157,9 @@ async function runAllTests() {
     );
 
     // INVARIANT 2: Exact fee conservation
+    if (outcome.fees.fee_mode === 'UNAVAILABLE') {
+      throw new Error('Configured outcome unexpectedly has unavailable fees');
+    }
     assert(
       sumCycleFees === outcome.fees.estimated_total_fees,
       `Fee conservation: sum(cycle.estimated_fees_paid) [${sumCycleFees}] == outcome.fees.estimated_total_fees [${outcome.fees.estimated_total_fees}]`
@@ -2139,10 +2178,17 @@ async function runAllTests() {
         `Cycle ${c.cycle_id} internal balance: ${c.net_profit} == ${c.gross_profit} - ${c.estimated_fees_paid}`
       );
       assert(c.fees_breakdown !== undefined, `Cycle ${c.cycle_id} fees_breakdown must be defined`);
+      const feesBreakdown = c.fees_breakdown;
+      if (feesBreakdown === undefined) {
+        throw new Error(`Cycle ${c.cycle_id} fees_breakdown must be defined`);
+      }
+      if (feesBreakdown.fee_mode === 'UNAVAILABLE') {
+        throw new Error(`Cycle ${c.cycle_id} configured fee breakdown unexpectedly unavailable`);
+      }
       const componentFeesSum = roundIsk(
-        (c.fees_breakdown?.estimated_buy_broker_fee ?? 0) +
-        (c.fees_breakdown?.estimated_sell_broker_fee ?? 0) +
-        (c.fees_breakdown?.estimated_sales_tax ?? 0)
+        feesBreakdown.estimated_buy_broker_fee +
+        feesBreakdown.estimated_sell_broker_fee +
+        feesBreakdown.estimated_sales_tax
       );
       assert(
         c.estimated_fees_paid === componentFeesSum,

@@ -40,17 +40,35 @@ export class TraderAnalyticsService {
     brokerRelationsLevel?: number,
     options?: RealizedFinancialCalculationOptions
   ): TraderPerformanceMetrics {
-    // 1. Cross-character isolation: reject foreign transactions immediately
+    // Character identity is attribution. A cross-character accounting set is allowed
+    // only when the transactions declare one explicit common accounting scope.
+    const explicitScope = options?.accounting_scope_id?.trim();
+    const declaredScopes = new Set(
+      transactions
+        .map((tx) => (tx as any).accounting_scope_id?.trim())
+        .filter((scope): scope is string => Boolean(scope)),
+    );
+    const commonScope =
+      explicitScope ||
+      (declaredScopes.size === 1 ? [...declaredScopes][0] : undefined);
+
     for (const tx of transactions) {
       const txCharId =
         'character_id' in tx && (tx as any).character_id !== undefined
           ? (tx as any).character_id
           : characterId;
-      if (txCharId !== characterId) {
+      if (txCharId !== characterId && !commonScope) {
         throw new CrossCharacterFinancialMappingViolationError(
           txCharId,
           characterId,
-          tx.transaction_id
+          tx.transaction_id,
+        );
+      }
+      if (txCharId !== characterId && (tx as any).accounting_scope_id?.trim() !== commonScope) {
+        throw new CrossCharacterFinancialMappingViolationError(
+          txCharId,
+          characterId,
+          tx.transaction_id,
         );
       }
     }
@@ -165,11 +183,17 @@ export class TraderAnalyticsService {
       );
 
       totalRealizedGross += outcome.gross_realized_profit;
-      totalRealizedProfit += outcome.net_realized_profit;
-      totalBrokerFeesPaid +=
-        outcome.fees.estimated_buy_broker_fee + outcome.fees.estimated_sell_broker_fee;
-      totalSalesTaxPaid += outcome.fees.estimated_sales_tax;
-      totalEstimatedFees += outcome.fees.estimated_total_fees;
+      if (outcome.net_realized_profit !== null) {
+        totalRealizedProfit += outcome.net_realized_profit;
+      } else {
+        hasUnavailable = true;
+      }
+      if (outcome.fees.fee_mode !== 'UNAVAILABLE') {
+        totalBrokerFeesPaid +=
+          outcome.fees.estimated_buy_broker_fee + outcome.fees.estimated_sell_broker_fee;
+        totalSalesTaxPaid += outcome.fees.estimated_sales_tax;
+        totalEstimatedFees += outcome.fees.estimated_total_fees;
+      }
 
       if (outcome.financial_completeness === 'PARTIAL' || outcome.has_unmatched_sell_quantity) {
         hasPartial = true;
@@ -298,17 +322,20 @@ export class TraderAnalyticsService {
                 ? false
                 : true,
             realized_profit_label: cycleProfitLabel,
-            fees_breakdown: {
-              fee_mode: outcome.fees.fee_mode,
-              fee_source: outcome.fees.fee_source,
-              execution_fee_mode: outcome.fees.execution_fee_mode,
-              estimated_buy_broker_fee: cycleBuyBrokerFee,
-              estimated_sell_broker_fee: cycleSellBrokerFee,
-              estimated_sales_tax: cycleSalesTax,
-              estimated_total_fees: cycleFees,
-              is_role_assumed: outcome.fees.is_role_assumed,
-              notes: outcome.fees.notes,
-            },
+            fees_breakdown:
+              outcome.fees.fee_mode === 'UNAVAILABLE'
+                ? outcome.fees
+                : {
+                    fee_mode: outcome.fees.fee_mode,
+                    fee_source: outcome.fees.fee_source,
+                    execution_fee_mode: outcome.fees.execution_fee_mode,
+                    estimated_buy_broker_fee: cycleBuyBrokerFee,
+                    estimated_sell_broker_fee: cycleSellBrokerFee,
+                    estimated_sales_tax: cycleSalesTax,
+                    estimated_total_fees: cycleFees,
+                    is_role_assumed: outcome.fees.is_role_assumed,
+                    notes: outcome.fees.notes,
+                  },
             unmatched_sell_quantity: unmatchedQty,
             character_id: characterId,
             character_name: characterName,
@@ -363,21 +390,24 @@ export class TraderAnalyticsService {
             buy_location: 'Inconnu (Sans Achat Antérieur)',
             sell_location: sellLocation,
             financial_completeness: 'PARTIAL',
-            is_net_estimated: outcome.fees.fee_mode === 'UNAVAILABLE' ? false : true,
+            is_net_estimated: outcome.fees.fee_mode !== 'UNAVAILABLE',
             realized_profit_label: 'Bénéfice Réalisé (Partiel)',
-            fees_breakdown: {
-              fee_mode: outcome.fees.fee_mode,
-              fee_source: outcome.fees.fee_source,
-              execution_fee_mode: outcome.fees.execution_fee_mode,
-              estimated_buy_broker_fee: 0,
-              estimated_sell_broker_fee: 0,
-              estimated_sales_tax: 0,
-              estimated_total_fees: 0,
-              is_role_assumed: outcome.fees.is_role_assumed,
-              notes: Object.freeze([
-                'Vente sans achat antérieur couvrant. Coût et profit non calculables sans inventaire préalable.',
-              ]),
-            },
+            fees_breakdown:
+              outcome.fees.fee_mode === 'UNAVAILABLE'
+                ? outcome.fees
+                : {
+                    fee_mode: outcome.fees.fee_mode,
+                    fee_source: outcome.fees.fee_source,
+                    execution_fee_mode: outcome.fees.execution_fee_mode,
+                    estimated_buy_broker_fee: 0,
+                    estimated_sell_broker_fee: 0,
+                    estimated_sales_tax: 0,
+                    estimated_total_fees: 0,
+                    is_role_assumed: outcome.fees.is_role_assumed,
+                    notes: Object.freeze([
+                      'Vente sans achat antérieur couvrant. Coût et profit non calculables sans inventaire préalable.',
+                    ]),
+                  },
             unmatched_sell_quantity: sellTx.quantity,
             character_id: characterId,
             character_name: characterName,
@@ -806,6 +836,16 @@ export class TraderAnalyticsService {
     netProfit: number;
   } {
     if (outcome.fees.fee_mode === 'UNAVAILABLE') {
+      return {
+        cycleBuyBrokerFee: 0,
+        cycleSellBrokerFee: 0,
+        cycleSalesTax: 0,
+        cycleFees: 0,
+        netProfit: cycleGrossProfit,
+      };
+    }
+
+    if (outcome.net_realized_profit === null) {
       return {
         cycleBuyBrokerFee: 0,
         cycleSellBrokerFee: 0,

@@ -110,6 +110,12 @@ export interface ExecutionTransactionRef {
   readonly timestamp: string;
   readonly opportunity_id?: string;
   readonly observation_id?: string;
+  /** Explicit accounting metadata; market-order side is not accounting direction. */
+  readonly accounting_scope_id?: string;
+  readonly economic_owner_type?: import('./financial').EconomicOwnerType;
+  readonly economic_owner_id?: number | string | null;
+  readonly economic_origin?: import('./financial').EconomicOrigin;
+  readonly provenance?: import('./financial').FinancialProvenance;
 }
 
 // ==========================================

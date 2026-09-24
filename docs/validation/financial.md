@@ -16,6 +16,8 @@ CI gate: unit/domain certification
 - full disposal closes the position;
 - explicit unmatched/oversold quantity;
 - observed vs estimated vs unavailable fee semantics;
+- source coverage remains distinct from financial/fee completeness;
+- a MARKET_TRACEABLE position may reach CLOSED even when financial completeness is UNAVAILABLE because fee configuration is absent;
 - invalid transaction facts remain explicit and do not become financial zeroes;
 - order history does not become accounting buy/sell volume;
 - 10,000 @ 100 acquired / 1 @ 140 disposed yields +40 ISK realized gross P&L while keeping -999,860 ISK capital-recovery delta at position level;

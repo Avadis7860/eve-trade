@@ -204,6 +204,7 @@ export function reconstructPositionLedger(
       const originalCost = roundIsk(tx.quantity * tx.unit_price);
       const lot: AcquisitionLot = {
         lot_id: 'acquisition_' + tx.transaction_id,
+        position_segment_id: activeOperationId!,
         provenance: tx.provenance,
         transaction_id: tx.transaction_id,
         type_id: tx.type_id,
@@ -312,7 +313,24 @@ export function reconstructPositionLedger(
     } else {
       dispositionStates.push({
         position_segment_id: undefined,
-        disposition_transaction_id: tx.transaction_id  const positionSegmentIds = Object.freeze(
+        disposition_transaction_id: tx.transaction_id,
+        disposed_quantity: disposedQuantity,
+        unmatched_quantity: remainingSellQuantity,
+        remaining_position_quantity: 0,
+        lifecycle_status: 'UNKNOWN',
+      });
+    }
+
+    if (activeOperationLotIds.size > 0 && remainingPositionQuantity === 0) {
+      activeOperationLotIds.clear();
+      activeOperationId = null;
+      operationQuantityAcquired = 0;
+      operationCapitalCommitted = 0;
+      operationCashRecovered = 0;
+    }
+  }
+
+  const positionSegmentIds = Object.freeze(
     [...new Set(lots.map((lot) => lot.position_segment_id))]
       .filter((id): id is string => Boolean(id))
       .sort((a, b) => a.localeCompare(b)),
@@ -327,10 +345,7 @@ export function reconstructPositionLedger(
       (state) => state.position_segment_id === positionSegmentId,
     );
 
-    const segmentQuantityAcquired = segmentLots.reduce(
-      (sum, lot) => sum + lot.quantity_acquired,
-      0,
-    );
+    const segmentQuantityAcquired = segmentLots.reduce((sum, lot) => sum + lot.quantity_acquired, 0);
     const segmentQuantityDisposed = segmentAllocations.reduce(
       (sum, allocation) => sum + allocation.allocated_quantity,
       0,
@@ -345,12 +360,15 @@ export function reconstructPositionLedger(
     const segmentRealizedGrossProfit = roundIsk(
       segmentAllocations.reduce((sum, allocation) => sum + allocation.gross_realized_profit, 0),
     );
-    const segmentCapitalCommitted = segmentQuantityAcquired > 0
-      ? roundIsk(segmentLots.reduce((sum, lot) => sum + lot.total_original_cost, 0))
-      : null;
-    const segmentCashRecovered = segmentQuantityAcquired > 0
-      ? roundIsk(segmentAllocations.reduce((sum, allocation) => sum + allocation.disposal_revenue, 0))
-      : null;
+
+    const segmentCapitalCommitted =
+      segmentQuantityAcquired > 0
+        ? roundIsk(segmentLots.reduce((sum, lot) => sum + lot.total_original_cost, 0))
+        : null;
+    const segmentCashRecovered =
+      segmentQuantityAcquired > 0
+        ? roundIsk(segmentAllocations.reduce((sum, allocation) => sum + allocation.disposal_revenue, 0))
+        : null;
     const segmentRecoveryDelta =
       segmentCapitalCommitted !== null && segmentCashRecovered !== null
         ? roundIsk(segmentCashRecovered - segmentCapitalCommitted)
@@ -376,6 +394,7 @@ export function reconstructPositionLedger(
       segmentUnmatched > 0 ||
       segmentHasUnknownOrigin ||
       segmentUnreconciledLocationTransitions > 0;
+
     const segmentSourceCoverage: FinancialSourceCoverage =
       segmentHasSourceDefects
         ? 'PARTIAL'
@@ -508,17 +527,4 @@ export function reconstructPositionLedger(
     principal_scope: accountingScopeId,
     position_segments: positionSegments,
     position,
-  });chedDispositionQuantity,
-    invalid_transaction_ids: Object.freeze(invalidTransactionIds),
-    unreconciled_location_transition_count: unreconciledLocationTransitionCount,
   });
-
-  const firstCharacterId = valid.find((tx) => tx.character_id !== undefined)?.character_id;
-  return Object.freeze({
-    accounting_scope_id: accountingScopeId,
-    type_id: typeId,
-    character_id: firstCharacterId,
-    principal_scope: accountingScopeId,
-    position,
-  });
-}

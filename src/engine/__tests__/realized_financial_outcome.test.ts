@@ -1983,6 +1983,31 @@ async function runAllTests() {
         `TraderPerformanceMetrics is_net_estimated must be false (got ${observedMetrics.is_net_estimated})`
       );
       assert(
+        observedMetrics.average_realized_roi_scope === 'CLOSING_DISPOSAL_ALLOCATIONS',
+        'Performance ROI scope must identify closing-disposal allocations explicitly'
+      );
+      assert(
+        observedMetrics.capital_recovery?.capital_committed === 1000,
+        'Performance capital committed must be 1,000 ISK'
+      );
+      assert(
+        observedMetrics.capital_recovery?.cash_recovered === 1500,
+        'Performance cash recovered must be 1,500 ISK'
+      );
+      assert(
+        observedMetrics.capital_recovery?.capital_recovery_delta === 500,
+        'Performance recovery delta must be +500 ISK'
+      );
+      assert(
+        observedMetrics.capital_recovery?.capital_recovery_ratio === 1.5,
+        'Performance recovery ratio must be 150% within the known-position scope'
+      );
+      assert(
+        observedMetrics.capital_recovery?.known_position_count === 1 &&
+          observedMetrics.capital_recovery?.closed_position_count === 1,
+        'Performance recovery summary must preserve position closure counts'
+      );
+      assert(
         observedMetrics.realized_profit_label === 'Bénéfice Net Réalisé (Certifié)',
         `TraderPerformanceMetrics label must be "Bénéfice Net Réalisé (Certifié)" (got ${observedMetrics.realized_profit_label})`
       );

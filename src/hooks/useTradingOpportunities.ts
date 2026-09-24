@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   EveTypeDetail,
   MarketHub,
@@ -8,10 +8,13 @@ import {
   HistoricalStats,
   InterRegionalOpportunity,
   EveCharacterSession,
+  EveCharacterOrder,
 } from '../types';
 import { InterRegionalScanner } from '../services/scanner';
 import { PortfolioOptimizer } from '../engine/portfolio';
+import { GlobalMarketSyncService } from '../services/globalMarketSync';
 import { MarketDataStore } from '../services/marketDataStore';
+import { buildPortfolioSnapshots } from '../engine/portfolioAggregation';
 
 export function useTradingOpportunities(
   selectedType: EveTypeDetail,
@@ -23,8 +26,30 @@ export function useTradingOpportunities(
   highSecOnly: boolean,
   filterRoute: string,
   sortBy: 'score' | 'profit' | 'roi' | 'profit_day' | 'turnover',
-  characters?: EveCharacterSession[]
+  characters?: EveCharacterSession[],
+  portfolioOrders?: EveCharacterOrder[],
 ) {
+  const [universeOpportunities, setUniverseOpportunities] = useState(
+    () => GlobalMarketSyncService.getUniverseOpportunities(),
+  );
+  const [globalSyncProgress, setGlobalSyncProgress] = useState(
+    () => GlobalMarketSyncService.getProgress(),
+  );
+
+  useEffect(() => {
+    const unsubscribeOpportunities = GlobalMarketSyncService.subscribeOpportunities(
+      (next) => setUniverseOpportunities(next),
+    );
+    const unsubscribeProgress = GlobalMarketSyncService.subscribe(
+      (progress) => setGlobalSyncProgress(progress),
+    );
+
+    return () => {
+      unsubscribeOpportunities();
+      unsubscribeProgress();
+    };
+  }, []);
+
   const opportunities = useMemo(() => {
     const qualities = MarketDataStore.getQualitiesForType(selectedType.type_id, hubs);
     return InterRegionalScanner.scanItemAcrossHubs(
@@ -35,7 +60,7 @@ export function useTradingOpportunities(
       orderBooks,
       historyCache,
       qualities,
-      characters
+      characters,
     );
   }, [selectedType, hubs, strategy, config, orderBooks, historyCache, characters]);
 
@@ -59,13 +84,39 @@ export function useTradingOpportunities(
       });
   }, [opportunities, sortBy, filterRoute, highSecOnly]);
 
-  const portfolioSimulation = useMemo(() => {
-    return PortfolioOptimizer.optimize(opportunities, config);
-  }, [opportunities, config]);
+  const activeCharacterId =
+    characters?.find((character) => character.is_active)?.character_id ?? null;
+
+  const portfolioSnapshots = useMemo(() => {
+    return buildPortfolioSnapshots({
+      config,
+      characters,
+      active_character_id: activeCharacterId,
+      orders: portfolioOrders,
+      universe: allocationUniverse.opportunities as typeof universeOpportunities,
+      global_sync_progress: globalSyncProgress,
+    });
+  }, [
+    config,
+    characters,
+    activeCharacterId,
+    portfolioOrders,
+    universeOpportunities,
+    globalSyncProgress,
+    selectedType.type_id,
+  ]);
+
+  const portfolioSimulation = portfolioSnapshots.simulation;
 
   return {
     opportunities,
     sortedOpportunities,
     portfolioSimulation,
+    universeOpportunities,
+    globalSyncProgress,
+    portfolioTreasury: portfolioSnapshots.treasury,
+    candidateUniverseSnapshot: portfolioSnapshots.candidateUniverse,
+    proposedAllocationSnapshot: portfolioSnapshots.proposedAllocation,
+    realPortfolioSnapshot: portfolioSnapshots.realPortfolio,
   };
 }

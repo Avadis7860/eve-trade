@@ -94,13 +94,13 @@ The application now provides an exportable JSON bundle for repository-side diagn
 
 Validation details: [P0-C target-PC evidence](../validation/p0-c-target-pc-evidence.md).
 
-### P0-D — Close or externally bound the incident
+### P0-D — Formal incident closure
 
-Two acceptable closure states:
-- **ROOT-CAUSED:** a reproducible technical cause is demonstrated and fixed/contained;
-- **EXTERNALLY BOUNDED:** repository-side path is certified, the remaining dependency is explicitly outside repository control, and the evidence request is documented.
+**DONE — EXTERNALLY BOUNDED.**
 
-Do not substitute a hypothesis for either state.
+The repository-side market retrieval path is certified and the application is currently functional. The previously reported target-PC market-display symptom was explained by insufficient available data to produce a market display. No persistent software defect is currently identified.
+
+The real-PC evidence bundle remains available as a diagnostic tool for future incidents, but it is no longer an active P0 dependency.
 
 ## Sequence after P0
 

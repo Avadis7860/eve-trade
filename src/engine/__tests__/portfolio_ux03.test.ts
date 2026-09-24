@@ -28,6 +28,10 @@ const hub = (id: string, name = id): MarketHub => ({
   active: true,
 } as any);
 
+function treasuryConfigForScope(value: FinancialConfig): FinancialConfig {
+  return value;
+}
+
 function config(overrides: Partial<FinancialConfig> = {}): FinancialConfig {
   return {
     available_capital: 100_000_000,
@@ -316,6 +320,60 @@ async function run(): Promise<void> {
       assert(real.inventory.quantity === null, 'missing inventory quantity must stay unknown');
       assert(real.inventory.market_value === null, 'missing inventory valuation must stay unknown');
       assert(real.is_authoritative_net_worth === false, 'net worth must not be claimed authoritative');
+    }],
+    ['Scope keeps economic owner, corporation division and observing principal distinct', () => {
+      const treasury = resolvePortfolioTreasury(
+        config({
+          treasury_source_mode: 'corporation',
+          corporation_id: 77,
+          corporation_wallet_division: 3,
+          corporation_wallet_balance: 500_000_000,
+          corporation_wallet_source: 'esi',
+          corporation_divisions: [{ division: 3, name: 'Trade', balance: 500_000_000 }],
+        }),
+        [{ character_id: 1001, character_name: 'Observer', wallet_balance: 10_000_000, is_active: true } as any],
+        1001,
+      );
+
+      const scoped = scopePortfolioOrders(
+        [
+          order({
+            order_id: 'corp-3',
+            ownership: {
+              principal_character_id: 1001,
+              observed_by_character_ids: [1001],
+              owner_type: 'corporation',
+              owner_id: 77,
+              owner_name: 'Corp',
+              wallet_division: 3,
+            },
+          }) as any,
+          order({
+            order_id: 'corp-2',
+            ownership: {
+              principal_character_id: 1001,
+              observed_by_character_ids: [1001],
+              owner_type: 'corporation',
+              owner_id: 77,
+              owner_name: 'Corp',
+              wallet_division: 2,
+            },
+          }) as any,
+        ],
+        treasury,
+        treasuryConfigForScope(config({
+          treasury_source_mode: 'corporation',
+          corporation_id: 77,
+          corporation_wallet_division: 3,
+          corporation_wallet_balance: 500_000_000,
+          corporation_wallet_source: 'esi',
+          corporation_divisions: [{ division: 3, name: 'Trade', balance: 500_000_000 }],
+        })),
+        [{ character_id: 1001, character_name: 'Observer', wallet_balance: 10_000_000, is_active: true } as any],
+      );
+
+      assert(scoped.length === 1 && scoped[0].order_id === 'corp-3', 'corporation scope must filter by economic owner and wallet division');
+      assert(treasury.principal_scope === 'corp:77', 'observer scope must remain separate from economic owner');
     }],
     ['I manual budget is explicit simulation', () => {
       const treasury = resolvePortfolioTreasury(

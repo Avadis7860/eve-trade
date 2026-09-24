@@ -774,7 +774,7 @@ export class TraderAnalyticsService {
       }
       categorySuccessRate[cat].total_trades += 1;
       categorySuccessRate[cat].profit_isk = roundIsk(
-        categorySuccessRate[cat].profit_isk + (c.position_net_profit ?? c.net_profit),
+        categorySuccessRate[cat].profit_isk + c.position_net_profit,
       );
     }
 

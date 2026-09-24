@@ -119,3 +119,7 @@ These remain explicit follow-ups rather than hidden omissions.
 CI Foundation & Regression Gate #1255 / head 3f3b10e2b4582a2feb063ae1869ae0b6299d08a9; SDE Truth Gate #1016; all required lanes, Unit/Domain, Server/API/ESI, Build, Static, Operations E2E, Auth E2E, required-gate and observability: SUCCESS.
 
 All selected unit/domain, server/API/ESI, static/config/auth, production build, Operations E2E, Auth E2E, CI required-gate and CI observability lanes completed successfully. The branch is ready for merge. Post-merge Main Smoke remains the final integration proof and must be validated on the resulting main SHA.
+
+## J. Delivery lifecycle note
+
+PR #82 was temporarily closed externally during documentation synchronization and was reopened as the same delivery object. No replacement PR or parallel recovery branch was created. The final certification must apply to the actual branch head after this note, not to the earlier closed-PR head.

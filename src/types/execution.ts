@@ -131,6 +131,10 @@ export interface ExecutionTransactionRef {
   readonly character_id?: number;
   readonly type_id: number;
   readonly location_id: number;
+  /**
+   * Economic transaction direction from the trader's accounting perspective.
+   * This is deliberately different from MarketOrder.is_buy_order.
+   */
   readonly is_buy: boolean;
   readonly quantity: number;
   readonly unit_price: number;

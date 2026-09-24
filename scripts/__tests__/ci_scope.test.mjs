@@ -36,12 +36,12 @@ expectScope(['src/components/Trading.tsx'], {
 expectScope(['src/context/AuthProvider.tsx'], {
   frontend: true, ambiguous: false, full_certification: false,
   run_static: true, run_unit_domain: false, run_server: false, run_build: true, run_browser: true,
-});
+}, { respectContextCritical: false });
 
 expectScope(['src/domain/universe/UniverseGraphRepository.ts'], {
   domain: true, ambiguous: false, full_certification: true,
   run_static: true, run_unit_domain: true, run_server: true, run_build: true, run_browser: true,
-});
+}, { respectContextCritical: false });
 
 expectScope(['src/services/foo.ts'], {
   server: true, ambiguous: false, full_certification: true,

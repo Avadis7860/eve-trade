@@ -173,6 +173,13 @@ export interface CharacterTransactionSyncSummary {
   readonly completed_at: string;
   readonly duration_ms: number;
 
+  /** Whether the synchronization was explicitly requesting the complete source history. */
+  readonly full_history_requested: boolean;
+  /** Coverage of the source history, independent from health/freshness. */
+  readonly history_coverage: import('./financial').FinancialHistoryCoverage;
+  /** Broader economic-origin coverage is UNKNOWN until non-market origins are explicitly covered. */
+  readonly economic_origin_coverage: import('./financial').EconomicOriginCoverage;
+
   readonly pages_fetched: number;
   readonly transactions_received: number;
   readonly transactions_valid: number;

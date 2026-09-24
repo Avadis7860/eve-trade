@@ -4,6 +4,7 @@ import type {
   RealizedFeeBreakdown,
   ExecutionFeeRoleMode,
   TreasurySourceMode,
+  CapitalRecoverySummary,
 } from './financial';
 import type { OrderId } from './order';
 
@@ -385,8 +386,11 @@ export interface TraderPerformanceMetrics {
   unprofitable_trades: number;
   /** Null when no position has been fully closed in the current financial observation set. */
   win_rate_pct: number | null; // 0 - 100 when a closed-position sample exists
-  average_realized_roi: number; // e.g. 0.22 = 22%
+  average_realized_roi: number; // Disposal-closing ROI; denominator = allocated acquisition cost
+  average_realized_roi_scope: 'CLOSING_DISPOSAL_ALLOCATIONS';
   average_hold_days: number;
+  /** Position/whole-operation progress; never a substitute for realized P&L. */
+  capital_recovery?: CapitalRecoverySummary;
   total_broker_fees_paid: number;
   total_sales_tax_paid: number;
   top_profitable_items: Array<{

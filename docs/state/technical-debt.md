@@ -13,3 +13,5 @@ Source of truth: current code tree + validation surfaces
 | Broad analytics service | WATCH | `traderAnalytics.ts` ≈ 1367 lines but delegates accounting to Financial Truth | maintenance | later decomposition if justified |
 
 The IndexedDB HTTP cache is **not itself a defect**: the current code documents that it has no active private-data consumer. Creating one without principal/owner partitioning would be a future defect.
+
+Public repository hygiene is tracked separately in [Public Readiness](../roadmap/public-readiness.md). It includes security automation, licensing, release provenance and showcase/demo concerns rather than code-structure cleanup.

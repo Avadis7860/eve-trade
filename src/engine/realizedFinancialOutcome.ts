@@ -44,17 +44,26 @@ import {
 } from '../types';
 import { FeeEngine } from './fee';
 import { safeDiv, roundIsk } from './money';
+import { reconstructPositionLedger } from './positionLedger';
+import type { PositionLedgerTransaction } from './positionLedger';
 
 export const REALIZED_FINANCIAL_ENGINE_VERSION = '1.0.0';
 
+/** @deprecated Character identity is attribution/provenance, not an accounting boundary. */
 export class CrossCharacterFinancialMappingViolationError extends Error {
   constructor(
     public readonly transactionCharacterId: number,
     public readonly executionCharacterId: number,
-    public readonly transactionId: number
+    public readonly transactionId: number,
   ) {
     super(
-      `Cross-character mapping violation: Transaction ${transactionId} belongs to character ${transactionCharacterId}, but execution record belongs to character ${executionCharacterId}. Cross-character financial attribution is strictly prohibited.`
+      'Transaction ' +
+        transactionId +
+        ' belongs to character ' +
+        transactionCharacterId +
+        ' and cannot be mapped into character ' +
+        executionCharacterId +
+        ' without an explicit common accounting scope.',
     );
     this.name = 'CrossCharacterFinancialMappingViolationError';
   }
@@ -77,9 +86,10 @@ export class RealizedFinancialOutcomeEngine {
     }
 
     const characterId = executionRecord.character_id;
+    const accountingScopeId = options?.accounting_scope_id?.trim() || 'character:' + characterId;
     if (!characterId || characterId <= 0) {
       throw new Error(
-        `RealizedFinancialOutcomeEngine.calculate requires a valid positive character_id. Received: ${characterId} (character_id=0 is reserved for fleet contexts and cannot be used for individual character calculations)`
+        `RealizedFinancialOutcomeEngine.calculate requires a valid positive character_id. Received: ${characterId}`
       );
     }
     const observationId = executionRecord.observation_id;
@@ -87,7 +97,8 @@ export class RealizedFinancialOutcomeEngine {
     const opportunityId = executionRecord.opportunity_id;
 
     // 1. Resolve candidate transactions
-    const { buyTxs, sellTxs, typeId } = this.resolveTransactions(executionRecord, options);
+    const { buyTxs, sellTxs, typeId, provenanceByTransactionId } =
+      this.resolveTransactions(executionRecord, options);
 
     // 2. Sort chronologically (timestamp ASC, transaction_id ASC)
     const sortedBuys = [...buyTxs].sort((a, b) => {
@@ -104,113 +115,113 @@ export class RealizedFinancialOutcomeEngine {
       return timeDiff !== 0 ? timeDiff : a.transaction_id - b.transaction_id;
     });
 
-    // 3. Initialize FIFO Lots from Buy Transactions (defensive against NaN/Infinity/negative quantities)
-    const lots: FifoLotRecord[] = sortedBuys.map((buy) => {
-      const origQty = Number.isFinite(buy.quantity) ? Math.max(0, buy.quantity) : 0;
-      const unitCost = Number.isFinite(buy.unit_price) ? Math.max(0, buy.unit_price) : 0;
+    // 3-4. Reconstruct economic position state through the canonical ledger.
+    // Market order side is deliberately absent: transaction is the accounting fact.
+    const ledgerTransactions: PositionLedgerTransaction[] = [
+      ...sortedBuys,
+      ...sortedSells,
+    ].map((tx) => ({
+      ...tx,
+      accounting_scope_id:
+        tx.accounting_scope_id ?? accountingScopeId,
+      provenance:
+        provenanceByTransactionId.get(tx.transaction_id) ?? {
+          source_kind: 'EXECUTION_TRANSACTION',
+          source_id: String(tx.transaction_id),
+          principal_scope: `character:${characterId}`,
+        },
+    }));
+
+    const positionLedger = reconstructPositionLedger(
+      accountingScopeId,
+      typeId,
+      ledgerTransactions,
+      options?.coverage_evidence,
+    );
+
+    const positionSegments = positionLedger.position_segments;
+    const ledgerLots = positionSegments.flatMap((segment) => segment.lots);
+    const ledgerAllocations = positionSegments.flatMap((segment) => segment.allocations);
+    const ledgerDispositionStates = positionLedger.all_disposition_states;
+    const lots: FifoLotRecord[] = ledgerLots.map((lot) => ({
+      lot_id: lot.lot_id,
+      position_segment_id: lot.position_segment_id,
+      provenance: lot.provenance,
+      buy_transaction_id: lot.transaction_id,
+      type_id: lot.type_id,
+      location_id: lot.location_id,
+      timestamp: lot.acquired_at,
+      original_quantity: lot.quantity_acquired,
+      remaining_quantity: lot.remaining_quantity,
+      unit_cost: lot.unit_cost,
+      total_original_cost: lot.total_original_cost,
+      total_remaining_cost: lot.remaining_cost_basis,
+    }));
+
+    let allocationSeq = 1;
+    const allocations: FifoAllocationRecord[] = ledgerAllocations.map((allocation) => {
+      const holdDurationMs = Math.max(
+        0,
+        Date.parse(allocation.disposed_at) - Date.parse(allocation.acquired_at),
+      );
       return {
-        lot_id: `lot_${buy.transaction_id}`,
-        buy_transaction_id: buy.transaction_id,
-        type_id: buy.type_id,
-        location_id: buy.location_id,
-        timestamp: buy.timestamp,
-        original_quantity: origQty,
-        remaining_quantity: origQty,
-        unit_cost: unitCost,
-        total_original_cost: roundIsk(origQty * unitCost),
-        total_remaining_cost: roundIsk(origQty * unitCost),
+        allocation_id: `alloc_${allocation.disposition_transaction_id}_${allocation.acquisition_lot_id.replace(/^acquisition_/, '')}_${allocationSeq++}`,
+        position_segment_id: allocation.position_segment_id,
+        provenance: allocation.provenance,
+        sell_transaction_id: allocation.disposition_transaction_id,
+        buy_transaction_id: allocation.acquisition_transaction_id,
+        type_id: typeId,
+        allocated_quantity: allocation.allocated_quantity,
+        buy_unit_price: allocation.acquisition_unit_cost,
+        sell_unit_price: allocation.disposal_unit_price,
+        buy_timestamp: allocation.acquired_at,
+        sell_timestamp: allocation.disposed_at,
+        hold_duration_ms: holdDurationMs,
+        hold_days: holdDurationMs / 86_400_000,
+        gross_cost: allocation.acquisition_cost,
+        gross_revenue: allocation.disposal_revenue,
+        gross_profit: allocation.gross_realized_profit,
       };
     });
 
-    // 4. Match Sales against FIFO Lots with Strict Causal FIFO Enforcement
-    const allocations: FifoAllocationRecord[] = [];
-    let unmatchedSellQuantity = 0;
-    let allocationSeq = 1;
-
-    for (const sell of sortedSells) {
-      let sellRemaining = Number.isFinite(sell.quantity) ? Math.max(0, sell.quantity) : 0;
-      const sellUnitPrice = Number.isFinite(sell.unit_price) ? Math.max(0, sell.unit_price) : 0;
-      const sellTimeMs = Number.isNaN(new Date(sell.timestamp).getTime()) ? 0 : new Date(sell.timestamp).getTime();
-
-      for (let i = 0; i < lots.length; i++) {
-        const lot = lots[i];
-        if (sellRemaining <= 0) break;
-        if (lot.remaining_quantity <= 0) continue;
-
-        const buyTimeMs = Number.isNaN(new Date(lot.timestamp).getTime()) ? 0 : new Date(lot.timestamp).getTime();
-
-        // CAUSAL GUARD: A SELL transaction can ONLY consume BUY lots executed at or prior to the SELL timestamp.
-        // Tie-breaker: If timestamps are identical, transaction_id ASC determines execution priority.
-        const isCausallyEligible =
-          buyTimeMs < sellTimeMs ||
-          (buyTimeMs === sellTimeMs && lot.buy_transaction_id <= sell.transaction_id);
-
-        if (!isCausallyEligible) {
-          // Because `lots` is sorted chronologically (timestamp ASC, transaction_id ASC),
-          // all subsequent lots in `lots` are also strictly after this sell.
-          break;
-        }
-
-        const allocatedQty = Math.min(lot.remaining_quantity, sellRemaining);
-        const updatedRemainingQty = lot.remaining_quantity - allocatedQty;
-
-        // Update lot in-place within this local pure function scope
-        lots[i] = {
-          ...lot,
-          remaining_quantity: updatedRemainingQty,
-          total_remaining_cost: roundIsk(updatedRemainingQty * lot.unit_cost),
-        };
-
-        sellRemaining -= allocatedQty;
-
-        // Calculate hold duration between buy and sell timestamps
-        const holdDurationMs = Math.max(0, sellTimeMs - buyTimeMs);
-        const holdDays = holdDurationMs / 86_400_000;
-
-        const grossCost = roundIsk(allocatedQty * lot.unit_cost);
-        const grossRevenue = roundIsk(allocatedQty * sellUnitPrice);
-        const grossProfit = roundIsk(grossRevenue - grossCost);
-
-        allocations.push({
-          allocation_id: `alloc_${sell.transaction_id}_${lot.buy_transaction_id}_${allocationSeq++}`,
-          sell_transaction_id: sell.transaction_id,
-          buy_transaction_id: lot.buy_transaction_id,
-          type_id: lot.type_id,
-          allocated_quantity: allocatedQty,
-          buy_unit_price: lot.unit_cost,
-          sell_unit_price: sellUnitPrice,
-          buy_timestamp: lot.timestamp,
-          sell_timestamp: sell.timestamp,
-          hold_duration_ms: holdDurationMs,
-          hold_days: holdDays,
-          gross_cost: grossCost,
-          gross_revenue: grossRevenue,
-          gross_profit: grossProfit,
-        });
-      }
-
-      if (sellRemaining > 0) {
-        unmatchedSellQuantity += sellRemaining;
-      }
-    }
-
-    // 5. Aggregate Quantities and Financial Totals
-    const totalBuyQuantity = sortedBuys.reduce(
-      (acc, b) => acc + (Number.isFinite(b.quantity) ? Math.max(0, b.quantity) : 0),
-      0
+    const unmatchedSellQuantity = ledgerDispositionStates.reduce(
+      (sum, state) => sum + state.unmatched_quantity,
+      0,
     );
-    const totalSellQuantity = sortedSells.reduce(
-      (acc, s) => acc + (Number.isFinite(s.quantity) ? Math.max(0, s.quantity) : 0),
-      0
+    // 5. Aggregate Quantities and Financial Totals
+    const totalBuyQuantity = ledgerLots.reduce(
+      (acc, lot) => acc + lot.quantity_acquired,
+      0,
+    );
+    const totalSellQuantity = ledgerDispositionStates.reduce(
+      (acc, state) => acc + state.disposed_quantity + state.unmatched_quantity,
+      0,
     );
     const matchedQuantity = allocations.reduce((acc, a) => acc + a.allocated_quantity, 0);
     const remainingInventoryQuantity = lots.reduce((acc, l) => acc + l.remaining_quantity, 0);
     const hasUnmatchedSellQuantity = unmatchedSellQuantity > 0;
+    const positionLifecycle = positionLedger.position.lifecycle_status;
+    const positionRemainingQuantity = positionLedger.position.remaining_quantity;
+    const sourceCoverage =
+      positionSegments.some((segment) => segment.source_coverage === 'PARTIAL')
+        ? 'PARTIAL'
+        : positionSegments.some((segment) => segment.source_coverage === 'MARKET_TRACEABLE')
+          ? 'MARKET_TRACEABLE'
+          : 'UNAVAILABLE';
 
     const realizedAcquisitionCost = roundIsk(allocations.reduce((acc, a) => acc + a.gross_cost, 0));
     const realizedRevenue = roundIsk(allocations.reduce((acc, a) => acc + a.gross_revenue, 0));
     const grossRealizedProfit = roundIsk(realizedRevenue - realizedAcquisitionCost);
     const remainingInventoryCostBasis = roundIsk(lots.reduce((acc, l) => acc + l.total_remaining_cost, 0));
+
+    // Capital recovery is projected directly from the canonical position ledger.
+    // It is intentionally independent from realized P&L and disposal-level ROI.
+    const capitalCommitted = positionLedger.position.capital_committed;
+    const cashRecovered = positionLedger.position.cash_recovered;
+    const capitalRecoveryDelta = positionLedger.position.capital_recovery_delta;
+    const capitalRecoveryRatio = positionLedger.position.capital_recovery_ratio;
+    const historyCoverage = positionLedger.position.history_coverage;
+    const economicOriginCoverage = positionLedger.position.economic_origin_coverage;
 
     // 6. Fee Calculations via FeeEngine
     const fees = this.calculateFees(
@@ -219,7 +230,10 @@ export class RealizedFinancialOutcomeEngine {
       options
     );
 
-    const netRealizedProfit = roundIsk(grossRealizedProfit - fees.estimated_total_fees);
+    const netRealizedProfit =
+      fees.fee_mode === 'UNAVAILABLE'
+        ? null
+        : roundIsk(grossRealizedProfit - fees.estimated_total_fees);
 
     // 7. Financial Completeness & Quality Determination
     // Strictly distinguishes between observed facts, estimations, partial inventory, and unavailable data.
@@ -228,10 +242,21 @@ export class RealizedFinancialOutcomeEngine {
     let isFinanciallyComplete = false;
     let realizedNetEstimated: number | null = null;
 
-    if (hasUnmatchedSellQuantity || (matchedQuantity === 0 && totalSellQuantity > 0)) {
+    const hasPositionEvidenceDefect =
+      sourceCoverage === 'PARTIAL' ||
+      positionLedger.position.invalid_transaction_ids.length > 0 ||
+      hasUnmatchedSellQuantity ||
+      (matchedQuantity === 0 && totalSellQuantity > 0);
+
+    if (hasPositionEvidenceDefect) {
       financialCompleteness = 'PARTIAL';
       isNetEstimated = fees.fee_mode === 'ESTIMATED';
       realizedNetEstimated = fees.fee_mode === 'ESTIMATED' ? netRealizedProfit : null;
+      isFinanciallyComplete = false;
+    } else if (sourceCoverage === 'UNAVAILABLE') {
+      financialCompleteness = 'UNAVAILABLE';
+      isNetEstimated = false;
+      realizedNetEstimated = null;
       isFinanciallyComplete = false;
     } else if (fees.fee_mode === 'UNAVAILABLE') {
       financialCompleteness = 'UNAVAILABLE';
@@ -256,9 +281,12 @@ export class RealizedFinancialOutcomeEngine {
     }
 
     // 8. Ratios and Rates (protected against zero division)
-    const roi = realizedAcquisitionCost > 0 ? safeDiv(netRealizedProfit, realizedAcquisitionCost, 0.0) : 0.0;
-    const margin = realizedRevenue > 0 ? safeDiv(netRealizedProfit, realizedRevenue, 0.0) : 0.0;
-    const profitPerUnit = matchedQuantity > 0 ? safeDiv(netRealizedProfit, matchedQuantity, 0.0) : 0.0;
+    const roi =
+      sourceCoverage === 'MARKET_TRACEABLE' && realizedAcquisitionCost > 0 && netRealizedProfit !== null
+        ? safeDiv(netRealizedProfit, realizedAcquisitionCost, 0.0)
+        : null;
+    const margin = realizedRevenue > 0 && netRealizedProfit !== null ? safeDiv(netRealizedProfit, realizedRevenue, 0.0) : null;
+    const profitPerUnit = matchedQuantity > 0 && netRealizedProfit !== null ? safeDiv(netRealizedProfit, matchedQuantity, 0.0) : null;
 
     // 9. Timestamps & Quantity-Weighted Hold Durations
     const firstBuyAt = sortedBuys.length > 0 ? sortedBuys[0].timestamp : null;
@@ -297,6 +325,13 @@ export class RealizedFinancialOutcomeEngine {
     // 10. Data State & Diagnostic Reasons
     let dataState: 'VALID' | 'PARTIAL' = 'VALID';
     const stateReasons: string[] = [];
+
+    if (positionLedger.position.invalid_transaction_ids.length > 0) {
+      dataState = 'PARTIAL';
+      stateReasons.push(
+        `Invalid transaction facts excluded from accounting: ${positionLedger.position.invalid_transaction_ids.join(', ')}`
+      );
+    }
 
     if (hasUnmatchedSellQuantity) {
       dataState = 'PARTIAL';
@@ -350,7 +385,14 @@ export class RealizedFinancialOutcomeEngine {
       outcome_id: outcomeId,
       execution_id: executionId,
       character_id: characterId,
+      accounting_scope_id: accountingScopeId,
+      source_coverage: sourceCoverage,
+      history_coverage: historyCoverage,
+      economic_origin_coverage: economicOriginCoverage,
+      position_segments: Object.freeze(positionSegments),
+      position_disposition_states: Object.freeze(ledgerDispositionStates),
       observation_id: observationId,
+      calculation_source: 'EXECUTION_RECORD',
       opportunity_id: opportunityId,
       type_id: typeId,
 
@@ -378,6 +420,13 @@ export class RealizedFinancialOutcomeEngine {
       profit_per_unit: profitPerUnit,
 
       remaining_inventory_cost_basis: remainingInventoryCostBasis,
+      capital_committed: capitalCommitted,
+      cash_recovered: cashRecovered,
+      capital_recovery_delta: capitalRecoveryDelta,
+      capital_recovery_ratio: capitalRecoveryRatio,
+
+      position_lifecycle: positionLifecycle,
+      position_remaining_quantity: positionRemainingQuantity,
 
       first_buy_at: firstBuyAt,
       last_buy_at: lastBuyAt,
@@ -407,64 +456,101 @@ export class RealizedFinancialOutcomeEngine {
     buyTxs: ExecutionTransactionRef[];
     sellTxs: ExecutionTransactionRef[];
     typeId: number;
+    provenanceByTransactionId: ReadonlyMap<number, import('../types').FinancialProvenance>;
   } {
     const characterId = executionRecord.character_id;
 
-    // If external transactions were provided, validate isolation and filter
     if (options?.transactions && options.transactions.length > 0) {
       const allowedTxIds = new Set(executionRecord.transaction_ids);
       const buyList: ExecutionTransactionRef[] = [];
       const sellList: ExecutionTransactionRef[] = [];
+      const provenanceByTransactionId = new Map<number, import('../types').FinancialProvenance>();
       let foundTypeId = 0;
 
       for (const tx of options.transactions) {
-        // Enforce cross-character guard if character_id is present
-        if ('character_id' in tx && tx.character_id !== undefined && tx.character_id !== characterId) {
-          throw new CrossCharacterFinancialMappingViolationError(
-            tx.character_id,
-            characterId,
-            tx.transaction_id
-          );
-        }
+        if (!allowedTxIds.has(tx.transaction_id)) continue;
+        foundTypeId = tx.type_id;
 
-        if (allowedTxIds.has(tx.transaction_id)) {
-          foundTypeId = tx.type_id;
-          const ref: ExecutionTransactionRef = {
-            transaction_id: tx.transaction_id,
-            type_id: tx.type_id,
-            location_id: tx.location_id,
-            is_buy: tx.is_buy,
-            quantity: tx.quantity,
-            unit_price: tx.unit_price,
-            timestamp: tx.timestamp,
-            character_id: characterId,
-            observation_id: executionRecord.observation_id,
-            opportunity_id: executionRecord.opportunity_id,
-          };
-          if (tx.is_buy) {
-            buyList.push(ref);
-          } else {
-            sellList.push(ref);
-          }
-        }
+        const txCharacterId =
+          'character_id' in tx && tx.character_id !== undefined
+            ? tx.character_id
+            : characterId;
+
+        const provenance: import('../types').FinancialProvenance =
+          'provenance' in tx && tx.provenance && typeof tx.provenance === 'object'
+            ? tx.provenance as import('../types').FinancialProvenance
+            : {
+                source_kind: 'ESI_WALLET_TRANSACTION',
+                source_id: String(tx.transaction_id),
+                principal_scope: 'character:' + txCharacterId,
+              };
+
+        provenanceByTransactionId.set(tx.transaction_id, provenance);
+
+        const ref: ExecutionTransactionRef = {
+          transaction_id: tx.transaction_id,
+          type_id: tx.type_id,
+          location_id: tx.location_id,
+          is_buy: tx.is_buy,
+          quantity: tx.quantity,
+          unit_price: tx.unit_price,
+          timestamp:
+            'timestamp' in tx && tx.timestamp
+              ? tx.timestamp
+              : ('date' in tx && tx.date ? tx.date : new Date(0).toISOString()),
+          character_id: txCharacterId,
+          ...(('accounting_scope_id' in tx && tx.accounting_scope_id)
+            ? { accounting_scope_id: tx.accounting_scope_id }
+            : {}),
+          ...(('economic_owner_type' in tx && tx.economic_owner_type)
+            ? { economic_owner_type: tx.economic_owner_type }
+            : {}),
+          ...(('economic_owner_id' in tx && tx.economic_owner_id !== undefined)
+            ? { economic_owner_id: tx.economic_owner_id }
+            : {}),
+          ...(('economic_origin' in tx && tx.economic_origin)
+            ? { economic_origin: tx.economic_origin }
+            : {}),
+          ...('order_id' in tx && tx.order_id ? { order_id: tx.order_id } : {}),
+          observation_id: executionRecord.observation_id,
+          opportunity_id: executionRecord.opportunity_id,
+          provenance,
+        };
+
+        if (tx.is_buy) buyList.push(ref);
+        else sellList.push(ref);
       }
 
       return {
         buyTxs: buyList,
         sellTxs: sellList,
         typeId: foundTypeId,
+        provenanceByTransactionId,
       };
     }
 
-    // Default: use the transactions already correlated inside executionRecord.execution_outcome
     const buyTxs = [...executionRecord.execution_outcome.buy_transactions];
     const sellTxs = [...executionRecord.execution_outcome.sell_transactions];
+    const provenanceByTransactionId = new Map<number, import('../types').FinancialProvenance>();
+
+    for (const tx of [...buyTxs, ...sellTxs]) {
+      provenanceByTransactionId.set(
+        tx.transaction_id,
+        tx.provenance ?? {
+          source_kind: 'ESI_WALLET_TRANSACTION',
+          source_id: String(tx.transaction_id),
+          principal_scope:
+            tx.character_id !== undefined
+              ? 'character:' + tx.character_id
+              : 'character:' + characterId,
+        },
+      );
+    }
+
     const sampleTx = buyTxs[0] || sellTxs[0];
     const typeId = sampleTx ? sampleTx.type_id : 0;
-
-    return { buyTxs, sellTxs, typeId };
+    return { buyTxs, sellTxs, typeId, provenanceByTransactionId };
   }
-
   /**
    * Calculates fees using FeeEngine, distinguishing between observed, estimated, and unavailable.
    */
@@ -585,39 +671,102 @@ export class RealizedFinancialOutcomeEngine {
       quantity: number;
       is_buy: boolean;
       character_id?: number;
+      accounting_scope_id?: string;
+      economic_owner_type?: import('../types').EconomicOwnerType;
+      economic_owner_id?: number | string | null;
+      provenance?: import('../types').FinancialProvenance;
     })[],
     options?: RealizedFinancialCalculationOptions
   ): RealizedFinancialOutcome {
     if (!characterId || characterId <= 0) {
       throw new Error(
-        `RealizedFinancialOutcomeEngine.calculateForTransactions requires a valid positive characterId. Received: ${characterId} (character_id=0 is reserved for fleet contexts and cannot be used for individual character calculations)`
+        'RealizedFinancialOutcomeEngine.calculateForTransactions requires a valid positive characterId. Received: ' +
+          characterId
       );
     }
 
-    // Invariant: Direct cross-character isolation check across ALL provided transactions BEFORE any type_id filtering.
-    // If ANY transaction contains a character_id different from characterId, immediately reject with
-    // CrossCharacterFinancialMappingViolationError, regardless of its type_id.
-    for (const tx of transactions) {
-      const txCharId = 'character_id' in tx && tx.character_id !== undefined ? tx.character_id : characterId;
-      if (txCharId !== characterId) {
-        throw new CrossCharacterFinancialMappingViolationError(txCharId, characterId, tx.transaction_id);
+    const explicitAccountingScopeId = options?.accounting_scope_id?.trim();
+    const typeFilteredTransactions = transactions.filter((tx) => tx.type_id === typeId);
+    const transactionCharacterIds = new Set(
+      typeFilteredTransactions
+        .map((tx) => ('character_id' in tx && tx.character_id !== undefined ? tx.character_id : characterId)),
+    );
+    const transactionAccountingScopes = new Set(
+      typeFilteredTransactions
+        .map((tx) => ('accounting_scope_id' in tx ? tx.accounting_scope_id?.trim() : undefined))
+        .filter((scope): scope is string => Boolean(scope)),
+    );
+
+    if (transactionCharacterIds.size > 1 && !explicitAccountingScopeId) {
+      const commonTransactionScope =
+        transactionAccountingScopes.size === 1
+          ? [...transactionAccountingScopes][0]
+          : undefined;
+      const allTransactionsDeclareCommonScope =
+        Boolean(commonTransactionScope) &&
+        typeFilteredTransactions.every(
+          (tx) =>
+            'accounting_scope_id' in tx &&
+            tx.accounting_scope_id?.trim() === commonTransactionScope,
+        );
+
+      if (!allTransactionsDeclareCommonScope) {
+        const foreignCharacterId =
+          [...transactionCharacterIds].find((id) => id !== characterId) ?? characterId;
+        const offendingTransaction =
+          typeFilteredTransactions.find(
+            (tx) =>
+              'character_id' in tx &&
+              tx.character_id !== undefined &&
+              tx.character_id === foreignCharacterId,
+          ) ?? typeFilteredTransactions[0];
+
+        throw new CrossCharacterFinancialMappingViolationError(
+          foreignCharacterId,
+          characterId,
+          offendingTransaction.transaction_id,
+        );
       }
     }
 
-    const refs: ExecutionTransactionRef[] = transactions
-      .filter((tx) => tx.type_id === typeId)
+    const accountingScopeId =
+      explicitAccountingScopeId ||
+      (transactionAccountingScopes.size === 1 ? [...transactionAccountingScopes][0] : undefined) ||
+      'character:' + characterId;
+
+    const refs: ExecutionTransactionRef[] = typeFilteredTransactions
       .map((tx) => {
-        const ts = 'timestamp' in tx && tx.timestamp ? tx.timestamp : ('date' in tx && tx.date ? tx.date : new Date(0).toISOString());
+        const txCharacterId =
+          'character_id' in tx && tx.character_id !== undefined
+            ? tx.character_id
+            : characterId;
+        const ts =
+          'timestamp' in tx && tx.timestamp
+            ? tx.timestamp
+            : ('date' in tx && tx.date ? tx.date : '');
+
         return {
           transaction_id: tx.transaction_id,
-          character_id: characterId,
+          character_id: txCharacterId,
           type_id: tx.type_id,
           location_id: tx.location_id,
           is_buy: tx.is_buy,
-          quantity: Number.isFinite(tx.quantity) ? Math.max(0, tx.quantity) : 0,
-          unit_price: Number.isFinite(tx.unit_price) ? Math.max(0, tx.unit_price) : 0,
+          quantity: tx.quantity,
+          unit_price: tx.unit_price,
           timestamp: ts,
-        };
+          ...('order_id' in tx && tx.order_id ? { order_id: tx.order_id } : {}),
+          ...('economic_owner_type' in tx && tx.economic_owner_type
+            ? { economic_owner_type: tx.economic_owner_type === 'mixed' ? undefined : tx.economic_owner_type }
+            : {}),
+          ...('economic_owner_id' in tx && tx.economic_owner_id !== undefined
+            ? { economic_owner_id: tx.economic_owner_id }
+            : {}),
+          ...('provenance' in tx && tx.provenance ? { provenance: tx.provenance } : {}),
+          accounting_scope_id:
+            'accounting_scope_id' in tx && tx.accounting_scope_id
+              ? tx.accounting_scope_id
+              : accountingScopeId,
+        } as ExecutionTransactionRef;
       });
 
     const buyTxs = refs.filter((r) => r.is_buy);
@@ -629,17 +778,16 @@ export class RealizedFinancialOutcomeEngine {
 
     const firstTime = refs[0]?.timestamp || new Date(0).toISOString();
     const lastTime = refs[refs.length - 1]?.timestamp || new Date(0).toISOString();
-
     const executionStatus =
       buyTxs.length > 0 && sellTxs.length > 0
         ? (totalSellQuantity >= totalBuyQuantity ? 'CLOSED' : 'SELL_PARTIAL')
         : (buyTxs.length > 0 ? 'BUY_FILLED' : 'PLANNED');
 
     const syntheticRecord: CharacterExecutionRecord = Object.freeze({
-      execution_id: `exec_synth_${characterId}_${typeId}`,
+      execution_id: 'exec_synth_' + characterId + '_' + typeId + '_' + accountingScopeId,
       character_id: characterId,
-      observation_id: `obs_synth_${typeId}`,
-      opportunity_id: `opp_synth_${typeId}`,
+      observation_id: 'obs_synth_' + typeId,
+      opportunity_id: 'opp_synth_' + typeId,
       match_level: 'DIRECT_MATCH',
       transaction_ids: Object.freeze(refs.map((r) => r.transaction_id)),
       first_correlated_at: firstTime,
@@ -653,7 +801,7 @@ export class RealizedFinancialOutcomeEngine {
         executed_buy_quantity: totalBuyQuantity,
         executed_sell_quantity: totalSellQuantity,
         remaining_inventory_quantity: Math.max(0, totalBuyQuantity - totalSellQuantity),
-        buy_fill_ratio: 1.0,
+        buy_fill_ratio: totalBuyQuantity > 0 ? 1.0 : 0.0,
         sell_fill_ratio: totalBuyQuantity > 0 ? Math.min(1.0, totalSellQuantity / totalBuyQuantity) : 0,
         vwap_buy_price: totalBuyQuantity > 0 ? totalBuyCost / totalBuyQuantity : null,
         vwap_sell_price: totalSellQuantity > 0 ? totalSellRevenue / totalSellQuantity : null,
@@ -664,10 +812,23 @@ export class RealizedFinancialOutcomeEngine {
         buy_transactions: Object.freeze(buyTxs),
         sell_transactions: Object.freeze(sellTxs),
         linked_order_ids: Object.freeze([]),
-        candidate_observation_ids: Object.freeze([`obs_synth_${typeId}`]),
+        candidate_observation_ids: Object.freeze(['obs_synth_' + typeId]),
       }),
     });
 
-    return this.calculate(syntheticRecord, options);
+    const outcome = this.calculate(syntheticRecord, {
+      ...options,
+      accounting_scope_id: accountingScopeId,
+      transactions,
+    });
+
+    // Direct transaction calculations are sourced from transaction facts, not
+    // a real correlated observation. Synthetic observation IDs must not escape
+    // the calculation boundary as if they were observed evidence.
+    return Object.freeze({
+      ...outcome,
+      observation_id: undefined,
+      calculation_source: 'TRANSACTION_FACTS' as const,
+    });
   }
 }

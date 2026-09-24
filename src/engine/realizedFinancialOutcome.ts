@@ -85,7 +85,7 @@ export class RealizedFinancialOutcomeEngine {
     const accountingScopeId = options?.accounting_scope_id?.trim() || 'character:' + characterId;
     if (!characterId || characterId <= 0) {
       throw new Error(
-        `RealizedFinancialOutcomeEngine.calculate requires a valid positive character_id. Received: ${characterId} (character_id=0 is reserved for fleet contexts and cannot be used for individual character calculations)`
+        `RealizedFinancialOutcomeEngine.calculate requires a valid positive character_id. Received: ${characterId}`
       );
     }
     const observationId = executionRecord.observation_id;

@@ -15,8 +15,8 @@ Source of truth: code, tests, CI and current state documents
 
 ## Market / ESI operational gaps
 
-- Target-PC public market-order retrieval is reported broken but remains NOT ROOT-CAUSED.
-- Some non-Operations market acquisition paths may still swallow errors; the Operations order-sync path now surfaces explicit failure instead of presenting an ordinary empty state.
+- The previously reported target-PC market-display problem is resolved; the current application is functional. The symptom was attributed by the operator to insufficient available data rather than to a persistent application defect.
+- Public market acquisition now has explicit failure/quality semantics and certified browser diagnostics. The legacy `EsiService.fetchLiveOrders()` helper remains a latent quality-loss hazard because it drops the quality envelope; no production caller is currently known.
 - Rate-limit/cache-aware scheduling for the public market-order group is not yet exposed as a product-level operational signal.
 - Market-data freshness/completeness/source remain inconsistent across the application; Operations now exposes per-order health and age using the UX-01 vocabulary.
 
@@ -31,7 +31,7 @@ Source of truth: code, tests, CI and current state documents
 - The SDE gate remains authoritative for PR SDE-sensitive changes; Full certification also contains an explicit SDE regeneration proof.
 - Conditional execution is routed through `CI / Change Scope` with conservative full-certification fallback; no workflow-level path filter is used on the required PR surface.
 - Branch protection/ruleset configuration for \`main\` could not be verified with the available integration and must be checked before any required-check rename.
-- CI-001 is DONE / MERGED on main. G is certified; H is implemented with dedicated Main/Full workflows and the CI recovery runbook; I is runtime-verified on PR run `35856208503` with durable workflow/job/step timing plus cancellation/rerun observability. Main Smoke and Full runtime proofs remain independent post-merge/scheduled health checks.
+- CI-001 is DONE / MERGED on main. The Draft-routing mismatch remains a confirmed CI follow-up. Main Smoke is independently verified on the current main merge; Full Certification remains a scheduled/manual exhaustive health surface.
 
 See:
 - [CI Validation](../validation/ci.md)
@@ -43,7 +43,15 @@ See:
 
 - **CI follow-up:** the PR workflow currently triggers the full certification surface for Draft as well as Ready PRs. This is confirmed by PR #61 run `35858589551` and should be handled in a dedicated CI-002 hardening chantier.
 
-- **Current active product work:** P0 market/ESI retrieval reliability; target-PC root cause remains open and must be addressed with evidence rather than speculation.
+- **Current product sequence:** UX-01/P0 is closed. UX-03 Allocation is the next product build. Public-readiness is a separate maintenance track.
+
+## Public-readiness gaps
+
+- The repository is now public but had no published license at audit time; a licensing decision is required before presenting it as open-source.
+- Public security posture still requires administrative verification of Dependabot alerts, secret scanning/push protection, code scanning/SAST and main branch protection/rulesets.
+- No GitHub release is recorded yet for the current package version; release provenance is planned.
+- The README has been refreshed by this sync, but screenshots or a deterministic public showcase path are still planned.
+- Legacy `metadata.json` contains a Gemini capability declaration that appears unused by current code and requires confirmation before removal.
 
 ## Structural gaps
 

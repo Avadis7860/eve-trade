@@ -1,10 +1,14 @@
 # Current Chunk
 
-Status: ACTIVE
+Status: CLOSING
 Scope: Agent Context Hardening
-Branch: chore/agent-context-hardening
-Base: main @ aec4c62691723e8fa2ee2bb2f9126249152ad57f
-PR: #78 (Draft)
+Branch: chore/agent-context-hardening-v2
+Base: main @ bacb0655b1fde3a4650b5cd94feed0fe8617be10
+PR: #79 (Draft)
+
+## Delivery status
+
+Implementation scope is frozen for certification and merge. No new work may be added to this delivery.
 
 ## Objective
 
@@ -19,7 +23,9 @@ Reduce the context reconstruction cost for human and AI agents without introduci
 5. Historical financial decision preservation as explicitly non-normative documentation.
 6. Explicit reconciliation memo for the unresolved whole-operation profitability semantics.
 7. State, roadmap and known-gaps synchronization.
-8. Local validation where the execution environment permits it, followed by full PR CI certification.
+8. Final CLOSING lifecycle state so merged main does not inherit an ACTIVE chantier.
+9. Local validation where the execution environment permits it, followed by full PR CI certification.
+10. Stable proof using the pre-merge main integration anchor, so merge-created SHA changes require no unreviewed post-merge mutation.
 
 ## Scope exclusions
 
@@ -37,4 +43,4 @@ The recovered financial reasoning is documented in the historical ADR and reconc
 
 ## Completion gate
 
-The chantier is complete only when the stable map contains no dead current-file or CI references, the active-work manifest matches the delivery branch/PR/base in certification, test:context is owned by CI, historical financial contradictions are documented without arbitrary resolution, and state/roadmap/known-gaps describe the final reality.
+The chantier is complete only when the stable map contains no dead current-file or CI references, PR certification proves the active/closing branch and base metadata, stable-mode context validation rejects an ACTIVE main state and verifies the stable integration anchor against the checked-out main history, bootstrap/routing contracts are CI-owned, historical financial contradictions remain explicitly non-normative, and state/roadmap/known-gaps describe the final reality.

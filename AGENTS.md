@@ -23,10 +23,12 @@ Le dépôt possède une couche de navigation agent dédiée :
 Cette couche répond à où chercher, jamais à ce qui est vrai. Elle ne remplace ni le code, ni les tests certifiés, ni les contrats/invariants normatifs.
 
 Commencer par :
-- [docs/index.md](docs/index.md)
-- [docs/state/current-state.md](docs/state/current-state.md)
-- [docs/state/truth-matrix.md](docs/state/truth-matrix.md)
-- [docs/roadmap/current-chunk.md](docs/roadmap/current-chunk.md)
+1. [.eve-trade/current-work.json](.eve-trade/current-work.json) — état du checkout et du chantier.
+2. [docs/state/current-state.md](docs/state/current-state.md) — état actuel vérifiable.
+3. [docs/state/truth-matrix.md](docs/state/truth-matrix.md) — synthèse des domaines.
+4. [docs/roadmap/current-chunk.md](docs/roadmap/current-chunk.md) — périmètre actif.
+5. [.eve-trade/context-map.json](.eve-trade/context-map.json) — navigation stable.
+6. [docs/index.md](docs/index.md) — navigation documentaire générale.
 
 Puis charger seulement le domaine utile depuis la carte stable.
 
@@ -63,6 +65,14 @@ Ajouter les suites ciblées pour la surface modifiée. La CI est la validation p
 7. Tout changement de contrat doit être protégé par une validation correspondante.
 8. Aucun refactoring opportuniste hors périmètre.
 9. Ne pas importer de code depuis l'archive UX-03 uniquement parce qu'il était certifié ou testé ; toute réutilisation future doit être re-dérivée depuis main après réconciliation explicite des contrats.
+
+## Cycle de vie du contexte
+
+- `ACTIVE` : le checkout correspond à un chantier en développement sur une branche/PR dédiée.
+- `CLOSING` : le chantier est gelé pour certification/fusion ; aucune nouvelle portée ne doit être ajoutée.
+- `IDLE` : aucun chantier de livraison n'est actif sur l'état stable de `main`.
+
+Sur `main`, `.eve-trade/current-work.json` ne doit jamais être interprété comme un chantier actif. L'état `CLOSING` représente le dernier chantier livré en attendant qu'un nouveau checkout rétablisse `ACTIVE`. La validation stable utilise l'ancre d'intégration du dernier delivery (le premier parent du merge commit, ou `HEAD` si le commit stable n'est pas un merge), afin d'éviter toute mutation automatique post-merge.
 
 ## Documentation
 

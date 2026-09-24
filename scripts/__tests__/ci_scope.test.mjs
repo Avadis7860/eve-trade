@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { classifyPaths } from '../ci-scope.mjs';
 
-function expectScope(paths, expected) {
-  const actual = classifyPaths(paths);
+function expectScope(paths, expected, options = undefined) {
+  const actual = classifyPaths(paths, options);
   for (const [key, value] of Object.entries(expected)) {
     assert.equal(actual[key], value, `scope ${JSON.stringify(paths)}: ${key}`);
   }
@@ -33,6 +33,16 @@ expectScope(['src/components/Trading.tsx'], {
   run_static: true, run_unit_domain: false, run_server: false, run_build: true, run_browser: true,
 });
 
+expectScope(['src/context/AuthProvider.tsx'], {
+  frontend: true, ambiguous: false, full_certification: false,
+  run_static: true, run_unit_domain: false, run_server: false, run_build: true, run_browser: true,
+}, { respectContextCritical: false });
+
+expectScope(['src/domain/universe/UniverseGraphRepository.ts'], {
+  domain: true, ambiguous: false, full_certification: true,
+  run_static: true, run_unit_domain: true, run_server: true, run_build: true, run_browser: true,
+}, { respectContextCritical: false });
+
 expectScope(['src/services/foo.ts'], {
   server: true, ambiguous: false, full_certification: true,
   run_static: true, run_unit_domain: true, run_server: true, run_build: true, run_browser: true,
@@ -41,6 +51,16 @@ expectScope(['src/services/foo.ts'], {
 expectScope(['scripts/universe-graph-builder.mjs'], {
   sde: true, ambiguous: false, full_certification: true,
 });
+
+expectScope(['src/data/universeGraph.json'], {
+  sde: false, ambiguous: true, full_certification: true,
+  run_static: true, run_unit_domain: true, run_server: true, run_build: true, run_browser: true,
+});
+
+expectScope(['src/data/universeGraph.json'], {
+  sde: true, ambiguous: false, full_certification: true,
+  run_static: true, run_unit_domain: true, run_server: true, run_build: true, run_browser: true,
+}, { respectContextCritical: false });
 
 expectScope(['some/new/unknown.file'], {
   ambiguous: true, full_certification: true,

@@ -6,7 +6,7 @@ Source of truth: revalidated code and current state documents
 
 ## Repository / Agent Governance
 
-### CONTEXT-001 — Agent Context Hardening — ACTIVE
+### CONTEXT-002 — Agent Context Hardening v2 — CLOSING
 
 - Stable machine-readable context map.
 - Separate active-work manifest.
@@ -14,7 +14,7 @@ Source of truth: revalidated code and current state documents
 - CI-owned `npm run test:context`.
 - Historical archive separation and reconciliation documentation.
 
-This is the only active delivery chantier on branch `chore/agent-context-hardening` / PR #78.
+This is the only delivery chantier, on branch `chore/agent-context-hardening-v2` / PR #79, frozen for final certification and merge.
 
 ## Product / UX program
 

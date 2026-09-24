@@ -9,7 +9,7 @@ CI gate: PR CI
 
 ## Current state
 
-The functional E2E-001 baseline is stable and merged. CI-001 is merged and complete. UX-02 is merged. UX-01/P0 is closed. The current active technical chantier is Agent Context Hardening on branch chore/agent-context-hardening / PR #78, based on main aec4c62691723e8fa2ee2bb2f9126249152ad57f.
+The functional E2E-001 baseline is stable and merged. CI-001 is merged and complete. UX-02 is merged. UX-01/P0 is closed. The current delivery is Agent Context Hardening v2 on branch chore/agent-context-hardening-v2 / PR #79, based on main bacb0655b1fde3a4650b5cd94feed0fe8617be10, and is CLOSING after implementation.
 
 The application has mature market, ESI, finance, order, prediction and portfolio foundations, but the presentation layer does not yet expose them as a coherent trading workflow.
 
@@ -41,7 +41,8 @@ Deferred until the UX gate:
 
 | ID | Status | Goal | Dependencies | Risk | Validation |
 |---|---|---|---|---|---|
-| CONTEXT-001 | ACTIVE | Harden AI-agent repository navigation and active-work governance | current main baseline | stale/dead context can misroute future work | test:context + PR CI + documentation sync |
+| CONTEXT-001 | DONE | Establish the first AI-agent repository navigation and active-work governance baseline | current main baseline | stale/dead context can misroute future work | test:context + PR CI + documentation sync |
+| CONTEXT-002 | CLOSING | Harden lifecycle, bootstrap protection, functional CI routing and stable integration-state validation | CONTEXT-001 + CI-001 | stale lifecycle metadata or false routing proof can misroute future work | test:context + PR CI + Main Smoke |
 | DOC-001 | DONE | Reconstruct modular documentation governance | current mission | stale truth if incomplete | docs/link audit + CI |
 | E2E-001 | DONE | Establish reproducible local OAuth/browser gate, deterministic CI E2E coverage, and real-CCP smoke | stable auth/ESI | environment-sensitive auth/callback integration | browser E2E + security/API + local CCP smoke |
 | UX-00 | DONE | Define and freeze product model, navigation, responsibilities and shared UX vocabulary | current audit | scope drift if implementation starts early | accepted UX contract |
@@ -66,7 +67,7 @@ These tracks can be prepared in documentation before they are made active. Their
 | CI-OPS-001 | CANDIDATE / DEFERRED | Project operator CLI with Oclif around the existing CI/PR model | P0 closure; explicit CI-hardening need | maintenance candidate; separate branch/PR |
 | PUBLIC-READINESS | ACTIVE MAINTENANCE | Strengthen public repository credibility, security posture, licensing and release/showcase hygiene | public repository state | maintenance track; does not replace UX delivery |
 
-CI-001 remains the stable PR certification base. Context Hardening adds a dedicated integrity proof to the static owner. The historical Draft-routing mismatch stays separate unless explicitly activated as its own chantier.
+CI-001 remains the stable PR certification base. Agent Context Hardening v2 strengthens lifecycle, bootstrap and routing integrity without replacing that CI architecture. The historical Draft-routing mismatch stays separate unless explicitly activated as its own chantier.
 
 ## UX program completion gate
 

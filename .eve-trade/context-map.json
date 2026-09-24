@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 4,
   "purpose": "Stable machine-readable navigation metadata for human and AI developers. This layer is navigational and governance-oriented; it never overrides current implementation, certified tests, CI, normative contracts, invariants, or accepted decisions.",
   "authority_order": [
     "normative_contracts_invariants_and_accepted_decisions",
@@ -39,15 +39,18 @@
       "ci_lanes": [
         {
           "workflow": ".github/workflows/ci.yml",
-          "job": "unit_domain"
+          "job": "unit_domain",
+          "route": "domain"
         },
         {
           "workflow": ".github/workflows/ci.yml",
-          "job": "server"
+          "job": "server",
+          "route": "domain"
         },
         {
           "workflow": ".github/workflows/ci.yml",
-          "job": "browser-operations"
+          "job": "browser-operations",
+          "route": "domain"
         }
       ]
     },
@@ -73,15 +76,18 @@
       "ci_lanes": [
         {
           "workflow": ".github/workflows/ci.yml",
-          "job": "unit_domain"
+          "job": "unit_domain",
+          "route": "server"
         },
         {
           "workflow": ".github/workflows/ci.yml",
-          "job": "server"
+          "job": "server",
+          "route": "server"
         },
         {
           "workflow": ".github/workflows/ci.yml",
-          "job": "browser-operations"
+          "job": "browser-operations",
+          "route": "server"
         }
       ]
     },
@@ -104,15 +110,18 @@
       "ci_lanes": [
         {
           "workflow": ".github/workflows/ci.yml",
-          "job": "static"
+          "job": "static",
+          "route": "server"
         },
         {
           "workflow": ".github/workflows/ci.yml",
-          "job": "server"
+          "job": "server",
+          "route": "server"
         },
         {
           "workflow": ".github/workflows/ci.yml",
-          "job": "browser-auth"
+          "job": "browser-auth",
+          "route": "frontend"
         }
       ]
     },
@@ -140,11 +149,13 @@
       "ci_lanes": [
         {
           "workflow": ".github/workflows/ci.yml",
-          "job": "server"
+          "job": "server",
+          "route": "server"
         },
         {
           "workflow": ".github/workflows/ci.yml",
-          "job": "browser-auth"
+          "job": "browser-auth",
+          "route": "server"
         }
       ]
     },
@@ -164,11 +175,13 @@
       "ci_lanes": [
         {
           "workflow": ".github/workflows/ci.yml",
-          "job": "unit_domain"
+          "job": "unit_domain",
+          "route": "server"
         },
         {
           "workflow": ".github/workflows/ci.yml",
-          "job": "build"
+          "job": "build",
+          "route": "server"
         }
       ]
     },
@@ -190,11 +203,13 @@
       "ci_lanes": [
         {
           "workflow": ".github/workflows/ci.yml",
-          "job": "unit_domain"
+          "job": "unit_domain",
+          "route": "domain"
         },
         {
           "workflow": ".github/workflows/phase-2.7c-sde.yml",
-          "job": "sde-truth"
+          "job": "sde-truth",
+          "route": "sde"
         }
       ]
     },
@@ -217,11 +232,13 @@
       "ci_lanes": [
         {
           "workflow": ".github/workflows/ci.yml",
-          "job": "unit_domain"
+          "job": "unit_domain",
+          "route": "domain"
         },
         {
           "workflow": ".github/workflows/ci.yml",
-          "job": "server"
+          "job": "server",
+          "route": "server"
         }
       ]
     },
@@ -247,7 +264,8 @@
       "ci_lanes": [
         {
           "workflow": ".github/workflows/ci.yml",
-          "job": "unit_domain"
+          "job": "unit_domain",
+          "route": "domain"
         }
       ]
     },
@@ -270,11 +288,13 @@
       "ci_lanes": [
         {
           "workflow": ".github/workflows/ci.yml",
-          "job": "unit_domain"
+          "job": "unit_domain",
+          "route": "domain"
         },
         {
           "workflow": ".github/workflows/ci.yml",
-          "job": "server"
+          "job": "server",
+          "route": "server"
         }
       ]
     },
@@ -300,15 +320,18 @@
       "ci_lanes": [
         {
           "workflow": ".github/workflows/ci.yml",
-          "job": "static"
+          "job": "static",
+          "route": "domain"
         },
         {
           "workflow": ".github/workflows/ci.yml",
-          "job": "unit_domain"
+          "job": "unit_domain",
+          "route": "domain"
         },
         {
           "workflow": ".github/workflows/ci.yml",
-          "job": "build"
+          "job": "build",
+          "route": "domain"
         }
       ]
     },
@@ -331,15 +354,18 @@
       "ci_lanes": [
         {
           "workflow": ".github/workflows/ci.yml",
-          "job": "unit_domain"
+          "job": "unit_domain",
+          "route": "domain"
         },
         {
           "workflow": ".github/workflows/ci.yml",
-          "job": "build"
+          "job": "build",
+          "route": "frontend"
         },
         {
           "workflow": ".github/workflows/ci.yml",
-          "job": "browser-operations"
+          "job": "browser-operations",
+          "route": "frontend"
         }
       ]
     },
@@ -357,7 +383,8 @@
       "ci_lanes": [
         {
           "workflow": ".github/workflows/ci.yml",
-          "job": "unit_domain"
+          "job": "unit_domain",
+          "route": "domain"
         }
       ]
     }
@@ -468,5 +495,94 @@
       "docs/roadmap/financial-truth-reconciliation.md"
     ],
     "rule": "Historical decisions are preserved in explicitly non-normative documents. Before a future financial implementation, contradictions must be resolved in an accepted contract/decision against current main."
+  },
+  "bootstrap": {
+    "entrypoints": [
+      "AGENTS.md",
+      "GEMINI.md"
+    ],
+    "stable_state": [
+      "docs/index.md",
+      "docs/state/current-state.md",
+      "docs/state/truth-matrix.md",
+      "docs/roadmap/current-chunk.md",
+      "docs/roadmap/master-plan.md",
+      "docs/documentation-guide.md",
+      "CONTRIBUTING.md"
+    ],
+    "procedure": "docs/operations/agent-context.md",
+    "validation": "scripts/context-integrity.mjs",
+    "routing": "scripts/ci-scope.mjs"
+  },
+  "domain_documentation": {
+    "catalog": [
+      "catalog_universe"
+    ],
+    "universe": [
+      "catalog_universe"
+    ],
+    "market_data": [
+      "market_data"
+    ],
+    "trading_orders": [
+      "orders"
+    ],
+    "trading_ownership": [
+      "orders"
+    ],
+    "corporation_trading": [
+      "orders",
+      "treasury",
+      "esi_boundary"
+    ],
+    "finance": [
+      "financial_truth",
+      "treasury"
+    ],
+    "financial_truth": [
+      "financial_truth"
+    ],
+    "treasury": [
+      "treasury"
+    ],
+    "fees": [
+      "financial_truth"
+    ],
+    "execution": [
+      "execution"
+    ],
+    "portfolio": [
+      "portfolio"
+    ],
+    "prediction": [
+      "prediction"
+    ]
+  },
+  "impact_graph": {
+    "status": "PARTIAL",
+    "meaning": "Listed edges are validated navigation aids, not an exhaustive dependency graph. Absence of an edge is not proof of no dependency.",
+    "validation": "context-integrity validates that all referenced domain names exist; it does not infer missing semantic dependencies."
+  },
+  "lifecycle": {
+    "states": {
+      "ACTIVE": "An implementation chantier is actively being developed on its dedicated branch/PR.",
+      "CLOSING": "The chantier is frozen for certification/merge; no new scope is expected. Its branch/PR metadata remains as the last delivery context.",
+      "IDLE": "No technical delivery chantier is active on the stable main state."
+    },
+    "rule": "Stable main must never present ACTIVE as its current-work state. A merged delivery is represented as CLOSING until the next chantier establishes a new ACTIVE context."
+  },
+  "ci_routing": {
+    "route_property": "ci_lanes[].route",
+    "meaning": "Minimum functional classifier class that must be true for a canonical path to legitimately trigger the mapped CI lane. This is routing evidence, not lane ownership.",
+    "classes": {
+      "frontend": "Frontend path classification.",
+      "domain": "Engine/domain path classification.",
+      "server": "Backend/service/API path classification.",
+      "sde": "Canonical SDE/universe data classification.",
+      "ci": "CI/workflow configuration classification.",
+      "config": "Package/runtime/build configuration classification.",
+      "tests": "Test-path classification.",
+      "docs": "Documentation classification."
+    }
   }
 }

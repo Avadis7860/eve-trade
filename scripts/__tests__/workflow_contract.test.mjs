@@ -211,10 +211,56 @@ for (const [jobId, commands] of Object.entries(expectedJobCommands)) {
 assert.match(jobBlock('build'), /npm run build/, 'Build lane ownership drifted');
 assert.ok(ci.includes('pull_request:'), 'PR certification workflow trigger must remain active');
 assert.ok(!ci.includes('\n  push:\n'), 'PR certification workflow must not run the deep gate on main pushes');
+assert.ok(!/^    paths(?:-ignore)?:/m.test(ci), 'PR certification must not use trigger-level path filtering that can suppress the required workflow');
+const bootstrapPaths = [
+  'AGENTS.md',
+  'GEMINI.md',
+  'CONTRIBUTING.md',
+  'docs/index.md',
+  'docs/documentation-guide.md',
+  'docs/state/current-state.md',
+  'docs/state/truth-matrix.md',
+  'docs/roadmap/current-chunk.md',
+  'docs/roadmap/master-plan.md',
+  'docs/roadmap/backlog.md',
+  'docs/contracts/index.md',
+  'docs/invariants/index.md',
+  'docs/validation/index.md',
+  'docs/domains/index.md',
+  'docs/operations/index.md',
+  'docs/architecture/index.md',
+  'docs/operations/agent-context.md',
+  '.eve-trade/context-map.json',
+  '.eve-trade/current-work.json',
+  'scripts/context-integrity.mjs',
+  'scripts/ci-scope.mjs',
+];
+const scopeSource = read('scripts/ci-scope.mjs');
+for (const bootstrapPath of bootstrapPaths) {
+  assert.ok(scopeSource.includes(`'${bootstrapPath}'`), `Agent bootstrap path must remain context-critical: ${bootstrapPath}`);
+}
+const contextMap = JSON.parse(read('.eve-trade/context-map.json'));
+assert.equal(contextMap.schema_version, 4, 'Context map schema must include functional CI routing metadata');
+for (const [domainName, domain] of Object.entries(contextMap.domains)) {
+  for (const lane of domain.ci_lanes) {
+    assert.ok(typeof lane.route === 'string', `${domainName}: each CI lane must declare a routing class`);
+    assert.ok(!['ambiguous', 'full_certification'].includes(lane.route), `${domainName}: fallback states cannot be routing evidence`);
+  }
+}
+assert.ok(!Object.hasOwn(contextMap.ci_routing.classes, 'ambiguous'), 'Ambiguous fallback cannot be a functional routing class');
+assert.ok(!Object.hasOwn(contextMap.ci_routing.classes, 'full_certification'), 'Derived full certification cannot be a functional routing class');
+const contextSource = read('scripts/context-integrity.mjs');
+assert.ok(contextSource.includes("work.state !== 'IDLE'"), 'Context integrity must distinguish active and stable lifecycle state');
+assert.ok(contextSource.includes('stable integration anchor mismatch'), 'Stable context integrity must validate the merge integration anchor');
+assert.ok(contextSource.includes('respectContextCritical: false'), 'Context routing validation must bypass the conservative critical-path guard');
+assert.ok(contextSource.includes('canonical paths do not classify for routing class'), 'Context integrity must validate functional domain-to-CI routing');
+assert.ok(contextSource.includes('impact_chains'), 'Context integrity must validate impact graph references');
 assert.ok(mainSmoke.includes('push:\n    branches: ["main"]'), 'Main smoke must own the main push trigger');
 assert.ok(mainSmoke.includes('name: CI / main-smoke'), 'Main smoke must expose a stable smoke job');
 assert.ok(mainSmoke.includes('timeout-minutes: 10'), 'Main smoke must have an explicit timeout');
 assert.ok(mainSmoke.includes('npm run test:smoke'), 'Main smoke must run server smoke proof');
+assert.ok(mainSmoke.includes('CONTEXT_MODE: stable'), 'Main smoke must validate stable agent context');
+assert.ok(mainSmoke.includes('npm run test:context'), 'Main smoke must run stable context integrity proof');
 assert.ok(mainSmoke.includes('npm run build'), 'Main smoke must run the minimal production build proof');
 assert.ok(!mainSmoke.includes('npm test'), 'Main smoke must not rerun the full unit suite');
 assert.ok(!mainSmoke.includes('npm run test:e2e'), 'Main smoke must not rerun browser certification');

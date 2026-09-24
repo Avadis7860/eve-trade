@@ -128,7 +128,12 @@ export class RealizedFinancialOutcomeEngine {
         },
     }));
 
-    const positionLedger = reconstructPositionLedger(accountingScopeId, typeId, ledgerTransactions);
+    const positionLedger = reconstructPositionLedger(
+      accountingScopeId,
+      typeId,
+      ledgerTransactions,
+      options?.coverage_evidence,
+    );
 
     const ledgerLots = positionLedger.position.lots;
     const lots: FifoLotRecord[] = ledgerLots.map((lot) => ({
@@ -362,6 +367,8 @@ export class RealizedFinancialOutcomeEngine {
       character_id: characterId,
       accounting_scope_id: accountingScopeId,
       source_coverage: sourceCoverage,
+      history_coverage: positionLedger.position.history_coverage,
+      economic_origin_coverage: positionLedger.position.economic_origin_coverage,
       position_disposition_states: Object.freeze(positionLedger.position.disposition_states),
       observation_id: observationId,
       calculation_source: 'EXECUTION_RECORD',

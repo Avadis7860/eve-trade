@@ -284,8 +284,8 @@ function runFleetFinancialTests() {
   assert(Object.isFrozen(fleetRes.fleetMetrics), 'fleetMetrics must be frozen');
   console.log('  [PASS] Test 6: Invariance and immutability verified.');
 
-  // Test 7: Consolidated Multi-Character FIFO (Cross-Character Trades, e.g. Livestock 547)
-  console.log('--- Test 7: Consolidated Multi-Character Fleet FIFO (Cross-Pilot Trade Matching) ---');
+  // Test 7: Fleet scope must not invent cross-character inventory ownership
+  console.log('--- Test 7: Fleet projection preserves character economic isolation ---');
   const pilotA_buyTxs: EveCharacterTransaction[] = [
     {
       transaction_id: 88801,
@@ -329,16 +329,16 @@ function runFleetFinancialTests() {
     allFleetTxs
   );
 
-  assert(fleetConsolidatedResult.total_closed_trades === 1, 'Should resolve 1 completed fleet trade cycle');
-  const cycle = fleetConsolidatedResult.recent_trade_cycles[0];
-  assert(cycle.quantity === 547, 'Cycle quantity must be exactly 547 units');
-  assert(cycle.unmatched_sell_quantity === 0, 'Unmatched sell quantity must be 0 (no uncovered stock)');
-  assert(cycle.is_cross_character === true, 'is_cross_character must be true');
-  assert(cycle.buy_character_name === 'Pilot Alpha', 'Buy character must be Pilot Alpha');
-  assert(cycle.sell_character_name === 'Pilot Beta', 'Sell character must be Pilot Beta');
-  assert(cycle.financial_completeness === 'OBSERVED', 'Financial completeness must be OBSERVED');
-  assert(fleetConsolidatedResult.has_unmatched_trades === false, 'has_unmatched_trades must be false');
-  console.log('  [PASS] Test 7: Consolidated Multi-Character Fleet FIFO (Livestock 547) successfully matched 100%.');
+  assert(fleetConsolidatedResult.total_closed_trades === 0, 'Cross-character BUY -> SELL must not create a closed position');
+  assert(fleetConsolidatedResult.has_unmatched_trades === true, 'Cross-character inventory mismatch must remain explicit');
+  assert(fleetConsolidatedResult.unmatched_trades_count === 1, 'The character-B orphan sale must remain explicitly unmatched');
+  const cycles = fleetConsolidatedResult.recent_trade_cycles;
+  const orphanSale = cycles.find((c) => c.sell_character_name === 'Pilot Beta') ?? cycles[cycles.length - 1];
+  assert(orphanSale.quantity === 0, 'Cross-character sale must not consume character-A inventory');
+  assert(orphanSale.unmatched_sell_quantity === 547, 'The foreign-character sale must remain unmatched');
+  assert(orphanSale.financial_completeness === 'PARTIAL', 'Foreign-character sale must remain PARTIAL');
+  assert(orphanSale.position_lifecycle !== 'CLOSED', 'Foreign-character sale must never be marked CLOSED');
+  console.log('  [PASS] Test 7: Fleet projection preserves character economic isolation and explicit unmatched state.');
 
   console.log('===============================================================');
   console.log('ALL PHASE 3 MULTI-CHARACTER & FLEET FINANCIAL TESTS PASSED (100%)');

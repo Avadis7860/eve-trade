@@ -21,7 +21,6 @@ import { UniverseRepository } from '../domain/universe/UniverseRepository';
 import {
   RealizedFinancialOutcomeEngine,
 } from '../engine/realizedFinancialOutcome';
-import { FleetFinancialEngine } from '../engine/fleetFinancial';
 import { roundIsk, safeDiv } from '../engine/money';
 
 const STORAGE_KEY_PREFIX = 'eve_trader_analytics_';
@@ -989,9 +988,9 @@ export class TraderAnalyticsService {
    * without an explicit transfer/ownership fact, that would fabricate a causal
    * inventory transfer between distinct economic owners.
    *
-   * @deprecated Prefer computing character metrics once and passing them to
-   * FleetFinancialEngine.aggregateFleetPerformance. This compatibility method
-   * remains for callers that still provide raw fleet transaction inputs.
+   * The compatibility method now passes all supplied transactions through one
+   * shared accounting scope before returning consolidated reporting metrics.
+   * Reporting character identity is not used as an accounting boundary.
    */
   static processFleetConsolidatedTransactions(
     characters: {
@@ -1034,5 +1033,5 @@ export class TraderAnalyticsService {
       character_id: 0,
       character_name: 'Flotte Consolidée (' + characters.length + ' pilotes)',
     });
-  }}
-
+  }
+}

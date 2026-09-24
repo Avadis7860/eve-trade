@@ -242,20 +242,21 @@ export class RealizedFinancialOutcomeEngine {
     let isFinanciallyComplete = false;
     let realizedNetEstimated: number | null = null;
 
-    if (sourceCoverage === 'UNAVAILABLE') {
-      financialCompleteness = 'UNAVAILABLE';
-      isNetEstimated = false;
-      realizedNetEstimated = null;
-      isFinanciallyComplete = false;
-    } else if (
+    const hasPositionEvidenceDefect =
       sourceCoverage === 'PARTIAL' ||
       positionLedger.position.invalid_transaction_ids.length > 0 ||
       hasUnmatchedSellQuantity ||
-      (matchedQuantity === 0 && totalSellQuantity > 0)
-    ) {
+      (matchedQuantity === 0 && totalSellQuantity > 0);
+
+    if (hasPositionEvidenceDefect) {
       financialCompleteness = 'PARTIAL';
       isNetEstimated = fees.fee_mode === 'ESTIMATED';
       realizedNetEstimated = fees.fee_mode === 'ESTIMATED' ? netRealizedProfit : null;
+      isFinanciallyComplete = false;
+    } else if (sourceCoverage === 'UNAVAILABLE') {
+      financialCompleteness = 'UNAVAILABLE';
+      isNetEstimated = false;
+      realizedNetEstimated = null;
       isFinanciallyComplete = false;
     } else if (fees.fee_mode === 'UNAVAILABLE') {
       financialCompleteness = 'UNAVAILABLE';

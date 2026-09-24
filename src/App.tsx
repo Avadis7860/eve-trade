@@ -480,7 +480,6 @@ const AppShell: React.FC = () => {
             />
           ) : currentView === 'portfolio' ? (
             <PortfolioView
-              simulation={portfolioSimulation}
               proposedAllocation={proposedAllocationSnapshot}
               realPortfolio={realPortfolioSnapshot}
               onSelectOpportunity={(oppId) => {

@@ -368,6 +368,26 @@ describe('Phase 5: Fleet Financial Contract Hardening & Non-Additive Verificatio
     assert.equal(result.fleetMetrics.average_hold_days, 1.9, 'Fleet Hold Days must be 1.9 days across 10 trade cycles');
   });
 
+
+  it('Invariant Check — fleet Performance requires a consolidated shared-scope calculation', () => {
+    const characterResults: CharacterFinancialResult[] = [
+      { characterId: '1001', characterName: 'Pilot A', dataHealth: 'fresh', metrics: createMockCharacterMetrics({ character_id: 1001 }) },
+      { characterId: '1002', characterName: 'Pilot B', dataHealth: 'fresh', metrics: createMockCharacterMetrics({ character_id: 1002 }) },
+    ];
+
+    const selection = FleetFinancialEngine.selectPerformanceByScope(
+      characterResults,
+      { type: 'fleet' },
+      '1001',
+    );
+
+    assert.equal(
+      selection.selectedMetrics,
+      null,
+      'fleet Performance must not fall back to summing character-isolated metrics',
+    );
+  });
+
   it('Invariant Check — CrossCharacterFinancialMappingViolationError prevents mixing characters in single calculation', () => {
     const mixedTxs: PersistedCharacterTransaction[] = [
       {

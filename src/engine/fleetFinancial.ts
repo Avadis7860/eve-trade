@@ -529,20 +529,22 @@ export class FleetFinancialEngine {
     }
 
     if (scope.type === 'fleet') {
-      const fleetResult = this.aggregateFleetPerformance(characterResults, scope);
-      if (options?.consolidatedFleetMetrics) {
-        const enhancedFleetResult: FleetFinancialResult = {
-          ...fleetResult,
-          fleetMetrics: Object.freeze(options.consolidatedFleetMetrics),
-        };
-        return {
-          selectedMetrics: options.consolidatedFleetMetrics,
-          fleetResult: Object.freeze(enhancedFleetResult),
-        };
+      // FIN-002: a fleet Performance view must consume one shared economic
+      // accounting scope. Aggregating character-isolated financial metrics is
+      // reporting arithmetic, not an economic reconciliation, and can miss
+      // cross-character lot consumption.
+      if (!options?.consolidatedFleetMetrics) {
+        return { selectedMetrics: null };
       }
+
+      const reportingFleet = this.aggregateFleetPerformance(characterResults, scope);
+      const enhancedFleetResult: FleetFinancialResult = {
+        ...reportingFleet,
+        fleetMetrics: Object.freeze(options.consolidatedFleetMetrics),
+      };
       return {
-        selectedMetrics: fleetResult.fleetMetrics,
-        fleetResult,
+        selectedMetrics: options.consolidatedFleetMetrics,
+        fleetResult: Object.freeze(enhancedFleetResult),
       };
     }
 

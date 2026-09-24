@@ -24,7 +24,7 @@ export interface TypeResolutionResult {
   type?: EveTypeDetail;
   type_id: number;
   name: string;
-  volume: number;
+  volume: number | null;
   group_id: number;
   category_id: number;
   source: 'catalog_ready' | 'fallback_core' | 'custom_type' | 'esi_lookup' | 'none';

@@ -164,6 +164,56 @@ async function run() {
   assert(corpOrdersResult.data[0].ownership?.owner_id === 99001, 'Corporation owner ID must be explicit');
   assert(corpOrdersResult.data[0].ownership?.principal_character_id === 1001, 'Observing principal must be preserved');
 
+  setBackendApiFetchForTesting(async (input) => {
+    const url = String(input);
+    if (!url.includes('/api/character/1001/corporation/orders')) {
+      throw new Error('Unexpected partial corporation order test request: ' + url);
+    }
+    return new Response(JSON.stringify([
+      {
+        order_id: '93001',
+        type_id: 34,
+        region_id: 10000002,
+        location_id: 60003760,
+        price: 6.5,
+        volume_remain: 10,
+        volume_total: 10,
+        is_buy_order: false,
+        issued: '2026-09-22T00:00:00Z',
+        duration: 90,
+        issued_by: 1001,
+        wallet_division: 1,
+      },
+      {
+        order_id: '93002',
+        type_id: 34,
+        region_id: 10000002,
+        location_id: 60003760,
+        price: 6.5,
+        volume_remain: 10,
+        volume_total: 10,
+        is_buy_order: false,
+        issued: '2026-09-22T00:00:00Z',
+        duration: 90,
+        issued_by: 1001,
+        wallet_division: 8,
+      },
+    ]), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  });
+  const partialCorpOrdersResult = await EsiService.fetchCharacterCorporationOrders(
+    1001,
+    'corp-token-a',
+    99001,
+    'Trade Operations Corporation',
+  );
+  assert(partialCorpOrdersResult.state === 'PARTIAL', 'Mixed corporation payload must remain PARTIAL');
+  assert(partialCorpOrdersResult.data.length === 1, 'Valid corporation orders must survive partial normalization');
+  assert(partialCorpOrdersResult.rejected_count === 1, 'Rejected corporation records must be counted explicitly');
+  assert(partialCorpOrdersResult.data[0].ownership?.wallet_division === 1, 'Valid wallet division must survive partial normalization');
+
   const corpHistoryResult = await EsiService.fetchCharacterCorporationOrderHistory(
     1001,
     'corp-token-a',

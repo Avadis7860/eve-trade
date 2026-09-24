@@ -320,8 +320,9 @@ export class TraderAnalyticsService {
           );
           const buyLocation =
             buyTxSample?.location_name ||
-            UniverseRepository.getInstance().getStationNameSync(buyTxSample?.location_id || 0) ||
-            'Station Inconnue';
+            buyTxSample
+              ? UniverseRepository.getInstance().getStationNameSync(buyTxSample.location_id) || 'Station Inconnue'
+              : 'Station Inconnue';
           const sellLocation =
             sellTx.location_name ||
             UniverseRepository.getInstance().getStationNameSync(sellTx.location_id) ||
@@ -889,9 +890,9 @@ export class TraderAnalyticsService {
       has_personal_history: false,
       total_historical_trades: 0,
       historical_realized_profit: 0,
-      historical_avg_roi: 0,
-      historical_win_rate: 0,
-      historical_avg_hold_days: metrics.average_hold_days,
+      historical_avg_roi: null,
+      historical_win_rate: null,
+      historical_avg_hold_days: null,
       calibration_confidence_boost: 0,
       badge_text: 'Non Négocié',
       badge_type: 'new',

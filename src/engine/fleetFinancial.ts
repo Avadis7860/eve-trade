@@ -36,6 +36,7 @@ import {
   PerformanceScope,
   TradeCycleRecord,
   TraderPerformanceMetrics,
+  CapitalRecoverySummary,
 } from '../types';
 import { roundIsk, safeDiv } from './money';
 
@@ -90,6 +91,7 @@ export class FleetFinancialEngine {
         unprofitable_trades: 0,
         win_rate_pct: null,
         average_realized_roi: 0,
+        average_realized_roi_scope: 'CLOSING_DISPOSAL_ALLOCATIONS',
         average_hold_days: 0,
         total_broker_fees_paid: 0,
         total_sales_tax_paid: 0,
@@ -139,6 +141,16 @@ export class FleetFinancialEngine {
     let unmatchedTradesCount = 0;
     let hasUnmatchedTrades = false;
 
+    let capitalCommittedTotal = 0;
+    let cashRecoveredTotal = 0;
+    let remainingQuantityTotal = 0;
+    let remainingCostBasisTotal = 0;
+    let knownCapitalPositions = 0;
+    let openCapitalPositions = 0;
+    let partialCapitalPositions = 0;
+    let closedCapitalPositions = 0;
+    let capitalRecoveryPartial = false;
+
     // Collect all trade cycles across all valid characters
     const allCycles: TradeCycleRecord[] = [];
     const locationVolumeMap: Record<number, { name: string; volumeIsk: number; count: number }> = {};
@@ -164,6 +176,23 @@ export class FleetFinancialEngine {
       unmatchedTradesCount += m.unmatched_trades_count ?? 0;
       if (m.has_unmatched_trades) {
         hasUnmatchedTrades = true;
+      }
+
+      if (m.capital_recovery) {
+        const recovery = m.capital_recovery;
+        capitalCommittedTotal = roundIsk(capitalCommittedTotal + recovery.capital_committed);
+        cashRecoveredTotal = roundIsk(cashRecoveredTotal + recovery.cash_recovered);
+        remainingQuantityTotal += recovery.remaining_quantity;
+        remainingCostBasisTotal = roundIsk(
+          remainingCostBasisTotal + recovery.remaining_cost_basis,
+        );
+        knownCapitalPositions += recovery.known_position_count;
+        openCapitalPositions += recovery.open_position_count;
+        partialCapitalPositions += recovery.partially_realized_position_count;
+        closedCapitalPositions += recovery.closed_position_count;
+        if (recovery.financial_completeness === 'PARTIAL') {
+          capitalRecoveryPartial = true;
+        }
       }
 
       // Collect cycles with character attribution
@@ -336,6 +365,28 @@ export class FleetFinancialEngine {
       financialCompleteness = 'OBSERVED';
     }
 
+    const capitalRecovery: CapitalRecoverySummary | undefined =
+      knownCapitalPositions > 0
+        ? Object.freeze({
+            scope: 'KNOWN_POSITIONS',
+            financial_completeness:
+              capitalRecoveryPartial || hasUnavailableCharacters ? 'PARTIAL' : 'OBSERVED',
+            capital_committed: capitalCommittedTotal,
+            cash_recovered: cashRecoveredTotal,
+            capital_recovery_delta: roundIsk(cashRecoveredTotal - capitalCommittedTotal),
+            capital_recovery_ratio:
+              capitalCommittedTotal > 0
+                ? cashRecoveredTotal / capitalCommittedTotal
+                : null,
+            remaining_quantity: remainingQuantityTotal,
+            remaining_cost_basis: remainingCostBasisTotal,
+            known_position_count: knownCapitalPositions,
+            open_position_count: openCapitalPositions,
+            partially_realized_position_count: partialCapitalPositions,
+            closed_position_count: closedCapitalPositions,
+          })
+        : undefined;
+
     const profitLabel =
       hasUnavailableCharacters
         ? 'Bénéfice Flotte Réalisé (Partiel - Pilotes Indisponibles)'
@@ -382,7 +433,9 @@ export class FleetFinancialEngine {
       unprofitable_trades: unprofitableTrades,
       win_rate_pct: winRatePct,
       average_realized_roi: avgRealizedRoi,
+      average_realized_roi_scope: 'CLOSING_DISPOSAL_ALLOCATIONS',
       average_hold_days: avgHoldDays,
+      ...(capitalRecovery ? { capital_recovery: capitalRecovery } : {}),
       total_broker_fees_paid: totalBrokerFeesPaid,
       total_sales_tax_paid: totalSalesTaxPaid,
       top_profitable_items: topProfitableItems,

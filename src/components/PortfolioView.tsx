@@ -55,12 +55,21 @@ function MetricCard({
 }
 
 function renderPositionEvidence(pos: PortfolioPosition): string {
+  const opp = pos.opportunity;
+  const concentration = pos.concentration_contribution;
+
   return [
+    `category: ${opp.category_name || `Category ${opp.category_id}`}`,
+    `liquidity: days=${Number.isFinite(pos.expected_days_to_sell) ? pos.expected_days_to_sell!.toFixed(2) : 'UNKNOWN'}`,
+    `capturability score: ${Number.isFinite(opp.scores.capturability_score) ? opp.scores.capturability_score : 'UNKNOWN'}`,
     pos.expected_realized_profit !== undefined ? `expected realized: ${fmtIsk(pos.expected_realized_profit)}` : null,
-    pos.data_confidence !== null && pos.data_confidence !== undefined ? `data confidence: ${pos.data_confidence.toFixed(0)}%` : null,
-    pos.prediction_confidence !== null && pos.prediction_confidence !== undefined ? `prediction confidence: ${pos.prediction_confidence.toFixed(0)}%` : null,
     pos.profit_realization_probability !== null && pos.profit_realization_probability !== undefined
       ? `realization probability: ${pos.profit_realization_probability.toFixed(0)}%`
+      : null,
+    pos.data_confidence !== null && pos.data_confidence !== undefined ? `data confidence: ${pos.data_confidence.toFixed(0)}%` : null,
+    pos.prediction_confidence !== null && pos.prediction_confidence !== undefined ? `prediction confidence: ${pos.prediction_confidence.toFixed(0)}%` : null,
+    concentration
+      ? `concentration type=${(concentration.type_share * 100).toFixed(1)}% group=${(concentration.group_share * 100).toFixed(1)}% category=${(concentration.category_share * 100).toFixed(1)}% route=${(concentration.route_share * 100).toFixed(1)}%`
       : null,
   ].filter(Boolean).join(' · ');
 }
@@ -236,7 +245,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
               Allocations proposées ({proposedAllocation.simulation.positions.length})
             </span>
             <span className="text-[#808495] text-[10px]">
-              {proposedAllocation.candidate_universe.state} · {proposedAllocation.candidate_universe.coverage} · {simulation.total_expected_daily_profit > 0 ? fmtIsk(simulation.total_expected_daily_profit) : 'UNKNOWN'} / j
+              {proposedAllocation.candidate_universe.state} · {proposedAllocation.candidate_universe.coverage} · {proposedAllocation.simulation.total_expected_daily_profit > 0 ? fmtIsk(proposedAllocation.simulation.total_expected_daily_profit) : 'UNKNOWN'} / j
             </span>
           </div>
           <div className="overflow-x-auto">

@@ -1426,6 +1426,69 @@ async function runAllTests() {
   // ==========================================================================
   // CHANTIER 3B-4A.2 FINANCIAL TRUTH INTEGRATION GATE TESTS
   // ==========================================================================
+  // FIN-002 coverage boundary: coherent transactions are not automatically complete history.
+  {
+    const coverageTxs: ExecutionTransactionRef[] = [
+      {
+        transaction_id: 9901,
+        type_id: 34,
+        location_id: 60003760,
+        is_buy: true,
+        quantity: 10_000,
+        unit_price: 100,
+        timestamp: '2026-09-20T10:00:00.000Z',
+        character_id: 2112001,
+      },
+      {
+        transaction_id: 9902,
+        type_id: 34,
+        location_id: 60003760,
+        is_buy: false,
+        quantity: 1,
+        unit_price: 140,
+        timestamp: '2026-09-20T11:00:00.000Z',
+        character_id: 2112001,
+      },
+    ];
+
+    const unknownCoverage = RealizedFinancialOutcomeEngine.calculateForTransactions(
+      2112001,
+      34,
+      coverageTxs,
+      { financialConfig: mockFinancialConfig },
+    );
+    assert(unknownCoverage.history_coverage === 'UNKNOWN', 'omitted history coverage must remain UNKNOWN');
+    assert(
+      unknownCoverage.economic_origin_coverage === 'UNKNOWN',
+      'omitted economic-origin coverage must remain UNKNOWN',
+    );
+
+    const completeCoverage = RealizedFinancialOutcomeEngine.calculateForTransactions(
+      2112001,
+      34,
+      coverageTxs,
+      {
+        financialConfig: mockFinancialConfig,
+        coverage_evidence: {
+          history_coverage: 'COMPLETE_FOR_SCOPE',
+          economic_origin_coverage: 'COMPLETE_FOR_SCOPE',
+        },
+      },
+    );
+    assert(
+      completeCoverage.history_coverage === 'COMPLETE_FOR_SCOPE',
+      'explicit complete history coverage must reach the outcome',
+    );
+    assert(
+      completeCoverage.economic_origin_coverage === 'COMPLETE_FOR_SCOPE',
+      'explicit complete origin coverage must reach the outcome',
+    );
+    assert(
+      completeCoverage.position_lifecycle === 'PARTIALLY_REALIZED',
+      'coverage metadata must not alter economic lifecycle',
+    );
+  }
+
   console.log('\n==========================================================================');
   console.log('--- RUNNING CHANTIER 3B-4A.2 FINANCIAL TRUTH INTEGRATION GATE TESTS ---');
   console.log('==========================================================================');

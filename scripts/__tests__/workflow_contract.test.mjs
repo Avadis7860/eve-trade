@@ -36,6 +36,7 @@ const requiredCiCommands = [
   'npm run typecheck',
   'npm run typecheck:server',
   'npm run test:ci-config',
+  'npm run test:context',
   'npm run test:config',
   'npm run test:auth-token',
   'npm run test:truth',
@@ -177,6 +178,7 @@ const expectedJobCommands = {
     'npm run typecheck:server',
     'npm run test:config',
     'npm run test:auth-token',
+    'npm run test:context',
   ],
   unit_domain: [
     'npm run test:truth',

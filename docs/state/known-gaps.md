@@ -51,7 +51,7 @@ See:
 
 - **CI follow-up:** the PR workflow currently triggers the full certification surface for Draft as well as Ready PRs. This is confirmed by PR #61 run `35858589551` and should be handled in a dedicated CI-002 hardening chantier.
 
-- **Current sequencing:** Agent Context Hardening is the active technical chantier. UX-03 remains a future product chantier and is not active here; the financial semantic reconciliation gate must be accepted before any future financial implementation is resumed. Public-readiness remains a separate maintenance track.
+- **Current sequencing:** Agent Context Hardening v2 is the current delivery and is CLOSING after implementation. UX-03 remains a future product chantier and is not active here; the financial semantic reconciliation gate must be accepted before any future financial implementation is resumed. Public-readiness remains a separate maintenance track.
 
 ## Public-readiness gaps
 

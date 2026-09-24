@@ -19,6 +19,26 @@ The archive contains a substantial financial rebase that was not merged into mai
 | New owner requirement on whole-operation positivity | RECONCILIATION INPUT | must be accepted explicitly before financial code |
 | Market snapshots / order books | PROSPECTIVE / CORROBORATING | never substitute for realized accounting |
 
+## Archive sources consulted
+
+The following archive documents were inspected as historical sources. Their contents are not copied into the current financial contract:
+
+- docs/decisions/ADR-0003-economic-position-and-order-model.md
+- docs/roadmap/financial-truth-rebase.md
+- docs/contracts/financial.md
+- docs/domains/finance/financial-truth.md
+- docs/ux/ux-03-allocation-contract.md
+- docs/ux/trading-terminal-surface-contracts.md
+- docs/roadmap/master-plan.md
+- docs/roadmap/backlog.md
+- docs/roadmap/current-chunk.md
+- docs/roadmap/ux-program.md
+- docs/state/current-state.md
+- docs/state/known-gaps.md
+- docs/state/truth-matrix.md
+- docs/validation/ux-03-data-availability.md
+
+These paths refer to the archived branch, not the current main tree, unless a current replacement document is explicitly created and linked elsewhere.
 ## Preserved economic principles
 
 - Market-order side is a market-mechanism fact, not economic direction.

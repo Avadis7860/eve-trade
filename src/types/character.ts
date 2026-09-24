@@ -164,7 +164,8 @@ export interface TradeCycleRecord {
   total_buy_cost: number;
   total_sell_revenue: number;
   gross_profit: number;
-  estimated_fees_paid: number;
+  /** Null when fee evidence is unavailable for this event. */
+  estimated_fees_paid: number | null;
   /** Null when fee-inclusive net evidence is unavailable. */
   net_profit: number | null;
   roi: number | null; // null when the ROI denominator is unavailable

@@ -2011,6 +2011,8 @@ async function runAllTests() {
       character_id: charId,
       accounting_scope_id: 'ecosystem:test',
       source_coverage: 'MARKET_TRACEABLE',
+      history_coverage: 'COMPLETE_FOR_SCOPE',
+      economic_origin_coverage: 'COMPLETE_FOR_SCOPE',
       position_disposition_states: [
         {
           disposition_transaction_id: 8102,

@@ -62,8 +62,8 @@ The current engine/domain layers remain ahead of the UI, but the financial bound
 - Capital recovery is now a dedicated output across the canonical Performance character and fleet projections, with explicit KNOWN_POSITIONS scope.
 - Unrealized/current-market valuation is still a separate future/market-derived surface.
 - No durable AcquisitionLot / CurrentPosition store exists.
-- Provenance needs an audit across aggregation paths.
-- Some numeric defensive fallbacks still convert invalid/missing values to zero inside financial calculations and must be audited under DATA-001.
+- DATA-001 first pass now preserves unavailable ratios, removes invalid economic-volume coercion, and carries financial provenance through position, trader and fleet projections.
+- Remaining numeric `0` fallbacks are being classified as legitimate accumulators/scope sentinels or separate prospective-domain policies; the financial truth boundary no longer fabricates missing physical volume or ROI.
 - CI is currently RED on the latest branch head verification.
 
 ## Latest CI verification

@@ -532,6 +532,7 @@ export function reconstructPositionLedger(
     character_id: firstCharacterId,
     principal_scope: accountingScopeId,
     position_segments: positionSegments,
+    all_disposition_states: Object.freeze([...dispositionStates]),
     position,
   });
 }

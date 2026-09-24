@@ -82,19 +82,28 @@ The current engine/domain layers are ahead of the UI information architecture.
 
 - The legacy `EsiService.fetchLiveOrders()` helper remains a latent quality-loss hazard because it discards the quality envelope; no production caller is currently known.
 - Rate-limit-aware market scheduling is not yet exposed as a product-level operational signal.
-- No coherent Real Portfolio vs Proposed Allocation split exists yet.
+- Real Portfolio vs Proposed Allocation split is implemented on the active UX-03 branch and pending final certification.
 - No automatic ESI-derived performance history replaces the manual journal yet.
 - No clear business Control Center exists yet.
 - Cockpit remains too item-centric to serve as a decision-oriented synthesis.
 - Public repository security/release posture still needs the maintenance work recorded in [Public Readiness](../roadmap/public-readiness.md).
 
-## UX-03 contract status
+## UX-03 implementation status
 
-UX-03 contract enrichment is active on dedicated branch `ux-03/allocation-contract`.
+UX-03 increment 1 is implemented on dedicated branch `ux-03/allocation-contract` and remains pending final surface certification.
 
-The detailed contract is [UX-03 Allocation / Portefeuille](../ux/ux-03-allocation-contract.md), with source/derivation traceability in [UX-03 Data Availability & Derivation Matrix](../validation/ux-03-data-availability.md). It defines the economic buckets, cross-item candidate universe, confidence/probability separation, concentration semantics, liquidity/risk boundaries and acceptance scenarios required before implementation.
+The detailed contract is [UX-03 Allocation / Portefeuille](../ux/ux-03-allocation-contract.md), with source/derivation traceability in [UX-03 Data Availability & Derivation Matrix](../validation/ux-03-data-availability.md).
 
-No UX-03 product code is committed on the branch yet.
+Verified increment 1 behaviors:
+- cross-item allocation from the global opportunity universe;
+- explicit treasury provenance and policy reserve;
+- separate buy escrow, buy obligation and uncovered obligation;
+- deployed-capital concentration denominator;
+- safe capital/quantity invariants;
+- explicit Real Portfolio / Proposed Allocation separation;
+- stale/partial/error blocking with preservation of the last reliable proposal;
+- explicit UNKNOWN inventory while Character Assets is absent;
+- rationale and unallocated reason codes.
 
 ## P0 closure status
 
@@ -113,7 +122,7 @@ The previously reported target-PC market-display symptom is resolved. The applic
 
 ## Current chantier / sequencing
 
-**Current product sequence:** UX-03 Allocation / Portefeuille is the next product build. The present active branch is the dedicated UX-03 contract-enrichment branch; it is not a merge-only documentation signal.
+**Current product sequence:** UX-03 Allocation / Portefeuille is the active product build. The present active branch is the dedicated UX-03 implementation branch; it is not a merge-only documentation signal.
 
 The P0-B and P0-C delivery branches are historical and must not be reused. The dedicated UX-03 contract branch is the only active product branch.
 

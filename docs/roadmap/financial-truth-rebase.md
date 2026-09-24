@@ -1,6 +1,6 @@
 # Financial Truth Rebase
 
-Status: PRIORITY / BLOCKING
+Status: PRIORITY / IMPLEMENTATION IN PROGRESS
 Scope: FIN-001, ORD-001, FIN-002, DATA-001
 Related decision: [ADR-0003](../decisions/ADR-0003-economic-position-and-order-model.md)
 

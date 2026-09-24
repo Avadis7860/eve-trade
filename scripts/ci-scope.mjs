@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 function loadContextCriticalPaths() {
   const file = '.eve-trade/context-map.json';
@@ -8,6 +10,22 @@ function loadContextCriticalPaths() {
     '.eve-trade/current-work.json',
     'docs/operations/agent-context.md',
     'scripts/context-integrity.mjs',
+    'AGENTS.md',
+    'GEMINI.md',
+    'CONTRIBUTING.md',
+    'docs/index.md',
+    'docs/documentation-guide.md',
+    'docs/state/current-state.md',
+    'docs/state/truth-matrix.md',
+    'docs/roadmap/current-chunk.md',
+    'docs/roadmap/master-plan.md',
+    'docs/roadmap/backlog.md',
+    'docs/contracts/index.md',
+    'docs/invariants/index.md',
+    'docs/validation/index.md',
+    'docs/domains/index.md',
+    'docs/operations/index.md',
+    'docs/architecture/index.md',
   ]);
   if (!fs.existsSync(file)) return critical;
   try {
@@ -87,32 +105,37 @@ export function classifyPaths(input) {
   };
 }
 
-const result = classifyPaths(fs.readFileSync(0, 'utf8'));
-const lines = Object.entries(result).map(([key, value]) => key + '=' + value);
+const isDirectExecution =
+  process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
 
-if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, lines.join('\n') + '\n');
-if (process.env.GITHUB_STEP_SUMMARY) {
-  const summary = [
-    '## Change Scope', '',
-    '| Domain | Changed |', '|---|---:|',
-    '| Frontend | ' + result.frontend + ' |',
-    '| Engine/domain | ' + result.domain + ' |',
-    '| Server/API/ESI | ' + result.server + ' |',
-    '| SDE/data | ' + result.sde + ' |',
-    '| CI/workflows | ' + result.ci + ' |',
-    '| Package/config | ' + result.config + ' |',
-    '| Tests | ' + result.tests + ' |',
-    '| Documentation | ' + result.docs + ' |',
-    '| Ambiguous/unclassified | ' + result.ambiguous + ' |', ''
-  ];
-  summary.push(
-    result.full_certification
-      ? '**Conservative fallback:** full certification remains required for this scope.'
-      : result.run_static
-        ? '**Targeted certification:** frontend/static proof is required; domain/server certification is not.'
-        : '**Documentation-only scope:** execution lanes remain skipped; only routing is evaluated.'
-  );
-  fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary.join('\n') + '\n');
-} else {
-  process.stdout.write(lines.join('\n') + '\n');
+if (isDirectExecution) {
+  const result = classifyPaths(fs.readFileSync(0, 'utf8'));
+  const lines = Object.entries(result).map(([key, value]) => key + '=' + value);
+
+  if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, lines.join('\n') + '\n');
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    const summary = [
+      '## Change Scope', '',
+      '| Domain | Changed |', '|---|---:|',
+      '| Frontend | ' + result.frontend + ' |',
+      '| Engine/domain | ' + result.domain + ' |',
+      '| Server/API/ESI | ' + result.server + ' |',
+      '| SDE/data | ' + result.sde + ' |',
+      '| CI/workflows | ' + result.ci + ' |',
+      '| Package/config | ' + result.config + ' |',
+      '| Tests | ' + result.tests + ' |',
+      '| Documentation | ' + result.docs + ' |',
+      '| Ambiguous/unclassified | ' + result.ambiguous + ' |', ''
+    ];
+    summary.push(
+      result.full_certification
+        ? '**Conservative fallback:** full certification remains required for this scope.'
+        : result.run_static
+          ? '**Targeted certification:** frontend/static proof is required; domain/server certification is not.'
+          : '**Documentation-only scope:** execution lanes remain skipped; only routing is evaluated.'
+    );
+    fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary.join('\n') + '\n');
+  } else {
+    process.stdout.write(lines.join('\n') + '\n');
+  }
 }

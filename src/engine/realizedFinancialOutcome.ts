@@ -44,7 +44,8 @@ import {
 } from '../types';
 import { FeeEngine } from './fee';
 import { safeDiv, roundIsk } from './money';
-import { PositionLedgerTransaction, reconstructPositionLedger } from './positionLedger';
+import { reconstructPositionLedger } from './positionLedger';
+import type { PositionLedgerTransaction } from './positionLedger';
 
 export const REALIZED_FINANCIAL_ENGINE_VERSION = '1.0.0';
 

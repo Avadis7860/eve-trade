@@ -353,6 +353,27 @@ async function run() {
     'Both corporation requests must use the exact authenticated character credential',
   );
 
+  setBackendApiFetchForTesting(async (input) => {
+    const url = String(input);
+    if (url.includes('/api/types/lookup/990001')) {
+      return new Response(JSON.stringify({ type_id: 990001, group_id: 18, name: 'Missing Volume Fixture' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (url.includes('/api/types/lookup/990002')) {
+      return new Response(JSON.stringify({ type_id: 990002, group_id: 18, name: 'Packaged Volume Fixture', packaged_volume: 12.5 }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    throw new Error('Unexpected type lookup request: ' + url);
+  });
+  const missingVolumeType = await EsiService.lookupTypeById(990001);
+  assert(missingVolumeType === null, 'Type lookup must stay unavailable when physical volume is missing');
+  const packagedVolumeType = await EsiService.lookupTypeById(990002);
+  assert(packagedVolumeType?.volume === 12.5, 'Packaged volume may satisfy the physical-volume boundary');
+
   console.log('=== FRONTEND ESI / BACKEND TRANSPORT CONTRACT TESTS ===');
 
   let calls = 0;

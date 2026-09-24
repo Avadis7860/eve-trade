@@ -118,7 +118,8 @@ export class RealizedFinancialOutcomeEngine {
       ...sortedSells,
     ].map((tx) => ({
       ...tx,
-      accounting_scope_id: accountingScopeId,
+      accounting_scope_id:
+        tx.accounting_scope_id ?? accountingScopeId,
       provenance:
         provenanceByTransactionId.get(tx.transaction_id) ?? {
           source_kind: 'EXECUTION_TRANSACTION',
@@ -466,6 +467,9 @@ export class RealizedFinancialOutcomeEngine {
               ? tx.timestamp
               : ('date' in tx && tx.date ? tx.date : new Date(0).toISOString()),
           character_id: txCharacterId,
+          ...(('accounting_scope_id' in tx && tx.accounting_scope_id)
+            ? { accounting_scope_id: tx.accounting_scope_id }
+            : {}),
           ...('order_id' in tx && tx.order_id ? { order_id: tx.order_id } : {}),
           observation_id: executionRecord.observation_id,
           opportunity_id: executionRecord.opportunity_id,

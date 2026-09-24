@@ -315,6 +315,15 @@ function runEndToEndIntegrationTests() {
   assert(outcomeAlpha.realized_gross === 100_000, 'Alpha gross profit should be 100k ISK (500k rev - 400k cost)');
   assert(outcomeBeta.realized_gross === 80_000, 'Beta gross profit should be 80k ISK (480k rev - 400k cost)');
 
+  if (
+    outcomeAlpha.net_realized_profit === null ||
+    outcomeAlpha.roi === null ||
+    outcomeBeta.net_realized_profit === null ||
+    outcomeBeta.roi === null
+  ) {
+    throw new Error('Configured E2E financial outcomes must expose numeric net profit and ROI');
+  }
+
   // Build character metrics records
   const metricsAlpha: TraderPerformanceMetrics = {
     character_id: 1001,

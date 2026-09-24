@@ -23,9 +23,26 @@ test.describe('UX-03 — Portfolio / Allocation', () => {
 
     await expect(page.getByText('Real Portfolio', { exact: true })).toBeVisible();
     await expect(page.getByText('Proposed Allocation', { exact: true })).toBeVisible();
+
+    await expect(page.getByText('Cash liquide', { exact: true })).toBeVisible();
+    await expect(page.getByText('Buy escrow', { exact: true })).toBeVisible();
+    await expect(page.getByText('Buy obligation', { exact: true })).toBeVisible();
+    await expect(page.getByText('Obligation non couverte', { exact: true })).toBeVisible();
+    await expect(page.getByText('Sell exposure', { exact: true })).toBeVisible();
+
+    await expect(page.getByText('Budget d’allocation', { exact: true })).toBeVisible();
+    await expect(page.getByText('Capital déployé', { exact: true })).toBeVisible();
+    await expect(page.getByText('Capital non alloué', { exact: true })).toBeVisible();
+    await expect(page.getByText('ROI projeté', { exact: true })).toBeVisible();
+
+    await expect(page.getByText(/^Couverture (FULL|BOUNDED|PARTIAL|UNKNOWN)$/)).toBeVisible();
+    await expect(page.getByText(/^(LIVE|CACHE|STALE|PARTIAL|ERROR|UNKNOWN)$/).first()).toBeVisible();
+
     await expect(page.getByText('Inventaire non autoritaire', { exact: true })).toBeVisible();
     await expect(page.getByText('Character Assets non intégré', { exact: true })).toBeVisible();
     await expect(page.getByText('Quantité, localisation et valeur complète du stock restent UNKNOWN', { exact: false })).toBeVisible();
+
+    await expect(page.getByText('UNKNOWN', { exact: true })).toHaveCount(expect.any(Number));
     await expect(page.getByText('Proposed Allocation', { exact: true })).toHaveCount(1);
   });
 });

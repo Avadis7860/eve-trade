@@ -49,11 +49,17 @@ Do not edit the map for ordinary implementation-only changes.
 
 CI lane references are workflow-qualified because job IDs are not globally unique across the repository.
 
-## Active-work maintenance
+## Active-work lifecycle
 
-Update .eve-trade/current-work.json when the active branch, PR, base branch, base SHA or delivery rule changes.
+`.eve-trade/current-work.json` is checkout-aware. Its `state` determines whether the branch/PR metadata is active:
 
-It is expected to be operationally specific to a chantier and must not become a financial or product truth source.
+- `ACTIVE` — development is in progress on the dedicated branch/PR.
+- `CLOSING` — the delivery is frozen for final certification/merge; no new scope is allowed.
+- `IDLE` — the stable `main` checkout has no active delivery chantier.
+
+A stable `main` state must never be `ACTIVE`. The last merged delivery may remain represented as `CLOSING` until the next chantier creates a new `ACTIVE` manifest. This avoids requiring an unreviewed post-merge mutation of `main`.
+
+During PR certification, branch, PR number and base SHA must match the GitHub event. In stable mode, the current-state document must identify the actual checked-out HEAD SHA.
 
 ## Historical archive rule
 
@@ -71,3 +77,31 @@ The PR certification workflow is deliberately conservative for context-critical 
 - Ordinary unrelated documentation remains eligible for the existing documentation-only routing.
 
 This routing exists to make context drift visible without running the entire certification surface for every documentation edit.
+
+## Deterministic integrity checks
+
+`npm run test:context` verifies both reference integrity and a limited set of semantic relationships:
+
+- bootstrap files exist and expose the context entrypoints;
+- current-work lifecycle state is legal for the certification mode;
+- stable-state documentation identifies the actual main HEAD;
+- every mapped workflow/job exists;
+- canonical domain paths route to the expected CI certification family;
+- domain-documentation mappings reference known map domains;
+- impact-chain edges reference known domains.
+
+This remains intentionally deterministic. It does not claim to detect arbitrary natural-language contradictions or infer dependencies that were never declared.
+
+## Bootstrap ownership
+
+The following files are treated as context-critical inputs rather than ordinary documentation:
+
+`AGENTS.md`, `GEMINI.md`, `CONTRIBUTING.md`, `docs/index.md`, the current-state/roadmap bootstrap, the domain/contract/invariant/validation indexes, this procedure, `.eve-trade/*` and the context integrity/routing scripts.
+
+Changes to this bootstrap surface use the conservative certification path.
+
+## Routing versus ownership
+
+A CI lane reference proves that the workflow/job exists. The integrity check additionally exercises the change classifier with canonical paths so a mapped domain cannot silently lose all certification routing.
+
+The context map does not claim that its impact graph is exhaustive. Missing edges are unresolved navigation knowledge, not proof of no downstream consumer.

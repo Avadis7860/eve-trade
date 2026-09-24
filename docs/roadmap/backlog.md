@@ -39,7 +39,7 @@ There is no active P0 technical branch.
 
 ### P1 — Allocation / Portefeuille
 
-Status: CONTRACT ENRICHMENT ACTIVE / IMPLEMENTATION NOT STARTED
+Status: IMPLEMENTATION INCREMENT 1 ACTIVE / CERTIFICATION PENDING
 
 Detailed contract: [UX-03 Allocation / Portefeuille](../ux/ux-03-allocation-contract.md)
 
@@ -54,6 +54,7 @@ Detailed contract: [UX-03 Allocation / Portefeuille](../ux/ux-03-allocation-cont
 - Preserve valid prior proposals during stale/error refresh states and never collapse missing data to zero.
 - Cover multi-opportunity allocation, reserve, escrow, stale/partial/error, manual-budget and missing-inventory scenarios.
 - Correct current optimizer quantity/capital consistency and document allocation rationale before certification.
+- Increment 1 is implemented on `ux-03/allocation-contract`; final UX-03 certification remains the next delivery gate.
 
 ### P1 — Performance / Journal
 

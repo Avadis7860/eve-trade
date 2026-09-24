@@ -1,7 +1,7 @@
 # Master Plan
 
 Status: CURRENT
-Scope: strategic sequencing only
+Scope: strategic sequencing
 Source of truth: current code/tests/CI and state documents
 Implementation: tracked roadmaps and code
 Validation: each chantier owns its validation gate
@@ -9,73 +9,54 @@ CI gate: PR CI
 
 ## Current state
 
-The functional E2E-001 baseline is stable and merged. CI-001 is merged and complete. UX-02 is merged. UX-01/P0 is now closed; the next product chantier is UX-03 Allocation, after the current public-readiness/documentation sync.
+The market/ESI retrieval foundations and UX-02 Operations work are certified. UX-03 exposed a deeper domain-model mismatch that must now be resolved before further product implementation.
 
-The application has mature market, ESI, finance, order, prediction and portfolio foundations, but the presentation layer does not yet expose them as a coherent trading workflow.
+The key separation is:
 
-**Current product sequence:** finish the public-readiness/documentation synchronization, then begin UX-03 Allocation / Portefeuille. Public-readiness hardening is tracked separately as maintenance work.
+Market Order Observation -> exposure/provenance
 
-See:
-- [UI/UX Product Audit](../audits/ui-ux-product-audit-2026-09-23.md)
-- [UX-First Trading Terminal Program](ux-program.md)
-- [ADR-0002 — UX-first sequencing](../decisions/ADR-0002-ux-first-trading-terminal.md)
-- [P0 Market Reliability Plan](p0-market-reliability.md)
+Economic Transaction -> AcquisitionLot -> DisposalAllocation -> CurrentPosition -> Realized Financial Outcome
+
+The active UX-03 branch is frozen while this contract is re-based.
 
 ## Mandatory sequencing gate
 
-No unrelated product chantier starts before the UX-first baseline/contract gate is completed. CI-001 was the explicit cross-cutting infrastructure exception; it is now merged.
+No dependent financial, performance or portfolio feature starts until the contract reset is accepted.
 
-Allowed before that gate:
-- P0 market/ESI reliability and observability required to establish data truth;
-- security and regression fixes;
-- documentation and contract work required by the UX program.
-
-Deferred until the UX gate:
-- PST-001 IndexedDB decomposition;
-- broad UI component decomposition for its own sake;
-- generic performance optimization;
-- legacy typing cleanup;
-- unrelated feature expansion.
+Allowed in parallel:
+- narrow CI maintenance;
+- security/regression fixes;
+- documentation and contract work required by this reset.
 
 ## Ordered roadmap
 
 | ID | Status | Goal | Dependencies | Risk | Validation |
 |---|---|---|---|---|---|
-| DOC-001 | DONE | Reconstruct modular documentation governance | current mission | stale truth if incomplete | docs/link audit + CI |
-| E2E-001 | DONE | Establish reproducible local OAuth/browser gate, deterministic CI E2E coverage, and real-CCP smoke | stable auth/ESI | environment-sensitive auth/callback integration | browser E2E + security/API + local CCP smoke |
-| UX-00 | DONE | Define and freeze product model, navigation, responsibilities and shared UX vocabulary | current audit | scope drift if implementation starts early | accepted UX contract |
-| UX-01 | DONE / EXTERNALLY BOUNDED | Establish market/ESI truth and retrieval observability; reported target-PC issue resolved without a persistent application defect | UX-00 vocabulary; existing ESI boundary | hidden empty/error states; ESI rate limits | caller audit + ERROR/PARTIAL/STALE/429 regression + current functional state |
-| UX-02 | DONE / MERGED | Rebuild Mes Ordres as the Operations console | UX-00, UX-01, CI-001 merged | business state fragmentation | UI/browser acceptance |
-| UX-03 | P1 | Rebuild Portefeuille as Real Portfolio + Proposed Allocation across multiple opportunities | UX-00, UX-01, UX-02 | misleading allocation / concentration | engine + UI + scenario tests |
-| UX-04 | P1 | Replace manual Journal with ESI-based automatic Performance & Historique | UX-00, UX-01, financial truth, execution data | incorrect attribution | accounting + reconciliation + browser scenarios |
-| UX-05 | P1 | Rebuild Paramètres as business Control Center and remove/unwire fake controls | UX-00, engine consumer map, UX-03/04 parameter needs | settings with no effect | consumer matrix + UI tests |
-| UX-06 | P2 | Reposition Cockpit as decision-oriented synthesis | UX-02..05 contracts | dashboard duplication | browser workflow acceptance |
-| UX-07 | P2 | Responsive/accessibility/interaction hardening across critical workflows | UX-02..06 | broad UI regression surface | browser + targeted accessibility checks |
+| DOC-001 | DONE | Modular documentation governance | repository baseline | stale truth | docs/link audit |
+| E2E-001 | DONE | Reproducible OAuth/browser gate | auth/ESI | environment integration | browser + API smoke |
+| UX-00 | DONE | Product model and information architecture | audit | scope drift | accepted UX contract |
+| UX-01 | DONE / EXTERNALLY BOUNDED | Market/ESI truth and retrieval observability | UX-00 | hidden error/empty states | caller + ERROR/PARTIAL/STALE/429 proof |
+| UX-02 | DONE / MERGED | Operations / Mes Ordres | UX-00/01 | business state fragmentation | UI/browser acceptance |
+| FIN-001 | P0 / BLOCKING | Acquisition lots and current position ledger | ESI transaction facts + ADR-0003 | wrong cost basis / incomplete inventory | lot/position scenarios |
+| ORD-001 | P0 / BLOCKING | Canonical MarketOrder axes: ID, side, issuer, owner, observer | existing ownership/order identity | provenance confusion | order scenarios |
+| FIN-002 | P0 / BLOCKING | Position lifecycle and Performance semantics | FIN-001 | partial sale misreported as closed | lifecycle/P&L scenarios |
+| DATA-001 | P0 / BLOCKING | Audit provenance and numeric fallback semantics | FIN-001/ORD-001 | false zero / false completeness | source/state audit |
+| UX-03 | P1 / PAUSED | Real Portfolio + Proposed Allocation | FIN-001/ORD-001 + UX-00..02 | misleading allocation/cost basis | engine + UI + scenario tests |
+| UX-04 | P1 / BLOCKED | Automatic Performance & Historique | FIN-001/FIN-002 | incorrect attribution | accounting + reconciliation |
+| UX-05 | P1 | Control Center / Paramètres | UX-03/04 | fake/non-operative controls | consumer matrix |
+| UX-06 | P2 | Cockpit synthesis | UX-02..05 | duplicated semantics | browser workflow |
+| UX-07 | P2 | Interaction/accessibility hardening | UX-02..06 | broad UI regression | browser + a11y |
 
-The order is intentionally product-first. The deferred items are not cancelled; they are blocked by the sequencing gate until their dependencies become meaningful.
+## Immediate maintenance
 
-## Cross-cutting infrastructure tracks
+CI-003 / #76 may be fixed independently because it does not change the product model. CI-002 remains the separate Draft-routing follow-up.
 
-These tracks can be prepared in documentation before they are made active. Their presence does not automatically change the active product chantier.
+## Current branch governance
 
-| ID | Status | Goal | Depends on | Priority |
-|---|---|---|---|---|
-| CI-001 | DONE / MERGED | Refonte du système CI, validation et gouvernance PR | current CI study | maintenance only; follow-up hardening is separate |
-| CI-OPS-001 | CANDIDATE / DEFERRED | Project operator CLI with Oclif around the existing CI/PR model | P0 closure; explicit CI-hardening need | maintenance candidate; separate branch/PR |
-| PUBLIC-READINESS | ACTIVE MAINTENANCE | Strengthen public repository credibility, security posture, licensing and release/showcase hygiene | public repository state | maintenance track; does not replace UX delivery |
+PR #71 / `ux-03/allocation-contract` remains open for traceability but is frozen and must not be merged in its current semantic state.
 
-CI-001 remains the stable PR certification base. Its Draft-routing mismatch stays separate as a future CI hardening item.
-
-## UX program completion gate
-
-The UX-first program can leave discovery/design only when:
-1. product information architecture is accepted;
-2. P0 market retrieval is observable and reproducible;
-3. Operations, Allocation, Performance and Parameters contracts are implementation-ready;
-4. each contract has loading/empty/stale/partial/error behavior;
-5. validation scenarios are documented;
-6. roadmap/backlog/current-state remain synchronized.
+See [Financial Truth Rebase](financial-truth-rebase.md), [ADR-0003](../decisions/ADR-0003-economic-position-and-order-model.md), [Current Chunk](current-chunk.md), [Backlog](backlog.md) and [Known Gaps](../state/known-gaps.md).
 
 ## Definition of Done
 
-Every major chantier must leave the roadmap, current-state, known-gaps and relevant domain/architecture documentation synchronized with its implementation and validation evidence.
+Every major chantier leaves the roadmap, current-state, known-gaps and relevant domain/architecture documentation synchronized with implementation and validation evidence. Contract changes precede dependent code changes.

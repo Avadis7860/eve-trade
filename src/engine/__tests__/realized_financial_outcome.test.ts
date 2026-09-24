@@ -2076,6 +2076,50 @@ async function runAllTests() {
       source_coverage: 'MARKET_TRACEABLE',
       history_coverage: 'COMPLETE_FOR_SCOPE',
       economic_origin_coverage: 'COMPLETE_FOR_SCOPE',
+      position_segments: [
+        {
+          position_id: 'position_operation_test',
+          position_segment_id: 'operation_test',
+          accounting_scope_id: 'ecosystem:test',
+          type_id: typeId,
+          economic_owner_type: 'character',
+          economic_owner_id: charId,
+          quantity_acquired: 100,
+          quantity_disposed: 100,
+          remaining_quantity: 0,
+          remaining_cost_basis: 0,
+          realized_gross_profit: 500,
+          capital_committed: 1000,
+          cash_recovered: 1500,
+          capital_recovery_delta: 500,
+          capital_recovery_ratio: 1.5,
+          capital_recovery_state: 'POSITIVE',
+          provenance: [
+            {
+              source_kind: 'ESI_WALLET_TRANSACTION',
+              source_id: '8101',
+              principal_scope: 'character:2113010',
+            },
+            {
+              source_kind: 'ESI_WALLET_TRANSACTION',
+              source_id: '8102',
+              principal_scope: 'character:2113010',
+            },
+          ],
+          lifecycle_status: 'CLOSED',
+          position_completeness: 'OBSERVED',
+          financial_completeness: 'OBSERVED',
+          source_coverage: 'MARKET_TRACEABLE',
+          history_coverage: 'COMPLETE_FOR_SCOPE',
+          economic_origin_coverage: 'COMPLETE_FOR_SCOPE',
+          lots: [],
+          allocations: [],
+          disposition_states: [],
+          unmatched_disposition_quantity: 0,
+          invalid_transaction_ids: [],
+          unreconciled_location_transition_count: 0,
+        },
+      ],
       position_disposition_states: [
         {
           disposition_transaction_id: 8102,
@@ -2145,6 +2189,7 @@ async function runAllTests() {
       fifo_allocations: [
         {
           allocation_id: 'alloc_8102_8101',
+          position_segment_id: 'operation_test',
           provenance: {
             source_kind: 'ESI_WALLET_TRANSACTION',
             source_id: '8102',

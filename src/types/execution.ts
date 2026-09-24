@@ -36,6 +36,24 @@ export interface PortfolioPosition {
   expected_profit: number;
   expected_daily_profit: number;
   share_of_portfolio: number;
+  /** Prospective metrics stay separate from realized financial truth. */
+  expected_realized_profit?: number;
+  projected_net_profit?: number;
+  capturable_profit?: number;
+  projected_roi?: number;
+  profit_per_day?: number;
+  expected_days_to_sell?: number;
+  data_confidence?: number | null;
+  prediction_confidence?: number | null;
+  profit_realization_probability?: number | null;
+  risk_fronts?: string[];
+  concentration_contribution?: {
+    type_share: number;
+    group_share: number;
+    category_share: number;
+    route_share: number;
+  };
+  rationale?: import('./portfolio').PortfolioPositionRationale;
 }
 
 export interface PortfolioSimulation {

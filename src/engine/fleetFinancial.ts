@@ -242,8 +242,9 @@ export class FleetFinancialEngine {
     );
 
     const avgRealizedRoi =
-      closedCycles.length > 0
-        ? closedCycles.reduce((acc, c) => acc + c.roi, 0) / closedCycles.length
+      closedCycles.filter((c) => c.roi !== null).length > 0
+        ? closedCycles.filter((c) => c.roi !== null).reduce((acc, c) => acc + c.roi, 0) /
+          closedCycles.filter((c) => c.roi !== null).length
         : 0;
 
     const avgHoldDays =

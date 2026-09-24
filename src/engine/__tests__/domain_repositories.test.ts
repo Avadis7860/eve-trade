@@ -48,6 +48,13 @@ if (collectionRes.validTypes.length !== 1) {
 if (collectionRes.errors.length < 2) {
   throw new Error(`CatalogValidator.validateCollection expected at least 2 errors, got ${collectionRes.errors.length}`);
 }
+
+const explicitZeroVolume = CatalogValidator.validateCollection([
+  { type_id: 991001, name: 'Zero Volume Fixture', volume: 0, group_id: 1, category_id: 1 },
+]);
+if (explicitZeroVolume.validTypes[0]?.volume !== 0) {
+  throw new Error('CatalogValidator must preserve an explicit zero volume rather than replacing it with 0.01');
+}
 console.log('✅ CatalogValidator verified.');
 
 // --- 2. Testing CatalogRepository SSOT ---

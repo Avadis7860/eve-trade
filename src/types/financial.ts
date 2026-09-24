@@ -236,8 +236,166 @@ export type ExecutionFeeRoleMode = 'TAKER_TAKER' | 'TAKER_MAKER' | 'MAKER_TAKER'
  */
 export type FinancialCompleteness = 'OBSERVED' | 'ESTIMATED' | 'PARTIAL' | 'UNAVAILABLE';
 
+/** Evidence coverage is independent from financial fee completeness. */
+export type FinancialHistoryCoverage = 'COMPLETE_FOR_SCOPE' | 'PARTIAL' | 'UNKNOWN';
+export type EconomicOriginCoverage = 'COMPLETE_FOR_SCOPE' | 'PARTIAL' | 'UNKNOWN';
+
+export interface FinancialCoverageEvidence {
+  readonly history_coverage: FinancialHistoryCoverage;
+  readonly economic_origin_coverage: EconomicOriginCoverage;
+}
+
+export type PositionLifecycleStatus = 'OPEN' | 'PARTIALLY_REALIZED' | 'CLOSED' | 'UNKNOWN';
+
+export type EconomicOrigin =
+  | 'MARKET_ACQUISITION'
+  | 'PRODUCTION_OUTPUT'
+  | 'INTERNAL_TRANSFER'
+  | 'UNKNOWN_ORIGIN';
+
+export type FinancialSourceKind =
+  | 'ESI_WALLET_TRANSACTION'
+  | 'EXECUTION_TRANSACTION';
+
+export type FinancialSourceCoverage =
+  | 'MARKET_TRACEABLE'
+  | 'PARTIAL'
+  | 'UNAVAILABLE';
+
+export type EconomicOwnerType =
+  | 'character'
+  | 'corporation'
+  | 'mixed'
+  | 'unknown';
+
+export interface FinancialProvenance {
+  readonly source_kind: FinancialSourceKind;
+  readonly source_id: string;
+  readonly principal_scope: string;
+}
+
+export type EconomicPositionRecoveryState = 'NEGATIVE' | 'RECOVERED' | 'POSITIVE';
+
+export interface CapitalRecoverySummary {
+  readonly scope: 'KNOWN_POSITIONS';
+  readonly provenance: readonly FinancialProvenance[];
+  readonly financial_completeness: Extract<FinancialCompleteness, 'OBSERVED' | 'PARTIAL'>;
+  readonly history_coverage: FinancialHistoryCoverage;
+  readonly economic_origin_coverage: EconomicOriginCoverage;
+  readonly capital_committed: number;
+  readonly cash_recovered: number;
+  readonly capital_recovery_delta: number;
+  readonly capital_recovery_ratio: number | null;
+  readonly remaining_quantity: number;
+  readonly remaining_cost_basis: number;
+  readonly known_position_count: number;
+  readonly open_position_count: number;
+  readonly partially_realized_position_count: number;
+  readonly closed_position_count: number;
+}
+
+export interface AcquisitionLot {
+  readonly lot_id: string;
+  readonly position_segment_id: string;
+  readonly provenance: FinancialProvenance;
+  readonly transaction_id: number;
+  readonly type_id: number;
+  readonly location_id: number;
+  readonly quantity_acquired: number;
+  readonly remaining_quantity: number;
+  readonly unit_cost: number;
+  readonly total_original_cost: number;
+  readonly remaining_cost_basis: number;
+  readonly acquired_at: string;
+  readonly economic_origin: EconomicOrigin;
+  readonly economic_owner_type: Exclude<EconomicOwnerType, 'mixed'>;
+  readonly economic_owner_id: number | string | null;
+  readonly related_order_id?: import('./order').OrderId;
+  readonly status: PositionLifecycleStatus;
+}
+
+export interface DisposalAllocation {
+  readonly allocation_id: string;
+  readonly position_segment_id: string;
+  readonly disposition_transaction_id: number;
+  readonly acquisition_lot_id: string;
+  readonly acquisition_transaction_id: number;
+  readonly provenance: FinancialProvenance;
+  readonly allocated_quantity: number;
+  readonly acquisition_unit_cost: number;
+  readonly disposal_unit_price: number;
+  readonly acquisition_cost: number;
+  readonly disposal_revenue: number;
+  readonly gross_realized_profit: number;
+  readonly acquired_at: string;
+  readonly disposed_at: string;
+}
+
+export interface PositionDispositionState {
+  readonly position_segment_id?: string;
+  readonly disposition_transaction_id: number;
+  readonly disposed_quantity: number;
+  readonly unmatched_quantity: number;
+  readonly remaining_position_quantity: number;
+  readonly lifecycle_status: PositionLifecycleStatus;
+  readonly position_quantity_acquired?: number;
+  readonly position_capital_committed?: number;
+  readonly position_cash_recovered?: number;
+  readonly position_recovery_delta?: number;
+  readonly position_recovery_ratio?: number | null;
+  readonly position_recovery_state?: EconomicPositionRecoveryState;
+}
+
+export interface CurrentPosition {
+  readonly position_id: string;
+  readonly position_segment_id: string;
+  readonly accounting_scope_id: string;
+  readonly type_id: number;
+  readonly economic_owner_type: EconomicOwnerType;
+  readonly economic_owner_id: number | string | null;
+  readonly quantity_acquired: number;
+  readonly quantity_disposed: number;
+  readonly remaining_quantity: number;
+  readonly remaining_cost_basis: number;
+  readonly realized_gross_profit: number;
+  readonly capital_committed: number | null;
+  readonly cash_recovered: number | null;
+  readonly capital_recovery_delta: number | null;
+  readonly capital_recovery_ratio: number | null;
+  readonly capital_recovery_state: EconomicPositionRecoveryState | null;
+  readonly provenance: readonly FinancialProvenance[];
+  readonly lifecycle_status: PositionLifecycleStatus;
+  readonly position_completeness: Extract<FinancialCompleteness, 'OBSERVED' | 'PARTIAL' | 'UNAVAILABLE'>;
+  readonly financial_completeness: FinancialCompleteness;
+  readonly source_coverage: FinancialSourceCoverage;
+  readonly history_coverage: FinancialHistoryCoverage;
+  readonly economic_origin_coverage: EconomicOriginCoverage;
+  readonly lots: readonly AcquisitionLot[];
+  readonly allocations: readonly DisposalAllocation[];
+  readonly disposition_states: readonly PositionDispositionState[];
+  readonly unmatched_disposition_quantity: number;
+  readonly invalid_transaction_ids: readonly number[];
+  readonly unreconciled_location_transition_count: number;
+}
+
+export type EconomicPositionSegment = CurrentPosition;
+
+export interface PositionLedgerResult {
+  readonly accounting_scope_id: string;
+  readonly type_id: number;
+  /** Reporting attribution only; never an accounting boundary. */
+  readonly character_id?: number;
+  readonly principal_scope: string;
+  readonly position_segments: readonly EconomicPositionSegment[];
+  readonly all_disposition_states: readonly PositionDispositionState[];
+  readonly position: CurrentPosition;
+}
+
+
 export interface FifoLotRecord {
-  readonly lot_id: string; // "lot_{buy_transaction_id}"
+  readonly lot_id: string;
+  readonly position_segment_id: string;
+  readonly provenance: FinancialProvenance;
   readonly buy_transaction_id: number;
   readonly type_id: number;
   readonly location_id: number;
@@ -251,6 +409,8 @@ export interface FifoLotRecord {
 
 export interface FifoAllocationRecord {
   readonly allocation_id: string;
+  readonly position_segment_id: string;
+  readonly provenance: FinancialProvenance;
   readonly sell_transaction_id: number;
   readonly buy_transaction_id: number;
   readonly type_id: number;
@@ -283,11 +443,18 @@ export interface RealizedFinancialOutcome {
   readonly outcome_id: string;
   readonly execution_id: string;
   readonly character_id: number;
-  readonly observation_id: string;
+  readonly accounting_scope_id: string;
+  readonly source_coverage: FinancialSourceCoverage;
+  readonly history_coverage: FinancialHistoryCoverage;
+  readonly economic_origin_coverage: EconomicOriginCoverage;
+  readonly position_segments: readonly EconomicPositionSegment[];
+  readonly position_disposition_states: readonly PositionDispositionState[];
+  /** Present only when a real observing record is available. */
+  readonly observation_id?: string;
+  readonly calculation_source: 'EXECUTION_RECORD' | 'TRANSACTION_FACTS';
   readonly opportunity_id?: string;
   readonly type_id: number;
 
-  // Quantities
   readonly total_buy_quantity: number;
   readonly total_sell_quantity: number;
   readonly matched_quantity: number;
@@ -295,29 +462,32 @@ export interface RealizedFinancialOutcome {
   readonly unmatched_sell_quantity: number;
   readonly has_unmatched_sell_quantity: boolean;
 
-  // Financial Values (Realized based on matched quantity)
   readonly realized_acquisition_cost: number;
   readonly realized_revenue: number;
   readonly gross_realized_profit: number;
   readonly realized_gross: number;
 
-  // Fees & Net (Strict separation of observed facts vs configuration estimates)
   readonly fees: RealizedFeeBreakdown;
-  readonly net_realized_profit: number;
+  readonly net_realized_profit: number | null;
   readonly realized_net_estimated: number | null;
   readonly is_net_estimated: boolean;
   readonly is_financially_complete: boolean;
   readonly financial_completeness: FinancialCompleteness;
 
-  // Ratios & Rates
-  readonly roi: number;
-  readonly margin: number;
-  readonly profit_per_unit: number;
+  readonly roi: number | null;
+  readonly margin: number | null;
+  readonly profit_per_unit: number | null;
 
-  // Inventory Cost Basis (Unrealized holding cost)
   readonly remaining_inventory_cost_basis: number;
 
-  // Temporal & Hold Metrics
+  readonly capital_committed: number | null;
+  readonly cash_recovered: number | null;
+  readonly capital_recovery_delta: number | null;
+  readonly capital_recovery_ratio: number | null;
+
+  readonly position_lifecycle: PositionLifecycleStatus;
+  readonly position_remaining_quantity: number;
+
   readonly first_buy_at: string | null;
   readonly last_buy_at: string | null;
   readonly first_realized_sell_at: string | null;
@@ -327,14 +497,12 @@ export interface RealizedFinancialOutcome {
   readonly weighted_hold_ms: number;
   readonly weighted_hold_days: number;
 
-  // Quality & Traceability
   readonly data_state: 'VALID' | 'PARTIAL';
   readonly state_reasons?: readonly string[];
   readonly fifo_allocations: readonly FifoAllocationRecord[];
   readonly remaining_lots: readonly FifoLotRecord[];
 
-  // Versioning
-  readonly realized_financial_engine_version: string; // "1.0.0"
+  readonly realized_financial_engine_version: string;
 }
 
 export interface RealizedFinancialCalculationOptions {
@@ -342,6 +510,10 @@ export interface RealizedFinancialCalculationOptions {
   readonly buyLocationProfile?: Partial<MarketLocationFeeProfile>;
   readonly sellLocationProfile?: Partial<MarketLocationFeeProfile>;
   readonly executionFeeMode?: ExecutionFeeRoleMode;
-  readonly transactions?: readonly any[]; // Accepts PersistedCharacterTransaction or ExecutionTransactionRef
+  /** Explicit economic accounting scope; character identity is attribution/provenance. */
+  readonly accounting_scope_id?: string;
+  /** Omitted evidence is UNKNOWN, never COMPLETE. */
+  readonly coverage_evidence?: FinancialCoverageEvidence;
+  readonly transactions?: readonly any[];
   readonly now?: () => string;
 }

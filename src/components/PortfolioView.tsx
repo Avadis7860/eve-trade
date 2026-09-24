@@ -81,12 +81,19 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
   realPortfolio,
   onSelectOpportunity,
 }) => {
-  const projectedNetProfit = proposedAllocation.simulation.positions.reduce(
-    (sum, position) => sum + (position.projected_net_profit ?? position.opportunity.costs.net_profit),
-    0,
-  );
-  const deployed = proposedAllocation.simulation.total_capital_invested;
-  const projectedRoi = deployed > 0 ? projectedNetProfit / deployed : null;
+  const projectedNetProfit = proposedAllocation.proposal_blocked
+    ? null
+    : proposedAllocation.simulation.positions.reduce(
+        (sum, position) => sum + (position.projected_net_profit ?? position.opportunity.costs.net_profit),
+        0,
+      );
+  const deployed = proposedAllocation.proposal_blocked
+    ? null
+    : proposedAllocation.simulation.total_capital_invested;
+  const projectedRoi =
+    deployed !== null && deployed > 0 && projectedNetProfit !== null
+      ? projectedNetProfit / deployed
+      : null;
 
   return (
     <div className="space-y-6 text-[#fafafa] text-xs">
@@ -220,8 +227,12 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
           />
           <MetricCard
             label="Capital déployé"
-            value={fmtIsk(deployed)}
-            caption={`${proposedAllocation.simulation.positions.length} positions`}
+            value={displayIsk(deployed)}
+            caption={
+              proposedAllocation.proposal_blocked
+                ? 'Proposition fraîche bloquée'
+                : `${proposedAllocation.simulation.positions.length} positions`
+            }
             icon={<Layers className="w-3.5 h-3.5 text-green-300" />}
           />
           <MetricCard
@@ -286,7 +297,7 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
               </thead>
               <tbody className="divide-y divide-[#262730]">
                 {proposedAllocation.simulation.positions.map((pos, idx) => {
-                  const part = deployed > 0 ? pos.allocated_capital / deployed : 0;
+                  const part = deployed !== null && deployed > 0 ? pos.allocated_capital / deployed : 0;
                   return (
                     <tr
                       key={`${pos.opportunity.id}-${idx}`}

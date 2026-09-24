@@ -28,7 +28,7 @@ CI gate: unit/domain certification
 - a position closed after multiple disposals uses the cumulative result of the full position segment, not just the final disposal, for whole-position profitability and ROI;
 - break-even is a policy state, not a substitute for accounting facts.
 
-TraderAnalyticsService and FleetFinancialEngine must remain projections of the accepted position/financial contract, not independent accounting engines.
+TraderAnalyticsService must remain a projection of the accepted position/financial contract, not an independent accounting engine.
 
 ## Latest CI certification state
 

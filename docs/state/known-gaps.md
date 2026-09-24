@@ -10,7 +10,7 @@ Source of truth: code, tests, CI and current state documents
 - The active-work state must remain operational and branch/PR specific; the stable map must not embed the current branch or PR.
 - Context references are qualified by workflow file and job because CI job IDs can repeat across workflows.
 - The archive is not a source of current implementation truth. Archived UX-03/Financial Truth code is reference-only and must be re-derived from current main.
-- The post-merge audit demonstrated that a merged delivery could leave `current-work`, current-state and roadmap metadata presenting an old active chantier. The hardening adds deterministic stable-state checks and a closing lifecycle.
+- The post-merge audit demonstrated that a merged delivery could leave `current-work`, current-state and roadmap metadata presenting an old active chantier. The hardening adds deterministic stable-state checks and a closing lifecycle. Stable validation now uses the merge integration anchor rather than a merge-created SHA that cannot be known before merge.
 
 ## UX / product gaps
 

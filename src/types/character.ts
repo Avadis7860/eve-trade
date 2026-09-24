@@ -152,7 +152,7 @@ export interface OrderOwnership {
   wallet_division?: number;
 }
 
-export interface EveCharacterOrder {
+export interface MarketOrder {
   order_id: OrderId;
   /**
    * Backward-compatible character-owner projection.
@@ -189,6 +189,9 @@ export interface EveCharacterOrder {
     competing_volume?: number;
   };
 }
+
+/** Backward-compatible name retained while consumers migrate to the canonical MarketOrder contract. */
+export type EveCharacterOrder = MarketOrder;
 
 /**
  * Phase 2 — Order Scoping & Multi-Character Context Contracts

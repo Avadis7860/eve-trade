@@ -321,18 +321,149 @@ export function aggregateOrderObservations(
  * Corporate endpoint is authoritative for corporation-owned orders when the
  * same order is also present in a character-scoped response.
  */
+function normalizeOrderForMerge(order: EveCharacterOrder): EveCharacterOrder | null {
+  const normalizedId = normalizeOrderId(order.order_id);
+  if (!normalizedId) return null;
+  return order.order_id === normalizedId
+    ? order
+    : { ...order, order_id: normalizedId };
+}
+
+function getObservedCharacterIds(order: EveCharacterOrder): number[] {
+  const ids = new Set<number>();
+  const ownership = order.ownership;
+
+  for (const id of ownership?.observed_by_character_ids ?? []) {
+    if (Number.isInteger(id) && id > 0) ids.add(id);
+  }
+
+  if (
+    ownership &&
+    Number.isInteger(ownership.principal_character_id) &&
+    ownership.principal_character_id > 0
+  ) {
+    ids.add(ownership.principal_character_id);
+  }
+
+  if (
+    !ownership &&
+    Number.isInteger(order.character_id) &&
+    order.character_id > 0
+  ) {
+    ids.add(order.character_id);
+  }
+
+  return Array.from(ids).sort((a, b) => a - b);
+}
+
+function withMergedObservers(
+  authoritative: EveCharacterOrder,
+  secondary: EveCharacterOrder,
+): EveCharacterOrder {
+  if (!authoritative.ownership) return authoritative;
+
+  const observers = new Set<number>([
+    ...getObservedCharacterIds(authoritative),
+    ...getObservedCharacterIds(secondary),
+  ]);
+  const sortedObservers = Array.from(observers).sort((a, b) => a - b);
+
+  return {
+    ...authoritative,
+    character_id:
+      authoritative.ownership.owner_type === 'character'
+        ? authoritative.ownership.owner_id
+        : undefined,
+    character_name:
+      authoritative.ownership.owner_type === 'character'
+        ? authoritative.ownership.owner_name
+        : undefined,
+    ownership: {
+      ...authoritative.ownership,
+      principal_character_id:
+        sortedObservers[0] ?? authoritative.ownership.principal_character_id,
+      observed_by_character_ids: sortedObservers,
+    },
+  };
+}
+
+/**
+ * Deduplicates one logical MarketOrder across character and corporation feeds.
+ *
+ * Corporation observations are authoritative for economic ownership when the
+ * same OrderId appears in both feeds, but the character-feed observation is
+ * retained as provenance. Conflicting corporation owners fail closed.
+ */
 export function mergeCharacterAndCorporationOrders(
   characterOrders: readonly EveCharacterOrder[],
   corporationOrders: readonly EveCharacterOrder[],
 ): EveCharacterOrder[] {
   const byId = new Map<string, EveCharacterOrder>();
 
+  const ingestCharacterObservation = (rawOrder: EveCharacterOrder): void => {
+    const order = normalizeOrderForMerge(rawOrder);
+    if (!order) return;
+
+    const existing = byId.get(order.order_id);
+    if (!existing) {
+      byId.set(order.order_id, order);
+      return;
+    }
+
+    const merged = mergeOrderObservations(existing, order);
+    if (merged) {
+      byId.set(order.order_id, merged);
+    } else {
+      byId.delete(order.order_id);
+    }
+  };
+
   for (const order of characterOrders) {
-    byId.set(order.order_id, order);
+    ingestCharacterObservation(order);
   }
 
-  for (const order of corporationOrders) {
-    byId.set(order.order_id, order);
+  for (const rawOrder of corporationOrders) {
+    const order = normalizeOrderForMerge(rawOrder);
+    if (!order) continue;
+
+    const existing = byId.get(order.order_id);
+    if (!existing) {
+      byId.set(order.order_id, order);
+      continue;
+    }
+
+    const existingOwnerType = existing.ownership?.owner_type;
+    const incomingOwnerType = order.ownership?.owner_type;
+
+    if (incomingOwnerType === 'corporation') {
+      if (
+        existingOwnerType === 'corporation' &&
+        existing.ownership?.owner_id !== order.ownership?.owner_id
+      ) {
+        byId.delete(order.order_id);
+        continue;
+      }
+
+      // The corporation feed supplies the authoritative economic owner/state,
+      // while the character observation remains visible in observer provenance.
+      byId.set(order.order_id, withMergedObservers(order, existing));
+      continue;
+    }
+
+    if (existingOwnerType === 'corporation') {
+      // A weaker character observation must not overwrite canonical corporation
+      // ownership, but it still proves that the order was observed by a
+      // character credential.
+      byId.set(order.order_id, withMergedObservers(existing, order));
+      continue;
+    }
+
+    const merged = mergeOrderObservations(existing, order);
+    if (merged) {
+      byId.set(order.order_id, merged);
+    } else {
+      byId.delete(order.order_id);
+    }
   }
 
   return Array.from(byId.values());

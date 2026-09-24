@@ -20,7 +20,7 @@ The repository also has a canonical OrderId and an OrderOwnership structure that
 
 ### 1. MarketOrder is one canonical entity
 
-A market order is identified by CCP order_id.
+A market order is identified by CCP order_id. The application uses `MarketOrder` as the canonical domain contract; the legacy `EveCharacterOrder` name is a compatibility alias only.
 
 Its independent axes are:
 
@@ -104,6 +104,8 @@ The -999,860 ISK figure is therefore a valid capital-recovery measure, but it is
 Any ROI or margin KPI must declare its scope and denominator. A realized disposal ROI cannot silently become an operation-level ROI.
 
 A whole-position realized result is only complete when the position is fully disposed, unless a separate explicitly marked current-market valuation is used. Market valuation remains unrealized/prospective and must not be presented as realized P&L.
+
+Across duplicate observations, economic ownership is not inferred from the observing credential. When the character and corporation feeds expose the same OrderId, the corporation feed is authoritative for the owner while observer provenance is unioned. Contradictory corporation owners fail closed.
 
 After a policy-defined cash break-even threshold is reached, pricing decisions such as accepting a lower margin remain POLICY decisions. They must not rewrite historical acquisition cost or realized accounting.
 

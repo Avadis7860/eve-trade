@@ -183,15 +183,40 @@ function run(): void {
   );
 
 
-  const corp42 = {
-    ...(normalizedA as NonNullable<typeof normalizedA>),
+  const corp42FromB = {
+    ...(normalizedB as NonNullable<typeof normalizedB>),
     order_id: '42',
   };
 
-  const merged = mergeCharacterAndCorporationOrders([personal], [corp42]);
+  const merged = mergeCharacterAndCorporationOrders([personal], [corp42FromB]);
   assert(merged.length === 1, 'Personal/corporation duplicate order IDs must merge once');
   assert(merged[0].ownership?.owner_type === 'corporation', 'Corporation endpoint must win duplicate ownership');
   assert(merged[0].ownership?.owner_id === 99001, 'Merged duplicate must retain corporation owner');
+  assert(
+    merged[0].character_id === undefined && merged[0].character_name === undefined,
+    'Corporation authority must clear the legacy character owner projection',
+  );
+  assert(
+    merged[0].ownership?.principal_character_id === 1001 &&
+      merged[0].ownership?.observed_by_character_ids?.join(',') === '1001,1002',
+    'Cross-feed duplicate must retain every observing character deterministically',
+  );
+
+  const canonicalizedDuplicate = mergeCharacterAndCorporationOrders(
+    [{ ...personal, order_id: '042' }],
+    [corp42FromB],
+  );
+  assert(canonicalizedDuplicate.length === 1, 'Equivalent decimal order IDs must deduplicate canonically');
+  assert(canonicalizedDuplicate[0].order_id === '42', 'Merged order ID must remain canonical');
+
+  const conflictingCorporationOrders = mergeCharacterAndCorporationOrders(
+    [],
+    [normalizedA as NonNullable<typeof normalizedA>, observedByCOrder],
+  );
+  assert(
+    conflictingCorporationOrders.length === 0,
+    'Conflicting corporation owners for one OrderId must fail closed',
+  );
 
   const mergedDistinct = mergeCharacterAndCorporationOrders(
     [personal],

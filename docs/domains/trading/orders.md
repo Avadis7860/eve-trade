@@ -6,7 +6,7 @@ Source of truth: `src/types/character.ts`, `src/engine/orderIdentity.ts`, `src/e
 
 ## Purpose
 
-Represent one CCP market order without turning character and corporation observations into separate financial species.
+Represent one CCP market order without turning character and corporation observations into separate financial species. The canonical application type is `MarketOrder`; `EveCharacterOrder` is only a compatibility alias during migration.
 
 ## Canonical dimensions
 

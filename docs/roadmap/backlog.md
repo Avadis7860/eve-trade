@@ -41,6 +41,8 @@ The Operations console and its browser decision loop are merged and certified.
 
 Status: IMPLEMENTED SCAFFOLD / CERTIFICATION BLOCKED
 
+Manual E2E follow-up is now recorded: the final UX pass must separate decision-critical allocation information from diagnostic evidence and group repeated DATA_ISSUE explanations without suppressing the underlying state.
+
 The UX-03 implementation is retained as scaffolding but must be re-based on FIN-001/ORD-001/FIN-002/DATA-001 before final certification.
 
 The Real Portfolio cost basis must come from the position/lot contract, not active BUY orders.
@@ -65,6 +67,15 @@ Rebuild cockpit around decision-oriented synthesis after UX-02..UX-05 contracts 
 ## P2 — UX hardening
 
 Responsive behavior, accessibility, interaction density and consistent degraded-data states.
+
+### UX-02 follow-up — operational order workflow
+
+Manual E2E identified two concrete usability requirements:
+
+- **Corporation order operational visibility:** corporation-owned orders must remain corporation-owned while being available in a character's operational hub workflow when the character legitimately observes or issued them. This must not rewrite economic ownership.
+- **Configurable order columns:** Mes Ordres needs user-controlled show/hide columns, a compact default view, reset-to-default and local persistence. Hidden columns remain part of the underlying data contract.
+
+These are UI projection changes, not financial/accounting changes.
 
 ## Deferred technical work
 

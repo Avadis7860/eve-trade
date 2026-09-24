@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "purpose": "Operational state for the current technical chantier. This file is checkout-aware governance metadata, not normative business truth.",
-  "state": "READY_FOR_MERGE",
+  "state": "CLOSING",
   "branch": "chore/financial-truth-archive-recovery",
   "pull_request": 82,
   "base_branch": "main",

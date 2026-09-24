@@ -2154,8 +2154,11 @@ async function runAllTests() {
     );
 
     // INVARIANT 2: Exact fee conservation
+    if (outcome.fees.fee_mode === 'UNAVAILABLE') {
+      throw new Error('Configured outcome unexpectedly has unavailable fees');
+    }
     assert(
-      outcome.fees.fee_mode !== 'UNAVAILABLE' && sumCycleFees === outcome.fees.estimated_total_fees,
+      sumCycleFees === outcome.fees.estimated_total_fees,
       `Fee conservation: sum(cycle.estimated_fees_paid) [${sumCycleFees}] == outcome.fees.estimated_total_fees [${outcome.fees.estimated_total_fees}]`
     );
 

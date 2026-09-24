@@ -23,6 +23,12 @@ export function useCharacterSync(
   const [orderSyncError, setOrderSyncError] = useState<string | null>(null);
   const ssoPopupRef = useRef<Window | null>(null);
   const syncVersionByCharacterRef = useRef(new Map<number, number>());
+  // Market books are volatile inputs used during enrichment; they must not
+  // recreate loadCharacterData and restart the whole authenticated ESI sync.
+  const orderBooksRef = useRef(orderBooks);
+  const hubsRef = useRef(hubs);
+  orderBooksRef.current = orderBooks;
+  hubsRef.current = hubs;
 
   const beginCharacterSync = (characterId: number): number => {
     const nextVersion = (syncVersionByCharacterRef.current.get(characterId) ?? 0) + 1;
@@ -112,7 +118,7 @@ export function useCharacterSync(
 
         const orderTypeIds = Array.from(new Set(effectiveOrders.map((o) => o.type_id)));
         if (orderTypeIds.length > 0) {
-          MarketDataStore.syncCharacterOrdersMarketData(orderTypeIds, hubs).catch((err) => {
+          MarketDataStore.syncCharacterOrdersMarketData(orderTypeIds, hubsRef.current).catch((err) => {
             console.warn('[useCharacterSync] syncCharacterOrdersMarketData failed:', err);
           });
         }
@@ -123,7 +129,7 @@ export function useCharacterSync(
           const loc = UniverseRepository.getInstance().resolveLocationSync(o.location_id);
           const locName = loc.name;
 
-          const regOrders = MarketDataStore.getOrders(o.type_id, o.region_id) || orderBooks[o.region_id] || [];
+          const regOrders = MarketDataStore.getOrders(o.type_id, o.region_id) || orderBooksRef.current[o.region_id] || [];
           const sameTypeOrders = regOrders.filter((ro: any) => ro.type_id === o.type_id);
           let isOutbid = false;
           let diffPct = 0;
@@ -271,8 +277,6 @@ export function useCharacterSync(
       }
     },
     [
-      orderBooks,
-      hubs,
       updateSession,
       setConfig,
     ]

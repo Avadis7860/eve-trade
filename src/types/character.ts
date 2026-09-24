@@ -200,7 +200,7 @@ export interface TradeCycleRecord {
   character_name?: string;}
 
 /**
- * Phase 3 — Multi-Character Performance & Fleet Financial Contracts
+ * Multi-Character Performance Contract
  */
 export type PerformanceScope =
   | {

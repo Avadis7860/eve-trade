@@ -3,7 +3,7 @@
   "purpose": "Operational state for the current technical chantier. This file is checkout-aware governance metadata, not normative business truth.",
   "state": "ACTIVE",
   "branch": "chore/agent-context-hardening-v2",
-  "pull_request": null,
+  "pull_request": 79,
   "base_branch": "main",
   "base_sha": "bacb0655b1fde3a4650b5cd94feed0fe8617be10",
   "delivery_rule": "one_chantier_one_branch_one_pr"

@@ -256,8 +256,6 @@ assert.ok(contextSource.includes("git', ['cat-file', 'commit', 'HEAD'"), 'Stable
 assert.ok(contextSource.includes("git', ['rev-parse', '--verify', 'HEAD'"), 'Stable anchor extraction must verify the current commit directly');
 assert.ok(!contextSource.includes("git', ['show', '-s', '--format=%H %P', 'HEAD'"), 'Stable anchor extraction must not use pretty-format parent traversal');
 assert.ok(!contextSource.includes("git', ['rev-list', '--parents', '-n', '1', 'HEAD'"), 'Stable anchor extraction must not depend on revision traversal');
-assert.ok(contextSource.includes("git', ['show', '-s', '--format=%H %P', 'HEAD'"), 'Stable anchor extraction must read commit metadata directly');
-assert.ok(!contextSource.includes("git', ['rev-list', '--parents', '-n', '1', 'HEAD'"), 'Stable anchor extraction must not depend on graph traversal in shallow checkouts');
 assert.ok(contextSource.includes('respectContextCritical: false'), 'Context routing validation must bypass the conservative critical-path guard');
 assert.ok(contextSource.includes('canonical paths do not classify for routing class'), 'Context integrity must validate functional domain-to-CI routing');
 assert.ok(contextSource.includes('impact_chains'), 'Context integrity must validate impact graph references');

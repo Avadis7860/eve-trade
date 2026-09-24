@@ -4,6 +4,7 @@ import {
   EveCharacterTransaction,
   EveCharacterJournalEntry,
 } from '../../types';
+import type { CharacterTransactionSyncSummary } from '../../types/execution';
 
 export type FreshnessStatus = 'fresh' | 'recent' | 'stale' | 'expired' | 'unknown';
 
@@ -33,5 +34,7 @@ export interface CharacterStoreSchemaV3 {
   characters: EveCharacterSession[];
   active_character_id: number | null;
   snapshots: Record<number, CharacterSnapshot>;
+  /** Durable evidence envelope for transaction-history coverage; separate from snapshot freshness. */
+  transaction_sync_summaries?: Record<number, CharacterTransactionSyncSummary>;
   updated_at: string;
 }

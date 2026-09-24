@@ -453,12 +453,10 @@ export class PortfolioOptimizer {
       concentrationRoute[routeKey] =
         (concentrationRoute[routeKey] ?? 0) + actualAllocatedCapital;
 
-      // Avoid repeatedly allocating a fully exhausted opportunity because the remaining
-      // numerical capital cannot purchase another integer unit from this candidate.
-      if (fraction >= 1) {
-        const index = eligible.indexOf(opp);
-        if (index >= 0) eligible.splice(index, 1);
-      }
+      // One proposal position per opportunity: never let repeated passes circumvent
+      // max-capital-per-trade or make one opportunity appear as several independent trades.
+      const index = eligible.indexOf(opp);
+      if (index >= 0) eligible.splice(index, 1);
     }
 
     const totalInvested = positions.reduce((acc, p) => acc + p.allocated_capital, 0);

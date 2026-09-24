@@ -211,6 +211,39 @@ for (const [jobId, commands] of Object.entries(expectedJobCommands)) {
 assert.match(jobBlock('build'), /npm run build/, 'Build lane ownership drifted');
 assert.ok(ci.includes('pull_request:'), 'PR certification workflow trigger must remain active');
 assert.ok(!ci.includes('\n  push:\n'), 'PR certification workflow must not run the deep gate on main pushes');
+assert.ok(!/^    paths(?:-ignore)?:/m.test(ci), 'PR certification must not use trigger-level path filtering that can suppress the required workflow');
+const bootstrapPaths = [
+  'AGENTS.md',
+  'GEMINI.md',
+  'CONTRIBUTING.md',
+  'docs/index.md',
+  'docs/documentation-guide.md',
+  'docs/state/current-state.md',
+  'docs/state/truth-matrix.md',
+  'docs/roadmap/current-chunk.md',
+  'docs/roadmap/master-plan.md',
+  'docs/roadmap/backlog.md',
+  'docs/contracts/index.md',
+  'docs/invariants/index.md',
+  'docs/validation/index.md',
+  'docs/domains/index.md',
+  'docs/operations/index.md',
+  'docs/architecture/index.md',
+  'docs/operations/agent-context.md',
+  '.eve-trade/context-map.json',
+  '.eve-trade/current-work.json',
+  'scripts/context-integrity.mjs',
+  'scripts/ci-scope.mjs',
+];
+const scopeSource = read('scripts/ci-scope.mjs');
+for (const bootstrapPath of bootstrapPaths) {
+  assert.ok(scopeSource.includes(`'${bootstrapPath}'`), `Agent bootstrap path must remain context-critical: ${bootstrapPath}`);
+}
+const contextSource = read('scripts/context-integrity.mjs');
+assert.ok(contextSource.includes("work.state !== 'IDLE'"), 'Context integrity must distinguish active and stable lifecycle state');
+assert.ok(contextSource.includes('current-state is stale for stable HEAD'), 'Stable context integrity must detect stale main-state documentation');
+assert.ok(contextSource.includes('canonical paths do not route to required CI output'), 'Context integrity must validate domain-to-CI routing, not only job existence');
+assert.ok(contextSource.includes('impact_chains'), 'Context integrity must validate impact graph references');
 assert.ok(mainSmoke.includes('push:\n    branches: ["main"]'), 'Main smoke must own the main push trigger');
 assert.ok(mainSmoke.includes('name: CI / main-smoke'), 'Main smoke must expose a stable smoke job');
 assert.ok(mainSmoke.includes('timeout-minutes: 10'), 'Main smoke must have an explicit timeout');

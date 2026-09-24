@@ -13,7 +13,7 @@ function tx(
   quantity: number,
   unit_price: number,
   timestamp: string,
-): ExecutionTransactionRef {
+): ExecutionTransactionRef & { provenance: { source_kind: 'ESI_WALLET_TRANSACTION'; source_id: string; principal_scope: string } } {
   return {
     transaction_id,
     type_id: 34,
@@ -23,6 +23,11 @@ function tx(
     unit_price,
     timestamp,
     character_id: 1001,
+    provenance: {
+      source_kind: 'ESI_WALLET_TRANSACTION',
+      source_id: String(transaction_id),
+      principal_scope: 'character:1001',
+    },
   };
 }
 
@@ -54,6 +59,9 @@ function run() {
     assert(p.lifecycle_status === 'PARTIALLY_REALIZED', 'large position must remain partially realized');
     assert(p.lots.length === 1 && p.lots[0].remaining_quantity === 9_999, 'lot must retain 9,999 units');
     assert(p.allocations.length === 1 && p.allocations[0].allocated_quantity === 1, 'one disposal allocation must exist');
+    assert(p.lots[0].provenance.source_kind === 'ESI_WALLET_TRANSACTION', 'lot source kind must remain explicit');
+    assert(p.allocations[0].provenance.source_id === '200', 'disposal provenance must preserve transaction source ID');
+    assert(p.allocations[0].provenance.principal_scope === 'character:1001', 'disposal provenance must preserve principal scope');
   }
 
   {
@@ -112,6 +120,15 @@ function run() {
     assert(result.position.financial_completeness === 'PARTIAL', 'invalid source data must remain partial');
     assert(result.position.invalid_transaction_ids.includes(101), 'invalid acquisition must be identified');
     assert(result.position.unmatched_disposition_quantity === 1, 'unmatched sale quantity must remain explicit');
+  }
+
+  {
+    const unprovenanced = tx(301, true, 2, 50, '2026-09-20T10:00:00Z') as any;
+    delete unprovenanced.provenance;
+    const result = reconstructPositionLedger(1001, 34, [unprovenanced]);
+    assert(result.position.financial_completeness === 'PARTIAL', 'missing provenance must keep the position partial');
+    assert(result.position.invalid_transaction_ids.includes(301), 'missing provenance transaction must be rejected explicitly');
+    assert(result.position.quantity_acquired === 0, 'unprovenanced acquisition must not enter economic inventory');
   }
 
   console.log('[PASS] FIN-001 position ledger scenarios validated.');

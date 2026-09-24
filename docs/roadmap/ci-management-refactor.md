@@ -40,9 +40,9 @@ CI-001 ne vise pas à :
 
 ## Current execution state
 
-CI-001 is implemented on the single active branch `ci/ci-001a-baseline` and is now in pre-merge closure; there must be no second active PR for CI-001.
+CI-001 is **DONE / MERGED** on `main` at `7fc6fe7ca65454d0d29843bc0eace336b2da864c` and is no longer an active delivery branch. Its implementation phases A through J are historical execution evidence; future CI changes must use a new dedicated maintenance chantier.
 
-CI-001A/B through CI-001I are implemented, with CI-001G certified and CI-001I runtime-verified on PR run `35856208503`. CI-001H separates Main Smoke, Full Repository Certification and recovery guidance. The remaining items are closure/documentation decisions plus a small set of explicitly deferred security/maintenance hardening tracks.
+CI-001G is certified and CI-001I is runtime-verified on PR run `35856208503`. CI-001H established the separate Main Smoke, Full Repository Certification and recovery surfaces. Remaining items are explicitly classified as follow-up maintenance, conditional settings or administrative verification.
 
 Required-check naming is unchanged. Branch-protection visibility remains an administrative unknown because the available integration cannot inspect the relevant settings. Playwright workers remain at 1 by design.
 
@@ -514,7 +514,7 @@ Gate :
 
 ### CI-001H — Cycle Main : post-merge, Full et récupération
 
-État : IMPLEMENTED — workflows Main/Full et recovery runbook implémentés sur la branche CI-001 unique. Le Main Smoke est une preuve post-merge; le Full reste un contrôle manual/scheduled indépendant.
+État : COMPLETED / MERGED — les workflows Main/Full et le recovery runbook sont présents sur main. Le Main Smoke est une preuve post-merge indépendante ; le Full reste un contrôle manuel/planifié indépendant.
 
 Objectif : séparer santé immédiate et certification exhaustive.
 
@@ -609,11 +609,11 @@ En particulier :
 
 ## Priorité
 
-État actuel : **PRE-MERGE CLOSURE — CI-001J**.
+État actuel : **DONE / MERGED**.
 
-CI-001 est désormais le chantier prioritaire unique pour la CI et la gouvernance de livraison. UX-02 reste suspendu pendant cette tranche d'infrastructure.
+CI-001 n'est plus le chantier actif. Sa base certifiée reste la référence pour les PR et les validations post-merge.
 
-CI-001D/E/F/G sont complétés et runtime-verified ; CI-001H/I sont implémentés et prouvés. Le chantier est désormais en clôture pré-merge.
+Les sujets restants (Draft routing, sécurité/supply-chain, maintenance des actions, vérification administrative de la protection de branche) sont des follow-ups séparés et ne doivent pas rouvrir CI-001.
 
 La protection de branche reste administrativement inconnue avec l'intégration disponible ; aucun renommage de required-check n'a été effectué.
 

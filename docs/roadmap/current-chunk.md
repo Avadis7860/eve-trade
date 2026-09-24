@@ -89,3 +89,15 @@ Implementation may resume only after:
 - FIN-002 has ecosystem-level position-lifecycle, source-coverage and capital-recovery acceptance cases and is next;
 - DATA-001 has completed the first data-state audit;
 - CI regressions are corrected and the relevant gate is green for the current branch head; a green intermediate regression gate does not by itself constitute semantic certification.
+
+## FIN-002 implementation sequence — active
+
+1. Introduce accounting_scope_id, economic origin and source coverage at the financial boundary.
+2. Make positionLedger.ts the single economic inventory reconstruction primitive.
+3. Make RealizedFinancialOutcome a projection of the canonical position ledger.
+4. Make TraderAnalytics consume the canonical outcome instead of rebuilding a second ledger.
+5. Route consolidated multi-character reporting through one shared accounting scope before reporting aggregation.
+6. Add cross-character, cross-scope, multi-location and source-coverage regressions.
+7. Run the relevant unit/domain suite and full CI; only then certify FIN-002 and resume UX-03.
+
+PI/Industry integration remains explicitly deferred and will later feed the same EconomicOrigin -> AcquisitionLot pipeline.

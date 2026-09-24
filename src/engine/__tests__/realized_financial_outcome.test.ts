@@ -1255,8 +1255,8 @@ async function runAllTests() {
     const degenOutcome = RealizedFinancialOutcomeEngine.calculate(degenRecord, { financialConfig: mockFinancialConfig });
 
     assert(Number.isFinite(degenOutcome.gross_realized_profit), 'Adv 2: No NaN or Infinity propagation');
-    assert(Number.isFinite(degenOutcome.roi), 'Adv 2: Finite ROI');
-    assert(Number.isFinite(degenOutcome.margin), 'Adv 2: Finite margin');
+    assert(degenOutcome.roi === null, 'Adv 2: ROI unavailable when no valid acquisition denominator exists');
+    assert(degenOutcome.margin === null, 'Adv 2: margin unavailable when no valid revenue denominator exists');
 
     // Adv 3: Financial completeness taxonomy verification
     // 3.1: UNAVAILABLE when no config

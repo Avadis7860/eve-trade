@@ -263,6 +263,8 @@ export interface TradeCycleRecord {
   realized_result_scope?: 'DISPOSAL_ALLOCATION';
   /** Whole-position result, available only once the economic position is closed and reconciled. */
   position_net_profit?: number;
+  /** Total quantity acquired in the closed economic position segment. */
+  position_total_quantity?: number;
   /** Whole-position ROI, unavailable until the position closes with a valid acquisition-cost basis. */
   position_roi?: number | null;
   /** Whole-position profitability, distinct from the disposal result. */

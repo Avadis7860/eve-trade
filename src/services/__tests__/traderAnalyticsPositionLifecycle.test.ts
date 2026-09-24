@@ -98,6 +98,7 @@ function run() {
   assert(closedMetrics.profitable_trades === 1, 'a fully disposed profitable position must count as profitable');
   assert(closedMetrics.average_realized_roi_scope === 'CLOSED_POSITIONS', 'average realized ROI is closed-position scoped');
   assert(closedMetrics.recent_trade_cycles[0].position_net_profit !== undefined, 'closed cycle exposes whole-position result');
+  assert(closedMetrics.recent_trade_cycles[0].position_total_quantity === 10_000, 'closed cycle exposes whole-position quantity');
   assert(closedMetrics.recent_trade_cycles[0].position_is_profitable === true, 'closed position profitability comes from whole-position result');
 
   const multiDisposalMetrics = TraderAnalyticsService.processTransactions(
@@ -122,6 +123,7 @@ function run() {
   assert(firstDisposal?.position_net_profit === undefined, 'partial disposal must not publish whole-position result');
   assert(closingDisposal?.position_net_profit !== undefined, 'closing disposal publishes cumulative whole-position result');
   assert((closingDisposal?.position_net_profit ?? 0) < 0, 'cumulative whole-position result must be negative');
+  assert(closingDisposal?.position_total_quantity === 10_000, 'closing disposal exposes the full position quantity');
   assert(closingDisposal?.position_is_profitable === false, 'whole-position profitability must be negative');
 
   const orderOnlyMetrics = TraderAnalyticsService.processTransactions(

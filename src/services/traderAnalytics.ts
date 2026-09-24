@@ -521,6 +521,7 @@ export class TraderAnalyticsService {
               position_net_profit: positionNetProfit,
               position_roi: positionRoi,
               position_is_profitable: positionNetProfit > 0,
+              position_total_quantity: positionQuantity,
               ...(positionHoldDays !== undefined
                 ? { position_hold_days: Number(positionHoldDays.toFixed(1)) }
                 : {}),
@@ -601,7 +602,7 @@ export class TraderAnalyticsService {
 
     const avgHoldDays =
       totalClosedTrades > 0
-        ? closedCycles.reduce((acc, c) => acc + c.hold_days, 0) / totalClosedTrades
+        ? closedCycles.reduce((acc, c) => acc + (c.position_hold_days ?? c.hold_days), 0) / totalClosedTrades
         : 0;
 
     // Helper to derive unified financial completeness, label, and is_net_estimated flag
@@ -699,13 +700,13 @@ export class TraderAnalyticsService {
 
     for (const cat of Object.keys(categorySuccessRate)) {
       const catCycles = closedCycles.filter((c) => (c.category_name || 'Général') === cat);
-      const catWins = catCycles.filter((c) => c.is_profitable).length;
+      const catWins = catCycles.filter((c) => c.position_is_profitable === true).length;
       categorySuccessRate[cat].win_rate =
         catCycles.length > 0 ? (catWins / catCycles.length) * 100 : 0;
-      const catRoiCycles = catCycles.filter((c) => c.roi !== null);
+      const catRoiCycles = catCycles.filter((c) => c.position_roi !== undefined && c.position_roi !== null);
       categorySuccessRate[cat].avg_roi =
         catRoiCycles.length > 0
-          ? catRoiCycles.reduce((a, b) => b.roi === null ? a : a + b.roi, 0) / catRoiCycles.length
+          ? catRoiCycles.reduce((a, b) => a + (b.position_roi ?? 0), 0) / catRoiCycles.length
           : 0;
       const status = deriveFinancialStatus(catCycles);
       categorySuccessRate[cat].profit_label = status.label;

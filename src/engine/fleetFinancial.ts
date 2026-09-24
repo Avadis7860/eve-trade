@@ -258,19 +258,19 @@ export class FleetFinancialEngine {
     });
 
     const closedCycles = sortedCycles.filter(
-      (c) => c.quantity > 0 && c.is_position_closed === true,
+      (c) => c.quantity > 0 && c.is_position_closed === true && c.position_net_profit !== undefined,
     );
 
-    const closedRoiCycles = closedCycles.filter((c) => c.roi !== null);
+    const closedRoiCycles = closedCycles.filter((c) => c.position_roi !== undefined && c.position_roi !== null);
     const avgRealizedRoi =
       closedRoiCycles.length > 0
-        ? closedRoiCycles.reduce((acc, c) => c.roi === null ? acc : acc + c.roi, 0) /
+        ? closedRoiCycles.reduce((acc, c) => acc + (c.position_roi ?? 0), 0) /
           closedRoiCycles.length
         : null;
 
     const avgHoldDays =
       closedCycles.length > 0
-        ? Number((closedCycles.reduce((acc, c) => acc + c.hold_days, 0) / closedCycles.length).toFixed(1))
+        ? Number((closedCycles.reduce((acc, c) => acc + (c.position_hold_days ?? c.hold_days), 0) / closedCycles.length).toFixed(1))
         : 0;
 
     // Top Profitable Items across Fleet
@@ -301,13 +301,15 @@ export class FleetFinancialEngine {
           total_volume_units: 0,
         };
       }
-      itemProfitMap[c.type_id].total_profit = roundIsk(itemProfitMap[c.type_id].total_profit + c.net_profit);
+      itemProfitMap[c.type_id].total_profit = roundIsk(
+        itemProfitMap[c.type_id].total_profit + (c.position_net_profit ?? c.net_profit)
+      );
       itemProfitMap[c.type_id].trades_count += 1;
-      if (c.roi !== null) {
-        itemProfitMap[c.type_id].rois.push(c.roi);
+      if (c.position_roi !== undefined && c.position_roi !== null) {
+        itemProfitMap[c.type_id].rois.push(c.position_roi);
       }
-      itemProfitMap[c.type_id].hold_days_list.push(c.hold_days);
-      itemProfitMap[c.type_id].total_volume_units += c.quantity;
+      itemProfitMap[c.type_id].hold_days_list.push(c.position_hold_days ?? c.hold_days);
+      itemProfitMap[c.type_id].total_volume_units += c.position_total_quantity ?? c.quantity;
     }
 
     const topProfitableItems = Object.values(itemProfitMap)
@@ -363,18 +365,20 @@ export class FleetFinancialEngine {
         categorySuccessRate[cat] = { total_trades: 0, profit_isk: 0, win_rate: 0, avg_roi: 0 };
       }
       categorySuccessRate[cat].total_trades += 1;
-      categorySuccessRate[cat].profit_isk = roundIsk(categorySuccessRate[cat].profit_isk + c.net_profit);
+      categorySuccessRate[cat].profit_isk = roundIsk(
+        categorySuccessRate[cat].profit_isk + (c.position_net_profit ?? c.net_profit)
+      );
     }
 
     for (const cat of Object.keys(categorySuccessRate)) {
       const catCycles = closedCycles.filter((c) => (c.category_name || 'Général') === cat);
-      const catWins = catCycles.filter((c) => c.is_profitable).length;
+      const catWins = catCycles.filter((c) => c.position_is_profitable === true).length;
       categorySuccessRate[cat].win_rate =
         catCycles.length > 0 ? (catWins / catCycles.length) * 100 : 0;
-      const catRoiCycles = catCycles.filter((c) => c.roi !== null);
+      const catRoiCycles = catCycles.filter((c) => c.position_roi !== undefined && c.position_roi !== null);
       categorySuccessRate[cat].avg_roi =
         catRoiCycles.length > 0
-          ? catRoiCycles.reduce((sum, c) => c.roi === null ? sum : sum + c.roi, 0) / catRoiCycles.length
+          ? catRoiCycles.reduce((sum, c) => sum + (c.position_roi ?? 0), 0) / catRoiCycles.length
           : 0;
       categorySuccessRate[cat].profit_label = 'Bénéfice Net Flotte';
       categorySuccessRate[cat].is_net_estimated = true;

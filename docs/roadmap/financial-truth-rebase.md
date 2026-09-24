@@ -143,11 +143,19 @@ Acceptance:
 
 Audit numeric fallbacks and provenance.
 
+Implemented hardening:
+- invalid transaction amounts no longer contribute synthetic ISK activity volume;
+- missing ROI/margin/per-unit denominators remain unavailable;
+- position and disposal provenance survives trader and fleet aggregation;
+- missing physical type volume no longer falls back to `0.01 m³` on ESI/catalog resolution;
+- order-history activity remains observation-only.
+
 Acceptance:
 - absent/invalid values remain explicit;
 - no financial path fabricates zero cost, zero inventory or estimated profit;
 - source/provenance survives aggregation;
-- valid zeroes remain distinguishable from missing/invalid data.
+- valid zeroes remain distinguishable from missing/invalid data;
+- unresolved physical type data cannot enter a certified calculation as a fabricated volume.
 
 ### CI-003 — issue #76
 

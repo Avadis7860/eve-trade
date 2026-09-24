@@ -238,6 +238,23 @@ export type ExecutionFeeRoleMode = 'TAKER_TAKER' | 'TAKER_MAKER' | 'MAKER_TAKER'
  */
 export type FinancialCompleteness = 'OBSERVED' | 'ESTIMATED' | 'PARTIAL' | 'UNAVAILABLE';
 
+export type CapitalRecoveryScope = 'KNOWN_POSITIONS';
+
+export interface CapitalRecoverySummary {
+  readonly scope: CapitalRecoveryScope;
+  readonly financial_completeness: Extract<FinancialCompleteness, 'OBSERVED' | 'PARTIAL'>;
+  readonly capital_committed: number;
+  readonly cash_recovered: number;
+  readonly capital_recovery_delta: number;
+  readonly capital_recovery_ratio: number | null;
+  readonly remaining_quantity: number;
+  readonly remaining_cost_basis: number;
+  readonly known_position_count: number;
+  readonly open_position_count: number;
+  readonly partially_realized_position_count: number;
+  readonly closed_position_count: number;
+}
+
 export interface FifoLotRecord {
   readonly lot_id: string; // "lot_{buy_transaction_id}"
   readonly buy_transaction_id: number;

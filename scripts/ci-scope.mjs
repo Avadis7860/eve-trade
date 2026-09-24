@@ -65,7 +65,7 @@ export function classifyPaths(input, { respectContextCritical = true } = {}) {
       }
     }
     if (path.startsWith('.github/workflows/') || path === '.github/dependabot.yml') ci = true;
-    else if (path.startsWith('src/engine/')) domain = true;
+    else if (path.startsWith('src/engine/') || path.startsWith('src/domain/')) domain = true;
     else if (path.startsWith('src/services/') || path.startsWith('server/') || path === 'server.ts') server = true;
     else if (
       path === 'src/data/universeGraph.json' ||
@@ -76,7 +76,7 @@ export function classifyPaths(input, { respectContextCritical = true } = {}) {
       path === 'scripts/__tests__/universe_graph_builder.test.mjs'
     ) sde = true;
     else if (
-      path.startsWith('src/components/') || path.startsWith('src/pages/') ||
+      path.startsWith('src/components/') || path.startsWith('src/pages/') || path.startsWith('src/context/') ||
       path.startsWith('src/hooks/') || path === 'src/App.tsx' ||
       path === 'src/App.jsx' || path === 'src/main.tsx' ||
       path === 'src/main.jsx' || path.startsWith('public/')

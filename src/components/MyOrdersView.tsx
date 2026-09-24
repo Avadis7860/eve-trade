@@ -558,19 +558,6 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                 <span>Personnage Actif ({session.character_name})</span>
               </button>
 
-              {orderCollection.characters.length > 1 && (
-                <button
-                  onClick={() => onChangeScope?.({ type: 'fleet' })}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                    orderCollection.scope.type === 'fleet'
-                      ? 'bg-purple-500/20 border-purple-500 text-purple-300 font-bold shadow-sm'
-                      : 'bg-[#0e1117] border-[#262730] text-[#808495] hover:text-purple-300 hover:border-purple-500/30'
-                  }`}
-                >
-                  <Users className="w-3.5 h-3.5" />
-                  <span>Fleet Complète ({orderCollection.characters.length} pilotes)</span>
-                </button>
-              )}
 
               {orderCollection.corporations?.map((corp) => {
                 const isSelected =

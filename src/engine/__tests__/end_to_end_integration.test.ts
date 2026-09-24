@@ -5,33 +5,27 @@
  *
  * Validates the complete pipeline:
  * EVE Characters -> AuthService -> Orders / Transactions -> OrderScopingEngine
- * -> TraderAnalyticsService -> RealizedFinancialOutcomeEngine -> FleetFinancialEngine
+ * -> TraderAnalyticsService -> RealizedFinancialOutcomeEngine
  *
  * Checks all Phase 4 Gate Criteria:
  * 1. character_id = 0 invariant: NEVER assigned to real character, order, or transaction;
  *    NEVER accepted for individual financial calculations.
  * 2. Cross-character isolation: CrossCharacterFinancialMappingViolationError enforced.
- * 3. Mes Ordres / Fleet coherence: Order ownership strictly preserved across active character switches.
- * 4. Performance / Finance coherence: Individual P&L strictly isolated; Fleet P&L aggregated post-calculation.
- * 5. Additive vs Non-additive metrics: Mathematical correctness verified.
+ * 3. Mes Ordres / character & corporation coherence: Order ownership strictly preserved across active character switches.
+ * 4. Performance / Finance coherence: Individual P&L remains strictly character-scoped.
  * 6. Active character switching: Switching active character causes zero corruption.
- * 7. Mono-character & Multi-character modes: Both paths fully operational.
  */
 
 import { selectOrdersByScope } from '../orderScoping';
-import { FleetFinancialEngine } from '../fleetFinancial';
 import {
   RealizedFinancialOutcomeEngine,
   CrossCharacterFinancialMappingViolationError,
 } from '../realizedFinancialOutcome';
 import {
   CharacterExecutionRecord,
-  CharacterFinancialResult,
   EveCharacterOrder,
   EveCharacterTransaction,
   OrderScope,
-  PerformanceScope,
-  TraderPerformanceMetrics,
 } from '../../types';
 
 function assert(condition: boolean, message: string) {
@@ -243,50 +237,38 @@ function runEndToEndIntegrationTests() {
   console.log('  [PASS] Gate Check 2: CrossCharacterFinancialMappingViolationError verified.');
 
   // --------------------------------------------------------------------------
-  // Gate Check 3: Mes Ordres / Fleet Scoping Coherence & Active Switching
+  // Gate Check 3: Mes Ordres / Character & Corporation Scoping
   // --------------------------------------------------------------------------
-  console.log('--- Gate Check 3: Mes Ordres Scoping & Active Switching ---');
+  console.log('--- Gate Check 3: Order scoping & Active Switching ---');
   const allOrders = createTestOrders();
-  const fleetCharIds = ['1001', '1002'];
-
-  // Scope: Active Character = 1001 (Pilot Alpha)
-  const scopeActiveAlpha: OrderScope = { type: 'active_character' };
-  const ordersAlpha = selectOrdersByScope(allOrders, scopeActiveAlpha, {
+  const scopeAlpha: OrderScope = { type: 'active_character' };
+  const ordersAlpha = selectOrdersByScope(allOrders, scopeAlpha, {
     activeCharacterId: '1001',
-    fleetCharacterIds: fleetCharIds,
-    corporationIds: [],
+    corporationIds: ['9001'],
   });
-  assert(ordersAlpha.length === 2, 'Alpha should have 2 active orders');
-  assert(ordersAlpha.every((o: EveCharacterOrder) => o.character_id === 1001), 'All orders in Alpha scope must belong to 1001');
+  assert(ordersAlpha.length === 2, 'Alpha should have 2 character-owned orders');
+  assert(ordersAlpha.every((o) => o.character_id === 1001), 'Alpha scope must contain only Alpha-owned orders');
 
-  // Scope: Active Character = 1002 (Pilot Beta) -> Switch active character
-  const ordersBeta = selectOrdersByScope(allOrders, scopeActiveAlpha, {
+  const ordersBeta = selectOrdersByScope(allOrders, scopeAlpha, {
     activeCharacterId: '1002',
-    fleetCharacterIds: fleetCharIds,
-    corporationIds: [],
+    corporationIds: ['9001'],
   });
-  assert(ordersBeta.length === 1, 'Beta should have 1 active order');
-  assert(ordersBeta[0].character_id === 1002, 'Beta order must belong to 1002');
-  assert(ordersBeta[0].order_id === '20001', 'Beta order ID must remain 20001');
+  assert(ordersBeta.length === 1, 'Beta should have 1 character-owned order');
+  assert(ordersBeta[0].character_id === 1002, 'Beta order must belong to Beta');
 
-  // Scope: Fleet -> All orders from fleet participants
-  const scopeFleet: OrderScope = { type: 'fleet' };
-  const ordersFleet = selectOrdersByScope(allOrders, scopeFleet, {
-    activeCharacterId: '1001',
-    fleetCharacterIds: fleetCharIds,
-    corporationIds: [],
+  const corpOrders = selectOrdersByScope(allOrders, { type: 'corporation', corporationId: '9001' }, {
+    activeCharacterId: '1002',
+    corporationIds: ['9001'],
   });
-  assert(ordersFleet.length === 3, 'Fleet scope should contain all 3 orders');
-  // Invariant: Orders retain original character_id (no replacement with 0 or fleet id)
-  assert(ordersFleet.find((o: EveCharacterOrder) => o.order_id === '10001')?.character_id === 1001, 'Order 10001 must keep character_id 1001');
-  assert(ordersFleet.find((o: EveCharacterOrder) => o.order_id === '20001')?.character_id === 1002, 'Order 20001 must keep character_id 1002');
-  console.log('  [PASS] Gate Check 3: Order scoping and active character switching verified.');
+  assert(corpOrders.length === 1, 'Corporation scope must expose the corporate order');
+  assert(corpOrders[0].ownership?.owner_type === 'corporation', 'Corporation view must use economic ownership');
+  assert(corpOrders[0].ownership?.owner_id === 9001, 'Corporation view must use the corporation owner id');
+  console.log('  [PASS] Gate Check 3: Character and corporation order scopes remain distinct and stable.');
 
   // --------------------------------------------------------------------------
-  // Gate Check 4: Individual P&L -> Fleet P&L Aggregation
+  // Gate Check 4: Character-scoped financial truth
   // --------------------------------------------------------------------------
-  console.log('--- Gate Check 4: Individual P&L & Fleet Consolidation ---');
-  // Character Alpha P&L calculation
+  console.log('--- Gate Check 4: Character-scoped realized finance ---');
   const outcomeAlpha = RealizedFinancialOutcomeEngine.calculateForTransactions(
     1001,
     34,
@@ -300,10 +282,8 @@ function runEndToEndIntegrationTests() {
         corp_standing: 0,
         enable_transport_costs: false,
       },
-    }
+    },
   );
-
-  // Character Beta P&L calculation
   const outcomeBeta = RealizedFinancialOutcomeEngine.calculateForTransactions(
     1002,
     36,
@@ -317,255 +297,22 @@ function runEndToEndIntegrationTests() {
         corp_standing: 0,
         enable_transport_costs: false,
       },
-    }
-  );
-
-  assert(outcomeAlpha.realized_gross === 100_000, 'Alpha gross profit should be 100k ISK (500k rev - 400k cost)');
-  assert(outcomeBeta.realized_gross === 80_000, 'Beta gross profit should be 80k ISK (480k rev - 400k cost)');
-
-  // Build character metrics records
-  const metricsAlpha: TraderPerformanceMetrics = {
-    character_id: 1001,
-    character_name: 'Pilot Alpha',
-    last_calculated: '2026-03-30T12:00:00Z',
-    total_realized_profit: outcomeAlpha.net_realized_profit,
-    total_realized_gross: outcomeAlpha.realized_gross,
-    total_buy_volume: outcomeAlpha.realized_acquisition_cost,
-    total_sell_volume: outcomeAlpha.realized_revenue,
-    total_turnover: outcomeAlpha.realized_acquisition_cost + outcomeAlpha.realized_revenue,
-    total_closed_trades: 1,
-    profitable_trades: 1,
-    unprofitable_trades: 0,
-    win_rate_pct: 100,
-    average_realized_roi: outcomeAlpha.roi,
-    average_realized_roi_scope: 'CLOSED_POSITIONS',
-    average_hold_days: outcomeAlpha.weighted_hold_days,
-    total_broker_fees_paid: 0,
-    total_sales_tax_paid: outcomeAlpha.fees.estimated_sales_tax,
-    total_estimated_fees: outcomeAlpha.fees.estimated_total_fees,
-    top_profitable_items: [],
-    recent_trade_cycles: [
-      {
-        cycle_id: 'cycle_alpha_1',
-        type_id: 34,
-        type_name: 'Tritanium',
-        buy_date: '2026-03-29T10:00:00Z',
-        sell_date: '2026-03-30T10:00:00Z',
-        quantity: 100000,
-        avg_buy_price: 4.0,
-        avg_sell_price: 5.0,
-        total_buy_cost: outcomeAlpha.realized_acquisition_cost,
-        total_sell_revenue: outcomeAlpha.realized_revenue,
-        gross_profit: outcomeAlpha.realized_gross,
-        estimated_fees_paid: outcomeAlpha.fees.estimated_total_fees,
-        net_profit: outcomeAlpha.net_realized_profit,
-        roi: outcomeAlpha.roi,
-        hold_days: outcomeAlpha.weighted_hold_days,
-        is_profitable: true,
-        financial_completeness: 'OBSERVED',
-        is_net_estimated: false,
-        character_id: 1001,
-        character_name: 'Pilot Alpha',
-      },
-    ],
-    activity_by_location: [],
-    category_success_rate: {},
-    trader_title: 'Négociant Initié',
-    trader_badge_color: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
-    calibration_weight: 1.0,
-    financial_completeness: 'OBSERVED',
-    is_net_estimated: false,
-    realized_profit_label: 'Bénéfice Net Réalisé',
-    has_unmatched_trades: false,
-    unmatched_trades_count: 0,
-  };
-
-  const metricsBeta: TraderPerformanceMetrics = {
-    character_id: 1002,
-    character_name: 'Pilot Beta',
-    last_calculated: '2026-03-30T12:00:00Z',
-    total_realized_profit: outcomeBeta.net_realized_profit,
-    total_realized_gross: outcomeBeta.realized_gross,
-    total_buy_volume: outcomeBeta.realized_acquisition_cost,
-    total_sell_volume: outcomeBeta.realized_revenue,
-    total_turnover: outcomeBeta.realized_acquisition_cost + outcomeBeta.realized_revenue,
-    total_closed_trades: 1,
-    profitable_trades: 1,
-    unprofitable_trades: 0,
-    win_rate_pct: 100,
-    average_realized_roi: outcomeBeta.roi,
-    average_realized_roi_scope: 'CLOSED_POSITIONS',
-    average_hold_days: outcomeBeta.weighted_hold_days,
-    total_broker_fees_paid: 0,
-    total_sales_tax_paid: outcomeBeta.fees.estimated_sales_tax,
-    total_estimated_fees: outcomeBeta.fees.estimated_total_fees,
-    top_profitable_items: [],
-    recent_trade_cycles: [
-      {
-        cycle_id: 'cycle_beta_1',
-        type_id: 36,
-        type_name: 'Mexallon',
-        buy_date: '2026-03-29T11:00:00Z',
-        sell_date: '2026-03-30T11:00:00Z',
-        quantity: 10000,
-        avg_buy_price: 40.0,
-        avg_sell_price: 48.0,
-        total_buy_cost: outcomeBeta.realized_acquisition_cost,
-        total_sell_revenue: outcomeBeta.realized_revenue,
-        gross_profit: outcomeBeta.realized_gross,
-        estimated_fees_paid: outcomeBeta.fees.estimated_total_fees,
-        net_profit: outcomeBeta.net_realized_profit,
-        roi: outcomeBeta.roi,
-        hold_days: outcomeBeta.weighted_hold_days,
-        is_profitable: true,
-        financial_completeness: 'OBSERVED',
-        is_net_estimated: false,
-        character_id: 1002,
-        character_name: 'Pilot Beta',
-      },
-    ],
-    activity_by_location: [],
-    category_success_rate: {},
-    trader_title: 'Négociant Initié',
-    trader_badge_color: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
-    calibration_weight: 1.0,
-    financial_completeness: 'OBSERVED',
-    is_net_estimated: false,
-    realized_profit_label: 'Bénéfice Net Réalisé',
-    has_unmatched_trades: false,
-    unmatched_trades_count: 0,
-  };
-
-  const characterResults: CharacterFinancialResult[] = [
-    {
-      characterId: '1001',
-      characterName: 'Pilot Alpha',
-      metrics: metricsAlpha,
-      dataHealth: 'fresh',
     },
-    {
-      characterId: '1002',
-      characterName: 'Pilot Beta',
-      metrics: metricsBeta,
-      dataHealth: 'fresh',
-    },
-  ];
-
-  // Consolidate Fleet
-  const fleetRes = FleetFinancialEngine.aggregateFleetPerformance(characterResults);
-  const fleetM = fleetRes.fleetMetrics;
-
-  // Verify Exact Additivity
-  assert(
-    fleetM.total_realized_profit === metricsAlpha.total_realized_profit + metricsBeta.total_realized_profit,
-    'Fleet realized profit must equal Alpha profit + Beta profit'
   );
-  assert(
-    fleetM.total_realized_gross === 180_000,
-    'Fleet gross profit must equal 180k ISK (100k + 80k)'
-  );
-  assert(
-    fleetM.total_buy_volume === 800_000,
-    'Fleet buy volume must equal 800k ISK (400k + 400k)'
-  );
-  assert(
-    fleetM.total_sell_volume === 980_000,
-    'Fleet sell volume must equal 980k ISK (500k + 480k)'
-  );
-  assert(
-    fleetM.total_turnover === 1_780_000,
-    'Fleet turnover must equal 1.78M ISK'
-  );
-  assert(fleetM.total_closed_trades === 2, 'Fleet total closed trades must equal 2');
-  assert(fleetM.profitable_trades === 2, 'Fleet profitable trades must equal 2');
-  assert(fleetM.win_rate_pct === 100, 'Fleet win rate must be 100%');
-  assert(fleetM.character_id === 0, 'Fleet summary character_id must be 0');
-  console.log('  [PASS] Gate Check 4: Additive & Non-additive fleet metrics verified.');
-
-  // --------------------------------------------------------------------------
-  // Gate Check 5: Switching Active Character produces zero fleet drift
-  // --------------------------------------------------------------------------
-  console.log('--- Gate Check 5: Active Switching Drift Resistance ---');
-  const scopePerformanceActive: PerformanceScope = { type: 'active_character' };
-  const selectActiveA = FleetFinancialEngine.selectPerformanceByScope(characterResults, scopePerformanceActive, '1001');
-  assert(selectActiveA.selectedMetrics?.character_id === 1001, 'Active A must return Alpha metrics');
-
-  const selectActiveB = FleetFinancialEngine.selectPerformanceByScope(characterResults, scopePerformanceActive, '1002');
-  assert(selectActiveB.selectedMetrics?.character_id === 1002, 'Active B must return Beta metrics');
-
-  // Fleet performance is identical regardless of who is active
-  const scopePerformanceFleet: PerformanceScope = { type: 'fleet' };
-  const selectFleetFromA = FleetFinancialEngine.selectPerformanceByScope(characterResults, scopePerformanceFleet, '1001');
-  const selectFleetFromB = FleetFinancialEngine.selectPerformanceByScope(characterResults, scopePerformanceFleet, '1002');
-  assert(
-    selectFleetFromA.fleetResult?.fleetMetrics.total_realized_profit === selectFleetFromB.fleetResult?.fleetMetrics.total_realized_profit,
-    'Fleet P&L must be invariant to active character switch'
-  );
-  console.log('  [PASS] Gate Check 5: Active character switching drift resistance verified.');
-
-  // --------------------------------------------------------------------------
-  // Gate Check 6: Mono-Character Backward Compatibility
-  // --------------------------------------------------------------------------
-  console.log('--- Gate Check 6: Mono-Character Mode Backward Compatibility ---');
-  const singleCharResults: CharacterFinancialResult[] = [
-    {
-      characterId: '1001',
-      characterName: 'Pilot Alpha',
-      metrics: metricsAlpha,
-      dataHealth: 'fresh',
-    },
-  ];
-  const monoFleet = FleetFinancialEngine.aggregateFleetPerformance(singleCharResults);
-  assert(monoFleet.participatingCharacterCount === 1, 'Mono-character fleet should have 1 participant');
-  assert(monoFleet.fleetMetrics.total_realized_profit === metricsAlpha.total_realized_profit, 'Mono fleet profit must match single char profit');
-  assert(monoFleet.fleetMetrics.total_turnover === metricsAlpha.total_turnover, 'Mono fleet turnover must match single char turnover');
-  assert(monoFleet.hasUnavailableCharacters === false, 'Mono fleet with fresh char has no unavailable');
-  console.log('  [PASS] Gate Check 6: Mono-character backward compatibility verified.');
-
-  // --------------------------------------------------------------------------
-  // Gate Check 7: Multi-Character with Partial / Unavailable Pilot
-  // --------------------------------------------------------------------------
-  console.log('--- Gate Check 7: Multi-Character Partial Availability ---');
-  const multiCharWithUnavailable: CharacterFinancialResult[] = [
-    {
-      characterId: '1001',
-      characterName: 'Pilot Alpha',
-      metrics: metricsAlpha,
-      dataHealth: 'fresh',
-    },
-    {
-      characterId: '1002',
-      characterName: 'Pilot Beta',
-      metrics: metricsBeta,
-      dataHealth: 'fresh',
-    },
-    {
-      characterId: '1003',
-      characterName: 'Pilot Gamma',
-      metrics: {
-        ...metricsAlpha,
-        character_id: 1003,
-        character_name: 'Pilot Gamma',
-        total_realized_profit: 0,
-      },
-      dataHealth: 'unavailable',
-      errorMessage: 'EVE SSO Token Expired (401)',
-    },
-  ];
-
-  const partialFleetRes = FleetFinancialEngine.aggregateFleetPerformance(multiCharWithUnavailable);
-  assert(partialFleetRes.hasUnavailableCharacters === true, 'hasUnavailableCharacters must be true');
-  assert(partialFleetRes.unavailableCharacterNames.includes('Pilot Gamma'), 'Pilot Gamma must be in unavailableCharacterNames');
-  assert(partialFleetRes.participatingCharacterCount === 2, 'Only 2 characters should participate');
-  assert(
-    partialFleetRes.fleetMetrics.total_realized_profit === metricsAlpha.total_realized_profit + metricsBeta.total_realized_profit,
-    'Profit must aggregate only valid participants'
-  );
-  console.log('  [PASS] Gate Check 7: Partial availability handling verified.');
+  assert(outcomeAlpha.realized_gross === 100_000, 'Alpha gross result must remain 100k ISK');
+  assert(outcomeBeta.realized_gross === 80_000, 'Beta gross result must remain 80k ISK');
+  let mixedRejected = false;
+  try {
+    RealizedFinancialOutcomeEngine.calculateForTransactions(1001, 34, [
+      ...createTestTransactionsAlpha(),
+      ...createTestTransactionsBeta().map((tx) => ({ ...tx, type_id: 34 })),
+    ]);
+  } catch (err) {
+    mixedRejected = err instanceof CrossCharacterFinancialMappingViolationError;
+  }
+  assert(mixedRejected, 'Character financial calculation must reject mixed-character transaction sets without explicit shared scope');
+  console.log('  [PASS] Gate Check 4: Financial results remain character-scoped; cross-character mixing stays guarded.');
 
   console.log('===============================================================');
   console.log('ALL PHASE 4 END-TO-END INTEGRATION & COHERENCE TESTS PASSED (100%)');
-  console.log('===============================================================');
-}
-
 runEndToEndIntegrationTests();

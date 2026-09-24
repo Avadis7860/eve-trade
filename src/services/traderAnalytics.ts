@@ -595,7 +595,7 @@ export class TraderAnalyticsService {
             hold_days_list: [],
             total_volume_units: 0,
           };
-          item.total_profit = roundIsk(item.total_profit + operationNetProfit);
+          item.total_profit = roundIsk(item.total_profit + operationNetProfit!);
           item.trades_count += 1;
           item.rois.push(positionRoi);
           item.hold_days_list.push(positionHoldDays ?? cycle.hold_days);
@@ -919,7 +919,7 @@ export class TraderAnalyticsService {
           is_personal: tx.economic_owner_type === 'character',
           client_id: 0,
           ...(tx.character_id !== undefined ? { character_id: tx.character_id } : { character_id: rec.character_id }),
-          ...(tx.accounting_scope_id ?? options?.accounting_scope_id
+          ...(tx.accounting_scope_id || options?.accounting_scope_id
             ? { accounting_scope_id: tx.accounting_scope_id ?? options?.accounting_scope_id }
             : {}),
           ...(tx.provenance ? { provenance: tx.provenance } : {}),
@@ -937,7 +937,7 @@ export class TraderAnalyticsService {
           is_personal: tx.economic_owner_type === 'character',
           client_id: 0,
           ...(tx.character_id !== undefined ? { character_id: tx.character_id } : { character_id: rec.character_id }),
-          ...(tx.accounting_scope_id ?? options?.accounting_scope_id
+          ...(tx.accounting_scope_id || options?.accounting_scope_id
             ? { accounting_scope_id: tx.accounting_scope_id ?? options?.accounting_scope_id }
             : {}),
           ...(tx.provenance ? { provenance: tx.provenance } : {}),
@@ -967,12 +967,217 @@ export class TraderAnalyticsService {
     try {
       const data = localStorage.getItem(analyticsStorageKey(characterId, accountingScopeId));
       if (data) return JSON.parse(data);
-
-      // Compatibility fallback for the pre-FIN-002 character-keyed cache.
       if (!accountingScopeId) {
-        const legacyData = localStorage.getItem(`${LEGACY_STORAGE_KEY_PREFIX}${characterId}`);
+        const legacyData = localStorage.getItem(LEGACY_STORAGE_KEY_PREFIX + characterId);
         if (legacyData) return JSON.parse(legacyData);
       }
     } catch {}
     return null;
   }
+
+  /**
+   * Evaluates a trade opportunity against the user's real historical trade track record.
+   * Provides adaptive weighting, confidence boosts, and personalized risk badges.
+   */
+  static calibrateOpportunity(
+    typeId: number,
+    categoryId: number,
+    metrics: TraderPerformanceMetrics | null
+  ): PersonalCalibrationFit {
+    if (!metrics || metrics.total_closed_trades === 0) {
+      return {
+        has_personal_history: false,
+        total_historical_trades: 0,
+        historical_realized_profit: 0,
+        historical_avg_roi: null,
+        historical_win_rate: null,
+        historical_avg_hold_days: null,
+        calibration_confidence_boost: 0,
+        badge_text: 'Nouvel Horizon',
+        badge_type: 'new',
+        summary: 'Aucun historique réel enregistré pour ce type d\'article.',
+      };
+    }
+
+    const itemRecord = metrics.top_profitable_items.find((item) => item.type_id === typeId);
+    const categoryInfo = CatalogRepository.getInstance().getCategory(categoryId);
+    const catName = categoryInfo?.name || '';
+    const catRecord = catName ? metrics.category_success_rate[catName] : null;
+
+    if (itemRecord) {
+      const isVeryProfitable = itemRecord.total_profit > 10_000_000 && itemRecord.avg_roi > 0.15;
+      const isLoss = itemRecord.total_profit < 0;
+
+      if (isLoss) {
+        return {
+          has_personal_history: true,
+          total_historical_trades: itemRecord.trades_count,
+          historical_realized_profit: itemRecord.total_profit,
+          historical_avg_roi: itemRecord.avg_roi,
+          historical_win_rate: 0,
+          historical_avg_hold_days: itemRecord.avg_hold_days,
+          calibration_confidence_boost: -0.15, // Penalty
+          badge_text: `⚠️ Perte Historique (${(itemRecord.total_profit / 1_000_000).toFixed(1)}M ISK)`,
+          badge_type: 'caution',
+          summary: `Vous avez enregistré une perte nette sur cet item lors de vos sessions passées. Prudence sur les volumes.`,
+        };
+      }
+
+      return {
+        has_personal_history: true,
+        total_historical_trades: itemRecord.trades_count,
+        historical_realized_profit: itemRecord.total_profit,
+        historical_avg_roi: itemRecord.avg_roi,
+        historical_win_rate: 100,
+        historical_avg_hold_days: itemRecord.avg_hold_days,
+        calibration_confidence_boost: isVeryProfitable ? 0.18 : 0.08,
+        badge_text: `⭐ Spécialité Prouvée (+${(itemRecord.total_profit / 1_000_000).toFixed(1)}M ISK)`,
+        badge_type: 'expert',
+        summary: `Déjà réussi avec succès : +${(itemRecord.total_profit / 1_000_000).toFixed(1)}M ISK de profit réel réalisé (${itemRecord.trades_count} flips, ~${itemRecord.avg_hold_days.toFixed(1)}j).`,
+      };
+    }
+
+    if (catRecord && catRecord.total_trades >= 3) {
+      const isCatSolid = catRecord.win_rate >= 75 && catRecord.profit_isk > 0;
+      return {
+        has_personal_history: true,
+        total_historical_trades: catRecord.total_trades,
+        historical_realized_profit: catRecord.profit_isk,
+        historical_avg_roi: catRecord.avg_roi,
+        historical_win_rate: catRecord.win_rate,
+        historical_avg_hold_days: metrics.average_hold_days,
+        calibration_confidence_boost: isCatSolid ? 0.06 : 0,
+        badge_text: `🎯 Catégorie Maîtrisée (${catRecord.win_rate.toFixed(0)}% succès)`,
+        badge_type: 'profitable',
+        summary: `Catégorie « ${catName} » familière : ${catRecord.win_rate.toFixed(0)}% de taux de réussite sur ${catRecord.total_trades} transactions.`,
+      };
+    }
+
+    return {
+      has_personal_history: false,
+      total_historical_trades: 0,
+      historical_realized_profit: 0,
+      historical_avg_roi: null,
+      historical_win_rate: null,
+      historical_avg_hold_days: null,
+      calibration_confidence_boost: 0,
+      badge_text: 'Non Négocié',
+      badge_type: 'new',
+      summary: 'Première analyse pour cet item dans votre profil de trading.',
+    };
+  }
+
+  /**
+   * Deterministic projection helper for cycle-level fee and net profit partitioning.
+   * STRICT ARCHITECTURAL INVARIANT:
+   * This is strictly a consumer projection and exact conservation partition of the
+   * canonical RealizedFinancialOutcome generated by RealizedFinancialOutcomeEngine.
+   * TraderAnalyticsService MUST NOT redefine accounting or recalculate fees independently.
+   *
+   * Uses a local deterministic accumulator state (allocatedState) across sequential cycle iterations
+   * to guarantee zero-loss conservation:
+   *  - Σ cycle.fees == outcome.fees.estimated_total_fees
+   *  - Σ cycle.net_profit == outcome.net_realized_profit
+   *
+   * Note: Mutates the local accumulator `allocatedState` tracking previously partitioned amounts.
+   */
+  private static projectCycleFinancials(
+    outcome: RealizedFinancialOutcome,
+    cycleGrossProfit: number,
+    totalBuyCost: number,
+    totalSellRevenue: number,
+    isLastMatched: boolean,
+    numMatched: number,
+    allocatedState: {
+      allocatedBuyBrokerFee: number;
+      allocatedSellBrokerFee: number;
+      allocatedSalesTax: number;
+      allocatedTotalFees: number;
+      allocatedNetProfit: number;
+    }
+  ): {
+    cycleBuyBrokerFee: number;
+    cycleSellBrokerFee: number;
+    cycleSalesTax: number;
+    cycleFees: number;
+    netProfit: number | null;
+  } {
+    if (outcome.fees.fee_mode === 'UNAVAILABLE') {
+      return {
+        cycleBuyBrokerFee: 0,
+        cycleSellBrokerFee: 0,
+        cycleSalesTax: 0,
+        cycleFees: 0,
+        netProfit: null,
+      };
+    }
+
+    if (numMatched === 1) {
+      return {
+        cycleBuyBrokerFee: outcome.fees.estimated_buy_broker_fee,
+        cycleSellBrokerFee: outcome.fees.estimated_sell_broker_fee,
+        cycleSalesTax: outcome.fees.estimated_sales_tax,
+        cycleFees: outcome.fees.estimated_total_fees,
+        netProfit: outcome.net_realized_profit,
+      };
+    }
+
+    if (!isLastMatched) {
+      const propBuy =
+        outcome.realized_acquisition_cost > 0
+          ? totalBuyCost / outcome.realized_acquisition_cost
+          : 0;
+      const propSell =
+        outcome.realized_revenue > 0 ? totalSellRevenue / outcome.realized_revenue : 0;
+      const cycleBuyBrokerFee = roundIsk(outcome.fees.estimated_buy_broker_fee * propBuy);
+      const cycleSellBrokerFee = roundIsk(outcome.fees.estimated_sell_broker_fee * propSell);
+      const cycleSalesTax = roundIsk(outcome.fees.estimated_sales_tax * propSell);
+      const cycleFees = roundIsk(cycleBuyBrokerFee + cycleSellBrokerFee + cycleSalesTax);
+      const netProfit = roundIsk(cycleGrossProfit - cycleFees);
+
+      allocatedState.allocatedBuyBrokerFee += cycleBuyBrokerFee;
+      allocatedState.allocatedSellBrokerFee += cycleSellBrokerFee;
+      allocatedState.allocatedSalesTax += cycleSalesTax;
+      allocatedState.allocatedTotalFees += cycleFees;
+      if (netProfit !== null) allocatedState.allocatedNetProfit += netProfit;
+
+      return {
+        cycleBuyBrokerFee,
+        cycleSellBrokerFee,
+        cycleSalesTax,
+        cycleFees,
+        netProfit,
+      };
+    }
+
+    // Last matched cycle absorbs remainder for exact conservation:
+    // Σ cycle.fees == outcome.fees.estimated_total_fees
+    // Σ cycle.net_profit == outcome.net_realized_profit
+    const cycleBuyBrokerFee = roundIsk(
+      outcome.fees.estimated_buy_broker_fee - allocatedState.allocatedBuyBrokerFee
+    );
+    const cycleSellBrokerFee = roundIsk(
+      outcome.fees.estimated_sell_broker_fee - allocatedState.allocatedSellBrokerFee
+    );
+    const cycleSalesTax = roundIsk(
+      outcome.fees.estimated_sales_tax - allocatedState.allocatedSalesTax
+    );
+    const cycleFees = roundIsk(
+      outcome.fees.estimated_total_fees - allocatedState.allocatedTotalFees
+    );
+    const netProfit =
+      outcome.net_realized_profit === null
+        ? null
+        : roundIsk(outcome.net_realized_profit - allocatedState.allocatedNetProfit);
+
+    return {
+      cycleBuyBrokerFee,
+      cycleSellBrokerFee,
+      cycleSalesTax,
+      cycleFees,
+      netProfit,
+    };
+  }
+
+
+}

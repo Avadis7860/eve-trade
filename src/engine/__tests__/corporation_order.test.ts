@@ -108,9 +108,10 @@ function run(): void {
     normalizeCorporationOrder({ ...raw, order_id: Number.MAX_SAFE_INTEGER + 1 }, 1001, 99001) === null,
     'Unsafe numeric order ID must fail normalization',
   );
+  const omittedSide = normalizeCorporationOrder({ ...raw, is_buy_order: undefined }, 1001, 99001);
   assert(
-    normalizeCorporationOrder({ ...raw, is_buy_order: undefined }, 1001, 99001) === null,
-    'Missing side must fail normalization',
+    omittedSide?.is_buy_order === false,
+    'Omitted is_buy_order must preserve the sell-side semantics documented by ESI',
   );
   assert(
     normalizeCorporationOrderHistory({ ...raw, state: 'unknown' }, 1001, 99001) === null,
@@ -120,6 +121,33 @@ function run(): void {
   assert(
     normalizeCorporationOrder({ ...raw, wallet_division: 8 }, 1001, 99001) === null,
     'Wallet division outside CCP division range must fail normalization',
+  );
+
+  const observedShape = normalizeCorporationOrder(
+    {
+      duration: 90,
+      issued: '2026-09-24T01:16:23Z',
+      issued_by: 2124224223,
+      location_id: 60003760,
+      order_id: 7429091434,
+      price: 9286,
+      range: 'region',
+      region_id: 10000002,
+      type_id: 3691,
+      volume_remain: 3165,
+      volume_total: 3165,
+      wallet_division: 1,
+    },
+    1001,
+    99001,
+  );
+  assert(
+    observedShape?.is_buy_order === false,
+    'Actual CCP corporation payload without is_buy_order must normalize as a sell order',
+  );
+  assert(
+    observedShape?.ownership?.wallet_division === 1,
+    'Actual CCP wallet division must be preserved',
   );
   assert(
     normalizeCorporationOrder({ ...raw, issued_by: 0 }, 1001, 99001) === null,

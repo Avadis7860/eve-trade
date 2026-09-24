@@ -168,6 +168,28 @@ export class TraderAnalyticsService {
         calcOptions
       );
 
+      // Aggregate financial totals directly from the canonical outcome.
+      totalRealizedGross = roundIsk(totalRealizedGross + outcome.gross_realized_profit);
+      totalRealizedProfit = roundIsk(totalRealizedProfit + outcome.net_realized_profit);
+      totalBrokerFeesPaid = roundIsk(
+        totalBrokerFeesPaid +
+          outcome.fees.estimated_buy_broker_fee +
+          outcome.fees.estimated_sell_broker_fee,
+      );
+      totalSalesTaxPaid = roundIsk(totalSalesTaxPaid + outcome.fees.estimated_sales_tax);
+      totalEstimatedFees = roundIsk(totalEstimatedFees + outcome.fees.estimated_total_fees);
+
+      if (outcome.financial_completeness === 'PARTIAL' || outcome.source_coverage === 'PARTIAL') {
+        hasPartial = true;
+      }
+      if (outcome.financial_completeness === 'UNAVAILABLE') {
+        hasUnavailable = true;
+      }
+      if (outcome.has_unmatched_sell_quantity) {
+        hasUnmatchedTrades = true;
+        unmatchedTradesCount += 1;
+      }
+
       // Capital recovery is projected by the canonical outcome/position ledger.
       // TraderAnalytics must not reconstruct a second FIFO ledger.
       if (outcome.financial_completeness === 'PARTIAL' || outcome.source_coverage === 'PARTIAL') {

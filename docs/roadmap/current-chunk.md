@@ -30,11 +30,11 @@ The product must therefore keep these dimensions distinct:
 
 - PR #71 remains open for traceability but is not a merge candidate.
 - No new financial, allocation, profitability or execution behavior should be added during the contract rebase.
-- The existing FIFO calculation remains useful as a mathematical primitive, but its current character-isolated boundary is not the final economic contract.
+- The existing FIFO calculation remains useful as a mathematical primitive, but the canonical output is now an explicit economic position-segment model rather than a character-isolated trade reconstruction.
 - Active BUY orders are valid evidence for reserved capital/order exposure only. They are not acquisition facts.
 - An ESI wallet BUY can establish a market acquisition fact, but it does not establish the user's intent for that stock. The system must not invent “for trade” vs “for PI” vs “for industry”.
 - Characters and corporations remain attributable actors inside the same ecosystem; changing actor does not automatically break the economic lifecycle.
-- Capital-recovery progress is a derived position/operation metric, not realized P&L.
+- Capital-recovery progress is a derived position-segment metric, not realized P&L.
 - ROI scope and denominator must be explicit.
 - Break-even is a policy state, not an accounting fact.
 - Current-market valuation remains separate from realized accounting.
@@ -46,8 +46,8 @@ The product must therefore keep these dimensions distinct:
 
 - FIN-001 has a deterministic AcquisitionLot / CurrentPosition reconstruction primitive and executable regression scenarios.
 - FIN-002 currently carries position lifecycle on realized disposal events and counts only fully closed positions in closed-trade KPIs, but the active increment that isolated characters is explicitly under semantic rework.
-- The next FIN-002 implementation must move accounting matching to the ecosystem position while preserving issuer, owner, observer and principal provenance as separate axes.
-- The next FIN-002 implementation must also introduce the generic economic-origin/source-coverage contract without implementing PI/Industry ingestion.
+- The current FIN-002 implementation moves accounting matching toward the ecosystem position-segment boundary while preserving issuer, owner, observer and principal provenance as separate axes.
+- The generic economic-origin/source-coverage contract is now present without implementing PI/Industry ingestion; the remaining work is to connect real ingestion coverage evidence and certify downstream consumers.
 - Market-traceable results must be distinguishable from ecosystem-complete financial truth.
 - A historical market BUY of a type is not sufficient proof that a later SELL consumed that lot when the same stock can originate from an unmodeled source such as production. The system must not claim an exact cost/ROI beyond the supported lineage.
 - ORD-001 has multi-observer canonical-order regression coverage preserving issuer, owner and observer as separate axes.
@@ -94,10 +94,25 @@ Implementation may resume only after:
 
 1. Introduce accounting_scope_id, economic origin and source coverage at the financial boundary.
 2. Make positionLedger.ts the single economic inventory reconstruction primitive.
-3. Make RealizedFinancialOutcome a projection of the canonical position ledger.
-4. Make TraderAnalytics consume the canonical outcome instead of rebuilding a second ledger.
+3. Make RealizedFinancialOutcome a projection of the canonical position ledger and preserve all position segments.
+4. Make TraderAnalytics consume canonical position segments/outcomes instead of rebuilding a second ledger.
 5. Route consolidated multi-character reporting through one shared accounting scope before reporting aggregation.
 6. Add cross-character, cross-scope, multi-location and source-coverage regressions.
 7. Run the relevant unit/domain suite and full CI; only then certify FIN-002 and resume UX-03.
 
 PI/Industry integration remains explicitly deferred and will later feed the same EconomicOrigin -> AcquisitionLot pipeline.
+
+
+## FIN-002 rebase progress — current branch
+
+Implemented structurally on the active branch, certification pending:
+
+- history and economic-origin coverage are explicit calculation-boundary inputs and outputs; omitted coverage remains UNKNOWN;
+- economic position segments are first-class ledger outputs with their own lots, allocations, lifecycle and capital-recovery state;
+- the current position points to the active segment, or the most recently closed segment when no segment remains open;
+- sequential segments for the same scope + type no longer share one current capital-recovery bucket;
+- explicit economic owner attribution is required before the ledger declares a non-unknown owner; observing character identity is not used as the fallback;
+- realized outcomes preserve all historical position segments while using the current segment for current-position lifecycle/recovery fields;
+- analytics capital-recovery aggregation consumes the complete segment list.
+
+The remaining gate is integration of real transaction-ingestion coverage evidence and certification of the complete downstream metric population.

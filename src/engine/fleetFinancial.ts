@@ -241,10 +241,11 @@ export class FleetFinancialEngine {
       (c) => c.quantity > 0 && c.is_position_closed === true,
     );
 
+    const closedRoiCycles = closedCycles.filter((c) => c.roi !== null);
     const avgRealizedRoi =
-      closedCycles.filter((c) => c.roi !== null).length > 0
-        ? closedCycles.filter((c) => c.roi !== null).reduce((acc, c) => acc + c.roi, 0) /
-          closedCycles.filter((c) => c.roi !== null).length
+      closedRoiCycles.length > 0
+        ? closedRoiCycles.reduce((acc, c) => c.roi === null ? acc : acc + c.roi, 0) /
+          closedRoiCycles.length
         : 0;
 
     const avgHoldDays =
@@ -282,7 +283,9 @@ export class FleetFinancialEngine {
       }
       itemProfitMap[c.type_id].total_profit = roundIsk(itemProfitMap[c.type_id].total_profit + c.net_profit);
       itemProfitMap[c.type_id].trades_count += 1;
-      itemProfitMap[c.type_id].rois.push(c.roi);
+      if (c.roi !== null) {
+        itemProfitMap[c.type_id].rois.push(c.roi);
+      }
       itemProfitMap[c.type_id].hold_days_list.push(c.hold_days);
       itemProfitMap[c.type_id].total_volume_units += c.quantity;
     }

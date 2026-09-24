@@ -272,7 +272,7 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
 
                 <div className="bg-[#0e1117] p-3.5 rounded-xl border border-purple-500/30 space-y-1">
                   <div className="text-[11px] text-[#808495] flex items-center justify-between">
-                    <span>ROI Réalisé Moyen</span>
+                    <span>ROI net moyen — cessions de clôture</span>
                     <Coins className="w-3.5 h-3.5 text-purple-400" />
                   </div>
                   <div className="text-lg font-bold font-mono text-purple-300">
@@ -296,6 +296,56 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                   </div>
                 </div>
               </div>
+
+              {metrics.capital_recovery && (
+                <div className="bg-[#0e1117] p-4 rounded-xl border border-amber-500/30 space-y-3">
+                  <div className="flex items-center justify-between border-b border-[#262730] pb-2">
+                    <div>
+                      <span className="font-bold text-[#fafafa]">Récupération du capital</span>
+                      <span className="ml-2 text-[10px] text-[#808495]">
+                        périmètre : positions connues
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-mono text-[#808495]">
+                      {metrics.capital_recovery.financial_completeness === 'PARTIAL'
+                        ? 'PARTIEL'
+                        : 'OBSERVÉ'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="space-y-1">
+                      <div className="text-[10px] text-[#808495]">Capital engagé</div>
+                      <div className="font-mono font-bold text-[#fafafa]">
+                        {fmtIsk(metrics.capital_recovery.capital_committed)}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-[10px] text-[#808495]">Cash récupéré</div>
+                      <div className="font-mono font-bold text-[#fafafa]">
+                        {fmtIsk(metrics.capital_recovery.cash_recovered)}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-[10px] text-[#808495]">Delta récupération</div>
+                      <div className="font-mono font-bold text-[#fafafa]">
+                        {fmtIsk(metrics.capital_recovery.capital_recovery_delta)}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-[10px] text-[#808495]">Ratio de récupération</div>
+                      <div className="font-mono font-bold text-[#fafafa]">
+                        {metrics.capital_recovery.capital_recovery_ratio === null
+                          ? '—'
+                          : `${(metrics.capital_recovery.capital_recovery_ratio * 100).toFixed(2)}%`}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-[10px] text-[#808495]">
+                    Restant : {metrics.capital_recovery.remaining_quantity.toLocaleString('fr-FR')} unités ·{' '}
+                    {fmtIsk(metrics.capital_recovery.remaining_cost_basis)} de coût de revient.
+                  </div>
+                </div>
+              )}
 
               {/* Character Breakdown if Fleet Mode */}
               {isFleetMode && characterResults.length > 0 && (

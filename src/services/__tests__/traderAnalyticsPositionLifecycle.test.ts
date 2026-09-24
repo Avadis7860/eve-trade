@@ -46,7 +46,7 @@ function run() {
     { executionFeeMode: 'TAKER_TAKER' },
   );
 
-  assert(metrics.total_realized_profit > 0, 'the disposed unit may produce realized profit');
+  assert(metrics.total_realized_profit !== null && metrics.total_realized_profit > 0, 'the disposed unit may produce realized profit');
   assert(metrics.realized_profit_scope === 'DISPOSAL_ALLOCATIONS', 'total realized profit is disposal-scoped');
   assert(metrics.top_profitable_items.length === 0, 'partial positions must not enter top profitable items');
   assert(Object.keys(metrics.category_success_rate).length === 0, 'partial positions must not enter category success statistics');

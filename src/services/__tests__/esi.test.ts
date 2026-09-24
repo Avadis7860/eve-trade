@@ -164,9 +164,12 @@ async function run() {
   assert(corpOrdersResult.data[0].ownership?.owner_id === 99001, 'Corporation owner ID must be explicit');
   assert(corpOrdersResult.data[0].ownership?.principal_character_id === 1001, 'Observing principal must be preserved');
 
-  setBackendApiFetchForTesting(async (input) => {
+  setBackendApiFetchForTesting(async (input, init) => {
     const url = String(input);
     if (url.includes('/history')) {
+      corporationAuthHeaders.push(
+        (init?.headers as Record<string, string> | undefined)?.Authorization || '',
+      );
       return new Response(JSON.stringify([{
         order_id: '92002',
         type_id: 34,

@@ -78,10 +78,10 @@ The current engine/domain layers remain ahead of the UI, but the financial bound
 
 ## Latest CI verification
 
-Last validated code head: 59d4780db405af8864b5bf1e0f57ebe4d1d4ab2f
+Latest checked code head before FIN-002 implementation: d33635c164352a388e6b6fe843613b389c4241fc
 
-CI Foundation & Regression Gate #923: GREEN
-Phase 2.7C SDE Truth Gate #684: GREEN
+CI Foundation & Regression Gate #927: GREEN
+Phase 2.7C SDE Truth Gate #688: GREEN
 
 The full gate passed including:
 - CI / Change Scope;
@@ -104,3 +104,9 @@ Documentation is now aligned with the ecosystem-level accounting correction and 
 The current branch must not be treated as product truth for cross-character/corporation financial matching or ecosystem-complete ROI: CI green confirms regression integrity, not semantic certification.
 
 UX-03 feature work resumes after FIN-002 and the remaining acceptance gates are certified.
+
+## FIN-002 implementation state
+
+FIN-002 implementation is active on PR #71. The accounting boundary is moving to accounting_scope_id + type_id, with character/corporation identity retained as attribution/provenance. AcquisitionLot now has a generic economic-origin contract in preparation for future sources; PI/Industry ingestion remains deferred.
+
+The canonical position ledger is the single reconstruction source for lifecycle and capital recovery. Performance analytics must consume that projection rather than maintaining an independent character-scoped FIFO reconstruction.

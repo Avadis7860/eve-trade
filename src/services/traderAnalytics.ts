@@ -375,6 +375,7 @@ export class TraderAnalyticsService {
             buy_location: buyLocation,
             sell_location: sellLocation,
             financial_completeness: cycleCompleteness,
+            source_coverage: outcome.source_coverage,
             is_net_estimated:
               cycleCompleteness === 'OBSERVED' || cycleCompleteness === 'UNAVAILABLE'
                 ? false
@@ -489,9 +490,13 @@ export class TraderAnalyticsService {
         if (Number.isFinite(buyTime) && cycle.quantity > 0) {
           weightedBuyTimeMs += buyTime * cycle.quantity;
         }
+        // Position closure is an economic-lifecycle property, not a fee/configuration property.
+        // A MARKET_TRACEABLE position may legitimately have financial_completeness=UNAVAILABLE
+        // when fees are not configured; this must not suppress whole-position closure.
+        // PARTIAL/UNAVAILABLE source coverage, however, means the economic lineage itself
+        // is incomplete and cannot certify the whole-position result.
         if (
-          cycle.financial_completeness === 'PARTIAL' ||
-          cycle.financial_completeness === 'UNAVAILABLE' ||
+          cycle.source_coverage !== 'MARKET_TRACEABLE' ||
           (cycle.unmatched_sell_quantity ?? 0) > 0
         ) {
           hasIncompleteSegment = true;

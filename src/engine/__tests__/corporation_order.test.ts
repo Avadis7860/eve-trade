@@ -221,7 +221,7 @@ function run(): void {
     'Snapshot aggregation must not assign the observing character as economic owner',
   );
   assert(
-    aggregatedFromSnapshot[0].ownership?.principal_character_id === 2124224223 &&
+    aggregatedFromSnapshot[0].ownership?.principal_character_id === 1001 &&
       aggregatedFromSnapshot[0].ownership?.wallet_division === 1,
     'Snapshot aggregation must preserve observer and wallet provenance',
   );

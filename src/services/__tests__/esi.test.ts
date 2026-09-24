@@ -149,6 +149,69 @@ async function run() {
     throw new Error('Unexpected corporation ESI test request: ' + url);
   });
 
+  // Regression: this is the exact observed CCP corporation-order shape from
+  // the real browser E2E. CCP omits optional boolean fields when false, so
+  // the service boundary must accept the omitted is_buy_order property.
+  setBackendApiFetchForTesting(async (input, init) => {
+    const url = String(input);
+    const authorization =
+      (init?.headers as Record<string, string> | undefined)?.Authorization || '';
+    assert(authorization === 'Bearer corp-token-real', 'Observed real-payload request must use the supplied credential');
+    if (!url.includes('/api/character/2124224223/corporation/orders')) {
+      throw new Error('Unexpected real corporation order regression request: ' + url);
+    }
+    return new Response(JSON.stringify([{
+      duration: 90,
+      issued: '2026-09-24T01:16:23Z',
+      issued_by: 2124224223,
+      location_id: 60003760,
+      order_id: 7429091434,
+      price: 9286,
+      range: 'region',
+      region_id: 10000002,
+      type_id: 3691,
+      volume_remain: 3165,
+      volume_total: 3165,
+      wallet_division: 1,
+    }]), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  });
+
+  const observedRealCorpOrders = await EsiService.fetchCharacterCorporationOrders(
+    2124224223,
+    'corp-token-real',
+    98830882,
+    'The Defense Of Ikuchi',
+  );
+  assert(
+    observedRealCorpOrders.state === 'AVAILABLE',
+    'Exact observed CCP corporation payload must remain AVAILABLE after service normalization',
+  );
+  assert(
+    observedRealCorpOrders.data.length === 1,
+    'Exact observed CCP corporation payload must produce one normalized order',
+  );
+  assert(
+    observedRealCorpOrders.data[0].order_id === '7429091434',
+    'Exact observed order ID must survive the EsiService boundary',
+  );
+  assert(
+    observedRealCorpOrders.data[0].is_buy_order === false,
+    'Omitted optional CCP buy flag must normalize to the documented sell form',
+  );
+  assert(
+    observedRealCorpOrders.data[0].ownership?.owner_type === 'corporation' &&
+      observedRealCorpOrders.data[0].ownership?.owner_id === 98830882,
+    'Exact observed payload must preserve economic corporation ownership',
+  );
+  assert(
+    observedRealCorpOrders.data[0].ownership?.principal_character_id === 2124224223 &&
+      observedRealCorpOrders.data[0].ownership?.wallet_division === 1,
+    'Exact observed payload must preserve observer and wallet division provenance',
+  );
+
   const corpOrdersResult = await EsiService.fetchCharacterCorporationOrders(
     1001,
     'corp-token-a',

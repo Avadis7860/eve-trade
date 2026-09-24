@@ -81,6 +81,36 @@ function run() {
   assert(closedMetrics.total_closed_trades === 1, 'a fully disposed position must count as one closed trade');
   assert(closedMetrics.profitable_trades === 1, 'a fully disposed profitable position must count as profitable');
 
+  const orderOnlyMetrics = TraderAnalyticsService.processTransactions(
+    1001,
+    'Test Trader',
+    [],
+    [{
+      order_id: '7429091434',
+      type_id: 34,
+      type_name: 'Tritanium',
+      region_id: 10000002,
+      location_id: 60003760,
+      price: 140,
+      volume_remain: 0,
+      volume_total: 1,
+      is_buy_order: false,
+      issued: '2026-09-20T10:00:00Z',
+      duration: 90,
+      state: 'fulfilled',
+    }],
+    [],
+    5,
+    5,
+  );
+
+  assert(orderOnlyMetrics.total_buy_volume === 0, 'order side must not create accounting buy volume without a transaction fact');
+  assert(orderOnlyMetrics.total_sell_volume === 0, 'order side must not create accounting sell volume without a transaction fact');
+  assert(
+    orderOnlyMetrics.observed_fulfilled_order_activity_isk === 140,
+    'fulfilled order history must remain available as observation-only activity',
+  );
+
   console.log('[PASS] FIN-002 position-based analytics semantics validated.');
 }
 

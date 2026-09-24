@@ -1,5 +1,4 @@
 import { InterRegionalFinancialEngine } from '../engine/interRegional';
-import { TradingFleetEngine } from '../engine/fleet';
 import {
   EveTypeDetail,
   MarketHub,
@@ -9,7 +8,6 @@ import {
   RawMarketOrder,
   HistoricalStats,
   MarketDataQuality,
-  EveCharacterSession,
 } from '../types';
 
 export class InterRegionalScanner {
@@ -25,8 +23,7 @@ export class InterRegionalScanner {
     config: FinancialConfig,
     orderBooks: Record<number, RawMarketOrder[]>,
     historyStats?: Record<number, HistoricalStats>,
-    qualities?: Record<number, MarketDataQuality>,
-    characters?: EveCharacterSession[]
+    qualities?: Record<number, MarketDataQuality>
   ): InterRegionalOpportunity[] {
     const opportunities: InterRegionalOpportunity[] = [];
     const activeHubs = hubs.filter((h) => h.active);
@@ -58,9 +55,6 @@ export class InterRegionalScanner {
         );
 
         if (opp) {
-          if (characters && characters.length > 0) {
-            opp.fleet_plan = TradingFleetEngine.resolveFleetPlan(opp, characters, config);
-          }
           opportunities.push(opp);
         }
       }

@@ -4,7 +4,7 @@ Status: CURRENT
 Scope: open work only
 Source of truth: revalidated code, tests, CI and current state documents
 
-## P0 — Financial Truth / Position Model — CONTRACT REBASE REQUIRED
+## P0 — Financial Truth / Position Model — IMPLEMENTATION IN PROGRESS
 
 These items block further finance, performance and portfolio development until their contracts are accepted.
 

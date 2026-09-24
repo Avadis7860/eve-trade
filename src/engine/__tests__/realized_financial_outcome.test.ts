@@ -2179,6 +2179,9 @@ async function runAllTests() {
       if (feesBreakdown === undefined) {
         throw new Error(`Cycle ${c.cycle_id} fees_breakdown must be defined`);
       }
+      if (feesBreakdown.fee_mode === 'UNAVAILABLE') {
+        throw new Error(`Cycle ${c.cycle_id} configured fee breakdown unexpectedly unavailable`);
+      }
       const componentFeesSum = roundIsk(
         feesBreakdown.estimated_buy_broker_fee +
         feesBreakdown.estimated_sell_broker_fee +

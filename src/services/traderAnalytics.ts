@@ -324,7 +324,7 @@ export class TraderAnalyticsService {
             'Station Inconnue';
           const sellLocation =
             sellTx.location_name ||
-            UniverseRepository.getInstance().getStationNameSync(sellTx.location_id || 0) ||
+            UniverseRepository.getInstance().getStationNameSync(sellTx.location_id) ||
             'Station Inconnue';
 
           const cycleCompleteness: FinancialCompleteness =
@@ -418,7 +418,7 @@ export class TraderAnalyticsService {
           // INVARIANT: No synthetic buy price, cost basis, or fake profit is fabricated.
           const sellLocation =
             sellTx.location_name ||
-            UniverseRepository.getInstance().getStationNameSync(sellTx.location_id || 0) ||
+            UniverseRepository.getInstance().getStationNameSync(sellTx.location_id) ||
             'Station Inconnue';
 
           const cycleRecord: TradeCycleRecord = {
@@ -1121,11 +1121,13 @@ export class TraderAnalyticsService {
       // Build unified FIFO lots
       const lots = buyTxs.map((b) => ({
         buy_transaction_id: b.transaction_id,
-        character_id: b.character_id ?? 0,
+        character_id: b.character_id,
         character_name:
           b.character_name ||
-          charMap.get(b.character_id ?? 0)?.character_name ||
-          `Pilote #${b.character_id ?? 0}`,
+          (b.character_id !== undefined
+            ? charMap.get(b.character_id)?.character_name
+            : undefined) ||
+          'Pilote inconnu',
         date: b.date,
         location_id: b.location_id,
         location_name:
@@ -1141,11 +1143,11 @@ export class TraderAnalyticsService {
         let sellRemaining = sellTx.quantity;
         const sellUnitPrice = sellTx.unit_price;
         const sellTimeMs = new Date(sellTx.date).getTime();
-        const sellCharId = sellTx.character_id ?? 0;
+        const sellCharId = sellTx.character_id;
         const sellCharName =
           sellTx.character_name ||
-          charMap.get(sellCharId)?.character_name ||
-          `Pilote #${sellCharId}`;
+          (sellCharId !== undefined ? charMap.get(sellCharId)?.character_name : undefined) ||
+          'Pilote inconnu';
         const sellLocation =
           sellTx.location_name ||
           UniverseRepository.getInstance().getStationNameSync(sellTx.location_id) ||
@@ -1192,7 +1194,7 @@ export class TraderAnalyticsService {
             totalBuyCost += lotCost;
             totalWeightedBuyTimeMs += new Date(m.lot.date).getTime() * m.allocatedQuantity;
             buyCharNames.add(m.lot.character_name);
-            if (m.lot.character_id) buyCharIds.add(m.lot.character_id);
+            if (m.lot.character_id !== undefined) buyCharIds.add(m.lot.character_id);
             if (!primaryBuyLocation) primaryBuyLocation = m.lot.location_name;
           }
 
@@ -1201,10 +1203,11 @@ export class TraderAnalyticsService {
           const totalSellRevenue = roundIsk(matchedQty * sellUnitPrice);
           const grossProfit = roundIsk(totalSellRevenue - totalBuyCost);
 
-          const sellerInfo = charMap.get(sellCharId) || {
-            accounting_level: 4,
-            broker_relations_level: 4,
-          };
+          const sellerInfo =
+            (sellCharId !== undefined ? charMap.get(sellCharId) : undefined) || {
+              accounting_level: 4,
+              broker_relations_level: 4,
+            };
           const accountingLevel = sellerInfo.accounting_level;
           const brokerRelationsLevel = sellerInfo.broker_relations_level;
 
@@ -1277,7 +1280,7 @@ export class TraderAnalyticsService {
               ]),
             },
             unmatched_sell_quantity: unmatchedQty,
-            character_id: 0,
+            character_id: sellCharId,
             character_name: isCrossCharacter
               ? `${buyCharNameStr} → ${sellCharName}`
               : sellCharName,
@@ -1348,7 +1351,7 @@ export class TraderAnalyticsService {
               ]),
             },
             unmatched_sell_quantity: sellTx.quantity,
-            character_id: 0,
+            character_id: sellCharId,
             character_name: sellCharName,
             sell_character_name: sellCharName,
           };

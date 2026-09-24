@@ -358,10 +358,11 @@ export class FleetFinancialEngine {
       const catWins = catCycles.filter((c) => c.is_profitable).length;
       categorySuccessRate[cat].win_rate =
         catCycles.length > 0 ? (catWins / catCycles.length) * 100 : 0;
+      const catRoiCycles = catCycles.filter((c) => c.roi !== null);
       categorySuccessRate[cat].avg_roi =
-        catCycles.length > 0
-          ? catCycles.reduce((sum, c) => c.roi === null ? sum : sum + c.roi, 0) / catCycles.length
-          : null;
+        catRoiCycles.length > 0
+          ? catRoiCycles.reduce((sum, c) => c.roi === null ? sum : sum + c.roi, 0) / catRoiCycles.length
+          : 0;
       categorySuccessRate[cat].profit_label = 'Bénéfice Net Flotte';
       categorySuccessRate[cat].is_net_estimated = true;
     }

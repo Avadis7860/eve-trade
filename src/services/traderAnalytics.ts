@@ -1047,17 +1047,21 @@ export class TraderAnalyticsService {
       if (!locationVolumeMap[locId]) {
         locationVolumeMap[locId] = { name: locName, volumeIsk: 0, count: 0 };
       }
-      const val =
-        (Number.isFinite(tx.unit_price) ? Math.max(0, tx.unit_price) : 0) *
-        (Number.isFinite(tx.quantity) ? Math.max(0, tx.quantity) : 0);
-      locationVolumeMap[locId].volumeIsk += val;
-      locationVolumeMap[locId].count += 1;
-
-      if (tx.is_buy) {
-        totalBuyVolumeIsk += val;
-      } else {
-        totalSellVolumeIsk += val;
+      const hasValidEconomicAmount =
+        Number.isFinite(tx.unit_price) &&
+        tx.unit_price > 0 &&
+        Number.isFinite(tx.quantity) &&
+        tx.quantity > 0;
+      const val = hasValidEconomicAmount ? tx.unit_price * tx.quantity : null;
+      if (val !== null) {
+        locationVolumeMap[locId].volumeIsk += val;
+        if (tx.is_buy) {
+          totalBuyVolumeIsk += val;
+        } else {
+          totalSellVolumeIsk += val;
+        }
       }
+      locationVolumeMap[locId].count += 1;
 
       if (!txByType[tx.type_id]) {
         txByType[tx.type_id] = [];
@@ -1305,7 +1309,7 @@ export class TraderAnalyticsService {
             gross_profit: 0,
             estimated_fees_paid: 0,
             net_profit: 0,
-            roi: 0,
+            roi: null,
             hold_days: 0,
             is_profitable: false,
             buy_location: 'Inconnu (Sans Achat Flotte Antérieur)',

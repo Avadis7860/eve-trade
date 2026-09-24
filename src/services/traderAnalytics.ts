@@ -454,6 +454,17 @@ export class TraderAnalyticsService {
             (outcome.position_disposition_states.length === 0
               ? outcome.position_remaining_quantity
               : undefined);
+          const positionSegment = positionSegmentId
+            ? outcome.position_segments.find(
+                (segment) => segment.position_segment_id === positionSegmentId,
+              )
+            : undefined;
+          const cycleSourceCoverage =
+            positionSegment?.source_coverage ?? outcome.source_coverage;
+          const cycleHistoryCoverage =
+            positionSegment?.history_coverage ?? outcome.history_coverage;
+          const cycleEconomicOriginCoverage =
+            positionSegment?.economic_origin_coverage ?? outcome.economic_origin_coverage;
           // The canonical financial source is the position segment emitted by
           // PositionLedger. Never invent a synthetic operation identity from
           // character + type when a disposition is not segment-attributable.
@@ -509,7 +520,9 @@ export class TraderAnalyticsService {
             buy_location: buyLocation,
             sell_location: sellLocation,
             financial_completeness: cycleCompleteness,
-            source_coverage: outcome.source_coverage,
+            source_coverage: cycleSourceCoverage,
+            history_coverage: cycleHistoryCoverage,
+            economic_origin_coverage: cycleEconomicOriginCoverage,
             is_net_estimated:
               cycleCompleteness === 'OBSERVED' || cycleCompleteness === 'UNAVAILABLE'
                 ? false

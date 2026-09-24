@@ -60,6 +60,10 @@ export interface PortfolioOrderExposureSnapshot {
   missing_escrow_count: number;
   missing_provenance_count: number;
   scoped_order_ids: string[];
+  /** Corporation-owned orders known in the observed feed but not attributable to the selected treasury division. */
+  unresolved_corporation_order_count: number;
+  unresolved_corporation_order_ids: string[];
+  unresolved_corporation_order_notional: number | null;
 }
 
 export interface PortfolioCandidateUniverseSnapshot {

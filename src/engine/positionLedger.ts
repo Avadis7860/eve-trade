@@ -2,16 +2,26 @@ import type {
   AcquisitionLot,
   CurrentPosition,
   DisposalAllocation,
-  ExecutionTransactionRef,
   FinancialProvenance,
-  PersistedCharacterTransaction,
   PositionDispositionState,
   PositionLedgerResult,
   PositionLifecycleStatus,
 } from '../types';
 import { roundIsk } from './money';
 
-type LedgerTransaction = PersistedCharacterTransaction | ExecutionTransactionRef;
+type LedgerTransaction = {
+  readonly transaction_id: number;
+  readonly character_id?: number;
+  readonly type_id: number;
+  readonly location_id: number;
+  readonly is_buy: boolean;
+  readonly quantity: number;
+  readonly unit_price: number;
+  readonly timestamp?: string;
+  readonly date?: string;
+  readonly order_id?: import('../types/order').OrderId;
+  readonly opportunity_id?: string;
+};
 
 function transactionTimestamp(tx: LedgerTransaction): string | null {
   const candidate = 'timestamp' in tx ? tx.timestamp : undefined;

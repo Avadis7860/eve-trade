@@ -68,11 +68,11 @@ The current engine/domain layers remain ahead of the UI, but the financial bound
 
 ## Active gaps
 
-- Capital recovery is now a dedicated output across the canonical Performance character and fleet projections, with explicit KNOWN_POSITIONS scope.
+- Capital recovery is now a dedicated output in the canonical character-scoped Performance projection, with explicit KNOWN_POSITIONS scope.
 - Unrealized/current-market valuation is still a separate future/market-derived surface.
 - No durable AcquisitionLot / CurrentPosition store exists.
 - Economic origin is not yet a persisted multi-source event model; FIN-002 must add the generic contract without introducing PI/Industry ingestion in this increment.
-- DATA-001 first pass preserves unavailable ratios, removes invalid economic-volume coercion, and carries financial provenance through trader and fleet projections.
+- DATA-001 first pass preserves unavailable ratios, removes invalid economic-volume coercion, and carries financial provenance through trader analytics.
 - Remaining numeric 0 fallbacks are being classified as legitimate accumulators/scope sentinels or separate prospective-domain policies; the financial truth boundary no longer fabricates missing physical volume or ROI.
 - CI remains validated for the last code increment; documentation-only commits may advance the branch ref without changing that validated code.
 

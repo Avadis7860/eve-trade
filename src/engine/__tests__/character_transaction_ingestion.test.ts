@@ -26,7 +26,9 @@
 import {
   CharacterTransactionSyncService,
   REQUIRED_WALLET_TRANSACTION_SCOPE,
+  deriveTransactionHistoryCoverage,
 } from '../../services/characterTransactionSyncService';
+import { CharacterRepository } from '../../domain/character/CharacterRepository';
 import { IndexedDbStore } from '../../services/indexedDbStore';
 import { AuthService } from '../../services/authService';
 import {
@@ -1651,6 +1653,89 @@ async function runTests() {
 
     assert(attemptC === 4, `Expected 4 attempts with maxRetries=3, got ${attemptC}`);
     console.log('  [PASS] HG-12: Options maxRetries, retryOnTransientError, and timeoutMs proven effective.');
+  }
+
+  // FIN-002: collection coverage is explicit and separate from source health.
+  {
+    const completeFromFreshHistory = deriveTransactionHistoryCoverage({
+      full_history_requested: true,
+      stopped_reason: 'NO_MORE_DATA',
+      transactions_received: 100,
+    });
+    assert(
+      completeFromFreshHistory === 'COMPLETE_FOR_SCOPE',
+      'full-history synchronization reaching NO_MORE_DATA must establish complete source-history coverage',
+    );
+
+    const completeFromFirstSync = deriveTransactionHistoryCoverage({
+      full_history_requested: false,
+      stopped_reason: 'NO_MORE_DATA',
+      transactions_received: 100,
+    });
+    assert(
+      completeFromFirstSync === 'COMPLETE_FOR_SCOPE',
+      'first synchronization reaching NO_MORE_DATA without a prior anchor may establish complete source-history coverage',
+    );
+
+    const incrementalAnchor = deriveTransactionHistoryCoverage({
+      full_history_requested: false,
+      last_known_transaction_id_before_sync: 5000,
+      stopped_reason: 'ANCHOR_REACHED',
+      transactions_received: 50,
+    });
+    assert(
+      incrementalAnchor === 'PARTIAL',
+      'incremental synchronization reaching a known anchor must remain partial for full-history coverage',
+    );
+
+    const interrupted = deriveTransactionHistoryCoverage({
+      full_history_requested: true,
+      stopped_reason: 'NETWORK_ERROR',
+      transactions_received: 50,
+    });
+    assert(
+      interrupted === 'PARTIAL',
+      'interrupted synchronization after received data must remain partial',
+    );
+
+    const failedBeforeData = deriveTransactionHistoryCoverage({
+      full_history_requested: true,
+      stopped_reason: 'AUTH_REQUIRED',
+      transactions_received: 0,
+    });
+    assert(
+      failedBeforeData === 'UNKNOWN',
+      'authorization failure before any data must keep history coverage unknown',
+    );
+  }
+
+  // FIN-002: the latest sync coverage must be durable and must not overwrite snapshot freshness.
+  {
+    mockAdapter.reset();
+    const charId = 2112001;
+    mockAdapter.setResponseForFromId(undefined, {
+      ok: true,
+      status: 200,
+      data: [],
+    });
+
+    const summary = await CharacterTransactionSyncService.syncCharacterTransactions(charId, {
+      esiAdapter: mockAdapter,
+      fullHistory: true,
+    });
+
+    assert(summary.history_coverage === 'COMPLETE_FOR_SCOPE', 'empty full-history sync must still establish complete source-history coverage');
+    assert(summary.economic_origin_coverage === 'UNKNOWN', 'economic-origin coverage remains unknown while non-market origins are not covered');
+
+    const persistedSummary = CharacterRepository.getInstance().getTransactionSyncSummary(charId);
+    assert(
+      persistedSummary?.history_coverage === 'COMPLETE_FOR_SCOPE',
+      'transaction sync coverage must be durably persisted',
+    );
+    assert(
+      persistedSummary?.health_status === 'LIVE',
+      'durable sync summary must preserve source health separately from coverage',
+    );
   }
 
   console.log('\n================================================================');

@@ -142,6 +142,8 @@ export interface ExecutionTransactionRef {
   readonly timestamp: string;
   readonly opportunity_id?: string;
   readonly observation_id?: string;
+  /** Explicit economic accounting scope; not derived from character identity. */
+  readonly accounting_scope_id?: string;
   /** Explicit financial source when this reference crosses the accounting boundary. */
   readonly provenance?: FinancialProvenance;
 }

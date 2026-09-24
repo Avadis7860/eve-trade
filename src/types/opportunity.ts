@@ -24,7 +24,6 @@ import type {
   ScoreComponents,
   TradeCostBreakdown,
 } from './financial';
-import type { TradeFleetPlan } from './character';
 import type { OpportunityExecutionOutcome } from './execution';
 
 export interface OpportunityCertification {
@@ -360,8 +359,6 @@ export interface InterRegionalOpportunity {
   provenance?: OpportunityProvenance;
   evidence?: OpportunityEvidence;
 
-  // Fleet Multi-Character Ecosystem Execution Plan
-  fleet_plan?: TradeFleetPlan;
 
   detected_at: string;
 }

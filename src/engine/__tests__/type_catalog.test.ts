@@ -3,6 +3,7 @@ import { EVE_TYPES_CATALOG } from '../../data/universe';
 import { AuthService } from '../../services/authService';
 import { EveCharacterSession } from '../../types';
 import { CANONICAL_CATALOG_MANIFEST } from '../../data/catalogManifest';
+import { CatalogRepository } from '../../domain/catalog/CatalogRepository';
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
@@ -46,6 +47,23 @@ async function runTypeCatalogAndEnvironmentTests() {
 
   const rifter = TypeCatalogService.getTypeById(587);
   assert(rifter !== undefined && rifter.name === 'Rifter', 'Rifter (587) must exist in catalog');
+
+  const catalogRepository = CatalogRepository.getInstance();
+  assert(
+    catalogRepository.getTypeVolume(34) === 0.01,
+    'Known catalog type volume must remain available',
+  );
+  let unknownVolumeThrew = false;
+  try {
+    catalogRepository.getTypeVolume(987654321);
+  } catch (error) {
+    unknownVolumeThrew = String(error).includes('Physical volume unavailable');
+  }
+  assert(
+    unknownVolumeThrew,
+    'Unknown type volume must remain unavailable instead of using a synthetic default',
+  );
+
   console.log('✅ Core market types lookup verified.');
 
   // 4. Memory Cache Performance & Determinism

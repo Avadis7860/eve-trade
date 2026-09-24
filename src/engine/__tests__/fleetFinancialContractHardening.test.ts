@@ -280,8 +280,9 @@ describe('Phase 5: Fleet Financial Contract Hardening & Non-Additive Verificatio
     // If it were naive mean: (1.00 + 0.10) / 2 = 0.55 (+55%) (FALSE)
     // If it were sum: 1.00 + 0.10 = 1.10 (+110%) (FALSE)
     assert.equal(result.fleetMetrics.total_closed_trades, 4);
+    assert.notEqual(result.fleetMetrics.average_realized_roi, null);
     assert.equal(
-      Number(result.fleetMetrics.average_realized_roi.toFixed(4)),
+      Number(result.fleetMetrics.average_realized_roi!.toFixed(4)),
       0.325,
       'Fleet ROI must be 0.325 across 4 trade cycles'
     );

@@ -9,7 +9,7 @@ CI gate: PR CI
 
 ## Current state
 
-The functional E2E-001 baseline is stable and merged. CI-001 is merged and complete. UX-02 is merged. UX-01/P0 is closed. The current active technical chantier is Agent Context Hardening on branch chore/agent-context-hardening / PR #78, based on main aec4c62691723e8fa2ee2bb2f9126249152ad57f.
+The functional E2E-001 baseline is stable and merged. CI-001 is merged and complete. UX-02 is merged. UX-01/P0 is closed. The current active technical chantier is Agent Context Hardening v2 on branch chore/agent-context-hardening-v2 / PR #79, based on main bacb0655b1fde3a4650b5cd94feed0fe8617be10.
 
 The application has mature market, ESI, finance, order, prediction and portfolio foundations, but the presentation layer does not yet expose them as a coherent trading workflow.
 
@@ -66,7 +66,7 @@ These tracks can be prepared in documentation before they are made active. Their
 | CI-OPS-001 | CANDIDATE / DEFERRED | Project operator CLI with Oclif around the existing CI/PR model | P0 closure; explicit CI-hardening need | maintenance candidate; separate branch/PR |
 | PUBLIC-READINESS | ACTIVE MAINTENANCE | Strengthen public repository credibility, security posture, licensing and release/showcase hygiene | public repository state | maintenance track; does not replace UX delivery |
 
-CI-001 remains the stable PR certification base. Context Hardening adds a dedicated integrity proof to the static owner. The historical Draft-routing mismatch stays separate unless explicitly activated as its own chantier.
+CI-001 remains the stable PR certification base. Agent Context Hardening v2 strengthens lifecycle, bootstrap and routing integrity without replacing that CI architecture. The historical Draft-routing mismatch stays separate unless explicitly activated as its own chantier.
 
 ## UX program completion gate
 

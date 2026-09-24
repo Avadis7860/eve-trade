@@ -30,7 +30,7 @@ test.describe('UX-03 — Portfolio / Allocation', () => {
     await expect(page.getByText('Obligation non couverte', { exact: true })).toBeVisible();
     await expect(page.getByText('Sell exposure', { exact: true })).toBeVisible();
 
-    await expect(page.getByText('Budget d’allocation', { exact: true })).toBeVisible();
+    await expect(page.getByText('Budget d'allocation', { exact: true })).toBeVisible();
     await expect(page.getByText('Capital déployé', { exact: true })).toBeVisible();
     await expect(page.getByText('Capital non alloué', { exact: true })).toBeVisible();
     await expect(page.getByText('ROI projeté', { exact: true })).toBeVisible();
@@ -42,7 +42,7 @@ test.describe('UX-03 — Portfolio / Allocation', () => {
     await expect(page.getByText('Character Assets non intégré', { exact: true })).toBeVisible();
     await expect(page.getByText('Quantité, localisation et valeur complète du stock restent UNKNOWN', { exact: false })).toBeVisible();
 
-    await expect(page.getByText('UNKNOWN', { exact: true })).toHaveCount(expect.any(Number));
+    expect(await page.getByText('UNKNOWN', { exact: true }).count()).toBeGreaterThan(0);
     await expect(page.getByText('Proposed Allocation', { exact: true })).toHaveCount(1);
   });
 });

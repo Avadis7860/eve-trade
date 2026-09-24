@@ -342,4 +342,6 @@ function runEndToEndIntegrationTests() {
 
   console.log('===============================================================');
   console.log('ALL PHASE 4 END-TO-END INTEGRATION & COHERENCE TESTS PASSED (100%)');
+}
+
 runEndToEndIntegrationTests();

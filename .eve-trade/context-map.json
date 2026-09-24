@@ -2,8 +2,8 @@
   "schema_version": 1,
   "purpose": "Navigation metadata for human and AI developers. It never overrides implementation, certified tests, contracts or invariants.",
   "authority_order": [
-    "implementation_and_certified_tests",
-    "normative_contracts_and_invariants",
+    "normative_contracts_invariants_and_accepted_decisions",
+    "current_implementation_certified_tests_and_ci",
     "active_state_and_roadmap",
     "navigation_metadata"
   ],

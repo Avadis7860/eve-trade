@@ -284,8 +284,8 @@ function runFleetFinancialTests() {
   assert(Object.isFrozen(fleetRes.fleetMetrics), 'fleetMetrics must be frozen');
   console.log('  [PASS] Test 6: Invariance and immutability verified.');
 
-  // Test 7: Fleet scope must not invent cross-character inventory ownership
-  console.log('--- Test 7: Fleet projection preserves character economic isolation ---');
+  // Test 7: Fleet consolidated scope permits explicit cross-character economic continuity
+  console.log('--- Test 7: Fleet consolidated accounting preserves cross-character economic continuity ---');
   const pilotA_buyTxs: EveCharacterTransaction[] = [
     {
       transaction_id: 88801,
@@ -329,16 +329,18 @@ function runFleetFinancialTests() {
     allFleetTxs
   );
 
-  assert(fleetConsolidatedResult.total_closed_trades === 0, 'Cross-character BUY -> SELL must not create a closed position');
-  assert(fleetConsolidatedResult.has_unmatched_trades === true, 'Cross-character inventory mismatch must remain explicit');
-  assert(fleetConsolidatedResult.unmatched_trades_count === 1, 'The character-B orphan sale must remain explicitly unmatched');
+  assert(fleetConsolidatedResult.total_closed_trades === 1, 'Cross-character BUY -> SELL must close the shared economic position');
+  assert(fleetConsolidatedResult.has_unmatched_trades === false, 'Fully allocated cross-character sale must not remain unmatched');
+  assert(fleetConsolidatedResult.unmatched_trades_count === 0, 'No unmatched trade remains when the shared scope covers the disposal');
   const cycles = fleetConsolidatedResult.recent_trade_cycles;
-  const orphanSale = cycles.find((c) => c.sell_character_name === 'Pilot Beta') ?? cycles[cycles.length - 1];
-  assert(orphanSale.quantity === 0, 'Cross-character sale must not consume character-A inventory');
-  assert(orphanSale.unmatched_sell_quantity === 547, 'The foreign-character sale must remain unmatched');
-  assert(orphanSale.financial_completeness === 'PARTIAL', 'Foreign-character sale must remain PARTIAL');
-  assert(orphanSale.position_lifecycle !== 'CLOSED', 'Foreign-character sale must never be marked CLOSED');
-  console.log('  [PASS] Test 7: Fleet projection preserves character economic isolation and explicit unmatched state.');
+  assert(cycles.length === 1, 'One consolidated disposal cycle must be produced');
+  const cycle = cycles[0];
+  assert(cycle.quantity === 547, 'The disposal must consume all 547 acquired units');
+  assert(cycle.unmatched_sell_quantity === 0, 'The disposal must have no unmatched quantity');
+  assert(cycle.position_lifecycle === 'CLOSED', 'The shared economic position must be closed after full disposal');
+  assert(cycle.character_id === 1002, 'Disposal attribution must remain on Pilot Beta');
+  assert(cycle.character_name === 'Pilot Beta', 'Disposal character attribution must remain on Pilot Beta');
+  console.log('  [PASS] Test 7: Fleet consolidated scope preserves economic continuity while retaining character attribution.');
 
   console.log('===============================================================');
   console.log('ALL PHASE 3 MULTI-CHARACTER & FLEET FINANCIAL TESTS PASSED (100%)');

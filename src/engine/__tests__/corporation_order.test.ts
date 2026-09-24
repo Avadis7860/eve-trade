@@ -23,6 +23,8 @@ function run(): void {
     issued: '2026-09-22T12:00:00Z',
     duration: 90,
     escrow: 1000,
+    issued_by: 1001,
+    wallet_division: 2,
   };
 
   const normalizedA = normalizeCorporationOrder(
@@ -41,8 +43,8 @@ function run(): void {
   assert(normalizedA?.ownership?.owner_id === 99001, 'Owner ID must be corporation ID');
   assert(normalizedA?.ownership?.principal_character_id === 1001, 'Principal must be observing character');
   assert(normalizedA?.ownership?.corporation_name === 'Trade Operations Corporation', 'Corporation name must be preserved');
-  assert(normalizedA?.ownership?.issuer_character_id === undefined, 'Issuer must not be fabricated');
-  assert(normalizedA?.ownership?.wallet_division === undefined, 'Wallet division must not be fabricated');
+  assert(normalizedA?.ownership?.issuer_character_id === 1001, 'Issuer must be preserved when CCP exposes it');
+  assert(normalizedA?.ownership?.wallet_division === 2, 'Wallet division must be preserved when CCP exposes it');
 
   const normalizedB = normalizeCorporationOrder(raw, 1002, 99001, 'Trade Operations Corporation');
   assert(normalizedB?.ownership?.principal_character_id === 1002, 'Second observer must retain its principal');
@@ -113,6 +115,15 @@ function run(): void {
   assert(
     normalizeCorporationOrderHistory({ ...raw, state: 'unknown' }, 1001, 99001) === null,
     'Unknown history state must fail normalization',
+  );
+
+  assert(
+    normalizeCorporationOrder({ ...raw, wallet_division: 8 }, 1001, 99001) === null,
+    'Wallet division outside CCP division range must fail normalization',
+  );
+  assert(
+    normalizeCorporationOrder({ ...raw, issued_by: 0 }, 1001, 99001) === null,
+    'Invalid issuer provenance must fail normalization',
   );
 
   const personal = {

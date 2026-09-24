@@ -386,6 +386,7 @@ export interface DisposalAllocation {
   readonly allocation_id: string;
   readonly disposition_transaction_id: number;
   readonly acquisition_lot_id: string;
+  readonly acquisition_transaction_id: number;
   readonly provenance: FinancialProvenance;
   readonly allocated_quantity: number;
   readonly acquisition_unit_cost: number;

@@ -6,6 +6,9 @@ import type {
   EconomicOwnerType,
   FinancialProvenance,
   FinancialSourceCoverage,
+  FinancialCoverageEvidence,
+  FinancialHistoryCoverage,
+  EconomicOriginCoverage,
   PositionDispositionState,
   PositionLedgerResult,
   PositionLifecycleStatus,
@@ -140,6 +143,7 @@ export function reconstructPositionLedger(
   accountingScopeInput: string | number,
   typeId: number,
   transactions: readonly PositionLedgerTransaction[],
+  coverageEvidence?: FinancialCoverageEvidence,
 ): PositionLedgerResult {
   const accountingScopeId =
     typeof accountingScopeInput === 'number'
@@ -148,6 +152,11 @@ export function reconstructPositionLedger(
 
   if (!accountingScopeId) throw new Error('Invalid accountingScopeId: empty scope');
   if (!Number.isSafeInteger(typeId) || typeId <= 0) throw new Error('Invalid typeId: ' + typeId);
+
+  const historyCoverage: FinancialHistoryCoverage =
+    coverageEvidence?.history_coverage ?? 'UNKNOWN';
+  const economicOriginCoverage: EconomicOriginCoverage =
+    coverageEvidence?.economic_origin_coverage ?? 'UNKNOWN';
 
   const ordered = [...transactions]
     .filter((tx) => tx.type_id === typeId)
@@ -372,9 +381,18 @@ export function reconstructPositionLedger(
     capital_recovery_ratio: capitalRecoveryRatio,
     provenance: positionProvenance,
     lifecycle_status: lifecycleStatus(lots, quantityAcquired, quantityDisposed, unmatchedDispositionQuantity),
-    position_completeness: sourceCoverage === 'UNAVAILABLE' ? 'UNAVAILABLE' : sourceCoverage === 'PARTIAL' ? 'PARTIAL' : 'OBSERVED',
+    position_completeness:
+      sourceCoverage === 'UNAVAILABLE'
+        ? 'UNAVAILABLE'
+        : sourceCoverage === 'PARTIAL' ||
+            historyCoverage !== 'COMPLETE_FOR_SCOPE' ||
+            economicOriginCoverage !== 'COMPLETE_FOR_SCOPE'
+          ? 'PARTIAL'
+          : 'OBSERVED',
     financial_completeness: sourceCoverage === 'UNAVAILABLE' ? 'UNAVAILABLE' : sourceCoverage === 'PARTIAL' ? 'PARTIAL' : 'OBSERVED',
     source_coverage: sourceCoverage,
+    history_coverage: historyCoverage,
+    economic_origin_coverage: economicOriginCoverage,
     lots: Object.freeze(lots.filter((lot) => lot.remaining_quantity > 0 || lot.quantity_acquired > 0)),
     allocations: Object.freeze(allocations),
     disposition_states: Object.freeze(dispositionStates),

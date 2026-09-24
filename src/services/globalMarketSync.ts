@@ -435,7 +435,6 @@ export class GlobalMarketSyncService {
                 }
               } catch {}
 
-              const characters = AuthService.getLinkedCharacters();
               const opps = InterRegionalScanner.scanItemAcrossHubs(
                 item,
                 activeHubs,
@@ -443,9 +442,7 @@ export class GlobalMarketSyncService {
                 currentConfig,
                 itemOrderBooks,
                 itemHistoryCache,
-                itemQualities,
-                characters
-              );
+                itemQualities              );
 
               if (opps.length > 0) {
                 // Generate and record verifiable OpportunityObservations into append-only store

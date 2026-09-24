@@ -39,7 +39,7 @@ export type PositionLedgerTransaction = {
   /** Explicit economic origin when already established by an upstream source. */
   readonly economic_origin?: EconomicOrigin;
   /** Transaction-level owner attribution; never used as an accounting silo. */
-  readonly economic_owner_type?: Exclude<EconomicOwnerType, 'mixed'>;
+  readonly economic_owner_type?: EconomicOwnerType;
   readonly economic_owner_id?: number | string | null;
   /** Explicit source/provenance supplied at the accounting boundary. */
   readonly provenance: FinancialProvenance;
@@ -97,7 +97,9 @@ function resolveEconomicOrigin(tx: PositionLedgerTransaction): EconomicOrigin {
 }
 
 function resolveEconomicOwnerType(tx: PositionLedgerTransaction): Exclude<EconomicOwnerType, 'mixed'> {
-  return tx.economic_owner_type ?? 'unknown';
+  return tx.economic_owner_type === 'mixed' || tx.economic_owner_type === undefined
+    ? 'unknown'
+    : tx.economic_owner_type;
 }
 
 function resolveEconomicOwnerId(tx: PositionLedgerTransaction): number | string | null {

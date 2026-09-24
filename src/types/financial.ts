@@ -40,7 +40,7 @@ export interface ScenarioFinancialResult {
   fee_resolution?: FeeRateResolution;
 }
 
-export type TreasurySourceMode = 'corporation' | 'fleet_consolidated' | 'active_character' | 'manual_budget';
+export type TreasurySourceMode = 'corporation' | 'active_character' | 'manual_budget';
 export type CorporationWalletSource = 'esi' | 'manual' | 'unavailable';
 export type TreasuryCapitalStatus = 'observed_esi' | 'manual' | 'unavailable';
 
@@ -94,11 +94,9 @@ export interface FinancialConfig {
   max_market_participation_pct?: number;    // Cap trade volume at fraction of daily volume (e.g. 0.25 = 25%)
   avoid_chokepoints?: boolean;              // Flag or avoid high-risk lowsec/gank chokepoints
   trader_profile?: 'balanced' | 'highsec_daytrader' | 'station_trader' | 'heavy_hauler';
-  fleet_calculation_mode?: 'active_character' | 'fleet_consolidated';
-  fleet_consolidated_capital?: number;
 
   // Treasury & Corporation Wallet configuration
-  treasury_source_mode?: TreasurySourceMode; // 'corporation' | 'fleet_consolidated' | 'active_character' | 'manual_budget'
+  treasury_source_mode?: TreasurySourceMode; // corporation / active_character / manual_budget
   corporation_wallet_division?: number;      // 1 to 7 (division number, default 1)
   corporation_wallet_balance?: number;       // Last selected division balance (observed or manual)
   corporation_wallet_source?: CorporationWalletSource;

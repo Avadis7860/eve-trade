@@ -1,24 +1,42 @@
 # Order Contract
 
-Status: STABLE
-Owner: trading order identity/ownership
+Status: PROVISIONAL — MODEL REBASE REQUIRED
+Owner: trading order identity / ownership
+Decision: [ADR-0003](../decisions/ADR-0003-economic-position-and-order-model.md)
 Implementation: `src/types/order.ts`, `src/types/character.ts`, `src/engine/orderIdentity.ts`, `src/engine/orderScoping.ts`
-Validation: `order_identity.test.ts`, `order_scoping_contracts.test.ts`, corporation tests
+Validation: existing order/corporation suites + ORD-001 / #73
 
-## Purpose
+## Canonical entity
 
-Preserve CCP market-order identity and economic ownership.
+There is one logical MarketOrder.
 
-## Contract shape
+Character and Corporation are ownership/scope dimensions, not two distinct order species.
 
-`OrderId` is a canonical string. Ownership is explicit through `OrderOwnership`, with `owner_type`, `owner_id`, `principal_character_id` and optional observer list.
+## Required axes
 
-## Semantic rules
+| Axis | Meaning |
+|---|---|
+| Order ID | CCP identity |
+| Market side | `is_buy_order`; order-book side |
+| Issuer | Character who issued the order when exposed by ESI |
+| Economic owner | Character or corporation represented by the order |
+| Observer | Credential principal(s) that obtained the observation |
+| Scope | Authorization/query projection |
+| Source | ESI route / durable snapshot provenance |
+| Quality | freshness / coverage / validation state |
 
-Unsafe numeric IDs are rejected. Corporation orders do not receive a character-owner projection. Legacy `is_corporation` is compatibility metadata only.
+## Accounting boundary
+
+Market side must never be used to infer an economic acquisition or disposition.
+
+Accounting direction comes from transaction facts. Wallet transactions may not expose an order ID usable for causal accounting; the system must not invent one or map unrelated identifiers to it.
 
 ## Failure semantics
 
-Contradictory ownership for the same canonical OrderId fails closed.
+- unsafe/non-canonical order IDs are rejected;
+- contradictory ownership fails closed;
+- observer identity never replaces economic ownership;
+- missing optional ESI fields remain explicit and are normalized only under the ESI contract;
+- an order observation alone never creates a financial acquisition lot.
 
-[Order identity](../invariants/order-identity.md) · [Trading ownership](../invariants/trading-ownership.md)
+See [Trading Orders](../domains/trading/orders.md), [Trading Ownership](../invariants/trading-ownership.md) and ORD-001 / #73.

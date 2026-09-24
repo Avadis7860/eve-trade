@@ -20,7 +20,7 @@ interface TradingConfigContextType {
 
 const DEFAULT_CONFIG: FinancialConfig = {
   available_capital: 1000000000.0, // 1 Billion ISK
-  treasury_source_mode: 'corporation', // Corporation / Fleet / Personal treasury mode
+  treasury_source_mode: 'corporation', // Corporation / Active Character / Manual Budget
   corporation_wallet_division: 1,      // Division 1 (Master / 1ère division)
   corporation_wallet_source: 'unavailable',
   corporation_name: 'Corporation Personnelle',

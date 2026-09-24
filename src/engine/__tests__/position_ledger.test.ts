@@ -151,6 +151,34 @@ function run() {
   }
 
   {
+    const corporationBuy = {
+      transaction_id: 601,
+      character_id: 1001,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: true,
+      quantity: 500,
+      unit_price: 100,
+      timestamp: '2026-09-20T10:00:00Z',
+      accounting_scope_id: 'ecosystem:test',
+      economic_owner_type: 'corporation' as const,
+      economic_owner_id: 9001,
+      provenance: {
+        source_kind: 'ESI_WALLET_TRANSACTION' as const,
+        source_id: '601',
+        principal_scope: 'character:1001',
+      },
+    };
+    const characterSell = tx(602, false, 50, 140, '2026-09-20T11:00:00Z', 1002, 'ecosystem:test');
+    const result = reconstructPositionLedger('ecosystem:test', 34, [corporationBuy, characterSell]);
+    assert(result.position.allocations.length === 1, 'corporation acquisition must feed character disposal');
+    assert(result.position.remaining_quantity === 450, '450 corporation-acquired units must remain');
+    assert(result.position.lots[0].economic_owner_type === 'corporation', 'owner attribution remains corporation');
+    assert(result.position.lots[0].economic_owner_id === 9001, 'corporation owner identity remains explicit');
+    assert(result.position.allocations[0].provenance.principal_scope === 'character:1002', 'character seller remains provenance only');
+  }
+
+  {
     const result = reconstructPositionLedger('ecosystem:test', 34, [
       tx(501, true, 10, 100, '2026-09-20T10:00:00Z', 1001, 'ecosystem:test'),
       tx(502, false, 10, 150, '2026-09-20T11:00:00Z', 1002, 'ecosystem:other'),

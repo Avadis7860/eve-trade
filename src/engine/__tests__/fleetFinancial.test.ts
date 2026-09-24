@@ -341,6 +341,11 @@ function runFleetFinancialTests() {
   assert(cycle.quantity === 547, 'The disposal must consume all 547 acquired units');
   assert(cycle.unmatched_sell_quantity === 0, 'The disposal must have no unmatched quantity');
   assert(cycle.position_lifecycle === 'CLOSED', 'The shared economic position must be closed after full disposal');
+  assert(cycle.source_coverage === 'MARKET_TRACEABLE', 'Closed cross-character position must preserve complete market cost lineage');
+  assert(
+    cycle.financial_completeness === 'UNAVAILABLE',
+    'Missing fee configuration must remain UNAVAILABLE without invalidating economic lineage or lifecycle closure'
+  );
   assert(cycle.character_id === 1002, 'Disposal attribution must remain on Pilot Beta');
   assert(cycle.character_name === 'Pilot Beta', 'Disposal character attribution must remain on Pilot Beta');
   console.log('  [PASS] Test 7: Fleet consolidated scope preserves economic continuity while retaining character attribution.');

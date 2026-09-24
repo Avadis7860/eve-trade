@@ -1,10 +1,9 @@
 import React from 'react';
-import { PortfolioSimulation, ProposedAllocationSnapshot, RealPortfolioSnapshot, PortfolioPosition } from '../types';
+import { ProposedAllocationSnapshot, RealPortfolioSnapshot, PortfolioPosition } from '../types';
 import { fmtIsk, fmtPct, fmtNumber } from '../engine/money';
 import { Badge, DollarSign, Layers, ShieldCheck, AlertTriangle, Database, Lock, Boxes } from 'lucide-react';
 
 interface PortfolioViewProps {
-  simulation: PortfolioSimulation;
   proposedAllocation: ProposedAllocationSnapshot;
   realPortfolio: RealPortfolioSnapshot;
   onSelectOpportunity: (oppId: string) => void;
@@ -75,7 +74,6 @@ function renderPositionEvidence(pos: PortfolioPosition): string {
 }
 
 export const PortfolioView: React.FC<PortfolioViewProps> = ({
-  simulation,
   proposedAllocation,
   realPortfolio,
   onSelectOpportunity,

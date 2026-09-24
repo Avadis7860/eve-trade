@@ -21,6 +21,14 @@ Converting PARTIAL/UNAVAILABLE/ERROR to EMPTY creates false zero-activity signal
 
 Service results and business consumers must preserve explicit state.
 
+Numeric values follow the same rule:
+
+- a valid zero remains `0` when zero is contractually meaningful;
+- missing, invalid or unavailable data remains `null`/explicit failure and is never fabricated as `0`;
+- physical quantities such as item volume never receive arbitrary fallback values;
+- ratios require a valid denominator and remain unavailable when it is missing;
+- provenance (`source_kind`, `source_id`, `principal_scope`) must survive financial projections and aggregations.
+
 ## Regression Coverage
 
 ESI collection tests, market quality tests and API/ESI boundary suites.

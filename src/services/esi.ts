@@ -121,7 +121,7 @@ export class EsiService {
       return { isValid: false, reason: `Invalid or unsafe order_id: ${raw.order_id}` };
     }
 
-    const typeId = Number(raw.type_id || expectedTypeId);
+    const typeId = Number(raw.type_id ?? expectedTypeId);
     if (!Number.isInteger(typeId) || typeId <= 0) {
       return { isValid: false, reason: `Invalid type_id: ${raw.type_id}` };
     }

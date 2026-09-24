@@ -105,7 +105,7 @@ The previously reported target-PC market-display symptom is resolved. The applic
 
 ## Agent context hardening
 
-This is the active technical chantier on branch `chore/agent-context-hardening-v2`, based on main `bacb0655b1fde3a4650b5cd94feed0fe8617be10`, PR #79.
+The current delivery is **CLOSING** on branch `chore/agent-context-hardening-v2`, based on main `bacb0655b1fde3a4650b5cd94feed0fe8617be10`, PR #79. Implementation scope is frozen for certification and merge.
 
 The chantier is limited to repository navigation, active-work governance, context integrity, CI ownership and historical documentation reconciliation. It must not import UX-03 or archived Financial Truth implementation.
 
@@ -113,7 +113,7 @@ The stable navigation layer is `.eve-trade/context-map.json`; the checkout-aware
 
 ## Current chantier / sequencing
 
-**Active technical chantier:** Agent Context Hardening v2 is the only active delivery branch/PR. PR #79 is the dedicated hardening branch. UX-03 branches/PRs #71 and #77 are closed without merge and their archive is reference-only.
+**Current delivery:** Agent Context Hardening v2 is the only delivery branch/PR and is CLOSING after implementation. PR #79 is the dedicated hardening branch. UX-03 branches/PRs #71 and #77 are closed without merge and their archive is reference-only.
 
 After this maintenance chantier is certified, the next financial gate is an explicit Financial Truth semantic reconciliation/re-acceptance step. It is not an instruction to reuse the archived implementation. UX-03 remains a separate future product chantier and must receive its own fresh branch/PR after its contract and financial dependencies are accepted.
 

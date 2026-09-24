@@ -407,7 +407,7 @@ const AppShell: React.FC = () => {
           onViewChange={setCurrentView}
           selectedType={selectedType}
           characterSession={characterSession}
-          characterOrdersCount={characterOrders.length}
+          characterOrdersCount={scopedOrders.length}
           portfolioPositionsCount={portfolioSimulation.positions.length}
           tradeExecutionsCount={tradeExecutions.length}
           globalSyncProgress={globalSyncProgress}

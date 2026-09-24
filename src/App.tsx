@@ -244,6 +244,16 @@ const AppShell: React.FC = () => {
   const orderCorporationContexts = useMemo(() => {
     const byId = new Map<string, OrderCorporationContext>();
 
+    // The character session may not carry corporation metadata yet even when
+    // the dedicated treasury sync has already resolved the economic
+    // corporation. Expose that resolved identity as an available order scope.
+    if (config.corporation_id && config.corporation_id > 0) {
+      byId.set(String(config.corporation_id), {
+        corporationId: String(config.corporation_id),
+        corporationName: config.corporation_name,
+      });
+    }
+
     for (const char of orderContextCharacters) {
       if (char.corporation_id && char.corporation_id > 0) {
         byId.set(String(char.corporation_id), {
@@ -253,11 +263,25 @@ const AppShell: React.FC = () => {
       }
     }
 
+    // Observed corporation-owned orders are also a direct source of available
+    // economic scopes. Their owner identity is authoritative; the observing
+    // character is not substituted as owner.
+    for (const order of allFleetOrders) {
+      if (order.ownership?.owner_type !== 'corporation') continue;
+      if (!Number.isInteger(order.ownership.owner_id) || order.ownership.owner_id <= 0) continue;
+      const id = String(order.ownership.owner_id);
+      const existing = byId.get(id);
+      byId.set(id, {
+        corporationId: id,
+        corporationName: existing?.corporationName ?? order.ownership.owner_name,
+      });
+    }
+
     return Array.from(byId.values()).map((entry) => ({
       corporationId: entry.corporationId,
       corporationName: entry.corporationName,
     }));
-  }, [orderContextCharacters]);
+  }, [allFleetOrders, config.corporation_id, config.corporation_name, orderContextCharacters]);
 
   const orderCollection: OrderCollection = useMemo(
     () => ({

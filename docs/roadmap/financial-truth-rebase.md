@@ -99,6 +99,7 @@ Current implementation:
 - deterministic `positionLedger.ts` reconstruction exists;
 - `AcquisitionLot`, `DisposalAllocation` and `CurrentPosition` are first-class typed calculation outputs;
 - transaction provenance is explicit at the ledger boundary and is never inferred from optional order/opportunity correlation;
+- `CurrentPosition` exposes a deterministic deduplicated provenance set for the known position facts;
 - optional `order_id` is preserved only as normalized corroborating provenance;
 - executable position-ledger regressions cover partial, closed, FIFO, causal and incomplete-source scenarios;
 - no durable IndexedDB position source has been introduced.

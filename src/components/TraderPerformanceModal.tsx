@@ -276,7 +276,9 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                     <Coins className="w-3.5 h-3.5 text-purple-400" />
                   </div>
                   <div className="text-lg font-bold font-mono text-purple-300">
-                    +{(metrics.average_realized_roi * 100).toFixed(1)}%
+                    {metrics.average_realized_roi === null
+                      ? '—'
+                      : `+${(metrics.average_realized_roi * 100).toFixed(1)}%`}
                   </div>
                   <div className="text-[10px] text-[#808495]">
                     Rendement net moyen par position clôturée

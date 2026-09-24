@@ -42,6 +42,33 @@ export class TraderAnalyticsService {
     brokerRelationsLevel?: number,
     options?: RealizedFinancialCalculationOptions
   ): TraderPerformanceMetrics {
+    // FIN-002 scope guard: implicit character scope is valid only for a
+    // single-character transaction set. A multi-character set must declare
+    // an explicit shared accounting scope so character identity cannot become
+    // an accidental cross-character accounting boundary.
+    const explicitAccountingScope = options?.accounting_scope_id?.trim();
+    const knownTransactionCharacterIds = new Set(
+      transactions
+        .map((tx) => tx.character_id)
+        .filter((id): id is number => Number.isSafeInteger(id) && id > 0),
+    );
+
+    if (!explicitAccountingScope && knownTransactionCharacterIds.size > 1) {
+      throw new Error(
+        'TraderAnalyticsService.processTransactions requires an explicit accounting_scope_id when transactions span multiple characters',
+      );
+    }
+
+    if (
+      !explicitAccountingScope &&
+      knownTransactionCharacterIds.size === 1 &&
+      !knownTransactionCharacterIds.has(characterId)
+    ) {
+      throw new Error(
+        'TraderAnalyticsService.processTransactions received transactions for a different character without an explicit accounting_scope_id',
+      );
+    }
+
     // Sort transactions deterministically: timestamp ASC, transaction_id ASC
     const sortedTx = [...transactions].sort(
       (a, b) =>

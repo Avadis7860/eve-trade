@@ -123,6 +123,51 @@ function run() {
     'fulfilled order history must remain available as observation-only activity',
   );
 
+  let crossCharacterImplicitScopeRejected = false;
+  try {
+    TraderAnalyticsService.processTransactions(
+      1001,
+      'Test Trader A',
+      [
+        tx(610, true, 10_000, 100, '2026-09-20T10:00:00Z'),
+        { ...tx(620, false, 1, 140, '2026-09-20T11:00:00Z'), character_id: 1002, character_name: 'Test Trader B' },
+      ],
+      [],
+      [],
+      5,
+      5,
+      { executionFeeMode: 'TAKER_TAKER' },
+    );
+  } catch (error) {
+    crossCharacterImplicitScopeRejected = String(error).includes('explicit accounting_scope_id');
+  }
+  assert(
+    crossCharacterImplicitScopeRejected,
+    'multi-character transaction sets must not silently inherit a character accounting scope',
+  );
+
+  let foreignCharacterImplicitScopeRejected = false;
+  try {
+    TraderAnalyticsService.processTransactions(
+      1001,
+      'Test Trader A',
+      [
+        { ...tx(630, true, 10, 100, '2026-09-20T10:00:00Z'), character_id: 1002, character_name: 'Test Trader B' },
+      ],
+      [],
+      [],
+      5,
+      5,
+      { executionFeeMode: 'TAKER_TAKER' },
+    );
+  } catch (error) {
+    foreignCharacterImplicitScopeRejected = String(error).includes('different character');
+  }
+  assert(
+    foreignCharacterImplicitScopeRejected,
+    'a foreign single-character transaction set must not inherit the reporting character scope',
+  );
+
   const crossCharacterMetrics = TraderAnalyticsService.processTransactions(
     1001,
     'Test Trader A',

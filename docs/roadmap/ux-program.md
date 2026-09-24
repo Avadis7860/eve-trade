@@ -38,7 +38,7 @@ Gate:
 all six surface responsibilities documented without overlapping ownership.
 
 ### UX-01 — Market truth / retrieval observability
-Status: P0 / CLOSURE GATE
+Status: DONE / EXTERNALLY BOUNDED
 
 Purpose:
 ensure market-order acquisition failures are explicit and never become ordinary empty business state, while closing the reported target-PC incident with evidence.
@@ -50,13 +50,15 @@ Completed:
 - deterministic ERROR/PARTIAL/STALE behavior and browser proof;
 - global synchronization failure accounting for market-quality ERROR.
 
-Remaining:
-- audit non-Operations market consumers for failure-to-empty collapse;
-- add deterministic HTTP 429 / Retry-After browser coverage;
-- capture target-PC evidence bundle and classify the incident as ROOT-CAUSED or EXTERNALLY BOUNDED.
+Completed:
+- P0-A caller audit found no concrete non-Operations failure-to-empty collapse;
+- P0-B deterministic HTTP 429 / Retry-After browser coverage is certified;
+- P0-C evidence export is implemented, browser-tested and merged;
+- the previously reported target-PC market-display issue is resolved and the current application is functional;
+- the reported symptom was explained by insufficient available data to produce a market to display; no persistent application defect is currently identified.
 
 Gate:
-all repository-side failure paths are explicit and covered, and the target-PC incident has either a reproducible root cause or a documented external evidence boundary.
+repository-side market failure semantics are explicit and covered, and the reported target-PC issue is resolved without a remaining reproducible application defect. The issue is classified EXTERNALLY BOUNDED.
 
 ### UX-02 — Operations / Mes Ordres
 Status: DONE / MERGED

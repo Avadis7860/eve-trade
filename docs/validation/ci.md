@@ -153,7 +153,7 @@ Any Oclif implementation is a separate maintenance chantier and must not add a s
 
 ## Completion status
 
-**CI-001G is certified; CI-001H is implemented; CI-001I is runtime-verified on PR run `35856208503` for head `9d09d8affac903de6c2ca8f39156b5b662d4fef4`.** Main Smoke and Full remain independent post-merge/scheduled health checks.
+**CI-001 is DONE / MERGED.** CI-001G is certified; CI-001H is implemented; CI-001I is runtime-verified on PR run `35856208503`. Main Smoke is independently verified on current main head `95e970933a1d440fb61d25a6f677742731b697aa` by run #9. Full Repository Certification remains an independent scheduled/manual health surface.
 
 The topology change is additive in proof ownership: existing commands remain present, the historical `validate` check name remains available, and browser execution is no longer downstream of non-browser validation.
 

@@ -41,7 +41,8 @@ Deferred until the UX gate:
 
 | ID | Status | Goal | Dependencies | Risk | Validation |
 |---|---|---|---|---|---|
-| CONTEXT-001 | ACTIVE | Harden AI-agent repository navigation and active-work governance | current main baseline | stale/dead context can misroute future work | test:context + PR CI + documentation sync |
+| CONTEXT-001 | DONE | Establish the first AI-agent repository navigation and active-work governance baseline | current main baseline | stale/dead context can misroute future work | test:context + PR CI + documentation sync |
+| CONTEXT-002 | CLOSING | Harden lifecycle, bootstrap protection, functional CI routing and stable integration-state validation | CONTEXT-001 + CI-001 | stale lifecycle metadata or false routing proof can misroute future work | test:context + PR CI + Main Smoke |
 | DOC-001 | DONE | Reconstruct modular documentation governance | current mission | stale truth if incomplete | docs/link audit + CI |
 | E2E-001 | DONE | Establish reproducible local OAuth/browser gate, deterministic CI E2E coverage, and real-CCP smoke | stable auth/ESI | environment-sensitive auth/callback integration | browser E2E + security/API + local CCP smoke |
 | UX-00 | DONE | Define and freeze product model, navigation, responsibilities and shared UX vocabulary | current audit | scope drift if implementation starts early | accepted UX contract |

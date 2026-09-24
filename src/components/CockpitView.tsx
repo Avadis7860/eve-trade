@@ -208,14 +208,6 @@ export const CockpitView: React.FC<CockpitViewProps> = ({
                           {isAnom && (
                             <span className="text-amber-400 font-bold">⚠️</span>
                           )}
-                          {opp.fleet_plan?.is_cross_character && (
-                            <span
-                              className="text-[9px] font-sans px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-semibold hidden sm:inline"
-                              title={`Flotte : Achat via ${opp.fleet_plan.buyer_character?.character_name} ➔ Vente via ${opp.fleet_plan.seller_character?.character_name}`}
-                            >
-                              Flotte
-                            </span>
-                          )}
                         </div>
                       </td>
 

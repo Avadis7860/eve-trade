@@ -17,7 +17,6 @@ import {
  * Invariants majeurs:
  * - ZÉRO effet de bord, aucun appel réseau, aucun accès localStorage ou hook React.
  * - Ne modifie pas et ne clone pas artificiellement les ordres (données métier EveCharacterOrder préservées).
- * - Ne crée jamais de pseudo-propriétaire 'fleet'.
  * - ownership is authoritative when present. Character scopes only accept
  *   character-owned orders; corporation-owned orders are excluded until a
  *   corporation-specific scope is introduced.

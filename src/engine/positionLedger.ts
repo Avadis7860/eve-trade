@@ -180,6 +180,7 @@ export function reconstructPositionLedger(
   const dispositionStates: PositionDispositionState[] = [];
   let unmatchedDispositionQuantity = 0;
   let unreconciledLocationTransitionCount = 0;
+  const unreconciledLocationTransitionsBySegment = new Map<string, number>();
 
   const activeOperationLotIds = new Set<string>();
   let operationSequence = 0;
@@ -233,7 +234,13 @@ export function reconstructPositionLedger(
       for (let index = 0; index < lots.length && remainingSellQuantity > 0; index += 1) {
         const lot = lots[index];
         if (!activeOperationLotIds.has(lot.lot_id) || lot.remaining_quantity <= 0) continue;
-        if (lot.location_id !== tx.location_id) unreconciledLocationTransitionCount += 1;
+        if (lot.location_id !== tx.location_id) {
+          unreconciledLocationTransitionCount += 1;
+          unreconciledLocationTransitionsBySegment.set(
+            operationIdAtDisposition!,
+            (unreconciledLocationTransitionsBySegment.get(operationIdAtDisposition!) ?? 0) + 1,
+          );
+        }
 
         const allocated = Math.min(lot.remaining_quantity, remainingSellQuantity);
         const acquisitionCost = roundIsk(allocated * lot.unit_cost);
@@ -248,6 +255,7 @@ export function reconstructPositionLedger(
 
         allocations.push({
           allocation_id: 'allocation_' + tx.transaction_id + '_' + lot.transaction_id,
+          position_segment_id: operationIdAtDisposition!,
           disposition_transaction_id: tx.transaction_id,
           acquisition_lot_id: lot.lot_id,
           acquisition_transaction_id: lot.transaction_id,
@@ -287,6 +295,7 @@ export function reconstructPositionLedger(
       const recoveryRatio =
         operationCapitalCommitted > 0 ? operationCashRecovered / operationCapitalCommitted : null;
       dispositionStates.push({
+        position_segment_id: operationIdAtDisposition,
         disposition_transaction_id: tx.transaction_id,
         disposed_quantity: disposedQuantity,
         unmatched_quantity: remainingSellQuantity,
@@ -302,101 +311,204 @@ export function reconstructPositionLedger(
       });
     } else {
       dispositionStates.push({
-        disposition_transaction_id: tx.transaction_id,
-        disposed_quantity: disposedQuantity,
-        unmatched_quantity: remainingSellQuantity,
-        remaining_position_quantity: 0,
-        lifecycle_status: 'UNKNOWN',
-      });
-    }
-
-    if (activeOperationLotIds.size > 0 && remainingPositionQuantity === 0) {
-      activeOperationLotIds.clear();
-      activeOperationId = null;
-      operationQuantityAcquired = 0;
-      operationCapitalCommitted = 0;
-      operationCashRecovered = 0;
-    }
-  }
-
-  const quantityAcquired = lots.reduce((sum, lot) => sum + lot.quantity_acquired, 0);
-  const quantityDisposed = allocations.reduce((sum, allocation) => sum + allocation.allocated_quantity, 0);
-  const remainingQuantity = lots.reduce((sum, lot) => sum + lot.remaining_quantity, 0);
-  const remainingCostBasis = roundIsk(lots.reduce((sum, lot) => sum + lot.remaining_cost_basis, 0));
-  const realizedGrossProfit = roundIsk(
-    allocations.reduce((sum, allocation) => sum + allocation.gross_realized_profit, 0),
+        position_segment_id: undefined,
+        disposition_transaction_id: tx.transaction_id  const positionSegmentIds = Object.freeze(
+    [...new Set(lots.map((lot) => lot.position_segment_id))]
+      .filter((id): id is string => Boolean(id))
+      .sort((a, b) => a.localeCompare(b)),
   );
 
-  const provenanceByKey = new Map<string, FinancialProvenance>();
-  for (const source of [
-    ...lots.map((lot) => lot.provenance),
-    ...allocations.map((allocation) => allocation.provenance),
-  ]) {
-    provenanceByKey.set(
-      source.source_kind + '|' + source.source_id + '|' + source.principal_scope,
-      source,
+  const buildPositionSegment = (positionSegmentId: string): CurrentPosition => {
+    const segmentLots = lots.filter((lot) => lot.position_segment_id === positionSegmentId);
+    const segmentAllocations = allocations.filter(
+      (allocation) => allocation.position_segment_id === positionSegmentId,
     );
-  }
-  const positionProvenance = Object.freeze(
-    [...provenanceByKey.values()].sort((a, b) =>
-      (a.source_kind + '|' + a.source_id + '|' + a.principal_scope).localeCompare(
-        b.source_kind + '|' + b.source_id + '|' + b.principal_scope,
-      ),
-    ),
-  );
+    const segmentDispositionStates = dispositionStates.filter(
+      (state) => state.position_segment_id === positionSegmentId,
+    );
 
-  const capitalCommitted = quantityAcquired > 0
-    ? roundIsk(lots.reduce((sum, lot) => sum + lot.total_original_cost, 0))
-    : null;
-  const cashRecovered = quantityAcquired > 0
-    ? roundIsk(allocations.reduce((sum, allocation) => sum + allocation.disposal_revenue, 0))
-    : null;
-  const capitalRecoveryDelta =
-    capitalCommitted !== null && cashRecovered !== null ? roundIsk(cashRecovered - capitalCommitted) : null;
-  const capitalRecoveryRatio =
-    capitalCommitted !== null && capitalCommitted > 0 && cashRecovered !== null
-      ? cashRecovered / capitalCommitted
+    const segmentQuantityAcquired = segmentLots.reduce(
+      (sum, lot) => sum + lot.quantity_acquired,
+      0,
+    );
+    const segmentQuantityDisposed = segmentAllocations.reduce(
+      (sum, allocation) => sum + allocation.allocated_quantity,
+      0,
+    );
+    const segmentRemainingQuantity = segmentLots.reduce(
+      (sum, lot) => sum + lot.remaining_quantity,
+      0,
+    );
+    const segmentRemainingCostBasis = roundIsk(
+      segmentLots.reduce((sum, lot) => sum + lot.remaining_cost_basis, 0),
+    );
+    const segmentRealizedGrossProfit = roundIsk(
+      segmentAllocations.reduce((sum, allocation) => sum + allocation.gross_realized_profit, 0),
+    );
+    const segmentCapitalCommitted = segmentQuantityAcquired > 0
+      ? roundIsk(segmentLots.reduce((sum, lot) => sum + lot.total_original_cost, 0))
       : null;
+    const segmentCashRecovered = segmentQuantityAcquired > 0
+      ? roundIsk(segmentAllocations.reduce((sum, allocation) => sum + allocation.disposal_revenue, 0))
+      : null;
+    const segmentRecoveryDelta =
+      segmentCapitalCommitted !== null && segmentCashRecovered !== null
+        ? roundIsk(segmentCashRecovered - segmentCapitalCommitted)
+        : null;
+    const segmentRecoveryRatio =
+      segmentCapitalCommitted !== null &&
+      segmentCapitalCommitted > 0 &&
+      segmentCashRecovered !== null
+        ? segmentCashRecovered / segmentCapitalCommitted
+        : null;
 
-  const hasUnknownOrigin = lots.some((lot) => lot.economic_origin !== 'MARKET_ACQUISITION');
-  const hasSourceDefects = invalidTransactionIds.length > 0 || unmatchedDispositionQuantity > 0 || hasUnknownOrigin || unreconciledLocationTransitionCount > 0;
-  const sourceCoverage: FinancialSourceCoverage =
-    hasSourceDefects ? 'PARTIAL' : quantityAcquired <= 0 ? 'UNAVAILABLE' : 'MARKET_TRACEABLE';
+    const segmentHasUnknownOrigin = segmentLots.some(
+      (lot) => lot.economic_origin !== 'MARKET_ACQUISITION',
+    );
+    const segmentUnmatched = segmentDispositionStates.reduce(
+      (sum, state) => sum + state.unmatched_quantity,
+      0,
+    );
+    const segmentUnreconciledLocationTransitions =
+      unreconciledLocationTransitionsBySegment.get(positionSegmentId) ?? 0;
+    const segmentHasSourceDefects =
+      invalidTransactionIds.length > 0 ||
+      segmentUnmatched > 0 ||
+      segmentHasUnknownOrigin ||
+      segmentUnreconciledLocationTransitions > 0;
+    const segmentSourceCoverage: FinancialSourceCoverage =
+      segmentHasSourceDefects
+        ? 'PARTIAL'
+        : segmentQuantityAcquired <= 0
+          ? 'UNAVAILABLE'
+          : 'MARKET_TRACEABLE';
 
-  const owner = derivePositionOwner(lots);
-  const position: CurrentPosition = Object.freeze({
-    position_id: 'position_' + accountingScopeId + '_' + typeId,
-    accounting_scope_id: accountingScopeId,
-    type_id: typeId,
-    economic_owner_type: owner.type,
-    economic_owner_id: owner.id,
-    quantity_acquired: quantityAcquired,
-    quantity_disposed: quantityDisposed,
-    remaining_quantity: remainingQuantity,
-    remaining_cost_basis: remainingCostBasis,
-    realized_gross_profit: realizedGrossProfit,
-    capital_committed: capitalCommitted,
-    cash_recovered: cashRecovered,
-    capital_recovery_delta: capitalRecoveryDelta,
-    capital_recovery_ratio: capitalRecoveryRatio,
-    provenance: positionProvenance,
-    lifecycle_status: lifecycleStatus(lots, quantityAcquired, quantityDisposed, unmatchedDispositionQuantity),
-    position_completeness:
-      sourceCoverage === 'UNAVAILABLE'
+    const segmentPositionCompleteness =
+      segmentSourceCoverage === 'UNAVAILABLE'
         ? 'UNAVAILABLE'
-        : sourceCoverage === 'PARTIAL' ||
+        : segmentSourceCoverage === 'PARTIAL' ||
             historyCoverage !== 'COMPLETE_FOR_SCOPE' ||
             economicOriginCoverage !== 'COMPLETE_FOR_SCOPE'
           ? 'PARTIAL'
-          : 'OBSERVED',
-    financial_completeness: sourceCoverage === 'UNAVAILABLE' ? 'UNAVAILABLE' : sourceCoverage === 'PARTIAL' ? 'PARTIAL' : 'OBSERVED',
-    source_coverage: sourceCoverage,
+          : 'OBSERVED';
+
+    const segmentOwner = derivePositionOwner(segmentLots);
+    const segmentProvenanceByKey = new Map<string, FinancialProvenance>();
+    for (const source of [
+      ...segmentLots.map((lot) => lot.provenance),
+      ...segmentAllocations.map((allocation) => allocation.provenance),
+    ]) {
+      segmentProvenanceByKey.set(
+        source.source_kind + '|' + source.source_id + '|' + source.principal_scope,
+        source,
+      );
+    }
+
+    const segmentProvenance = Object.freeze(
+      [...segmentProvenanceByKey.values()].sort((a, b) =>
+        (a.source_kind + '|' + a.source_id + '|' + a.principal_scope).localeCompare(
+          b.source_kind + '|' + b.source_id + '|' + b.principal_scope,
+        ),
+      ),
+    );
+
+    const segmentLifecycle = lifecycleStatus(
+      segmentLots,
+      segmentQuantityAcquired,
+      segmentQuantityDisposed,
+      segmentUnmatched,
+    );
+
+    return Object.freeze({
+      position_id: 'position_' + positionSegmentId,
+      position_segment_id: positionSegmentId,
+      accounting_scope_id: accountingScopeId,
+      type_id: typeId,
+      economic_owner_type: segmentOwner.type,
+      economic_owner_id: segmentOwner.id,
+      quantity_acquired: segmentQuantityAcquired,
+      quantity_disposed: segmentQuantityDisposed,
+      remaining_quantity: segmentRemainingQuantity,
+      remaining_cost_basis: segmentRemainingCostBasis,
+      realized_gross_profit: segmentRealizedGrossProfit,
+      capital_committed: segmentCapitalCommitted,
+      cash_recovered: segmentCashRecovered,
+      capital_recovery_delta: segmentRecoveryDelta,
+      capital_recovery_ratio: segmentRecoveryRatio,
+      capital_recovery_state:
+        segmentRecoveryDelta === null ? null : operationRecoveryState(segmentRecoveryDelta),
+      provenance: segmentProvenance,
+      lifecycle_status: segmentLifecycle,
+      position_completeness: segmentPositionCompleteness,
+      financial_completeness:
+        segmentPositionCompleteness === 'UNAVAILABLE'
+          ? 'UNAVAILABLE'
+          : segmentPositionCompleteness === 'PARTIAL'
+            ? 'PARTIAL'
+            : 'OBSERVED',
+      source_coverage: segmentSourceCoverage,
+      history_coverage: historyCoverage,
+      economic_origin_coverage: economicOriginCoverage,
+      lots: Object.freeze([...segmentLots]),
+      allocations: Object.freeze([...segmentAllocations]),
+      disposition_states: Object.freeze([...segmentDispositionStates]),
+      unmatched_disposition_quantity: segmentUnmatched,
+      invalid_transaction_ids: Object.freeze([...invalidTransactionIds]),
+      unreconciled_location_transition_count: segmentUnreconciledLocationTransitions,
+    });
+  };
+
+  const positionSegments = Object.freeze(
+    positionSegmentIds.map((positionSegmentId) => buildPositionSegment(positionSegmentId)),
+  );
+
+  const currentPosition =
+    [...positionSegments].reverse().find((segment) => segment.remaining_quantity > 0) ??
+    [...positionSegments].reverse()[0];
+
+  const emptyPosition: CurrentPosition = Object.freeze({
+    position_id: 'position_' + accountingScopeId + '_' + typeId + '_unknown',
+    position_segment_id: 'unknown',
+    accounting_scope_id: accountingScopeId,
+    type_id: typeId,
+    economic_owner_type: 'unknown',
+    economic_owner_id: null,
+    quantity_acquired: 0,
+    quantity_disposed: 0,
+    remaining_quantity: 0,
+    remaining_cost_basis: 0,
+    realized_gross_profit: 0,
+    capital_committed: null,
+    cash_recovered: null,
+    capital_recovery_delta: null,
+    capital_recovery_ratio: null,
+    capital_recovery_state: null,
+    provenance: Object.freeze([]),
+    lifecycle_status: 'UNKNOWN',
+    position_completeness: 'UNAVAILABLE',
+    financial_completeness: 'UNAVAILABLE',
+    source_coverage: 'UNAVAILABLE',
     history_coverage: historyCoverage,
     economic_origin_coverage: economicOriginCoverage,
-    lots: Object.freeze(lots.filter((lot) => lot.remaining_quantity > 0 || lot.quantity_acquired > 0)),
-    allocations: Object.freeze(allocations),
-    disposition_states: Object.freeze(dispositionStates),
+    lots: Object.freeze([]),
+    allocations: Object.freeze([]),
+    disposition_states: Object.freeze([]),
     unmatched_disposition_quantity: unmatchedDispositionQuantity,
+    invalid_transaction_ids: Object.freeze([...invalidTransactionIds]),
+    unreconciled_location_transition_count: unreconciledLocationTransitionCount,
+  });
+
+  const position = currentPosition ?? emptyPosition;
+  const firstCharacterId = valid.find((tx) => tx.character_id !== undefined)?.character_id;
+
+  return Object.freeze({
+    accounting_scope_id: accountingScopeId,
+    type_id: typeId,
+    character_id: firstCharacterId,
+    principal_scope: accountingScopeId,
+    position_segments: positionSegments,
+    position,
+  });chedDispositionQuantity,
     invalid_transaction_ids: Object.freeze(invalidTransactionIds),
     unreconciled_location_transition_count: unreconciledLocationTransitionCount,
   });

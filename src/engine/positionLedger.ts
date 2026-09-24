@@ -120,27 +120,28 @@ function derivePositionOwner(
 function lifecycleStatus(
   lots: readonly AcquisitionLot[],
   totalAcquired: number,
-  totalDisposed: number,
-  unmatched: number,
+  _totalDisposed: number,
+  _unmatched: number,
 ): PositionLifecycleStatus {
   if (totalAcquired <= 0) return 'UNKNOWN';
   const remaining = lots.reduce((sum, lot) => sum + lot.remaining_quantity, 0);
-  if (remaining <= 0 && unmatched <= 0) return 'CLOSED';
-  if (totalDisposed > 0) return 'PARTIALLY_REALIZED';
+  if (remaining <= 0) return 'CLOSED';
+  if (_totalDisposed > 0) return 'PARTIALLY_REALIZED';
   return 'OPEN';
 }
 
-/**
- * Canonical economic position reconstruction.
- *
- * Accounting key: (accounting_scope_id, type_id).
- * Character/corporation/issuer/observer identity remains provenance and
- * attribution, never an automatic accounting silo.
- *
- * A numeric first argument is retained as a compatibility form and maps to
- * character:<id>; multi-participant callers must use an explicit common scope.
- */
+function operationRecoveryState(delta: number): import('../types').EconomicOperationRecoveryState {
+  if (delta < 0) return 'NEGATIVE';
+  if (delta === 0) return 'RECOVERED';
+  return 'POSITIVE';
+}
+
 export function reconstructPositionLedger(
+  accountingScopeInput: string | number,
+  typeId: number,
+  transactions: readonly PositionLedgerTransaction[],
+): PositionLedgerResult {
+  const accountingScopeId =export function reconstructPositionLedger(
   accountingScopeInput: string | number,
   typeId: number,
   transactions: readonly PositionLedgerTransaction[],
@@ -150,12 +151,8 @@ export function reconstructPositionLedger(
       ? 'character:' + accountingScopeInput
       : accountingScopeInput.trim();
 
-  if (!accountingScopeId) {
-    throw new Error('Invalid accountingScopeId: empty scope');
-  }
-  if (!Number.isSafeInteger(typeId) || typeId <= 0) {
-    throw new Error('Invalid typeId: ' + typeId);
-  }
+  if (!accountingScopeId) throw new Error('Invalid accountingScopeId: empty scope');
+  if (!Number.isSafeInteger(typeId) || typeId <= 0) throw new Error('Invalid typeId: ' + typeId);
 
   const ordered = [...transactions]
     .filter((tx) => tx.type_id === typeId)
@@ -172,114 +169,154 @@ export function reconstructPositionLedger(
   const invalidTransactionIds = ordered
     .filter((tx) => !validTransaction(accountingScopeId, tx))
     .map((tx) => tx.transaction_id);
-
   const valid = ordered.filter((tx) => validTransaction(accountingScopeId, tx));
-  const buyTransactions = valid.filter((tx) => tx.is_buy);
-  const sellTransactions = valid.filter((tx) => !tx.is_buy);
 
-  const lots: AcquisitionLot[] = buyTransactions.map((tx) => {
-    const timestamp = transactionTimestamp(tx)!;
-    const quantity = tx.quantity;
-    const unitCost = tx.unit_price;
-
-    return {
-      lot_id: 'acquisition_' + tx.transaction_id,
-      provenance: tx.provenance,
-      transaction_id: tx.transaction_id,
-      type_id: tx.type_id,
-      location_id: tx.location_id,
-      quantity_acquired: quantity,
-      remaining_quantity: quantity,
-      unit_cost: unitCost,
-      total_original_cost: roundIsk(quantity * unitCost),
-      remaining_cost_basis: roundIsk(quantity * unitCost),
-      acquired_at: timestamp,
-      economic_origin: resolveEconomicOrigin(tx),
-      economic_owner_type: resolveEconomicOwnerType(tx),
-      economic_owner_id: resolveEconomicOwnerId(tx),
-      related_order_id: relatedOrderId(tx),
-      status: 'OPEN',
-    };
-  });
-
+  const lots: AcquisitionLot[] = [];
   const allocations: DisposalAllocation[] = [];
   const dispositionStates: PositionDispositionState[] = [];
   let unmatchedDispositionQuantity = 0;
 
-  for (const sell of sellTransactions) {
-    const sellAt = transactionTimestamp(sell)!;
-    let remaining = sell.quantity;
+  const activeOperationLotIds = new Set<string>();
+  let operationSequence = 0;
+  let activeOperationId: string | null = null;
+  let operationQuantityAcquired = 0;
+  let operationCapitalCommitted = 0;
+  let operationCashRecovered = 0;
 
-    for (let index = 0; index < lots.length && remaining > 0; index += 1) {
-      const lot = lots[index];
-      if (lot.remaining_quantity <= 0) continue;
+  for (const tx of valid) {
+    const timestamp = transactionTimestamp(tx)!;
 
-      if (
-        sellAt < lot.acquired_at ||
-        (sellAt === lot.acquired_at && sell.transaction_id < lot.transaction_id)
-      ) {
-        break;
+    if (tx.is_buy) {
+      if (activeOperationLotIds.size === 0) {
+        operationSequence += 1;
+        activeOperationId = ['operation', accountingScopeId, typeId, operationSequence].join('_');
+        operationQuantityAcquired = 0;
+        operationCapitalCommitted = 0;
+        operationCashRecovered = 0;
       }
 
-      const allocated = Math.min(lot.remaining_quantity, remaining);
-      const acquisitionCost = roundIsk(allocated * lot.unit_cost);
-      const revenue = roundIsk(allocated * sell.unit_price);
-
-      lots[index] = {
-        ...lot,
-        remaining_quantity: lot.remaining_quantity - allocated,
-        remaining_cost_basis: roundIsk((lot.remaining_quantity - allocated) * lot.unit_cost),
-        status: lot.remaining_quantity - allocated === 0 ? 'CLOSED' : 'PARTIALLY_REALIZED',
+      const originalCost = roundIsk(tx.quantity * tx.unit_price);
+      const lot: AcquisitionLot = {
+        lot_id: 'acquisition_' + tx.transaction_id,
+        provenance: tx.provenance,
+        transaction_id: tx.transaction_id,
+        type_id: tx.type_id,
+        location_id: tx.location_id,
+        quantity_acquired: tx.quantity,
+        remaining_quantity: tx.quantity,
+        unit_cost: tx.unit_price,
+        total_original_cost: originalCost,
+        remaining_cost_basis: originalCost,
+        acquired_at: timestamp,
+        economic_origin: resolveEconomicOrigin(tx),
+        economic_owner_type: resolveEconomicOwnerType(tx),
+        economic_owner_id: resolveEconomicOwnerId(tx),
+        related_order_id: relatedOrderId(tx),
+        status: 'OPEN',
       };
-
-      allocations.push({
-        allocation_id: 'allocation_' + sell.transaction_id + '_' + lot.transaction_id,
-        disposition_transaction_id: sell.transaction_id,
-        acquisition_lot_id: lot.lot_id,
-        acquisition_transaction_id: lot.transaction_id,
-        provenance: sell.provenance,
-        allocated_quantity: allocated,
-        acquisition_unit_cost: lot.unit_cost,
-        disposal_unit_price: sell.unit_price,
-        acquisition_cost: acquisitionCost,
-        disposal_revenue: revenue,
-        gross_realized_profit: roundIsk(revenue - acquisitionCost),
-        acquired_at: lot.acquired_at,
-        disposed_at: sellAt,
-      });
-
-      remaining -= allocated;
+      lots.push(lot);
+      activeOperationLotIds.add(lot.lot_id);
+      operationQuantityAcquired += tx.quantity;
+      operationCapitalCommitted = roundIsk(operationCapitalCommitted + originalCost);
+      continue;
     }
 
-    if (remaining > 0) unmatchedDispositionQuantity += remaining;
+    const operationIdAtDisposition = activeOperationId;
+    let remainingSellQuantity = tx.quantity;
 
-    const remainingPositionQuantity = lots.reduce(
-      (sum, lot) => sum + lot.remaining_quantity,
-      0,
-    );
-    const disposedQuantity = sell.quantity - remaining;
+    if (operationIdAtDisposition && activeOperationLotIds.size > 0) {
+      for (let index = 0; index < lots.length && remainingSellQuantity > 0; index += 1) {
+        const lot = lots[index];
+        if (!activeOperationLotIds.has(lot.lot_id) || lot.remaining_quantity <= 0) continue;
+
+        const allocated = Math.min(lot.remaining_quantity, remainingSellQuantity);
+        const acquisitionCost = roundIsk(allocated * lot.unit_cost);
+        const revenue = roundIsk(allocated * tx.unit_price);
+
+        lots[index] = {
+          ...lot,
+          remaining_quantity: lot.remaining_quantity - allocated,
+          remaining_cost_basis: roundIsk((lot.remaining_quantity - allocated) * lot.unit_cost),
+          status: lot.remaining_quantity - allocated === 0 ? 'CLOSED' : 'PARTIALLY_REALIZED',
+        };
+
+        allocations.push({
+          allocation_id: 'allocation_' + tx.transaction_id + '_' + lot.transaction_id,
+          disposition_transaction_id: tx.transaction_id,
+          acquisition_lot_id: lot.lot_id,
+          acquisition_transaction_id: lot.transaction_id,
+          provenance: tx.provenance,
+          allocated_quantity: allocated,
+          acquisition_unit_cost: lot.unit_cost,
+          disposal_unit_price: tx.unit_price,
+          acquisition_cost: acquisitionCost,
+          disposal_revenue: revenue,
+          gross_realized_profit: roundIsk(revenue - acquisitionCost),
+          acquired_at: lot.acquired_at,
+          disposed_at: timestamp,
+        });
+
+        remainingSellQuantity -= allocated;
+        operationCashRecovered = roundIsk(operationCashRecovered + revenue);
+      }
+    }
+
+    if (remainingSellQuantity > 0) unmatchedDispositionQuantity += remainingSellQuantity;
+
+    const remainingPositionQuantity =
+      activeOperationLotIds.size > 0
+        ? lots.filter((lot) => activeOperationLotIds.has(lot.lot_id))
+            .reduce((sum, lot) => sum + lot.remaining_quantity, 0)
+        : 0;
+    const disposedQuantity = tx.quantity - remainingSellQuantity;
     const state: PositionLifecycleStatus =
-      remainingPositionQuantity === 0 && remaining === 0
+      remainingPositionQuantity === 0 && disposedQuantity > 0
         ? 'CLOSED'
         : disposedQuantity > 0
           ? 'PARTIALLY_REALIZED'
           : 'UNKNOWN';
 
-    dispositionStates.push({
-      disposition_transaction_id: sell.transaction_id,
-      disposed_quantity: disposedQuantity,
-      unmatched_quantity: remaining,
-      remaining_position_quantity: remainingPositionQuantity,
-      lifecycle_status: state,
-    });
+    if (operationIdAtDisposition) {
+      const recoveryDelta = roundIsk(operationCashRecovered - operationCapitalCommitted);
+      const recoveryRatio =
+        operationCapitalCommitted > 0 ? operationCashRecovered / operationCapitalCommitted : null;
+      dispositionStates.push({
+        disposition_transaction_id: tx.transaction_id,
+        disposed_quantity: disposedQuantity,
+        unmatched_quantity: remainingSellQuantity,
+        remaining_position_quantity: remainingPositionQuantity,
+        lifecycle_status: state,
+        operation_id: operationIdAtDisposition,
+        operation_quantity_acquired: operationQuantityAcquired,
+        operation_capital_committed: operationCapitalCommitted,
+        operation_cash_recovered: operationCashRecovered,
+        operation_recovery_delta: recoveryDelta,
+        operation_recovery_ratio: recoveryRatio,
+        operation_recovery_state: operationRecoveryState(recoveryDelta),
+      });
+    } else {
+      dispositionStates.push({
+        disposition_transaction_id: tx.transaction_id,
+        disposed_quantity: disposedQuantity,
+        unmatched_quantity: remainingSellQuantity,
+        remaining_position_quantity: 0,
+        lifecycle_status: 'UNKNOWN',
+      });
+    }
+
+    if (activeOperationLotIds.size > 0 && remainingPositionQuantity === 0) {
+      activeOperationLotIds.clear();
+      activeOperationId = null;
+      operationQuantityAcquired = 0;
+      operationCapitalCommitted = 0;
+      operationCashRecovered = 0;
+    }
   }
 
   const quantityAcquired = lots.reduce((sum, lot) => sum + lot.quantity_acquired, 0);
   const quantityDisposed = allocations.reduce((sum, allocation) => sum + allocation.allocated_quantity, 0);
   const remainingQuantity = lots.reduce((sum, lot) => sum + lot.remaining_quantity, 0);
-  const remainingCostBasis = roundIsk(
-    lots.reduce((sum, lot) => sum + lot.remaining_cost_basis, 0),
-  );
+  const remainingCostBasis = roundIsk(lots.reduce((sum, lot) => sum + lot.remaining_cost_basis, 0));
   const realizedGrossProfit = roundIsk(
     allocations.reduce((sum, allocation) => sum + allocation.gross_realized_profit, 0),
   );
@@ -294,7 +331,6 @@ export function reconstructPositionLedger(
       source,
     );
   }
-
   const positionProvenance = Object.freeze(
     [...provenanceByKey.values()].sort((a, b) =>
       (a.source_kind + '|' + a.source_id + '|' + a.principal_scope).localeCompare(
@@ -303,34 +339,23 @@ export function reconstructPositionLedger(
     ),
   );
 
-  const capitalCommitted =
-    quantityAcquired > 0
-      ? roundIsk(lots.reduce((sum, lot) => sum + lot.total_original_cost, 0))
-      : null;
-  const cashRecovered =
-    quantityAcquired > 0
-      ? roundIsk(allocations.reduce((sum, allocation) => sum + allocation.disposal_revenue, 0))
-      : null;
+  const capitalCommitted = quantityAcquired > 0
+    ? roundIsk(lots.reduce((sum, lot) => sum + lot.total_original_cost, 0))
+    : null;
+  const cashRecovered = quantityAcquired > 0
+    ? roundIsk(allocations.reduce((sum, allocation) => sum + allocation.disposal_revenue, 0))
+    : null;
   const capitalRecoveryDelta =
-    capitalCommitted !== null && cashRecovered !== null
-      ? roundIsk(cashRecovered - capitalCommitted)
-      : null;
+    capitalCommitted !== null && cashRecovered !== null ? roundIsk(cashRecovered - capitalCommitted) : null;
   const capitalRecoveryRatio =
     capitalCommitted !== null && capitalCommitted > 0 && cashRecovered !== null
       ? cashRecovered / capitalCommitted
       : null;
 
   const hasUnknownOrigin = lots.some((lot) => lot.economic_origin !== 'MARKET_ACQUISITION');
-  const hasSourceDefects =
-    invalidTransactionIds.length > 0 ||
-    unmatchedDispositionQuantity > 0 ||
-    hasUnknownOrigin;
+  const hasSourceDefects = invalidTransactionIds.length > 0 || unmatchedDispositionQuantity > 0 || hasUnknownOrigin;
   const sourceCoverage: FinancialSourceCoverage =
-    hasSourceDefects
-      ? 'PARTIAL'
-      : quantityAcquired <= 0
-        ? 'UNAVAILABLE'
-        : 'MARKET_TRACEABLE';
+    hasSourceDefects ? 'PARTIAL' : quantityAcquired <= 0 ? 'UNAVAILABLE' : 'MARKET_TRACEABLE';
 
   const owner = derivePositionOwner(lots);
   const position: CurrentPosition = Object.freeze({
@@ -349,18 +374,8 @@ export function reconstructPositionLedger(
     capital_recovery_delta: capitalRecoveryDelta,
     capital_recovery_ratio: capitalRecoveryRatio,
     provenance: positionProvenance,
-    lifecycle_status: lifecycleStatus(
-      lots,
-      quantityAcquired,
-      quantityDisposed,
-      unmatchedDispositionQuantity,
-    ),
-    financial_completeness:
-      sourceCoverage === 'UNAVAILABLE'
-        ? 'UNAVAILABLE'
-        : sourceCoverage === 'PARTIAL'
-          ? 'PARTIAL'
-          : 'OBSERVED',
+    lifecycle_status: lifecycleStatus(lots, quantityAcquired, quantityDisposed, unmatchedDispositionQuantity),
+    financial_completeness: sourceCoverage === 'UNAVAILABLE' ? 'UNAVAILABLE' : sourceCoverage === 'PARTIAL' ? 'PARTIAL' : 'OBSERVED',
     source_coverage: sourceCoverage,
     lots: Object.freeze(lots.filter((lot) => lot.remaining_quantity > 0 || lot.quantity_acquired > 0)),
     allocations: Object.freeze(allocations),
@@ -370,7 +385,6 @@ export function reconstructPositionLedger(
   });
 
   const firstCharacterId = valid.find((tx) => tx.character_id !== undefined)?.character_id;
-
   return Object.freeze({
     accounting_scope_id: accountingScopeId,
     type_id: typeId,

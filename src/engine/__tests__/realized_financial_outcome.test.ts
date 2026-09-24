@@ -491,8 +491,19 @@ async function runAllTests() {
   // Test 14: Division by Zero Protection
   {
     console.log('--- Test 14: Division by Zero Protection ---');
-    // Case 1: Zero buy, zero sell
-    const emptyRecord = createMockExecutionRecord({ buyTxs: [], sellTxs: [] });
+    // Case 1: No matched inventory for a valid type.
+    // An entirely empty execution record has no type_id and therefore cannot satisfy
+    // the position-ledger positive-type invariant.
+    const emptySell: ExecutionTransactionRef = {
+      transaction_id: 301,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: false,
+      quantity: 1,
+      unit_price: 100,
+      timestamp: '2026-09-20T12:00:00Z',
+    };
+    const emptyRecord = createMockExecutionRecord({ buyTxs: [], sellTxs: [emptySell] });
     const outcomeEmpty = RealizedFinancialOutcomeEngine.calculate(emptyRecord, {
       financialConfig: mockFinancialConfig,
     });
@@ -503,15 +514,21 @@ async function runAllTests() {
     assert(!isNaN(outcomeEmpty.roi) && isFinite(outcomeEmpty.roi), 'ROI is finite');
     assert(!isNaN(outcomeEmpty.margin) && isFinite(outcomeEmpty.margin), 'Margin is finite');
 
-    // Case 2: Free items (unit price 0)
+    // Case 2: Zero-price facts are invalid source data, not a valid zero-cost acquisition.
+    // The ledger must surface them as PARTIAL rather than relaxing its positive-price invariant.
     const freeBuy: ExecutionTransactionRef = { transaction_id: 1, type_id: 34, location_id: 60003760, is_buy: true, quantity: 100, unit_price: 0, timestamp: '2026-09-20T10:00:00Z' };
     const freeSell: ExecutionTransactionRef = { transaction_id: 2, type_id: 34, location_id: 60003760, is_buy: false, quantity: 100, unit_price: 0, timestamp: '2026-09-20T12:00:00Z' };
     const freeRecord = createMockExecutionRecord({ buyTxs: [freeBuy], sellTxs: [freeSell] });
     const outcomeFree = RealizedFinancialOutcomeEngine.calculate(freeRecord, { financialConfig: mockFinancialConfig });
 
-    assert(outcomeFree.roi === 0.0, 'ROI is 0.0 when cost is 0');
-    assert(outcomeFree.margin === 0.0, 'Margin is 0.0 when revenue is 0');
-    console.log('  [PASS] Test 14: Division by zero protection verified.');
+    assert(outcomeFree.roi === 0.0, 'ROI remains 0.0 when no valid acquisition cost is available');
+    assert(outcomeFree.margin === 0.0, 'Margin remains 0.0 when no valid revenue is available');
+    assert(outcomeFree.data_state === 'PARTIAL', 'Invalid zero-price facts must remain PARTIAL');
+    assert(
+      outcomeFree.state_reasons?.some((reason) => reason.includes('Invalid transaction facts')),
+      'Invalid zero-price facts must be explicitly diagnosed'
+    );
+    console.log('  [PASS] Test 14: Division by zero protection verified without weakening ledger validation.');
   }
 
   // Test 15: Quantity-Weighted Hold Time
@@ -1892,6 +1909,8 @@ async function runAllTests() {
       profit_per_unit: 4.4,
 
       remaining_inventory_cost_basis: 0,
+      position_lifecycle: 'CLOSED',
+      position_remaining_quantity: 0,
 
       first_buy_at: '2026-09-20T10:00:00Z',
       last_buy_at: '2026-09-20T10:00:00Z',

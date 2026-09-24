@@ -166,6 +166,25 @@ async function run() {
 
   setBackendApiFetchForTesting(async (input) => {
     const url = String(input);
+    if (url.includes('/history')) {
+      return new Response(JSON.stringify([{
+        order_id: '92002',
+        type_id: 34,
+        region_id: 10000002,
+        location_id: 60003760,
+        price: 7,
+        volume_remain: 20,
+        volume_total: 20,
+        is_buy_order: false,
+        issued: '2026-09-22T00:00:00Z',
+        duration: 90,
+        state: 'fulfilled',
+        completed_at: '2026-09-22T02:00:00Z',
+      }]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
     if (!url.includes('/api/character/1001/corporation/orders')) {
       throw new Error('Unexpected partial corporation order test request: ' + url);
     }

@@ -289,6 +289,10 @@ export interface TraderPerformanceMetrics {
   calibration_weight: number;
   // Financial truth & completeness metrics (Chantier 3B-4A.2)
   financial_completeness?: FinancialCompleteness;
+  /** Coverage of the source history behind total_realized_profit. */
+  realized_profit_history_coverage?: import('./financial').FinancialHistoryCoverage;
+  /** Coverage of supported economic origins behind total_realized_profit. */
+  realized_profit_economic_origin_coverage?: import('./financial').EconomicOriginCoverage;
   is_net_estimated?: boolean;
   realized_profit_label?: string;
   execution_fee_mode?: ExecutionFeeRoleMode;

@@ -371,6 +371,18 @@ async function run(): Promise<void> {
       assert(scoped.length === 1 && scoped[0].order_id === 'corp-3', 'corporation scope must filter by economic owner and wallet division');
       assert(treasury.principal_scope === 'corp:77', 'observer scope must remain separate from economic owner');
     }],
+    ['N invalid economic/liquidity metrics are rejected', () => {
+      const broken = opportunity('nan', 8, 18, 100, 10_000_000, 20_000_000) as any;
+      broken.expected_days_to_sell = Number.NaN;
+      broken.profit_per_day = Number.POSITIVE_INFINITY;
+      broken.costs.roi = Number.NaN;
+      const simulation = PortfolioOptimizer.optimize([broken], config());
+      assert(simulation.positions.length === 0, 'invalid opportunity metrics must not be allocated');
+      assert(
+        (simulation.unallocated_reasons ?? []).some((reason) => reason.code === 'DATA_ISSUE'),
+        'invalid opportunity metrics must surface a DATA_ISSUE reason',
+      );
+    }],
     ['M every proposed position retains treasury provenance', () => {
       const treasury = resolvePortfolioTreasury(
         config({ treasury_source_mode: 'manual_budget', available_capital: 40_000_000 }),

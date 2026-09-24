@@ -42,8 +42,10 @@ function workflowJobIds(source, workflowPath) {
 
 const map = readJson(MAP_FILE, '.eve-trade/context-map.json');
 const work = readJson(WORK_FILE, '.eve-trade/current-work.json');
+const mode = process.env.CONTEXT_MODE || 'active';
 
 if (!map || !work) process.exit(1);
+if (!['active', 'stable'].includes(mode)) fail('CONTEXT_MODE must be active or stable');
 
 if (map.schema_version !== 2) fail('unsupported context map schema_version');
 if (work.schema_version !== 1) fail('unsupported current-work schema_version');
@@ -98,22 +100,25 @@ try { packageJson = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 
 catch (error) { fail('cannot parse package.json: ' + error.message); packageJson = {}; }
 if (!packageJson.scripts?.['test:context']) fail('package.json is missing test:context');
 
-const envBranch = process.env.CONTEXT_BRANCH || process.env.GITHUB_HEAD_REF || '';
-const envPr = process.env.CONTEXT_PR_NUMBER || process.env.PR_NUMBER || '';
-const envBase = process.env.CONTEXT_BASE_SHA || process.env.GITHUB_BASE_SHA || '';
-if (envBranch && envBranch !== work.branch) fail(`active work branch mismatch: manifest=${work.branch} environment=${envBranch}`);
-if (envPr && work.pull_request !== null && Number(work.pull_request) !== Number(envPr)) fail(`active work PR mismatch: manifest=${work.pull_request} environment=${envPr}`);
-if (envBase && envBase !== work.base_sha) fail(`active work base SHA mismatch: manifest=${work.base_sha} environment=${envBase}`);
+if (mode === 'active') {
+  const envBranch = process.env.CONTEXT_BRANCH || process.env.GITHUB_HEAD_REF || '';
+  const envPr = process.env.CONTEXT_PR_NUMBER || process.env.PR_NUMBER || '';
+  const envBase = process.env.CONTEXT_BASE_SHA || process.env.GITHUB_BASE_SHA || '';
+  if (envBranch && envBranch !== work.branch) fail(`active work branch mismatch: manifest=${work.branch} environment=${envBranch}`);
+  if (envPr && work.pull_request !== null && Number(work.pull_request) !== Number(envPr)) fail(`active work PR mismatch: manifest=${work.pull_request} environment=${envPr}`);
+  if (envBase && envBase !== work.base_sha) fail(`active work base SHA mismatch: manifest=${work.base_sha} environment=${envBase}`);
 
-try {
-  const gitRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd: ROOT, encoding: 'utf8' }).trim();
-  if (path.resolve(gitRoot) !== path.resolve(ROOT)) fail('run test:context from repository root');
-  const branch = execFileSync('git', ['branch', '--show-current'], { cwd: ROOT, encoding: 'utf8' }).trim();
-  if (branch && branch !== work.branch) fail(`working branch mismatch: manifest=${work.branch} local=${branch}`);
-} catch (error) {
-  fail('git repository verification failed: ' + error.message);
+  try {
+    const gitRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd: ROOT, encoding: 'utf8' }).trim();
+    if (path.resolve(gitRoot) !== path.resolve(ROOT)) fail('run test:context from repository root');
+    const branch = execFileSync('git', ['branch', '--show-current'], { cwd: ROOT, encoding: 'utf8' }).trim();
+    if (branch && branch !== work.branch) fail(`working branch mismatch: manifest=${work.branch} local=${branch}`);
+  } catch (error) {
+    fail('git repository verification failed: ' + error.message);
+  }
+} else {
+  console.log('[context-integrity] Stable mode: active branch/PR/base matching is delegated to PR certification.');
 }
-
 if (failed) {
   console.error('[context-integrity] Context metadata is stale or inconsistent.');
   process.exit(1);

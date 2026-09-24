@@ -1696,7 +1696,7 @@ async function runAllTests() {
 
     const sumCycleNetProfit = roundIsk(metrics.recent_trade_cycles.reduce((sum, c) => sum + (c.net_profit ?? 0), 0));
     const sumCycleGrossProfit = roundIsk(metrics.recent_trade_cycles.reduce((sum, c) => sum + c.gross_profit, 0));
-    const sumCycleFees = roundIsk(metrics.recent_trade_cycles.reduce((sum, c) => sum + c.estimated_fees_paid, 0));
+    const sumCycleFees = roundIsk(metrics.recent_trade_cycles.reduce((sum, c) => sum + (c.estimated_fees_paid ?? 0), 0));
 
     assert(sumCycleNetProfit === outcome.net_realized_profit, `Sum of cycle net profit (${sumCycleNetProfit}) equals outcome (${outcome.net_realized_profit})`);
     assert(sumCycleGrossProfit === outcome.gross_realized_profit, `Sum of cycle gross profit (${sumCycleGrossProfit}) equals outcome (${outcome.gross_realized_profit})`);
@@ -1794,7 +1794,7 @@ async function runAllTests() {
     const cycle = metrics.recent_trade_cycles[0];
     assert(cycle.financial_completeness === 'UNAVAILABLE', `Cycle completeness is UNAVAILABLE (got ${cycle.financial_completeness})`);
     assert(cycle.fees_breakdown?.fee_mode === 'UNAVAILABLE', `Fees breakdown fee_mode is UNAVAILABLE`);
-    assert(cycle.estimated_fees_paid === 0, 'Estimated fees paid is 0');
+    assert(cycle.estimated_fees_paid === null, 'Estimated fees paid is unavailable without fee evidence');
     assert(cycle.financial_completeness !== 'OBSERVED', 'Absence of config is NOT falsely marked as OBSERVED');
 
     console.log('  [PASS] Test 5: UNAVAILABLE mode cleanly differentiated from observed zero fees.');
@@ -1864,7 +1864,7 @@ async function runAllTests() {
 
     const sumCyclesNet = roundIsk(metrics.recent_trade_cycles.reduce((s, c) => s + c.net_profit, 0));
     const sumCyclesGross = roundIsk(metrics.recent_trade_cycles.reduce((s, c) => s + c.gross_profit, 0));
-    const sumCyclesFees = roundIsk(metrics.recent_trade_cycles.reduce((s, c) => s + c.estimated_fees_paid, 0));
+    const sumCyclesFees = roundIsk(metrics.recent_trade_cycles.reduce((s, c) => s + (c.estimated_fees_paid ?? 0), 0));
 
     assert(metrics.total_realized_profit === sumCyclesNet, `total_realized_profit (${metrics.total_realized_profit}) == sum(cycles.net_profit) (${sumCyclesNet})`);
     assert(metrics.total_realized_gross === sumCyclesGross, `total_realized_gross (${metrics.total_realized_gross}) == sum(cycles.gross_profit) (${sumCyclesGross})`);
@@ -2319,7 +2319,7 @@ async function runAllTests() {
     assert(cycles.length === 3, `Expected 3 completed cycles (got ${cycles.length})`);
 
     const sumCycleGross = roundIsk(cycles.reduce((acc, c) => acc + c.gross_profit, 0));
-    const sumCycleFees = roundIsk(cycles.reduce((acc, c) => acc + c.estimated_fees_paid, 0));
+    const sumCycleFees = roundIsk(cycles.reduce((acc, c) => acc + (c.estimated_fees_paid ?? 0), 0));
     const sumCycleNet = roundIsk(cycles.reduce((acc, c) => acc + (c.net_profit ?? 0), 0));
 
     // INVARIANT 1: Exact gross profit conservation
@@ -2344,7 +2344,8 @@ async function runAllTests() {
     for (const c of cycles) {
       assert(
         c.net_profit !== null &&
-        c.net_profit === roundIsk(c.gross_profit - c.estimated_fees_paid),
+        c.net_profit !== null && c.estimated_fees_paid !== null &&
+          c.net_profit === roundIsk(c.gross_profit - c.estimated_fees_paid),
         `Cycle ${c.cycle_id} internal balance: ${c.net_profit} == ${c.gross_profit} - ${c.estimated_fees_paid}`
       );
       assert(c.fees_breakdown !== undefined, `Cycle ${c.cycle_id} fees_breakdown must be defined`);

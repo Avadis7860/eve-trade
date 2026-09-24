@@ -716,4 +716,5 @@ export class RealizedFinancialOutcomeEngine {
       accounting_scope_id: accountingScopeId,
       transactions,
     });
-  }}
+  }
+}

@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { InterRegionalOpportunity } from '../types';
 import { fmtIsk, fmtPct, fmtNumber } from '../engine/money';
 import { OpportunityEvidenceEngine } from '../engine/evidence';
-import { TradeFleetPlanCard } from './TradeFleetPlanCard';
 import {
   X,
   ArrowRight,
@@ -316,10 +315,6 @@ export const OpportunityModal: React.FC<OpportunityModalProps> = ({
             </div>
           )}
 
-          {/* Multi-Character Fleet Execution Plan */}
-          {opportunity.fleet_plan && (
-            <TradeFleetPlanCard plan={opportunity.fleet_plan} />
-          )}
 
           {/* Key KPI Metrics Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

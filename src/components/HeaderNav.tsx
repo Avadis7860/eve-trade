@@ -104,7 +104,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
             }`}
           >
             <ShoppingBag className={`w-3.5 h-3.5 flex-shrink-0 ${characterSession ? 'text-[#ff4b4b]' : 'text-[#808495]'}`} />
-            <span className="hidden sm:inline">Ordres</span>
+            <span className="hidden sm:inline" title="Nombre d’ordres dans la portée active">Ordres</span>
             {characterSession ? (
               <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono tabular-nums bg-green-500/20 text-green-400 font-bold">
                 {characterOrdersCount}

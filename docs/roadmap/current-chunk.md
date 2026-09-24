@@ -1,6 +1,6 @@
 # Current Chunk
 
-Status: CONTRACT REBASE / DEVELOPMENT PAUSED
+Status: FINANCIAL MODEL REBASE / IMPLEMENTATION IN PROGRESS
 Scope: UX-03 allocation workstream held pending financial/order model correction
 Reference: [UX-03 Allocation Contract](../ux/ux-03-allocation-contract.md)
 Decision: [ADR-0003 — Economic Transactions, Acquisition Lots and Canonical Market Orders](../decisions/ADR-0003-economic-position-and-order-model.md)
@@ -23,6 +23,13 @@ Market observation, economic transaction, position lifecycle and realized financ
 - No new financial, allocation, profitability or execution behavior should be added during the contract rebase.
 - The existing FIFO calculation remains useful as a mathematical primitive.
 - Active BUY orders are valid evidence for reserved capital/order exposure only. They are not acquisition facts.
+
+## Current implementation progress
+
+- FIN-001 now has a deterministic AcquisitionLot / CurrentPosition reconstruction primitive and executable regression scenarios.
+- FIN-002 now carries position lifecycle on realized disposal events and counts only fully closed positions in closed-trade KPIs.
+- ORD-001 has multi-observer canonical-order regression coverage preserving issuer, owner and observer as separate axes.
+- CI-003 corrected the real-corporation-payload mock so unrelated in-flight requests cannot satisfy or break the focused credential assertion.
 
 ## Priority work
 

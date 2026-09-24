@@ -184,6 +184,7 @@ export function reconstructPositionLedger(
         allocation_id: `allocation_${sell.transaction_id}_${lot.transaction_id}`,
         disposition_transaction_id: sell.transaction_id,
         acquisition_lot_id: lot.lot_id,
+        acquisition_transaction_id: lot.transaction_id,
         provenance: transactionProvenance(sell, characterId),
         allocated_quantity: allocated,
         acquisition_unit_cost: lot.unit_cost,

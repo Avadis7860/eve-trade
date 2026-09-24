@@ -496,7 +496,7 @@ export function buildProposedAllocationSnapshot(
       ? null
       : reserveLocked + (withinBudget ?? 0);
 
-  const reasons = [...(simulation.unallocated_reasons ?? [])];
+  const reasons = [...(surfacedSimulation.unallocated_reasons ?? [])];
   if (reserveLocked > 0) {
     reasons.unshift({
       code: 'RESERVE',

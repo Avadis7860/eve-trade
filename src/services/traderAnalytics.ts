@@ -133,9 +133,9 @@ export class TraderAnalyticsService {
 
     let totalRealizedGross = 0;
     let totalRealizedProfit: number | null = 0;
-    let totalBrokerFeesPaid = 0;
-    let totalSalesTaxPaid = 0;
-    let totalEstimatedFees = 0;
+    let totalBrokerFeesPaid: number | null = 0;
+    let totalSalesTaxPaid: number | null = 0;
+    let totalEstimatedFees: number | null = 0;
     let hasUnmatchedTrades = false;
     let unmatchedTradesCount = 0;
     let hasPartial = false;
@@ -207,13 +207,25 @@ export class TraderAnalyticsService {
       } else if (totalRealizedProfit !== null) {
         totalRealizedProfit = roundIsk(totalRealizedProfit + outcome.net_realized_profit);
       }
-      totalBrokerFeesPaid = roundIsk(
-        totalBrokerFeesPaid +
-          outcome.fees.estimated_buy_broker_fee +
-          outcome.fees.estimated_sell_broker_fee,
-      );
-      totalSalesTaxPaid = roundIsk(totalSalesTaxPaid + outcome.fees.estimated_sales_tax);
-      totalEstimatedFees = roundIsk(totalEstimatedFees + outcome.fees.estimated_total_fees);
+      if (outcome.fees.fee_mode === 'UNAVAILABLE') {
+        totalBrokerFeesPaid = null;
+        totalSalesTaxPaid = null;
+        totalEstimatedFees = null;
+      } else {
+        if (totalBrokerFeesPaid !== null) {
+          totalBrokerFeesPaid = roundIsk(
+            totalBrokerFeesPaid +
+              outcome.fees.estimated_buy_broker_fee +
+              outcome.fees.estimated_sell_broker_fee,
+          );
+        }
+        if (totalSalesTaxPaid !== null) {
+          totalSalesTaxPaid = roundIsk(totalSalesTaxPaid + outcome.fees.estimated_sales_tax);
+        }
+        if (totalEstimatedFees !== null) {
+          totalEstimatedFees = roundIsk(totalEstimatedFees + outcome.fees.estimated_total_fees);
+        }
+      }
 
       if (outcome.financial_completeness === 'PARTIAL' || outcome.source_coverage === 'PARTIAL') {
         hasPartial = true;
@@ -636,9 +648,9 @@ export class TraderAnalyticsService {
     // Totals & KPI derivation
     if (totalRealizedProfit !== null) totalRealizedProfit = roundIsk(totalRealizedProfit);
     totalRealizedGross = roundIsk(totalRealizedGross);
-    totalBrokerFeesPaid = roundIsk(totalBrokerFeesPaid);
-    totalSalesTaxPaid = roundIsk(totalSalesTaxPaid);
-    totalEstimatedFees = roundIsk(totalEstimatedFees);
+    if (totalBrokerFeesPaid !== null) totalBrokerFeesPaid = roundIsk(totalBrokerFeesPaid);
+    if (totalSalesTaxPaid !== null) totalSalesTaxPaid = roundIsk(totalSalesTaxPaid);
+    if (totalEstimatedFees !== null) totalEstimatedFees = roundIsk(totalEstimatedFees);
 
     const closedCycles = completedCycles.filter(
       (c) => c.quantity > 0 && c.is_position_closed === true && c.position_net_profit !== undefined,

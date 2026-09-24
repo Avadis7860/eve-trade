@@ -582,40 +582,54 @@ async function runAllTests() {
   // Test 19: Cross-Character Scope Guard
   {
     console.log('--- Test 19: Cross-Character Scope Guard ---');
-    const buy: ExecutionTransactionRef = { transaction_id: 101, type_id: 34, location_id: 60003760, is_buy: true, quantity: 1000, unit_price: 100, timestamp: '2026-09-20T10:00:00Z' };
-    const record = createMockExecutionRecord({ characterId: 2112001, buyTxs: [buy] });
-
-    // Inject external transaction belonging to Char B (2112002) without declaring a common economic scope.
-    const foreignTx: PersistedCharacterTransaction = {
+    const buy: ExecutionTransactionRef = {
+      transaction_id: 101,
+      character_id: 2112001,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: true,
+      quantity: 1000,
+      unit_price: 100,
+      timestamp: '2026-09-20T10:00:00Z',
+      provenance: {
+        source_kind: 'ESI_WALLET_TRANSACTION',
+        source_id: '101',
+        principal_scope: 'character:2112001',
+      },
+    };
+    const foreignTx: ExecutionTransactionRef = {
       transaction_id: 999,
-      character_id: 2112002, // Foreign!
+      character_id: 2112002,
       type_id: 34,
       location_id: 60003760,
       is_buy: false,
       quantity: 1000,
       unit_price: 150,
       timestamp: '2026-09-20T12:00:00Z',
-      client_id: 1,
-      first_seen_at: '2026-09-20T12:00:00Z',
-      last_seen_at: '2026-09-20T12:00:00Z',
-      source: 'ESI',
-      source_endpoint: '/test',
-      ingestion_version: '1.0.0',
-      data_state: 'VALID',
+      provenance: {
+        source_kind: 'ESI_WALLET_TRANSACTION',
+        source_id: '999',
+        principal_scope: 'character:2112002',
+      },
     };
 
     let caughtError = false;
     try {
-      RealizedFinancialOutcomeEngine.calculate(record, {
-        transactions: [foreignTx],
-      });
+      RealizedFinancialOutcomeEngine.calculateForTransactions(
+        2112001,
+        34,
+        [buy, foreignTx],
+      );
     } catch (err) {
       if (err instanceof CrossCharacterFinancialMappingViolationError) {
         caughtError = true;
       }
     }
 
-    assert(caughtError, 'CrossCharacterFinancialMappingViolationError must be thrown when cross-character scope is absent');
+    assert(
+      caughtError,
+      'CrossCharacterFinancialMappingViolationError must be thrown when cross-character scope is absent',
+    );
     console.log('  [PASS] Test 19: Cross-character scope guard verified.');
   }
 

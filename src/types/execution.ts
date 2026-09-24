@@ -8,6 +8,7 @@ import type {
 import type { InterRegionalOpportunity, OpportunityObservation } from './opportunity';
 import type { PersistedCharacterTransaction } from './character';
 import type { OrderId } from './order';
+import type { FinancialProvenance } from './financial';
 
 export interface ExecutionLevelConsumption {
   price: number;
@@ -141,6 +142,8 @@ export interface ExecutionTransactionRef {
   readonly timestamp: string;
   readonly opportunity_id?: string;
   readonly observation_id?: string;
+  /** Explicit financial source when this reference crosses the accounting boundary. */
+  readonly provenance?: FinancialProvenance;
 }
 
 // ==========================================

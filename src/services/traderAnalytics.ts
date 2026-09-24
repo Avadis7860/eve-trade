@@ -351,46 +351,37 @@ export class TraderAnalyticsService {
               : undefined);
           // RealizedFinancialOutcome remains the sole accounting source. The
           // fallback only preserves compatibility with synthetic/legacy outcome
-          // seams that predate the enriched disposition-state fields.
+          // seams that predate the enriched disposition-state fields. Each field
+          // falls back independently because legacy disposition states can retain
+          // lifecycle data while predating the operation metadata.
+          const fallbackRecoveryDelta = outcome.capital_recovery_delta ?? undefined;
           const operationId =
             dispositionState?.operation_id ??
-            (outcome.position_disposition_states.length === 0
+            (outcome.capital_committed !== null
               ? `operation_${outcome.accounting_scope_id ?? characterId}_${typeId}`
               : undefined);
           const operationCapitalCommitted =
             dispositionState?.operation_capital_committed ??
-            (outcome.position_disposition_states.length === 0
-              ? outcome.capital_committed ?? undefined
-              : undefined);
+            (outcome.capital_committed !== null ? outcome.capital_committed : undefined);
           const operationCashRecovered =
             dispositionState?.operation_cash_recovered ??
-            (outcome.position_disposition_states.length === 0
-              ? outcome.cash_recovered ?? undefined
-              : undefined);
+            (outcome.cash_recovered !== null ? outcome.cash_recovered : undefined);
           const operationRecoveryDelta =
-            dispositionState?.operation_recovery_delta ??
-            (outcome.position_disposition_states.length === 0
-              ? outcome.capital_recovery_delta ?? undefined
-              : undefined);
+            dispositionState?.operation_recovery_delta ?? fallbackRecoveryDelta;
           const operationRecoveryRatio =
-            dispositionState?.operation_recovery_ratio ??
-            (outcome.position_disposition_states.length === 0
-              ? outcome.capital_recovery_ratio
-              : undefined);
+            dispositionState?.operation_recovery_ratio ?? outcome.capital_recovery_ratio;
           const operationRecoveryState =
             dispositionState?.operation_recovery_state ??
-            (outcome.position_disposition_states.length === 0 && outcome.capital_recovery_delta !== null
-              ? outcome.capital_recovery_delta < 0
+            (fallbackRecoveryDelta !== undefined
+              ? fallbackRecoveryDelta < 0
                 ? 'NEGATIVE'
-                : outcome.capital_recovery_delta === 0
+                : fallbackRecoveryDelta === 0
                   ? 'RECOVERED'
                   : 'POSITIVE'
               : undefined);
           const operationQuantityAcquired =
             dispositionState?.operation_quantity_acquired ??
-            (outcome.position_disposition_states.length === 0
-              ? outcome.total_buy_quantity
-              : undefined);
+            outcome.total_buy_quantity;
 
           const cycleProfitLabel =
             cycleCompleteness === 'UNAVAILABLE'

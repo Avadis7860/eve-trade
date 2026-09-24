@@ -19,7 +19,8 @@ The branch currently expresses the following boundaries:
 - market is_buy_order is a market-mechanism fact, not an economic acquisition/disposition fact;
 - economic direction for accounting comes from transaction facts;
 - active BUY orders are capital reservations/order exposure, not acquisition evidence;
-- deterministic AcquisitionLot / CurrentPosition reconstruction now exists in src/engine/positionLedger.ts;
+- deterministic AcquisitionLot / CurrentPosition reconstruction now exists in src/engine/positionLedger.ts, but its current character-keyed accounting boundary is under FIN-002 rework;
+- the target ledger boundary is the complete configured trading/industrial ecosystem, while character/corporation identity remains transaction attribution/provenance;
 - the ledger is a calculation boundary, not a durable IndexedDB position source;
 - a partial disposal can create a positive sale allocation while the underlying position remains PARTIALLY_REALIZED;
 - Performance closed-trade KPIs now require a fully closed position;
@@ -29,7 +30,7 @@ The branch currently expresses the following boundaries:
 Priority sequence:
 - FIN-001 #72 — CERTIFIED
 - ORD-001 #73 — CERTIFIED
-- FIN-002 #74 — NEXT IMPLEMENTATION GATE
+- FIN-002 #74 — ACTIVE SEMANTIC REBASE
 - DATA-001 #75 — CERTIFIED (first audit)
 - CI-003 #76 — RESOLVED / HISTORICAL
 
@@ -70,10 +71,10 @@ The current engine/domain layers remain ahead of the UI, but the financial bound
 
 ## Latest CI verification
 
-Validated code head: e971954e4040b673fd23f5360878ed7a9f99a12f
+Validated code head: 59d4780db405af8864b5bf1e0f57ebe4d1d4ab2f
 
-CI Foundation & Regression Gate: GREEN
-Phase 2.7C SDE Truth Gate: GREEN
+CI Foundation & Regression Gate #923: GREEN
+Phase 2.7C SDE Truth Gate #684: GREEN
 
 The full gate passed including:
 - CI / Change Scope;
@@ -91,6 +92,8 @@ ORD-001 and FIN-001 certification completed after resolving the stale type/prove
 
 ## Sequencing
 
-Documentation is now aligned with the certified order and position contracts. The next code changes target FIN-002; remaining UX-03 feature work stays blocked until the financial sequence is accepted.
+Documentation is now aligned with the ecosystem-level accounting correction. The next code changes target FIN-002; remaining UX-03 feature work stays blocked until the financial sequence is accepted.
+
+The current branch must not be treated as product truth for cross-character/corporation financial matching: CI green confirms regression integrity, not semantic certification.
 
 UX-03 feature work resumes after FIN-002 and the remaining acceptance gates are certified.

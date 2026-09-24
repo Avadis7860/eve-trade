@@ -77,17 +77,21 @@ export class TraderAnalyticsService {
       if (!locationVolumeMap[locId]) {
         locationVolumeMap[locId] = { name: locName, volumeIsk: 0, count: 0 };
       }
-      const val =
-        (Number.isFinite(tx.unit_price) ? Math.max(0, tx.unit_price) : 0) *
-        (Number.isFinite(tx.quantity) ? Math.max(0, tx.quantity) : 0);
-      locationVolumeMap[locId].volumeIsk += val;
-      locationVolumeMap[locId].count += 1;
-
-      if (tx.is_buy) {
-        totalBuyVolumeIsk += val;
-      } else {
-        totalSellVolumeIsk += val;
+      const hasValidEconomicAmount =
+        Number.isFinite(tx.unit_price) &&
+        tx.unit_price > 0 &&
+        Number.isFinite(tx.quantity) &&
+        tx.quantity > 0;
+      const val = hasValidEconomicAmount ? tx.unit_price * tx.quantity : null;
+      if (val !== null) {
+        locationVolumeMap[locId].volumeIsk += val;
+        if (tx.is_buy) {
+          totalBuyVolumeIsk += val;
+        } else {
+          totalSellVolumeIsk += val;
+        }
       }
+      locationVolumeMap[locId].count += 1;
 
       if (!txByType[tx.type_id]) {
         txByType[tx.type_id] = [];
@@ -388,7 +392,9 @@ export class TraderAnalyticsService {
           if (positionLifecycle === 'CLOSED') {
           itemProfitMap[typeId].trades_count += 1;
         }
-          itemProfitMap[typeId].rois.push(roi);
+          if (roi !== null) {
+            itemProfitMap[typeId].rois.push(roi);
+          }
           itemProfitMap[typeId].hold_days_list.push(holdDays);
           itemProfitMap[typeId].total_volume_units += matchedQty;
         } else {
@@ -414,7 +420,7 @@ export class TraderAnalyticsService {
             gross_profit: 0,
             estimated_fees_paid: 0,
             net_profit: 0,
-            roi: 0,
+            roi: null,
             hold_days: 0,
             is_profitable: false,
             buy_location: 'Inconnu (Sans Achat Antérieur)',
@@ -484,9 +490,10 @@ export class TraderAnalyticsService {
     const winRatePct: number | null =
       totalClosedTrades > 0 ? (profitableTrades / totalClosedTrades) * 100 : null;
 
+    const closedRoiCycles = closedCycles.filter((c) => c.roi !== null);
     const avgRealizedRoi =
-      totalClosedTrades > 0
-        ? closedCycles.reduce((acc, c) => acc + c.roi, 0) / totalClosedTrades
+      closedRoiCycles.length > 0
+        ? closedRoiCycles.reduce((acc, c) => acc + c.roi, 0) / closedRoiCycles.length
         : 0;
 
     const avgHoldDays =
@@ -592,8 +599,11 @@ export class TraderAnalyticsService {
       const catWins = catCycles.filter((c) => c.is_profitable).length;
       categorySuccessRate[cat].win_rate =
         catCycles.length > 0 ? (catWins / catCycles.length) * 100 : 0;
+      const catRoiCycles = catCycles.filter((c) => c.roi !== null);
       categorySuccessRate[cat].avg_roi =
-        catCycles.length > 0 ? catCycles.reduce((a, b) => a + b.roi, 0) / catCycles.length : 0;
+        catRoiCycles.length > 0
+          ? catRoiCycles.reduce((a, b) => a + b.roi, 0) / catRoiCycles.length
+          : 0;
       const status = deriveFinancialStatus(catCycles);
       categorySuccessRate[cat].profit_label = status.label;
       categorySuccessRate[cat].is_net_estimated = status.is_net_estimated;
@@ -1331,10 +1341,10 @@ export class TraderAnalyticsService {
     const profitableTrades = completedCycles.filter((c) => c.quantity > 0 && c.is_profitable).length;
     const unprofitableTrades = totalClosedTrades - profitableTrades;
     const winRatePct = totalClosedTrades > 0 ? (profitableTrades / totalClosedTrades) * 100 : 0;
+    const legacyRoiCycles = completedCycles.filter((c) => c.quantity > 0 && c.roi !== null);
     const avgRealizedRoi =
-      totalClosedTrades > 0
-        ? completedCycles.filter((c) => c.quantity > 0).reduce((acc, c) => acc + c.roi, 0) /
-          totalClosedTrades
+      legacyRoiCycles.length > 0
+        ? legacyRoiCycles.reduce((acc, c) => acc + c.roi, 0) / legacyRoiCycles.length
         : 0;
     const avgHoldDays =
       totalClosedTrades > 0
@@ -1389,8 +1399,11 @@ export class TraderAnalyticsService {
       const catWins = catCycles.filter((c) => c.is_profitable).length;
       categorySuccessRate[cat].win_rate =
         catCycles.length > 0 ? (catWins / catCycles.length) * 100 : 0;
+      const catRoiCycles = catCycles.filter((c) => c.roi !== null);
       categorySuccessRate[cat].avg_roi =
-        catCycles.length > 0 ? catCycles.reduce((a, b) => a + b.roi, 0) / catCycles.length : 0;
+        catRoiCycles.length > 0
+          ? catRoiCycles.reduce((a, b) => a + b.roi, 0) / catRoiCycles.length
+          : 0;
       categorySuccessRate[cat].profit_label = 'Bénéfice Net Flotte';
       categorySuccessRate[cat].is_net_estimated = false;
     }

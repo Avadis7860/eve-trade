@@ -1,4 +1,4 @@
-import { EveCharacterSession, SessionAuthStatus, FleetRole, TradingFleetOverview } from '../types';
+import { EveCharacterSession, SessionAuthStatus } from '../types';
 import { CharacterRepository } from '../domain/character/CharacterRepository';
 
 const memoryStore = new Map<string, string>();
@@ -200,29 +200,20 @@ export class AuthService {
   }
 
   /**
-   * Updates fleet role and assigned hub for an alt.
+   * Updates the operational hub assignment for a connected character.
    */
-  static updateCharacterFleetSettings(
+  static updateCharacterHubSettings(
     characterId: number,
     settings: {
-      fleet_role?: FleetRole;
       assigned_hub_id?: string;
       assigned_hub_name?: string;
       assigned_station_id?: number;
-      ship_cargo_capacity_m3?: number;
     }
   ): EveCharacterSession[] {
-    const list = CharacterRepository.getInstance().updateCharacterFleetSettings(characterId, settings);
+    const list = CharacterRepository.getInstance().updateCharacterHubSettings(characterId, settings);
     const active = CharacterRepository.getInstance().getActiveCharacter();
     this.notifyListeners(active);
     return list;
-  }
-
-  /**
-   * Retrieves the consolidated trading fleet overview.
-   */
-  static getFleetOverview(): TradingFleetOverview {
-    return CharacterRepository.getInstance().getFleetOverview();
   }
 
 

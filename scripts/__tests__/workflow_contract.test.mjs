@@ -242,8 +242,13 @@ for (const bootstrapPath of bootstrapPaths) {
 const contextMap = JSON.parse(read('.eve-trade/context-map.json'));
 assert.equal(contextMap.schema_version, 4, 'Context map schema must include functional CI routing metadata');
 for (const [domainName, domain] of Object.entries(contextMap.domains)) {
-  for (const lane of domain.ci_lanes) assert.ok(typeof lane.route === 'string', `${domainName}: each CI lane must declare a routing class`);
+  for (const lane of domain.ci_lanes) {
+    assert.ok(typeof lane.route === 'string', `${domainName}: each CI lane must declare a routing class`);
+    assert.ok(!['ambiguous', 'full_certification'].includes(lane.route), `${domainName}: fallback states cannot be routing evidence`);
+  }
 }
+assert.ok(!Object.hasOwn(contextMap.ci_routing.classes, 'ambiguous'), 'Ambiguous fallback cannot be a functional routing class');
+assert.ok(!Object.hasOwn(contextMap.ci_routing.classes, 'full_certification'), 'Derived full certification cannot be a functional routing class');
 const contextSource = read('scripts/context-integrity.mjs');
 assert.ok(contextSource.includes("work.state !== 'IDLE'"), 'Context integrity must distinguish active and stable lifecycle state');
 assert.ok(contextSource.includes('stable integration anchor mismatch'), 'Stable context integrity must validate the merge integration anchor');

@@ -1,6 +1,6 @@
 # Financial Contract
 
-Status: PROVISIONAL — SEMANTIC REBASE REQUIRED
+Status: PROVISIONAL — FIN-002 SEMANTIC CERTIFICATION IN PROGRESS
 Owner: finance domain
 Decision: ADR-0003
 Implementation: src/types/financial.ts, src/engine/positionLedger.ts, src/engine/realizedFinancialOutcome.ts
@@ -71,7 +71,9 @@ The +40 ISK value measures realized P&L on the disposed unit. It is not a whole-
 
 A KPI must declare its economic scope.
 
-- Disposal-level ROI may describe the allocated disposal(s).
+- Disposal-level ROI may describe the allocated disposal(s), including a partial disposal that remains attached to an open position.
+- Whole-position performance is published only at a genuine closure boundary and incorporates the cumulative disposals of that position segment.
+- Win rate, closed-position ROI, item rankings and category success use whole-position results only; a positive partial disposal is never a profitable closed trade.
 - Position/operation-level recovery describes how much acquisition capital has been recovered.
 - Whole-position realized P&L is complete only when the position is closed.
 - Current-market valuation is not realized P&L.

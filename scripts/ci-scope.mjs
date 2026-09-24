@@ -58,9 +58,11 @@ export function classifyPaths(input, { respectContextCritical = true } = {}) {
 
   for (const path of paths) {
     if (path.startsWith('.eve-trade/') || CONTEXT_CRITICAL_PATHS.has(path)) {
-      ambiguous = true;
-      if (path.startsWith('docs/')) docs = true;
-      if (respectContextCritical) continue;
+      if (respectContextCritical) {
+        ambiguous = true;
+        if (path.startsWith('docs/')) docs = true;
+        continue;
+      }
     }
     if (path.startsWith('.github/workflows/') || path === '.github/dependabot.yml') ci = true;
     else if (path.startsWith('src/engine/')) domain = true;

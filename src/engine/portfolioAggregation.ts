@@ -533,6 +533,11 @@ export function buildPortfolioSnapshots(
     {
       allocation_budget: treasury.allocation_budget,
       policy_reserve: treasury.policy_reserve,
+      capital_provenance: {
+        source_kind: treasury.source_kind,
+        source_id: treasury.source_id,
+        principal_scope: treasury.principal_scope,
+      },
     },
   );
 

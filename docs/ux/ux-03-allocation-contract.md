@@ -29,6 +29,45 @@ A disposal of 1 unit from an acquisition of 10,000 units may realize P&L on that
 
 Real Portfolio certification is blocked by FIN-001, ORD-001, FIN-002 and DATA-001.
 
+## E2E findings — 2026-09-24
+
+The first manual E2E pass identified two UI contract adjustments that do not change financial truth.
+
+### Operations — corporation orders in character workflows
+
+A corporation-owned order may legitimately be observed by a character and may also expose an issuer character. The UI must not require economic ownership to be personal before allowing that order into the character's operational hub workflow.
+
+The target behavior is:
+
+- ownership remains `corporation`;
+- observer/authenticated principal remains the character who obtained the observation;
+- issuer remains distinct when ESI exposes it;
+- a character operational view may surface the corporation order when the character is an eligible observer or issuer;
+- the corporation view continues to provide the complete economic-owner scope.
+
+This is a presentation/operational projection, not an ownership rewrite.
+
+### Operations — configurable table density
+
+The Orders table must support configurable column visibility so the user can build a compact operational view for large order sets.
+
+Required behavior:
+
+- individual show/hide controls;
+- compact default set focused on actionability;
+- optional provenance/diagnostic columns;
+- reset to defaults;
+- local persistence of the preference;
+- no loss of underlying order data when a column is hidden.
+
+### Allocation / Portfolio — decision layer vs diagnostic layer
+
+The current E2E view demonstrates excessive horizontal and vertical density.
+
+The allocation table should prioritize the decision fields (object, route, capital, quantity, projected return, ROI and time-to-sell). Detailed evidence/provenance/confidence/constraint explanations should move to a secondary expandable or contextual layer.
+
+Repeated identical `DATA_ISSUE` messages should be grouped or summarized with counts, while retaining access to the detailed rejection evidence. The UI must remain explicit about degraded data; this is a density improvement, not permission to hide or coerce the underlying state.
+
 ## 1. Purpose
 
 ### Implementation increment 1

@@ -393,7 +393,11 @@ export type EconomicOrigin =
   | 'INTERNAL_TRANSFER'
   | 'UNKNOWN_ORIGIN';
 
-export type FinancialSourceKind =\n  | 'ESI_WALLET_TRANSACTION'\n  | 'EXECUTION_TRANSACTION';\n\nexport type FinancialSourceCoverage =
+export type FinancialSourceKind =
+  | 'ESI_WALLET_TRANSACTION'
+  | 'EXECUTION_TRANSACTION';
+
+export type FinancialSourceCoverage =
   | 'MARKET_TRACEABLE'
   | 'PARTIAL'
   | 'UNAVAILABLE';

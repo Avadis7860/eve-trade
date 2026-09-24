@@ -26,13 +26,10 @@ CI gate: unit/domain certification
 
 TraderAnalyticsService and FleetFinancialEngine must remain projections of the accepted position/financial contract, not independent accounting engines.
 
-## Current CI state before any code correction
+## Latest CI certification state
 
-Last verified branch head: 26f8f7eab0c001cd96604d0053d4f8c69e33a70a.
+Latest verified branch head: c169c6516592c31e6d57ea2f5ef83f318585427f.
 
-The associated CI Foundation & Regression Gate is RED for two concrete contract regressions:
+CI Foundation & Regression Gate #893 is GREEN, with all required lanes completed successfully. Phase 2.7C SDE Truth Gate #654 is also GREEN.
 
-1. Frontend typecheck fails because an existing RealizedFinancialOutcome fixture in src/engine/__tests__/realized_financial_outcome.test.ts does not yet provide position_lifecycle and position_remaining_quantity.
-2. Unit certification fails in the existing “Division by Zero Protection” scenario because it still supplies typeId = 0, while the new position ledger enforces a strictly positive valid type ID.
-
-The CI result does not justify weakening the position-ledger validation. The corrective work must reconcile old test fixtures/cases with the accepted contract.
+ORD-001 is certified. Its scope is canonical MarketOrder identity/ownership/observation semantics; it does not close the broader financial rebase. FIN-001 is the next code gate for the AcquisitionLot / CurrentPosition boundary.

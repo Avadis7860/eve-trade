@@ -42,6 +42,11 @@ expectScope(['scripts/universe-graph-builder.mjs'], {
   sde: true, ambiguous: false, full_certification: true,
 });
 
+expectScope(['src/data/universeGraph.json'], {
+  sde: true, ambiguous: true, full_certification: true,
+  run_static: true, run_unit_domain: true, run_server: true, run_build: true, run_browser: true,
+});
+
 expectScope(['some/new/unknown.file'], {
   ambiguous: true, full_certification: true,
   run_static: true, run_unit_domain: true, run_server: true, run_build: true, run_browser: true,

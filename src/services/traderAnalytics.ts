@@ -708,7 +708,12 @@ export class TraderAnalyticsService {
         catRoiCycles.length > 0
           ? catRoiCycles.reduce((a, b) => a + (b.position_roi ?? 0), 0) / catRoiCycles.length
           : 0;
-      const status = deriveFinancialStatus(catCycles);
+      // Category labels must propagate the financial completeness of the
+      // category's observed cycle stream, independently from KPI eligibility.
+      // Win rate / ROI remain strictly scoped to closed positions above.
+      const status = deriveFinancialStatus(
+        completedCycles.filter((c) => (c.category_name || 'Général') === cat),
+      );
       categorySuccessRate[cat].profit_label = status.label;
       categorySuccessRate[cat].is_net_estimated = status.is_net_estimated;
     }

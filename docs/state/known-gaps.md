@@ -6,11 +6,11 @@ Source of truth: code, tests, CI and current state documents
 
 ## Agent context / repository governance
 
-- The repository previously required manual reconstruction of domain/code/contract/test/CI relationships for many tasks. This branch introduces a stable context map plus a separate active-work manifest and an automated reference-integrity check.
+- The repository previously required manual reconstruction of domain/code/contract/test/CI relationships for many tasks. The current context architecture provides a stable map, a separate active-work manifest and reference integrity; this hardening closes the demonstrated post-merge lifecycle and bootstrap gaps.
 - The active-work state must remain operational and branch/PR specific; the stable map must not embed the current branch or PR.
 - Context references are qualified by workflow file and job because CI job IDs can repeat across workflows.
 - The archive is not a source of current implementation truth. Archived UX-03/Financial Truth code is reference-only and must be re-derived from current main.
-- The main-state documentation baseline had fallen behind the verified main SHA; this maintenance chantier synchronizes that state before the next technical work.
+- The post-merge audit demonstrated that a merged delivery could leave `current-work`, current-state and roadmap metadata presenting an old active chantier. The hardening adds deterministic stable-state checks and a closing lifecycle.
 
 ## UX / product gaps
 

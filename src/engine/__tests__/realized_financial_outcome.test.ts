@@ -1533,7 +1533,7 @@ async function runAllTests() {
     assert(metrics.win_rate_pct === 100, '100% win rate');
     assert(metrics.financial_completeness === 'ESTIMATED', 'Overall metrics completeness is ESTIMATED');
     assert(metrics.total_realized_gross === 5000, 'Gross profit = 100 * (150 - 100) = 5000 ISK');
-    assert(metrics.total_estimated_fees !== undefined && metrics.total_estimated_fees > 0, 'Estimated fees deducted');
+    assert(metrics.total_estimated_fees !== null && metrics.total_estimated_fees !== undefined && metrics.total_estimated_fees > 0, 'Estimated fees deducted');
     assert(metrics.has_unmatched_trades === false, 'No unmatched trades');
     assert(metrics.unmatched_trades_count === 0, 'Unmatched count is 0');
 
@@ -1542,7 +1542,7 @@ async function runAllTests() {
     assert(cycle !== undefined, 'Cycle exists');
     assert(cycle.financial_completeness === 'ESTIMATED', 'Cycle completeness is ESTIMATED');
     assert(cycle.is_net_estimated === true, 'Cycle is_net_estimated is true');
-    assert(cycle.estimated_fees_paid !== undefined && cycle.estimated_fees_paid > 0, 'estimated_fees_paid recorded');
+    assert(cycle.estimated_fees_paid !== null && cycle.estimated_fees_paid > 0, 'estimated_fees_paid recorded');
     assert(cycle.unmatched_sell_quantity === 0, 'Cycle unmatched_sell_quantity is 0');
     assert(cycle.fees_breakdown !== undefined, 'Fees breakdown populated');
     assert(cycle.fees_breakdown?.estimated_sales_tax !== undefined && cycle.fees_breakdown.estimated_sales_tax > 0, 'Sales tax present');
@@ -1817,7 +1817,7 @@ async function runAllTests() {
     assert(cycle.is_net_estimated === true, 'is_net_estimated is explicitly true');
     assert(cycle.fees_breakdown?.fee_source === 'CONFIG_ESTIMATE', 'Fee source is CONFIG_ESTIMATE');
     assert(cycle.fees_breakdown?.fee_mode === 'ESTIMATED', 'Fee mode is ESTIMATED');
-    assert(cycle.estimated_fees_paid > 0, 'Estimated fees paid is greater than 0');
+    assert(cycle.estimated_fees_paid !== null && cycle.estimated_fees_paid > 0, 'Estimated fees paid is greater than 0');
 
     console.log('  [PASS] Test 6: ESTIMATED fees explicitly provenance-tracked.');
   }
@@ -1862,7 +1862,7 @@ async function runAllTests() {
 
     assert(metrics.recent_trade_cycles.length === 3, 'Exactly 3 trade cycles');
 
-    const sumCyclesNet = roundIsk(metrics.recent_trade_cycles.reduce((s, c) => s + c.net_profit, 0));
+    const sumCyclesNet = roundIsk(metrics.recent_trade_cycles.reduce((s, c) => s + (c.net_profit ?? 0), 0));
     const sumCyclesGross = roundIsk(metrics.recent_trade_cycles.reduce((s, c) => s + c.gross_profit, 0));
     const sumCyclesFees = roundIsk(metrics.recent_trade_cycles.reduce((s, c) => s + (c.estimated_fees_paid ?? 0), 0));
 
@@ -1872,7 +1872,7 @@ async function runAllTests() {
 
     // Also check item breakdown matches
     const type34ProfitFromTopItems = metrics.top_profitable_items.find(i => i.type_id === 34)?.total_profit ?? 0;
-    const type34ProfitFromCycles = roundIsk(metrics.recent_trade_cycles.filter(c => c.type_id === 34).reduce((s, c) => s + c.net_profit, 0));
+    const type34ProfitFromCycles = roundIsk(metrics.recent_trade_cycles.filter(c => c.type_id === 34).reduce((s, c) => s + (c.net_profit ?? 0), 0));
     assert(type34ProfitFromTopItems === type34ProfitFromCycles, `Top item profit for type 34 matches sum of type 34 cycles`);
 
     console.log('  [PASS] Test 8: Aggregates vs detailed cycles concordance verified.');

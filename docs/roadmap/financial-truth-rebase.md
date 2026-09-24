@@ -1,6 +1,6 @@
 # Financial Truth Rebase
 
-Status: PRIORITY / IMPLEMENTATION IN PROGRESS
+Status: PRIORITY / ORD-001 CERTIFIED / FIN-001 NEXT
 Scope: FIN-001, ORD-001, FIN-002, DATA-001, CI-003
 Related decision: ADR-0003
 
@@ -112,8 +112,10 @@ Acceptance:
 Make the canonical MarketOrder model explicit. Keep order identity, market side, issuer, economic owner and observer separate.
 
 Current implementation:
-- canonical order identity and multi-observer regressions exist;
-- real corporation payload without an explicit is_buy_order: false is accepted under ESI optional-boolean semantics.
+- canonical order identity and multi-observer regressions are certified;
+- real corporation payload without an explicit is_buy_order: false is accepted under the documented ESI optional-boolean semantics;
+- CI Foundation & Regression Gate #893 is green;
+- ORD-001 is certified on branch head `c169c6516592c31e6d57ea2f5ef83f318585427f`.
 
 Acceptance:
 - one order ID can be observed through multiple principals;

@@ -451,6 +451,9 @@ export interface CurrentPosition {
   readonly capital_recovery_delta: number | null;
   readonly capital_recovery_ratio: number | null;
 
+  /** Deduplicated source/provenance set covering the known position facts. */
+  readonly provenance: readonly FinancialProvenance[];
+
   readonly lifecycle_status: PositionLifecycleStatus;
   readonly financial_completeness: FinancialCompleteness;
   readonly lots: readonly AcquisitionLot[];

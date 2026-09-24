@@ -11,7 +11,6 @@ import {
   EveCharacterOrder,
 } from '../types';
 import { InterRegionalScanner } from '../services/scanner';
-import { PortfolioOptimizer } from '../engine/portfolio';
 import { GlobalMarketSyncService } from '../services/globalMarketSync';
 import { MarketDataStore } from '../services/marketDataStore';
 import { buildPortfolioSnapshots } from '../engine/portfolioAggregation';
@@ -93,7 +92,7 @@ export function useTradingOpportunities(
       characters,
       active_character_id: activeCharacterId,
       orders: portfolioOrders,
-      universe: allocationUniverse.opportunities as typeof universeOpportunities,
+      universe: universeOpportunities,
       global_sync_progress: globalSyncProgress,
     });
   }, [
@@ -103,7 +102,6 @@ export function useTradingOpportunities(
     portfolioOrders,
     universeOpportunities,
     globalSyncProgress,
-    selectedType.type_id,
   ]);
 
   const portfolioSimulation = portfolioSnapshots.simulation;

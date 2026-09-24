@@ -112,6 +112,19 @@ Each order row must make visible:
 - current market data health;
 - recommendation.
 
+### Operational visibility vs economic ownership
+
+The Operations surface must distinguish two independent questions:
+
+- **economic owner** — who owns the order economically (`character` or `corporation`);
+- **operational visibility** — which authenticated/observing character should be able to manage the order in their operational hub context.
+
+A corporation-owned order may therefore appear in a character's operational view when that character legitimately observes the order or is its issuer, without changing `ownership.owner_type` or assigning the order economically to that character.
+
+This supports a hub-isolation workflow such as one character per trading hub while preserving the canonical corporation ownership model.
+
+Character/corporation scope remains an ownership/authorization dimension; operational visibility is an additional presentation/management projection and must not be persisted as a new economic owner.
+
 ### Detail context
 An order detail must show:
 - latest market observation;
@@ -119,7 +132,23 @@ An order detail must show:
 - expected remaining outcome;
 - rationale for recommendation;
 - data age;
-- ownership provenance.
+- ownership provenance;
+- operational visibility provenance when the order is surfaced through a character observer/issuer rather than personal economic ownership.
+
+### Column personalization
+
+The Operations table must support user-controlled column visibility.
+
+The column selector must:
+- allow individual columns to be shown/hidden;
+- provide a sensible default compact view;
+- expose additional diagnostic/provenance columns on demand;
+- offer a reset-to-default action;
+- persist the user's visibility preference locally.
+
+The semantic meaning of a column must not change when it is hidden. Hiding a column is a presentation preference, not a reduction of domain data.
+
+The default compact view should prioritize actionable order-management fields; wide diagnostic/provenance fields such as observer, issuer, source, health details and extended competition context should be optional.
 
 ## Allocation contract
 
@@ -145,6 +174,25 @@ Inventory coverage is allowed to be UNKNOWN/PARTIAL. Missing inventory is never 
 ### Proposed Allocation
 
 Prospective deployment against a resolved treasury scope:
+
+The primary allocation table must prioritize decision-making fields. Technical evidence and provenance must not consume most of the horizontal viewport by default.
+
+Default decision columns should remain compact and centered on:
+- object;
+- route;
+- deployed capital / share;
+- quantity;
+- projected net profit;
+- capturable profit;
+- projected ROI;
+- profit/day;
+- expected days to sell.
+
+Evidence, provenance, confidence and detailed constraint explanations should be presented as secondary diagnostic content (expandable row/detail, contextual panel or equivalent), rather than forcing the main decision table into a wide horizontal scroll.
+
+Repeated identical `DATA_ISSUE` diagnostics should be grouped or summarized instead of rendering one visually identical block per rejected candidate. The detailed rejection evidence must remain accessible.
+
+
 
 - explicit allocation budget;
 - cross-item candidate universe;

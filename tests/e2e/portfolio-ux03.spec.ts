@@ -30,6 +30,7 @@ test.describe('UX-03 — Portfolio / Allocation', () => {
     await expect(page.getByText('Obligation non couverte', { exact: true })).toBeVisible();
     await expect(page.getByText('Sell exposure', { exact: true })).toBeVisible();
 
+    await expect(page.getByText(/^Scope /)).toBeVisible();
     await expect(page.getByText('Budget d'allocation', { exact: true })).toBeVisible();
     await expect(page.getByText('Capital déployé', { exact: true })).toBeVisible();
     await expect(page.getByText('Capital non alloué', { exact: true })).toBeVisible();

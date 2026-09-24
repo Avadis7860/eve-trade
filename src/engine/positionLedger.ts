@@ -11,7 +11,7 @@ import type { OrderId } from '../types/order';
 import { normalizeOrderId } from './orderIdentity';
 import { roundIsk } from './money';
 
-export type PositionLedgerTransaction = {
+export type PositionPositionLedgerTransaction = {
   readonly transaction_id: number;
   readonly character_id?: number;
   readonly type_id: number;
@@ -29,7 +29,7 @@ export type PositionLedgerTransaction = {
   readonly provenance: FinancialProvenance;
 };
 
-function transactionTimestamp(tx: LedgerTransaction): string | null {
+function transactionTimestamp(tx: PositionLedgerTransaction): string | null {
   const candidate = 'timestamp' in tx ? tx.timestamp : undefined;
   if (candidate && !Number.isNaN(Date.parse(candidate))) return candidate;
 
@@ -39,7 +39,7 @@ function transactionTimestamp(tx: LedgerTransaction): string | null {
   return null;
 }
 
-function transactionCharacterId(tx: LedgerTransaction, fallback: number): number {
+function transactionCharacterId(tx: PositionLedgerTransaction, fallback: number): number {
   const value = 'character_id' in tx ? tx.character_id : undefined;
   return value === undefined ? fallback : value;
 }
@@ -56,11 +56,11 @@ function validProvenance(provenance: FinancialProvenance | undefined): boolean {
     provenance.principal_scope.length > 0;
 }
 
-function transactionProvenance(tx: PositionLedgerTransaction): FinancialProvenance {
+function transactionProvenance(tx: PositionPositionLedgerTransaction): FinancialProvenance {
   return tx.provenance;
 }
 
-function validTransaction(tx: PositionLedgerTransaction, characterId: number): boolean {
+function validTransaction(tx: PositionPositionLedgerTransaction, characterId: number): boolean {
   return (
     Number.isSafeInteger(tx.transaction_id) &&
     tx.transaction_id > 0 &&
@@ -78,7 +78,7 @@ function validTransaction(tx: PositionLedgerTransaction, characterId: number): b
   );
 }
 
-function relatedOrderId(tx: PositionLedgerTransaction): OrderId | undefined {
+function relatedOrderId(tx: PositionPositionLedgerTransaction): OrderId | undefined {
   if (!tx.order_id) return undefined;
   return normalizeOrderId(tx.order_id) ?? undefined;
 }
@@ -106,7 +106,7 @@ function statusFor(
 export function reconstructPositionLedger(
   characterId: number,
   typeId: number,
-  transactions: readonly PositionLedgerTransaction[],
+  transactions: readonly PositionPositionLedgerTransaction[],
 ): PositionLedgerResult {
   if (!Number.isSafeInteger(characterId) || characterId <= 0) {
     throw new Error(`Invalid characterId: ${characterId}`);
@@ -139,7 +139,7 @@ export function reconstructPositionLedger(
     const timestamp = transactionTimestamp(tx)!;
     const qty = tx.quantity;
     const unitCost = tx.unit_price;
-    const provenance = transactionProvenance(tx, characterId);
+    const provenance = transactionProvenance(tx);
 
     return {
       lot_id: `acquisition_${tx.transaction_id}`,

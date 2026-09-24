@@ -37,14 +37,13 @@ These findings are retained as durable model rules; ORD-001 and FIN-001 themselv
 
 ## Financial / data-quality gaps
 
-- Some defensive numeric paths still convert invalid/non-finite values to 0 inside financial calculations; these remain candidates for the next data-quality hardening pass where evidence shows the conversion can be reached.
-- A “no cycles” analytics fallback currently labels realized profit as ESTIMATED. Absence of matched cycles is not evidence of an estimate and needs reclassification.
+- Some defensive numeric paths outside the certified Financial Truth boundary still convert invalid/non-finite values to 0; these remain candidates for later data-quality hardening where evidence shows the conversion can be reached.
 - Order-history fulfilled volume may be useful as activity evidence, but must never be used as acquisition cost basis or realized financial truth.
 - Character Assets are not implemented; current inventory quantity/location coverage therefore cannot be assumed complete.
 
 ## CI / delivery gaps
 
-- CI status for the active branch is dynamic and must be read from the current PR #71 workflow runs.
+- CI status for the active branch is dynamic and must be read from the current PR #71 workflow runs; `test:context` is now part of the Static certification gate.
 - CI-002 remains the separate Draft/Ready PR routing hardening item.
 - Branch protection/ruleset configuration remains administratively unverified.
 
@@ -54,6 +53,7 @@ These findings are retained as durable model rules; ORD-001 and FIN-001 themselv
 - Broad UI component decomposition remains deferred.
 - Dedicated performance measurement remains deferred.
 - Browser E2E expansion follows contract acceptance.
+- Portfolio is not yet a consumer of the canonical transaction/position projection; this remains the next integration stage after FIN-002 rather than a reason to duplicate accounting in Portfolio.
 
 ## Historical reclassification
 

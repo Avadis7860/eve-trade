@@ -11,7 +11,7 @@ CI gate: [../validation/ci.md](../validation/ci.md)
 
 The functional E2E-001 baseline is 9438bbedb2d44cf3f5f371144bcf72094955cd46. Deterministic browser CI is green and the target-PC real-CCP SSO/ESI smoke PASS was recorded on 2026-09-23.
 
-The current UX-first program is closing the P0 market/ESI retrieval reliability gate. UX-01 technical implementation is merged; the target-PC market-order incident remains NOT ROOT-CAUSED.
+The UX-first program has closed the P0 market/ESI retrieval reliability gate. UX-01 is DONE / EXTERNALLY BOUNDED; the previously reported target-PC market-display symptom is resolved and the current application is functional.
 
 ## CI / delivery state
 
@@ -36,7 +36,7 @@ A dedicated study is recorded in [CI management audit](../audits/ci-management-a
 
 ### Current CI management decision
 
-CI-001 is **DONE / MERGED** on main at `7fc6fe7ca65454d0d29843bc0eace336b2da864c`.
+CI-001 is **DONE / MERGED** on main at `7fc6fe7ca65454d0d29843bc0eace336b2da864c`. The current main head is `95e970933a1d440fb61d25a6f677742731b697aa`, and Main Smoke #9 completed successfully against it.
 
 Post-merge behavior is now intentionally split: PR changes run the PR certification surface, while pushes to `main` run the short Main Smoke surface. Full Repository Certification is scheduled/manual.
 
@@ -51,7 +51,7 @@ The intended separation is:
 - gh = GitHub workflow/PR/run control;
 - Oclif = optional project-facing operator commands and enforcement of the repository's delivery procedure.
 
-Activation is deferred until P0 is closed, or until a separately approved CI-hardening need makes the operator layer materially useful. The implementation, if activated, gets its own branch and PR.
+Activation is deferred until the operator layer is justified by repeated procedural friction. Any implementation gets its own branch and PR.
 
 ## Stable foundations
 
@@ -80,36 +80,38 @@ The current engine/domain layers are ahead of the UI information architecture.
 
 ## Active product gaps
 
-- Target-PC public market-order retrieval failure is reported but not root-caused.
-- The P0-A audit found no concrete non-Operations production consumer that currently collapses a market acquisition failure into certifiable ordinary empty business state. The legacy `EsiService.fetchLiveOrders()` helper remains a latent quality-loss hazard with no production caller.
-- P0-B deterministic browser coverage is certified on main: PR #66 merged at `c0ddc69ef424ed0cfd4de776758166c3ee8c1abe`; post-merge Main Smoke #7 is green. The proof verifies HTTP 429, Retry-After and ESI budget diagnostics without collapsing the market into a false empty state.
-P0-C implementation is now merged and certified: PR #67 merged at `31308676ec2d9104f7c6ffab29dae1e3f4f49a00`, and Main Smoke #8 is green. The browser-visible JSON evidence export lets the affected PC capture repository-side market diagnostics in one reproducible bundle without exporting authentication tokens.
+- The legacy `EsiService.fetchLiveOrders()` helper remains a latent quality-loss hazard because it discards the quality envelope; no production caller is currently known.
 - Rate-limit-aware market scheduling is not yet exposed as a product-level operational signal.
 - No coherent Real Portfolio vs Proposed Allocation split exists yet.
 - No automatic ESI-derived performance history replaces the manual journal yet.
 - No clear business Control Center exists yet.
 - Cockpit remains too item-centric to serve as a decision-oriented synthesis.
+- Public repository security/release posture still needs the maintenance work recorded in [Public Readiness](../roadmap/public-readiness.md).
 
 ## P0 closure status
 
-Completed and certified on main:
+**DONE — EXTERNALLY BOUNDED.**
 
-- Global market synchronization now treats a market-quality `ERROR` as a failed item and preserves the error count instead of counting it as a successful sync.
-- Public market-order error responses preserve HTTP/cache/ESI rate-limit metadata through the backend route.
-- Browser Operations proof confirms active orders remain visible while a market `ERROR` is surfaced with HTTP 401 and ESI budget diagnostics.
-- CI run `35862904773` and SDE run `35862904812` are green; PR #63 merged into main at `72c049042a3e3bd735117bac43c3dfe71827f79d`.
+Certified and merged:
+- global market synchronization failure accounting;
+- HTTP/cache/ESI/Retry-After propagation;
+- browser diagnostic proof;
+- P0-A caller audit (PR #65);
+- P0-B deterministic 429 / Retry-After proof (PR #66);
+- P0-C evidence export (PR #67);
+- post-merge documentation/state synchronization (PR #68).
 
-Remaining P0 closure work is limited to the real target-PC evidence bundle and formal incident classification as ROOT-CAUSED or EXTERNALLY BOUNDED. P0-A and P0-B are audited/certified and merged; P0-C implementation is certified and merged; external evidence is pending.
+The previously reported target-PC market-display symptom is resolved. The application is currently functional, and the operator confirmed that insufficient available data explained the symptom. No persistent application defect is currently identified. P0 no longer blocks product work.
 
 ## Current chantier / sequencing
 
-**Current product chantier: P0 market/ESI retrieval reliability closure.**
+**Current product sequence:** UX-03 Allocation / Portefeuille is the next product build. The present documentation branch is a maintenance synchronization step and is not a product implementation branch.
 
-The P0-B and P0-C delivery branches are historical and must not be reused. There is currently no active technical delivery branch; the project is waiting for the affected-PC evidence required to close P0.
+The P0-B and P0-C delivery branches are historical and must not be reused. There is no active technical delivery branch after this documentation sync.
 
-UX-02 is DONE / MERGED. CI-001 is DONE / MERGED. Historical delivery branches have been reconciled to the current main head and are not active work.
+UX-02 is DONE / MERGED. CI-001 is DONE / MERGED. UX-01/P0 is DONE / EXTERNALLY BOUNDED.
 
-P0-C implementation is complete; UX-03 and all other deferred work remain blocked by the P0 closure gate until the real target-PC incident is classified.
+Public Readiness is a separate maintenance track; PUB-002 and PUB-003 are the highest-priority items before portfolio publication.
 
 ## Reference paths
 
@@ -119,6 +121,7 @@ P0-C implementation is complete; UX-03 and all other deferred work remain blocke
 [CI Management Audit](../audits/ci-management-audit-2026-09-23.md) ·
 [CI-001 Plan](../roadmap/ci-management-refactor.md) ·
 [P0 Market Reliability Plan](p0-market-reliability.md) ·
+[Public Readiness](../roadmap/public-readiness.md) ·
 [P0-C Target-PC Evidence](../validation/p0-c-target-pc-evidence.md) ·
 [UI/UX Product Audit](../audits/ui-ux-product-audit-2026-09-23.md) ·
 [UX Program](../roadmap/ux-program.md) ·

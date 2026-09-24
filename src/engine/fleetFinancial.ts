@@ -150,6 +150,7 @@ export class FleetFinancialEngine {
     let partialCapitalPositions = 0;
     let closedCapitalPositions = 0;
     let capitalRecoveryPartial = false;
+    const capitalRecoveryProvenance = new Map<string, import('../types').FinancialProvenance>();
 
     // Collect all trade cycles across all valid characters
     const allCycles: TradeCycleRecord[] = [];
@@ -190,6 +191,12 @@ export class FleetFinancialEngine {
         openCapitalPositions += recovery.open_position_count;
         partialCapitalPositions += recovery.partially_realized_position_count;
         closedCapitalPositions += recovery.closed_position_count;
+        for (const provenance of recovery.provenance) {
+          capitalRecoveryProvenance.set(
+            `${provenance.source_kind}|${provenance.source_id}|${provenance.principal_scope}`,
+            provenance,
+          );
+        }
         if (recovery.financial_completeness === 'PARTIAL') {
           capitalRecoveryPartial = true;
         }
@@ -382,6 +389,7 @@ export class FleetFinancialEngine {
               capitalCommittedTotal > 0
                 ? cashRecoveredTotal / capitalCommittedTotal
                 : null,
+            provenance: Object.freeze([...capitalRecoveryProvenance.values()]),
             remaining_quantity: remainingQuantityTotal,
             remaining_cost_basis: remainingCostBasisTotal,
             known_position_count: knownCapitalPositions,

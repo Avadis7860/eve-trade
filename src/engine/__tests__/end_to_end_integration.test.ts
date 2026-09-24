@@ -222,7 +222,15 @@ function runEndToEndIntegrationTests() {
   // Gate Check 2: Cross-Character Isolation Guard
   // --------------------------------------------------------------------------
   console.log('--- Gate Check 2: Cross-Character Financial Isolation ---');
-  const mixedTxs = [...createTestTransactionsAlpha(), ...createTestTransactionsBeta()];
+  // Both participants must use the SAME type for this isolation contract;
+  // calculateForTransactions intentionally filters unrelated types first.
+  const mixedTxs = [
+    ...createTestTransactionsAlpha(),
+    {
+      ...createTestTransactionsBeta()[1],
+      type_id: 34,
+    },
+  ];
   let crossCharCaught = false;
   try {
     RealizedFinancialOutcomeEngine.calculateForTransactions(1001, 34, mixedTxs);

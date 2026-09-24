@@ -9,7 +9,7 @@ CI gate: [../validation/ci.md](../validation/ci.md)
 
 ## Current baseline
 
-Current main head is `aec4c62691723e8fa2ee2bb2f9126249152ad57f`. The functional E2E-001 baseline was `9438bbedb2d44cf3f5f371144bcf72094955cd46`. Deterministic browser CI is green and the target-PC real-CCP SSO/ESI smoke PASS was recorded on 2026-09-23.
+Current main head is `bacb0655b1fde3a4650b5cd94feed0fe8617be10`. The functional E2E-001 baseline was `9438bbedb2d44cf3f5f371144bcf72094955cd46`. Deterministic browser CI is green and the target-PC real-CCP SSO/ESI smoke PASS was recorded on 2026-09-23.
 
 The UX-first program has closed the P0 market/ESI retrieval reliability gate. UX-01 is DONE / EXTERNALLY BOUNDED; the previously reported target-PC market-display symptom is resolved and the current application is functional.
 
@@ -105,15 +105,15 @@ The previously reported target-PC market-display symptom is resolved. The applic
 
 ## Agent context hardening
 
-This is the active technical chantier on branch `chore/agent-context-hardening`, based on main `aec4c62691723e8fa2ee2bb2f9126249152ad57f`, PR #78.
+This is the active technical chantier on branch `chore/agent-context-hardening-v2`, based on main `bacb0655b1fde3a4650b5cd94feed0fe8617be10`, PR #79.
 
 The chantier is limited to repository navigation, active-work governance, context integrity, CI ownership and historical documentation reconciliation. It must not import UX-03 or archived Financial Truth implementation.
 
-The stable navigation layer is `.eve-trade/context-map.json`; the active operational state is `.eve-trade/current-work.json`; validation is `npm run test:context`.
+The stable navigation layer is `.eve-trade/context-map.json`; the checkout-aware operational state is `.eve-trade/current-work.json`; validation is `npm run test:context`. The hardening closes lifecycle, bootstrap, routing and stable-state drift identified by the audit.
 
 ## Current chantier / sequencing
 
-**Active technical chantier:** Agent Context Hardening is the only active delivery branch/PR. UX-03 branches/PRs #71 and #77 are closed without merge and their archive is reference-only.
+**Active technical chantier:** Agent Context Hardening v2 is the only active delivery branch/PR. PR #79 is the dedicated hardening branch. UX-03 branches/PRs #71 and #77 are closed without merge and their archive is reference-only.
 
 After this maintenance chantier is certified, the next financial gate is an explicit Financial Truth semantic reconciliation/re-acceptance step. It is not an instruction to reuse the archived implementation. UX-03 remains a separate future product chantier and must receive its own fresh branch/PR after its contract and financial dependencies are accepted.
 

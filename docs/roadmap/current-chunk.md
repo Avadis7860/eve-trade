@@ -1,10 +1,10 @@
 # Current Chunk
 
-Status: ACTIVE
+Status: CERTIFIED / READY FOR MERGE
 Scope: Selective Financial Truth recovery from archived UX-03
 Branch: chore/financial-truth-archive-recovery
 Base: main @ a01c2a31dbabd3678d3d8674b14f4c826ab0b0d8
-PR: #82 (Draft)
+PR: #82 (certified)
 Archive: archive/ux-03-allocation-contract-2026-09-24 @ 75df2e8f77d8ccc0cd5a2a631661902d1b54fab6
 
 ## Objective
@@ -21,7 +21,8 @@ Recover only still-valid Financial Truth contracts, primitives and invariants fr
 6. Recover and rewrite historical financial invariants.
 7. Certify unit/domain/build and relevant regression paths through the current CI.
 8. Synchronize current contracts, validation, state, roadmap and known-gaps.
-9. Merge only after the final certification gate is green, then execute Main Smoke.
+9. Certification complete: CI Foundation & Regression Gate #1255 / head 3f3b10e2b4582a2feb063ae1869ae0b6299d08a9; SDE Truth Gate #1016; all required lanes, Unit/Domain, Server/API/ESI, Build, Static, Operations E2E, Auth E2E, required-gate and observability: SUCCESS.
+10. Merge PR #82, then execute Main Smoke on the new main SHA.
 
 ## Scope exclusions
 
@@ -38,6 +39,8 @@ Recover only still-valid Financial Truth contracts, primitives and invariants fr
 The archive is historical evidence only. Current main remains the integration authority. Every recovered element must satisfy:
 **current business need -> current contract -> invariant -> historical evidence -> adapted implementation -> regression proof**.
 
-## Completion gate
+## Certification evidence
 
-The chantier is complete only when the selected financial primitives are implemented and tested against current main, CI certification is green, documentation states the reconciled financial boundary, and post-merge Main Smoke is green.
+CI Foundation & Regression Gate #1255 / head 3f3b10e2b4582a2feb063ae1869ae0b6299d08a9; SDE Truth Gate #1016; all required lanes, Unit/Domain, Server/API/ESI, Build, Static, Operations E2E, Auth E2E, required-gate and observability: SUCCESS.
+
+The branch is ready for merge. Post-merge Main Smoke remains a separate final proof on the resulting main SHA.

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { classifyPaths } from '../ci-scope.mjs';
 
-function expectScope(paths, expected) {
-  const actual = classifyPaths(paths);
+function expectScope(paths, expected, options = undefined) {
+  const actual = classifyPaths(paths, options);
   for (const [key, value] of Object.entries(expected)) {
     assert.equal(actual[key], value, `scope ${JSON.stringify(paths)}: ${key}`);
   }
@@ -46,6 +46,11 @@ expectScope(['src/data/universeGraph.json'], {
   sde: true, ambiguous: true, full_certification: true,
   run_static: true, run_unit_domain: true, run_server: true, run_build: true, run_browser: true,
 });
+
+expectScope(['src/data/universeGraph.json'], {
+  sde: true, ambiguous: false, full_certification: true,
+  run_static: true, run_unit_domain: true, run_server: true, run_build: true, run_browser: true,
+}, { respectContextCritical: false });
 
 expectScope(['some/new/unknown.file'], {
   ambiguous: true, full_certification: true,

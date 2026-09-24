@@ -113,7 +113,10 @@ function hardGateReasons(
   const codes: PortfolioUnallocatedReason['code'][] = [];
   const details: string[] = [];
 
-  if (!opp.is_viable || !(opp.costs.net_profit > 0)) {
+  if (!Number.isFinite(opp.costs.net_profit)) {
+    codes.push('DATA_ISSUE');
+    details.push('Profit net projeté invalide ou indisponible.');
+  } else if (!opp.is_viable || opp.costs.net_profit <= 0) {
     codes.push('NO_ELIGIBLE_OPPORTUNITY');
     details.push('Opportunity financièrement non viable ou non profitable.');
   }
@@ -331,13 +334,35 @@ export class PortfolioOptimizer {
     }
 
     if (eligible.length === 0) {
-      baseResult.unallocated_reasons = [{
-        code: 'NO_ELIGIBLE_OPPORTUNITY',
-        count: opportunities.length,
-        detail: opportunities.length
-          ? 'Aucune opportunité ne satisfait simultanément les hard gates.'
-          : 'Aucun univers de candidats exploitable pour une allocation.',
-      }];
+      if (opportunities.length === 0) {
+        baseResult.unallocated_reasons = [{
+          code: 'NO_ELIGIBLE_OPPORTUNITY',
+          detail: 'Aucun univers de candidats exploitable pour une allocation.',
+        }];
+      } else {
+        const byCode = new Map<PortfolioUnallocatedReason['code'], PortfolioUnallocatedReason>();
+        for (const reason of preGateReasons) {
+          const current = byCode.get(reason.code);
+          if (current) {
+            current.count = (current.count ?? 0) + (reason.count ?? 1);
+            current.detail =
+              current.detail === reason.detail
+                ? current.detail
+                : `${current.detail} ${reason.detail}`;
+          } else {
+            byCode.set(reason.code, { ...reason, count: reason.count ?? 1 });
+          }
+        }
+
+        baseResult.unallocated_reasons =
+          byCode.size > 0
+            ? [...byCode.values()]
+            : [{
+                code: 'NO_ELIGIBLE_OPPORTUNITY',
+                count: opportunities.length,
+                detail: 'Aucune opportunité ne satisfait simultanément les hard gates.',
+              }];
+      }
       return baseResult;
     }
 

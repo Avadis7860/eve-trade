@@ -321,11 +321,15 @@ export function reconstructPositionLedger(
       : null;
 
   const hasUnknownOrigin = lots.some((lot) => lot.economic_origin !== 'MARKET_ACQUISITION');
+  const hasSourceDefects =
+    invalidTransactionIds.length > 0 ||
+    unmatchedDispositionQuantity > 0 ||
+    hasUnknownOrigin;
   const sourceCoverage: FinancialSourceCoverage =
-    quantityAcquired <= 0
-      ? 'UNAVAILABLE'
-      : invalidTransactionIds.length > 0 || unmatchedDispositionQuantity > 0 || hasUnknownOrigin
-        ? 'PARTIAL'
+    hasSourceDefects
+      ? 'PARTIAL'
+      : quantityAcquired <= 0
+        ? 'UNAVAILABLE'
         : 'MARKET_TRACEABLE';
 
   const owner = derivePositionOwner(lots);

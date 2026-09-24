@@ -27,7 +27,7 @@ PR #80 merged the first anchor correction; its follow-up defect is tracked as CO
 
 PR #81 merged the raw commit-object stable-anchor correction into `main`. Main Smoke #17 is green on `a01c2a31dbabd3678d3d8674b14f4c826ab0b0d8`.
 
-### FIN-002-ARCHIVE-RECOVERY — ACTIVE
+### FIN-002-ARCHIVE-RECOVERY — CERTIFIED / READY FOR MERGE
 
 - Selectively recover Financial Truth contracts and primitives from the UX-03 archive.
 - Reconcile accounting scope, position lifecycle, lot/allocation semantics and capital recovery.
@@ -35,7 +35,7 @@ PR #81 merged the raw commit-object stable-anchor correction into `main`. Main S
 - Do not import archived UX, Fleet, ESI/OAuth or CI implementation.
 - Use historical tests as invariant evidence and rewrite them against current main.
 
-This is the only active delivery chantier on branch `chore/financial-truth-archive-recovery` / PR #82.
+This is the only delivery chantier on branch `chore/financial-truth-archive-recovery` / PR #82. Certification: CI Foundation & Regression Gate #1255 / head 3f3b10e2b4582a2feb063ae1869ae0b6299d08a9; SDE Truth Gate #1016; all required lanes, Unit/Domain, Server/API/ESI, Build, Static, Operations E2E, Auth E2E, required-gate and observability: SUCCESS.
 
 ## Product / UX program
 

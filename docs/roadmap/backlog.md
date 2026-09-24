@@ -101,7 +101,7 @@ These remain valid but are explicitly blocked until the UX baseline is accepted:
 
 ## Public-readiness / portfolio follow-up
 
-The detailed maintenance plan is [Public Readiness](public-readiness.md). High-priority items are security posture, license decision and public-facing truth synchronization. Product work continues with UX-03.
+The detailed maintenance plan is [Public Readiness](public-readiness.md). High-priority items are security posture, license decision and public-facing truth synchronization. UX-03 remains future product work and is not active during Agent Context Hardening.
 
 ## CI follow-up candidates
 

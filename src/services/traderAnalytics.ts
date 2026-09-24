@@ -482,6 +482,7 @@ export class TraderAnalyticsService {
             position_remaining_quantity: positionRemainingQuantity,
             is_position_closed: positionLifecycle === 'CLOSED',
             realized_result_scope: 'DISPOSAL_ALLOCATION',
+            position_segment_id: positionSegmentId,
             operation_id: operationId,
             operation_capital_committed: operationCapitalCommitted,
             operation_cash_recovered: operationCashRecovered,
@@ -557,7 +558,7 @@ export class TraderAnalyticsService {
     // disposal that closes that operation.
     const cyclesByOperation = new Map<string, TradeCycleRecord[]>();
     for (const cycle of completedCycles) {
-      const key = cycle.operation_id ?? `legacy:type:${cycle.type_id}`;
+      const key = cycle.position_segment_id ?? cycle.operation_id ?? `legacy:type:${cycle.type_id}`;
       const list = cyclesByOperation.get(key) ?? [];
       list.push(cycle);
       cyclesByOperation.set(key, list);

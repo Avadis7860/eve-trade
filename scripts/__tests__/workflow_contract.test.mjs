@@ -252,6 +252,10 @@ assert.ok(!Object.hasOwn(contextMap.ci_routing.classes, 'full_certification'), '
 const contextSource = read('scripts/context-integrity.mjs');
 assert.ok(contextSource.includes("work.state !== 'IDLE'"), 'Context integrity must distinguish active and stable lifecycle state');
 assert.ok(contextSource.includes('stable integration anchor mismatch'), 'Stable context integrity must validate the merge integration anchor');
+assert.ok(contextSource.includes("git', ['cat-file', 'commit', 'HEAD'"), 'Stable anchor extraction must read the raw commit object directly');
+assert.ok(contextSource.includes("git', ['rev-parse', '--verify', 'HEAD'"), 'Stable anchor extraction must verify the current commit directly');
+assert.ok(!contextSource.includes("git', ['show', '-s', '--format=%H %P', 'HEAD'"), 'Stable anchor extraction must not use pretty-format parent traversal');
+assert.ok(!contextSource.includes("git', ['rev-list', '--parents', '-n', '1', 'HEAD'"), 'Stable anchor extraction must not depend on revision traversal');
 assert.ok(contextSource.includes("git', ['show', '-s', '--format=%H %P', 'HEAD'"), 'Stable anchor extraction must read commit metadata directly');
 assert.ok(!contextSource.includes("git', ['rev-list', '--parents', '-n', '1', 'HEAD'"), 'Stable anchor extraction must not depend on graph traversal in shallow checkouts');
 assert.ok(contextSource.includes('respectContextCritical: false'), 'Context routing validation must bypass the conservative critical-path guard');

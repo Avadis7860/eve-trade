@@ -226,9 +226,9 @@ export class RealizedFinancialOutcomeEngine {
     }
 
     // 8. Ratios and Rates (protected against zero division)
-    const roi = realizedAcquisitionCost > 0 ? safeDiv(netRealizedProfit, realizedAcquisitionCost, 0.0) : 0.0;
-    const margin = realizedRevenue > 0 ? safeDiv(netRealizedProfit, realizedRevenue, 0.0) : 0.0;
-    const profitPerUnit = matchedQuantity > 0 ? safeDiv(netRealizedProfit, matchedQuantity, 0.0) : 0.0;
+    const roi = realizedAcquisitionCost > 0 ? safeDiv(netRealizedProfit, realizedAcquisitionCost, 0.0) : null;
+    const margin = realizedRevenue > 0 ? safeDiv(netRealizedProfit, realizedRevenue, 0.0) : null;
+    const profitPerUnit = matchedQuantity > 0 ? safeDiv(netRealizedProfit, matchedQuantity, 0.0) : null;
 
     // 9. Timestamps & Quantity-Weighted Hold Durations
     const firstBuyAt = sortedBuys.length > 0 ? sortedBuys[0].timestamp : null;

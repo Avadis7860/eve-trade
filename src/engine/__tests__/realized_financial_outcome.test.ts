@@ -47,7 +47,6 @@ import {
 import {
   RealizedFinancialOutcomeEngine,
   REALIZED_FINANCIAL_ENGINE_VERSION,
-  CrossCharacterFinancialMappingViolationError,
 } from '../realizedFinancialOutcome';
 import { ExecutionTrackingService } from '../../services/executionTrackingService';
 import { IndexedDbStore } from '../../services/indexedDbStore';
@@ -1830,31 +1829,34 @@ async function runAllTests() {
     console.log('  [PASS] Test 9: Multi-type inventory strict isolation verified.');
   }
 
-  // Test 10 — Cross-character isolation: Une transaction appartenant à un autre personnage doit rester rejetée
+  // Test 10 — Cross-character continuity is valid inside one explicit accounting scope
   {
-    console.log('--- Test 10: Cross-Character Isolation ---');
+    console.log('--- Test 10: Cross-Character Scope Continuity ---');
     const charId = 2112001;
-    const foreignCharId = 9999999;
+    const foreignCharId = 2112002;
     const txsWithForeign: (EveCharacterTransaction & { character_id?: number })[] = [
       { transaction_id: 7001, date: '2026-09-20T10:00:00Z', type_id: 34, location_id: 60003760, unit_price: 100, quantity: 100, is_buy: true, is_personal: true, client_id: 1, character_id: charId },
-      { transaction_id: 7002, date: '2026-09-20T12:00:00Z', type_id: 34, location_id: 60003760, unit_price: 150, quantity: 100, is_buy: false, is_personal: true, client_id: 2, character_id: foreignCharId },
+      { transaction_id: 7002, date: '2026-09-20T12:00:00Z', type_id: 34, location_id: 60003760, unit_price: 150, quantity: 1, is_buy: false, is_personal: true, client_id: 2, character_id: foreignCharId },
     ];
 
-    let errorThrown: any = null;
-    try {
-      TraderAnalyticsService.processTransactions(charId, 'Test Pilot', txsWithForeign as EveCharacterTransaction[], [], [], 5, 5);
-    } catch (err) {
-      errorThrown = err;
-    }
-
-    assert(errorThrown !== null, 'Exception was thrown on cross-character transaction');
-    assert(
-      errorThrown instanceof CrossCharacterFinancialMappingViolationError || errorThrown?.name === 'CrossCharacterFinancialMappingViolationError',
-      `Error is CrossCharacterFinancialMappingViolationError (got ${errorThrown?.name})`
+    const metrics = TraderAnalyticsService.processTransactions(
+      charId,
+      'Test Pilot A',
+      txsWithForeign as EveCharacterTransaction[],
+      [],
+      [],
+      5,
+      5,
+      { accounting_scope_id: 'ecosystem:test', executionFeeMode: 'TAKER_TAKER' },
     );
 
-    console.log('  [PASS] Test 10: Cross-character transaction strictly rejected.');
+    assert(metrics.total_closed_trades === 0, 'partial cross-character position must remain open');
+    assert(metrics.recent_trade_cycles[0].character_id === foreignCharId, 'disposal attribution must remain on character B');
+    assert(metrics.recent_trade_cycles[0].position_remaining_quantity === 99, '99 units must remain in the shared position');
+
+    console.log('  [PASS] Test 10: Cross-character scope continuity validated.');
   }
+
 
   // ==========================================================================
   // CHANTIER 3B-4A FINAL GATE SPECIFIC VERIFICATIONS (Tests A -> D)
@@ -1863,9 +1865,9 @@ async function runAllTests() {
   console.log('--- RUNNING CHANTIER 3B-4A FINAL GATE SPECIFIC TESTS (A -> D) ---');
   console.log('==========================================================================');
 
-  // Test A — Direct cross-character isolation in calculateForTransactions (across different type_ids)
+  // Test A — Different character attribution must not bypass type filtering
   {
-    console.log('--- Final Gate Test A: Direct Cross-Character Isolation Across Different Type IDs ---');
+    console.log('--- Final Gate Test A: Attribution and Type Filtering ---');
     const charA = 2113001;
     const charB = 2113002;
 
@@ -1883,40 +1885,29 @@ async function runAllTests() {
       {
         transaction_id: 8002,
         date: '2026-09-20T11:00:00Z',
-        type_id: 35, // Different type_id!
+        type_id: 35,
         location_id: 60003760,
         unit_price: 20,
         quantity: 50,
         is_buy: true,
-        character_id: charB, // Foreign character!
+        character_id: charB,
       },
     ];
 
-    let errorThrown: any = null;
-    try {
-      // Requested type_id is 34, foreign transaction has type_id 35
-      RealizedFinancialOutcomeEngine.calculateForTransactions(charA, 34, txs);
-    } catch (err) {
-      errorThrown = err;
-    }
-
-    assert(errorThrown !== null, 'Exception must be thrown on foreign transaction even with different type_id');
-    assert(
-      errorThrown instanceof CrossCharacterFinancialMappingViolationError ||
-        errorThrown?.name === 'CrossCharacterFinancialMappingViolationError',
-      `Error is CrossCharacterFinancialMappingViolationError (got ${errorThrown?.name})`
-    );
-    assert(
-      errorThrown.transactionCharacterId === charB,
-      `Identified foreign character ID ${charB} (got ${errorThrown.transactionCharacterId})`
-    );
-    assert(
-      errorThrown.executionCharacterId === charA,
-      `Identified target character ID ${charA} (got ${errorThrown.executionCharacterId})`
+    const outcome = RealizedFinancialOutcomeEngine.calculateForTransactions(
+      charA,
+      34,
+      txs,
+      { accounting_scope_id: 'ecosystem:test' },
     );
 
-    console.log('  [PASS] Final Gate Test A: Direct cross-character isolation verified before type filtering.');
+    assert(outcome.total_buy_quantity === 100, 'only requested type contributes to the outcome');
+    assert(outcome.total_sell_quantity === 0, 'foreign different-type transaction remains outside the outcome');
+    assert(outcome.position_lifecycle === 'OPEN', 'requested type acquisition remains open');
+
+    console.log('  [PASS] Final Gate Test A: Attribution and type filtering validated.');
   }
+
 
   // Test B — OBSERVED semantic propagation & invariants verification
   {
@@ -1937,6 +1928,9 @@ async function runAllTests() {
       outcome_id: 'outcome_obs_test_34',
       execution_id: 'exec_obs_test_34',
       character_id: charId,
+      accounting_scope_id: 'ecosystem:test',
+      source_coverage: 'MARKET_TRACEABLE',
+      position_disposition_states: [],
       observation_id: 'obs_test_34',
       type_id: typeId,
 

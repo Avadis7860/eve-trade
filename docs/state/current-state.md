@@ -19,8 +19,8 @@ The current branch documents the following boundaries:
 - market is_buy_order is a market-mechanism fact, not an economic acquisition/disposition fact;
 - economic direction for accounting comes from transaction facts;
 - active BUY orders are capital reservations/order exposure, not acquisition evidence;
-- deterministic AcquisitionLot / CurrentPosition reconstruction exists in src/engine/positionLedger.ts with explicit `accounting_scope_id`; character identity remains attribution/provenance rather than an implicit accounting boundary;
-- the target ledger boundary is the complete configured trading/industrial ecosystem, while character/corporation identity remains transaction attribution/provenance;
+- deterministic AcquisitionLot / CurrentPosition reconstruction exists in src/engine/positionLedger.ts with explicit `accounting_scope_id`; historical/current economic position segments are now first-class outputs, and character identity remains attribution/provenance rather than an implicit accounting boundary;
+- the target ledger boundary is the complete configured trading/industrial ecosystem, while character/corporation identity remains transaction attribution/provenance; a position segment is an accounting boundary, not a trader-intent label;
 - the ledger is a calculation boundary, not a durable IndexedDB position source;
 - economic origin is a separate accounting dimension from actor identity;
 - an ESI wallet BUY can establish market acquisition, but it does not reveal whether the stock was intended for trade, PI, industry or another purpose;
@@ -28,7 +28,7 @@ The current branch documents the following boundaries:
 - a partial disposal can create a positive sale allocation while the underlying position remains PARTIALLY_REALIZED;
 - Performance closed-trade KPIs require a fully closed position;
 - order-history activity is separated from accounting buy/sell volume;
-- position-level capital recovery is a dedicated derived axis and is projected through CurrentPosition / RealizedFinancialOutcome into Performance metrics; realized P&L and ROI remain separate;
+- position-level capital recovery is a dedicated derived axis and is projected through economic position segments / RealizedFinancialOutcome into Performance metrics; realized P&L and ROI remain separate;
 - market-traceable attribution must not be presented as ecosystem-complete ROI when relevant source coverage is unresolved;
 - a historical BUY of the same type is not, by itself, proof that a later SELL consumed that lot.
 
@@ -70,7 +70,7 @@ The current engine/domain layers remain ahead of the UI, but the financial bound
 
 - Capital recovery is a dedicated output in Performance with explicit KNOWN_POSITIONS scope; analytics cache identity now follows the economic accounting scope rather than only the observing character.
 - Unrealized/current-market valuation is still a separate future/market-derived surface.
-- No durable AcquisitionLot / CurrentPosition store exists.
+- No durable AcquisitionLot / CurrentPosition store exists; position segments remain deterministic projections from source facts.
 - Economic origin is not yet a persisted multi-source event model; FIN-002 must add the generic contract without introducing PI/Industry ingestion in this increment.
 - DATA-001 first pass preserves unavailable ratios, removes invalid economic-volume coercion, and carries financial provenance through trader analytics.
 - Missing fee evidence now leaves net realized profit and its net ratios unavailable rather than substituting a zero-fee numeric result; cross-location allocation without observed transfer evidence is explicitly PARTIAL.
@@ -94,6 +94,6 @@ UX-03 feature work resumes after FIN-002 and the remaining acceptance gates are 
 
 ## FIN-002 implementation state
 
-FIN-002 implementation is active on PR #71. The accounting boundary is moving to accounting_scope_id + type_id, with character/corporation identity retained as attribution/provenance. AcquisitionLot now has a generic economic-origin contract in preparation for future sources; PI/Industry ingestion remains deferred.
+FIN-002 implementation is active on PR #71. The accounting boundary is moving to accounting_scope_id + type_id, with character/corporation identity retained as attribution/provenance. Economic position segments are now first-class ledger outputs, with explicit history/origin coverage evidence. AcquisitionLot carries the generic economic-origin contract in preparation for future sources; PI/Industry ingestion remains deferred.
 
 The canonical position ledger is the single reconstruction source for lifecycle and capital recovery. Performance analytics must consume that projection rather than maintaining an independent character-scoped FIFO reconstruction.

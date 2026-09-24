@@ -69,6 +69,40 @@ function run() {
     assert(p.provenance.length === 2, 'position provenance must expose both acquisition and disposal sources');
     assert(p.provenance[0].source_id === '100', 'position provenance must be deterministic by source identity');
     assert(p.provenance[1].source_id === '200', 'position provenance must retain the disposal source identity');
+    assert(p.disposition_states[0].operation_id !== undefined, 'partial disposal must identify its economic operation');
+    assert(p.disposition_states[0].operation_capital_committed === 1_000_000, 'operation capital must include the full acquisition');
+    assert(p.disposition_states[0].operation_cash_recovered === 140, 'operation cash recovery must be cumulative');
+    assert(p.disposition_states[0].operation_recovery_delta === -999_860, 'operation recovery delta must remain negative after one sale');
+    assert(p.disposition_states[0].operation_recovery_state === 'NEGATIVE', 'operation recovery state must remain negative');
+  }
+
+  {
+    const result = reconstructPositionLedger(1001, 34, [
+      tx(310, true, 10_000, 100, '2026-09-20T10:00:00Z'),
+      tx(320, false, 10_000, 140, '2026-09-21T10:00:00Z'),
+      tx(330, true, 10_000, 100, '2026-09-22T10:00:00Z'),
+      tx(340, false, 1, 50, '2026-09-23T10:00:00Z'),
+    ]);
+    const [firstOperation, secondOperation] = result.position.disposition_states;
+    assert(firstOperation.lifecycle_status === 'CLOSED', 'a later acquisition must not keep the earlier operation open');
+    assert(firstOperation.operation_recovery_state === 'POSITIVE', 'closed operation should expose positive recovery state');
+    assert(firstOperation.operation_recovery_delta === 400_000, 'first operation recovery delta must use its own capital');
+    assert(secondOperation.lifecycle_status === 'PARTIALLY_REALIZED', 'second operation must remain partial');
+    assert(secondOperation.operation_recovery_delta === -999_950, 'second operation recovery must use its own capital');
+    assert(secondOperation.operation_id !== firstOperation.operation_id, 'a new operation must start after full liquidation');
+    assert(secondOperation.remaining_position_quantity === 9_999, 'second operation must retain 9,999 units');
+  }
+
+  {
+    const result = reconstructPositionLedger(1001, 34, [
+      tx(401, true, 10_000, 100, '2026-09-20T10:00:00Z'),
+      tx(402, false, 7_143, 140, '2026-09-21T10:00:00Z'),
+    ]);
+    const state = result.position.disposition_states[0];
+    assert(state.lifecycle_status === 'PARTIALLY_REALIZED', 'recovery can be positive before physical closure');
+    assert(state.remaining_position_quantity === 2_857, '2,857 units remain after 7,143 disposals');
+    assert(state.operation_recovery_delta === 20, '7,143 sales recover 1,000,020 ISK against 1,000,000 capital');
+    assert(state.operation_recovery_state === 'POSITIVE', 'operation can be positive while partially realized');
   }
 
   {

@@ -10,7 +10,7 @@ Source of truth: code, tests, CI and current state documents
 - The active-work state must remain operational and branch/PR specific; the stable map must not embed the current branch or PR.
 - Context references are qualified by workflow file and job because CI job IDs can repeat across workflows.
 - The archive is not a source of current implementation truth. Archived UX-03/Financial Truth code is reference-only and must be re-derived from current main.
-- The post-merge audit demonstrated that a merged delivery could leave `current-work`, current-state and roadmap metadata presenting an old active chantier. The hardening adds deterministic stable-state checks and a closing lifecycle. A post-merge Main Smoke run then exposed that the initial integration-anchor extraction depended on history traversal in a shallow checkout; the follow-up switches to direct commit metadata so the proof remains valid without increasing checkout depth.
+- The post-merge audit demonstrated that a merged delivery could leave `current-work`, current-state and roadmap metadata presenting an old active chantier. The hardening adds deterministic stable-state checks and a closing lifecycle. Main Smoke then exposed that both revision traversal and pretty-format parent extraction were unsuitable for the workflow's shallow checkout; the current follow-up reads the raw commit object so the proof remains valid without increasing checkout depth or mutating main post-merge.
 
 ## UX / product gaps
 
@@ -51,7 +51,7 @@ See:
 
 - **CI follow-up:** the PR workflow currently triggers the full certification surface for Draft as well as Ready PRs. This is confirmed by PR #61 run `35858589551` and should be handled in a dedicated CI-002 hardening chantier.
 
-- **Current sequencing:** Agent Context Hardening v2 is merged. The current delivery is the stable-anchor follow-up (PR #80) and is CLOSING after implementation. UX-03 remains a future product chantier and is not active here; the financial semantic reconciliation gate must be accepted before any future financial implementation is resumed. Public-readiness remains a separate maintenance track.
+- **Current sequencing:** Agent Context Hardening v2 and the first stable-anchor correction (PR #80) are merged. The current delivery is the raw-commit stable-anchor follow-up (PR #81) and is CLOSING after implementation. UX-03 remains a future product chantier and is not active here; the financial semantic reconciliation gate must be accepted before any future financial implementation is resumed. Public-readiness remains a separate maintenance track.
 
 ## Public-readiness gaps
 

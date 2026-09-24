@@ -308,14 +308,6 @@ export function reconstructPositionLedger(
         position_recovery_delta: recoveryDelta,
         position_recovery_ratio: recoveryRatio,
         position_recovery_state: positionRecoveryState(recoveryDelta),
-        // Compatibility aliases for consumers that have not migrated yet.
-        legacy_operation_id: segmentIdAtDisposition,
-        legacy_operation_quantity_acquired: segmentQuantityAcquired,
-        legacy_operation_capital_committed: segmentCapitalCommitted,
-        legacy_operation_cash_recovered: segmentCashRecovered,
-        legacy_operation_recovery_delta: recoveryDelta,
-        legacy_operation_recovery_ratio: recoveryRatio,
-        legacy_operation_recovery_state: positionRecoveryState(recoveryDelta),
       });
     } else {
       dispositionStates.push({

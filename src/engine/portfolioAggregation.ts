@@ -472,8 +472,9 @@ export function resolveAllocationUniverse(
 export function buildRealPortfolioSnapshot(
   treasury: PortfolioTreasurySnapshot,
   orders: EveCharacterOrder[],
+  unresolvedCorporationOrders: EveCharacterOrder[] = [],
 ): RealPortfolioSnapshot {
-  const orderExposure = aggregatePortfolioOrderExposure(orders);
+  const orderExposure = aggregatePortfolioOrderExposure(orders, undefined, unresolvedCorporationOrders);
   const inventory: PortfolioRealInventorySnapshot = {
     coverage: 'UNKNOWN',
     quantity: null,

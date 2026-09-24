@@ -169,6 +169,30 @@ describe('Phase 5: Fleet Financial Contract Hardening & Non-Additive Verificatio
     );
   });
 
+  it('Test B2 — Optional financial fields remain unavailable when a character metric omits them', () => {
+    const incomplete = createMockCharacterMetrics({
+      character_id: 1003,
+      character_name: 'Pilot Missing Optional Financials',
+    });
+    delete incomplete.total_realized_gross;
+    delete incomplete.total_estimated_fees;
+    delete incomplete.unmatched_trades_count;
+
+    const result = FleetFinancialEngine.aggregateFleetPerformance(
+      [{
+        characterId: '1003',
+        characterName: 'Pilot Missing Optional Financials',
+        dataHealth: 'fresh',
+        metrics: incomplete,
+      }],
+      fleetScope,
+    );
+
+    assert.equal(result.fleetMetrics.total_realized_gross, undefined);
+    assert.equal(result.fleetMetrics.total_estimated_fees, undefined);
+    assert.equal(result.fleetMetrics.unmatched_trades_count, undefined);
+  });
+
   it('Test C — Non-Additive Metric: Win Rate is recomputed from total trades (not sum or naive mean)', () => {
     // Pilot A: 1 trade, 1 win -> 100% win rate
     const cycleA1 = createMockTradeCycle({

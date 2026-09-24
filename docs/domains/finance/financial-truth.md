@@ -1,6 +1,6 @@
 # Financial Truth
 
-Status: SEMANTIC REBASE REQUIRED
+Status: FIN-002 SEMANTIC CERTIFICATION IN PROGRESS
 Scope: economic acquisitions, acquisition lots, positions, disposal allocations and realized financial truth
 Source of truth: src/engine/positionLedger.ts and src/engine/realizedFinancialOutcome.ts; target semantic decision in ADR-0003
 Implementation: deterministic FIFO position reconstruction + realized calculation primitive
@@ -109,7 +109,12 @@ Keep these separate:
 
 A “closed trade” count must use lot/position lifecycle, not the mere existence of a matched sale allocation.
 
-Any ROI KPI must declare whether it is disposal-level or position/operation-level.
+Performance keeps two scopes explicit:
+
+- disposal result / ROI: the result of the currently displayed allocation;
+- whole-position result / ROI: the cumulative result of the economic position segment, published only once that position closes with a valid reconciled cost basis.
+
+A positive partial disposal may therefore remain visible as a sub-result without making the position profitable. Win rate, closed-position ROI, item ranking and category success use the whole-position result.
 
 ## Data completeness
 

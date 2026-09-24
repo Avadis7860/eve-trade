@@ -290,11 +290,15 @@ export class CatalogRepository {
   }
 
   /**
-   * Resolves item volume in m³ with safe default.
+   * Resolves a known positive item volume in m³.
+   * Missing or invalid physical volume is a data failure, never a 0.01 m³ guess.
    */
   getTypeVolume(typeId: number): number {
     const item = this.getTypeById(typeId);
-    return item?.volume && item.volume > 0 ? item.volume : 0.01;
+    if (!item || !Number.isFinite(item.volume) || item.volume <= 0) {
+      throw new Error(`Physical volume unavailable for type ${typeId}`);
+    }
+    return item.volume;
   }
 
   /**

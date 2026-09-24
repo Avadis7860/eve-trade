@@ -1,8 +1,8 @@
 # Financial Truth Reconciliation
 
-Status: RECONCILIATION REQUIRED / NOT AN IMPLEMENTATION CONTRACT
+Status: RECONCILED / IMPLEMENTATION GUIDE
 Scope: historical decisions recovered from the UX-03 archive
-Current main baseline: aec4c62691723e8fa2ee2bb2f9126249152ad57f
+Current main baseline: a01c2a31dbabd3678d3d8674b14f4c826ab0b0d8
 Archive reference: archive/ux-03-allocation-contract-2026-09-24 at 75df2e8f77d8ccc0cd5a2a631661902d1b54fab6
 
 ## Why this document exists
@@ -47,32 +47,26 @@ These paths refer to the archived branch, not the current main tree, unless a cu
 - Partial disposal can produce a disposal-level realized result while the underlying position remains open.
 - Realized result, capital recovery, lifecycle, current valuation and data health are distinct axes.
 
-## Contradiction that remains open
+## Accepted profitability policy
 
-The historical contract permitted progressive states such as PARTIALLY_REALIZED + RECOVERED / POSITIVE once cumulative recovery crossed a defined threshold.
+The historical ambiguity is resolved by separating two measurements:
 
-The later owner requirement says the complete economic operation remains negative until the economic position is fully closed, even when one or more individual disposals are profitable.
+- capital recovery: cash recovered versus capital committed;
+- whole-position profitability: closure-gated economic result.
 
-These statements can describe different measurements, but they cannot share one undisclosed profitability status. The repository must explicitly define at least:
+A partial disposal may have a positive disposal-level result and increase capital recovery, but the still-open economic position is not globally profitable. It remains `PARTIALLY_REALIZED` until the known remaining quantity reaches zero.
 
-- disposal-level realized result;
-- cumulative capital recovery;
-- position lifecycle;
-- whole-operation/whole-position profitability;
-- the scope and denominator of ROI;
-- the coverage required before an ecosystem-level result can be presented.
+A recovery state such as `POSITIVE` is therefore not a substitute for whole-position profitability.
 
-Until that contract is accepted, no code should infer a whole-operation positive state from partial recovery.
+## Accepted implementation boundary
 
-## Future financial re-entry gate
+The active FIN-002 recovery reconstructs:
 
-The next financial chantier after this agent-context hardening should begin from current main, not from the archive. It should first accept the reconciled contract, then identify current canonical implementations and tests, then change code only with explicit validation and CI ownership.
+Economic Transaction -> Economic Position Segment -> Acquisition Lot -> Disposal Allocation -> Current Position -> Realized Financial Outcome
 
-The candidate conceptual pipeline recovered from the archive is:
+The position ledger is the canonical lifecycle/FIFO primitive. The archive remains evidence only.
 
-Economic Source -> Economic Origin -> Acquisition Lot -> Disposal Allocation -> Current Position -> Realized Financial Outcome
-
-This is candidate architectural vocabulary, not an accepted implementation contract. PI and Industry are not part of the present chantier and must not be added here.
+PI and Industry remain future economic sources and are not implemented by this recovery.
 
 ## Anti-drift rules
 

@@ -36,6 +36,7 @@ const requiredCiCommands = [
   'npm run typecheck',
   'npm run typecheck:server',
   'npm run test:ci-config',
+  'npm run test:context',
   'npm run test:config',
   'npm run test:auth-token',
   'npm run test:truth',
@@ -173,6 +174,7 @@ assert.ok(jobBlock('browser-e2e').includes('= "skipped"'), 'Browser gate must ex
 const expectedJobCommands = {
   static: [
     'npm run test:ci-config',
+    'npm run test:context',
     'npm run typecheck',
     'npm run typecheck:server',
     'npm run test:config',

@@ -37,6 +37,8 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: CI workflow contract tests
         run: npm run test:ci-config
+      - name: Agent context integrity
+        run: npm run test:context
       - name: Frontend typecheck
         run: npm run typecheck
       - name: Backend typecheck

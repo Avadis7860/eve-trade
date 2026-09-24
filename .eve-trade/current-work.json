@@ -2,7 +2,7 @@
   "schema_version": 1,
   "purpose": "Operational state for the current technical chantier. This file is branch/PR specific and is not normative business truth.",
   "branch": "chore/agent-context-hardening",
-  "pull_request": null,
+  "pull_request": 78,
   "base_branch": "main",
   "base_sha": "aec4c62691723e8fa2ee2bb2f9126249152ad57f",
   "delivery_rule": "one_chantier_one_branch_one_pr"

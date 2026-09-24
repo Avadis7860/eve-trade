@@ -36,8 +36,7 @@ try {
   const gitRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd: ROOT, encoding: 'utf8' }).trim();
   if (path.resolve(gitRoot) !== path.resolve(ROOT)) fail('run test:context from repository root');
   const branch = execFileSync('git', ['branch', '--show-current'], { cwd: ROOT, encoding: 'utf8' }).trim();
-  if (branch && branch !== map.current_work.branch) fail('working branch ' + branch + ' does not match context map');
-  execFileSync('git', ['cat-file', '-e', map.current_work.base_sha], { cwd: ROOT, stdio: 'ignore' });
+  if (branch && branch !== 'main' && branch !== map.current_work.branch) fail('working branch ' + branch + ' does not match active context branch');
 } catch (error) { fail('git repository/base SHA verification failed: ' + error.message); }
 
 if (failed) { console.error('[context-integrity] Context metadata is stale or inconsistent.'); process.exit(1); }

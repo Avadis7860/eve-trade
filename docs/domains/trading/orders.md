@@ -2,7 +2,7 @@
 
 Status: STABLE FOUNDATION / MODEL REBASE REQUIRED
 Scope: canonical order identity, market side, economic ownership and observation provenance
-Source of truth: `src/types/character.ts`, `src/engine/orderIdentity.ts`, `src/engine/orderScoping.ts`, `src/engine/corporationOrder.ts`
+Source of truth: `src/types/order.ts`, `src/engine/orderIdentity.ts`, `src/engine/orderScoping.ts`, `src/engine/corporationOrder.ts`
 
 ## Purpose
 
@@ -39,4 +39,4 @@ Character and corporation scopes remain valid for authorization, visibility and 
 
 Contradictory economic ownership for one canonical OrderId fails closed. Observation by a character never promotes that observer to economic owner.
 
-See [Order Contract](../../contracts/orders.md), [Ownership](ownership.md) and ORD-001 / #73.
+See [Order Contract](../../contracts/orders.md), [Ownership](ownership.md) and ORD-001 / #71.

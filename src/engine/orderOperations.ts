@@ -1,4 +1,4 @@
-import type { EveCharacterOrder } from '../types/character';
+import type { EveCharacterOrder } from '../types/order';
 import type { RawMarketOrder } from '../types/market';
 
 /** Structural timing semantics used by Operations. No financial prediction is introduced here. */

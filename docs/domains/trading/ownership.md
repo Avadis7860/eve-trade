@@ -3,8 +3,8 @@
 Status: STABLE
 Scope: economic ownership vs observation provenance
 Source of truth: `src/engine/corporationOrder.ts`, `src/engine/orderScoping.ts`
-Implementation: `OrderOwnership` in `src/types/character.ts`
-Tests: corporation order + order-scoping + provenance regressions
+Implementation: `OrderOwnership` in `src/types/order.ts`
+Tests: corporation order + order-scoping + provenance regressions (ORD-001 / #71)
 CI gate: corporation boundary
 
 ## Rule

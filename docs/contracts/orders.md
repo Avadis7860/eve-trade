@@ -3,8 +3,8 @@
 Status: PROVISIONAL — MODEL REBASE REQUIRED
 Owner: trading order identity / ownership
 Decision: [ADR-0003](../decisions/ADR-0003-economic-position-and-order-model.md)
-Implementation: `src/types/character.ts` (`MarketOrder`), `src/engine/orderIdentity.ts`, `src/engine/orderScoping.ts`, `src/engine/corporationOrder.ts`
-Validation: existing order/corporation suites + ORD-001 / #73
+Implementation: `src/types/order.ts` (`MarketOrder`, `OrderOwnership`), `src/engine/orderIdentity.ts`, `src/engine/orderScoping.ts`, `src/engine/corporationOrder.ts`
+Validation: existing order/corporation suites + ORD-001 / #71
 
 ## Canonical entity
 
@@ -41,4 +41,4 @@ Accounting direction comes from transaction facts. Wallet transactions may not e
 - missing optional ESI fields remain explicit and are normalized only under the ESI contract;
 - an order observation alone never creates a financial acquisition lot.
 
-See [Trading Orders](../domains/trading/orders.md), [Trading Ownership](../invariants/trading-ownership.md) and ORD-001 / #73.
+See [Trading Orders](../domains/trading/orders.md), [Trading Ownership](../invariants/trading-ownership.md) and ORD-001 / #71.

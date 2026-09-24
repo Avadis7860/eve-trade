@@ -6,7 +6,7 @@ import type {
   TreasurySourceMode,
   CapitalRecoverySummary,
 } from './financial';
-import type { OrderId } from './order';
+import type { EveCharacterOrder, OrderId, OrderOwnership } from './order';
 
 export type SessionAuthStatus =
   | 'SESSION_VALID'
@@ -130,68 +130,6 @@ export interface EveCharacterSession {
   auth_status?: SessionAuthStatus;
   auth_error?: string;
 }
-
-export type OrderOwnerType = 'character' | 'corporation';
-
-export interface OrderOwnership {
-  /** Character whose credential supplied the primary observation in this view/snapshot. In aggregates this is deterministic, not the sole observer. */
-  principal_character_id: number;
-  /** All linked characters whose credentials independently observed this same order. */
-  observed_by_character_ids?: readonly number[];
-  /** Economic/legal owner represented by the order payload. */
-  owner_type: OrderOwnerType;
-  /** EVE entity ID matching owner_type: character_id or corporation_id. */
-  owner_id: number;
-  owner_name?: string;
-  corporation_id?: number;
-  corporation_name?: string;
-  /** Character who issued the order when ESI exposes issuer provenance. */
-  issuer_character_id?: number;
-  issuer_character_name?: string;
-  /** Corporation wallet division funding this order, when applicable. */
-  wallet_division?: number;
-}
-
-export interface MarketOrder {
-  order_id: OrderId;
-  /**
-   * Backward-compatible character-owner projection.
-   * Must be undefined for corporation-owned orders; use ownership as authority.
-   */
-  character_id?: number;
-  character_name?: string;
-  type_id: number;
-  type_name?: string;
-  region_id: number;
-  region_name?: string;
-  location_id: number;
-  location_name?: string;
-  price: number;
-  volume_remain: number;
-  volume_total: number;
-  /**
-   * Side of this observed market order. This is NOT the accounting direction
-   * of a trader transaction that may have interacted with the order.
-   */
-  is_buy_order: boolean;
-  issued: string;
-  duration: number;
-  escrow?: number;
-  /** Canonical ownership/provenance; legacy snapshots may omit this during migration. */
-  ownership?: OrderOwnership;
-  /** @deprecated Use ownership.owner_type === 'corporation'. */
-  is_corporation?: boolean;
-  market_competition?: {
-    highest_buy?: number;
-    lowest_sell?: number;
-    is_outbid: boolean;
-    price_diff_percent: number;
-    competing_volume?: number;
-  };
-}
-
-/** Backward-compatible name retained while consumers migrate to the canonical MarketOrder contract. */
-export type EveCharacterOrder = MarketOrder;
 
 /**
  * Phase 2 — Order Scoping & Multi-Character Context Contracts

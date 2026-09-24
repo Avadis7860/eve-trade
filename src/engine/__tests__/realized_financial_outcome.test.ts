@@ -368,11 +368,11 @@ async function runAllTests() {
     assert(outcome.remaining_inventory_quantity === 4000, '4000 units remaining');
     assert(outcome.remaining_inventory_cost_basis === 400000, '400,000 ISK remaining cost basis');
     assert(outcome.capital_committed === 1_000_000, 'Capital committed remains the full acquisition cost');
-    assert(outcome.cash_recovered === 600_000, 'Cash recovered is only the revenue from the 6,000 allocated disposals');
-    assert(outcome.capital_recovery_delta === -400_000, 'Capital recovery delta is distinct from realized P&L');
+    assert(outcome.cash_recovered === 900_000, 'Cash recovered is only the revenue from the 6,000 allocated disposals');
+    assert(outcome.capital_recovery_delta === -100_000, 'Capital recovery delta is distinct from realized P&L');
     assert(
       outcome.capital_recovery_ratio !== null &&
-        Math.abs(outcome.capital_recovery_ratio - 0.6) < Number.EPSILON,
+        Math.abs(outcome.capital_recovery_ratio - 0.9) < Number.EPSILON,
       'Capital recovery ratio is scoped to the whole known position'
     );
     assert(outcome.gross_realized_profit === 300_000, 'Realized gross P&L remains +300,000 ISK');

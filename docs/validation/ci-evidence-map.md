@@ -175,6 +175,8 @@ CI-001B peut être considéré comme documenté lorsque :
 - le premier incrément d'implémentation peut être choisi sans inventer de couverture.
 
 
-## CI-001I runtime evidence
+## CI-001I historical runtime evidence
+
+The measurements below are historical observations and are not current-HEAD certification evidence. Current certification must be read from the active PR and workflow runs.
 
 PR run `35856208503` on head `9d09d8affac903de6c2ca8f39156b5b662d4fef4` completed successfully. The stable required gate and all execution lanes succeeded, and the SDE Truth Gate `35856208652` also succeeded. Observability captured 49 completed historical runs: 39 cancelled, 5 failed, 5 successful (79.6% cancellation rate). Current measured lane durations: browser-auth ~139 s, browser-operations ~88 s, unit/domain ~59 s, static ~43 s, build ~38 s, server ~31 s.

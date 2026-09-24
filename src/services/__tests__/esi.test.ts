@@ -374,6 +374,39 @@ async function run() {
   const packagedVolumeType = await EsiService.lookupTypeById(990002);
   assert(packagedVolumeType?.volume === 12.5, 'Packaged volume may satisfy the physical-volume boundary');
 
+  const validOrderFixture = {
+    order_id: '9911001',
+    type_id: 34,
+    system_id: 30000142,
+    location_id: 60003760,
+    price: 7,
+    volume_remain: 20,
+    volume_total: 20,
+    is_buy_order: false,
+    issued: '2026-09-22T00:00:00Z',
+    duration: 90,
+  };
+  assert(
+    EsiService.validateOrder(validOrderFixture, 10000002).isValid,
+    'A complete market order must remain valid',
+  );
+  assert(
+    !EsiService.validateOrder({ ...validOrderFixture, system_id: undefined }, 10000002).isValid,
+    'Missing system_id must remain invalid rather than becoming 0',
+  );
+  assert(
+    !EsiService.validateOrder({ ...validOrderFixture, issued: undefined }, 10000002).isValid,
+    'Missing issued timestamp must remain invalid rather than becoming now',
+  );
+  assert(
+    !EsiService.validateOrder({ ...validOrderFixture, duration: undefined }, 10000002).isValid,
+    'Missing duration must remain invalid rather than becoming 90',
+  );
+  assert(
+    !EsiService.validateOrder({ ...validOrderFixture, type_id: 0 }, 10000002, 34).isValid,
+    'Explicit type_id=0 must remain invalid even when an expected type is provided',
+  );
+
   console.log('=== FRONTEND ESI / BACKEND TRANSPORT CONTRACT TESTS ===');
 
   let calls = 0;

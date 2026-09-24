@@ -83,20 +83,13 @@ export function resolvePortfolioTreasury(
     config.policy_reserve > 0;
   const policyReserve = reserveConfigured ? Math.max(0, config.policy_reserve!) : 0;
 
-  const fleetWalletsPartial =
-    resolution.source_mode === 'fleet_consolidated' &&
-    characters.length > 0 &&
-    characters.some((character) => typeof character.wallet_balance !== 'number' || !Number.isFinite(character.wallet_balance));
-
   const dataHealth: DataHealthStatus =
     resolution.capital_status === 'unavailable'
       ? 'UNKNOWN'
-      : fleetWalletsPartial
-        ? 'PARTIAL'
-        : 'LIVE';
+      : 'LIVE';
 
   const treasuryCash =
-    resolution.capital_status === 'unavailable' || fleetWalletsPartial
+    resolution.capital_status === 'unavailable'
       ? null
       : resolution.effective_capital;
 
@@ -160,8 +153,6 @@ function buildTreasurySourceId(
         characters[0]?.character_id;
       return `character:${id ?? 'unknown'}`;
     }
-    case 'fleet_consolidated':
-      return `fleet:${characters.map((character) => character.character_id).sort((a, b) => a - b).join(',') || 'selected'}`;
     case 'manual_budget':
     default:
       return 'manual_budget';
@@ -177,8 +168,6 @@ function buildPrincipalScope(
   switch (mode) {
     case 'corporation':
       return `corp:${config.corporation_id ?? 'unknown'}`;
-    case 'fleet_consolidated':
-      return characters.map((character) => String(character.character_id)).sort().join(',') || 'fleet:empty';
     case 'active_character': {
       const id =
         activeCharacterId ??
@@ -225,20 +214,6 @@ export function resolvePortfolioOrderScope(
         // division. Keep the observation visible as unresolved instead of
         // silently dropping it or inventing the selected division.
         unresolvedCorporationOrders.push(order);
-      }
-      continue;
-    }
-
-    if (treasury.source_mode === 'fleet_consolidated') {
-      if (ownerType === 'corporation') continue;
-      if (ownerType === 'character' && typeof ownerId === 'number') {
-        if (linkedCharacterIds.has(ownerId)) scopedOrders.push(order);
-      } else if (
-        ownerType === undefined &&
-        typeof order.character_id === 'number' &&
-        linkedCharacterIds.has(order.character_id)
-      ) {
-        scopedOrders.push(order);
       }
       continue;
     }

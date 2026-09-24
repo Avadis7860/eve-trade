@@ -19,6 +19,7 @@ import {
   RealizedFinancialOutcomeEngine,
   CrossCharacterFinancialMappingViolationError,
 } from '../engine/realizedFinancialOutcome';
+import { reconstructPositionLedger } from '../engine/positionLedger';
 import { roundIsk, safeDiv } from '../engine/money';
 
 const STORAGE_KEY_PREFIX = 'eve_trader_analytics_';
@@ -164,6 +165,10 @@ export class TraderAnalyticsService {
         calcOptions
       );
 
+      // Position state comes from economic transaction facts. Market-order side
+      // and active order observations are intentionally outside this accounting path.
+      const positionLedger = reconstructPositionLedger(characterId, typeId, typeTxs);
+
       totalRealizedGross += outcome.gross_realized_profit;
       totalRealizedProfit += outcome.net_realized_profit;
       totalBrokerFeesPaid +=
@@ -262,6 +267,11 @@ export class TraderAnalyticsService {
 
           const cycleCompleteness: FinancialCompleteness =
             unmatchedQty > 0 ? 'PARTIAL' : outcome.financial_completeness;
+          const dispositionState = positionLedger.position.disposition_states.find(
+            (state) => state.disposition_transaction_id === sellTx.transaction_id,
+          );
+          const positionLifecycle = dispositionState?.lifecycle_status ?? 'UNKNOWN';
+          const positionRemainingQuantity = dispositionState?.remaining_position_quantity;
 
           const cycleProfitLabel =
             cycleCompleteness === 'UNAVAILABLE'
@@ -310,6 +320,9 @@ export class TraderAnalyticsService {
               notes: outcome.fees.notes,
             },
             unmatched_sell_quantity: unmatchedQty,
+            position_lifecycle: positionLifecycle,
+            position_remaining_quantity: positionRemainingQuantity,
+            is_position_closed: positionLifecycle === 'CLOSED',
             character_id: characterId,
             character_name: characterName,
           };
@@ -330,7 +343,9 @@ export class TraderAnalyticsService {
             };
           }
           itemProfitMap[typeId].total_profit = roundIsk(itemProfitMap[typeId].total_profit + netProfit);
+          if (positionLifecycle === 'CLOSED') {
           itemProfitMap[typeId].trades_count += 1;
+        }
           itemProfitMap[typeId].rois.push(roi);
           itemProfitMap[typeId].hold_days_list.push(holdDays);
           itemProfitMap[typeId].total_volume_units += matchedQty;
@@ -405,7 +420,9 @@ export class TraderAnalyticsService {
     totalSalesTaxPaid = roundIsk(totalSalesTaxPaid);
     totalEstimatedFees = roundIsk(totalEstimatedFees);
 
-    const closedCycles = completedCycles.filter((c) => c.quantity > 0);
+    const closedCycles = completedCycles.filter(
+      (c) => c.quantity > 0 && c.is_position_closed === true,
+    );
     const profitableTrades = closedCycles.filter((c) => c.is_profitable).length;
     const unprofitableTrades = closedCycles.filter((c) => !c.is_profitable).length;
     const totalClosedTrades = closedCycles.length;
@@ -431,9 +448,9 @@ export class TraderAnalyticsService {
     } => {
       if (cycles.length === 0) {
         return {
-          completeness: 'ESTIMATED',
-          label: 'Bénéfice Net Réalisé (Estimé)',
-          is_net_estimated: true,
+          completeness: 'UNAVAILABLE',
+          label: 'Bénéfice Réalisé — Aucune observation',
+          is_net_estimated: false,
         };
       }
       const hasPart = cycles.some((c) => c.financial_completeness === 'PARTIAL');
@@ -471,7 +488,7 @@ export class TraderAnalyticsService {
     // Top Profitable Items
     const topProfitableItems = Object.values(itemProfitMap)
       .map((item) => {
-        const itemCycles = completedCycles.filter((c) => c.type_id === item.type_id);
+        const itemCycles = closedCycles.filter((c) => c.type_id === item.type_id);
         const status = deriveFinancialStatus(itemCycles);
         return {
           type_id: item.type_id,
@@ -515,7 +532,7 @@ export class TraderAnalyticsService {
     }
 
     for (const cat of Object.keys(categorySuccessRate)) {
-      const catCycles = completedCycles.filter((c) => (c.category_name || 'Général') === cat);
+      const catCycles = closedCycles.filter((c) => (c.category_name || 'Général') === cat);
       const catWins = catCycles.filter((c) => c.is_profitable).length;
       categorySuccessRate[cat].win_rate =
         catCycles.length > 0 ? (catWins / catCycles.length) * 100 : 0;

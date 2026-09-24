@@ -90,7 +90,7 @@ export class FleetFinancialEngine {
         profitable_trades: 0,
         unprofitable_trades: 0,
         win_rate_pct: null,
-        average_realized_roi: 0,
+        average_realized_roi: null,
         average_realized_roi_scope: 'CLOSING_DISPOSAL_ALLOCATIONS',
         average_hold_days: 0,
         total_broker_fees_paid: 0,
@@ -253,7 +253,7 @@ export class FleetFinancialEngine {
       closedRoiCycles.length > 0
         ? closedRoiCycles.reduce((acc, c) => c.roi === null ? acc : acc + c.roi, 0) /
           closedRoiCycles.length
-        : 0;
+        : null;
 
     const avgHoldDays =
       closedCycles.length > 0
@@ -360,8 +360,8 @@ export class FleetFinancialEngine {
         catCycles.length > 0 ? (catWins / catCycles.length) * 100 : 0;
       categorySuccessRate[cat].avg_roi =
         catCycles.length > 0
-          ? catCycles.reduce((sum, c) => sum + (c.roi || 0), 0) / catCycles.length
-          : 0;
+          ? catCycles.reduce((sum, c) => c.roi === null ? sum : sum + c.roi, 0) / catCycles.length
+          : null;
       categorySuccessRate[cat].profit_label = 'Bénéfice Net Flotte';
       categorySuccessRate[cat].is_net_estimated = true;
     }

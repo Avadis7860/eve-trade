@@ -238,9 +238,12 @@ export interface PersonalCalibrationFit {
   has_personal_history: boolean;
   total_historical_trades: number;
   historical_realized_profit: number;
-  historical_avg_roi: number;
-  historical_win_rate: number;
-  historical_avg_hold_days: number;
+  /** Null when no historical sample exists for the requested item/category. */
+  historical_avg_roi: number | null;
+  /** Null when no historical sample exists for the requested item/category. */
+  historical_win_rate: number | null;
+  /** Null when no historical sample exists for the requested item/category. */
+  historical_avg_hold_days: number | null;
   calibration_confidence_boost: number; // e.g. +5% to +15%
   badge_text: string;
   badge_type: 'expert' | 'profitable' | 'caution' | 'new';

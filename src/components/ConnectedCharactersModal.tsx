@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AuthService } from '../services/authService';
-import { EveCharacterSession, FleetRole, TradingFleetOverview, MarketHub } from '../types';
+import { EveCharacterSession, MarketHub } from '../types';
 import { SsoConnectCard } from './SsoConnectCard';
 import { fmtIsk } from '../engine/money';
 import { MAJOR_MARKET_HUBS } from '../data/universe';
@@ -10,18 +10,12 @@ import {
   RefreshCw,
   Trash2,
   Clock,
-  Coins,
-  GraduationCap,
   X,
   AlertCircle,
   CheckCircle2,
   Info,
-  Truck,
-  Building2,
   Shield,
-  Layers,
   MapPin,
-  Lock,
 } from 'lucide-react';
 
 interface ConnectedCharactersModalProps {
@@ -42,28 +36,23 @@ export const ConnectedCharactersModal: React.FC<ConnectedCharactersModalProps> =
   onRefreshCharacter,
 }) => {
   const [characters, setCharacters] = useState<EveCharacterSession[]>([]);
-  const [fleetOverview, setFleetOverview] = useState<TradingFleetOverview | null>(null);
-  const [activeTab, setActiveTab] = useState<'fleet' | 'connect'>('fleet');
+  const [activeTab, setActiveTab] = useState<'characters' | 'connect'>('characters');
   const [isRefreshingId, setIsRefreshingId] = useState<number | null>(null);
-  const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [statusMessage, setStatusMessage] = useState<
+    { text: string; type: 'success' | 'error' | 'info' } | null
+  >(null);
   const [timeNow, setTimeNow] = useState(Date.now());
 
-  // Reload character list and fleet overview whenever modal opens or characters change
   const reloadData = () => {
-    const list = AuthService.getLinkedCharacters();
-    setCharacters(list);
-    setFleetOverview(AuthService.getFleetOverview());
+    setCharacters(AuthService.getLinkedCharacters());
   };
 
   useEffect(() => {
-    if (isOpen) {
-      reloadData();
-    }
+    if (isOpen) reloadData();
   }, [isOpen, activeCharacter]);
 
-  // Periodic ticker for token expiration countdown
   useEffect(() => {
-    const timer = setInterval(() => setTimeNow(Date.now()), 10000);
+    const timer = setInterval(() => setTimeNow(Date.now()), 10_000);
     return () => clearInterval(timer);
   }, []);
 
@@ -74,7 +63,10 @@ export const ConnectedCharactersModal: React.FC<ConnectedCharactersModalProps> =
     if (updated) {
       reloadData();
       onSelectCharacter(updated);
-      setStatusMessage({ text: `${char.character_name} est maintenant le personnage actif.`, type: 'success' });
+      setStatusMessage({
+        text: `${char.character_name} est maintenant le personnage actif.`,
+        type: 'success',
+      });
     }
   };
 
@@ -84,101 +76,109 @@ export const ConnectedCharactersModal: React.FC<ConnectedCharactersModalProps> =
       const freshSession = await AuthService.refreshCharacterToken(char);
       await onRefreshCharacter(freshSession);
       reloadData();
-      setStatusMessage({ text: `Session de ${char.character_name} rafraîchie et validée auprès de l'ESI.`, type: 'success' });
+      setStatusMessage({
+        text: `Session de ${char.character_name} rafraîchie et validée auprès de l'ESI.`,
+        type: 'success',
+      });
     } catch (err) {
-      setStatusMessage({ text: `Erreur de rafraîchissement : ${String(err)}`, type: 'error' });
+      setStatusMessage({
+        text: `Erreur de rafraîchissement : ${String(err)}`,
+        type: 'error',
+      });
     } finally {
       setIsRefreshingId(null);
     }
   };
 
   const handleRemove = (charId: number, name: string) => {
-    if (confirm(`Êtes-vous sûr de vouloir retirer le personnage ${name} ?`)) {
-      const remaining = AuthService.removeCharacter(charId);
-      setCharacters(remaining);
-      setFleetOverview(AuthService.getFleetOverview());
-      const newActive = AuthService.getActiveCharacter();
-      if (newActive) {
-        onSelectCharacter(newActive);
-      }
-      setStatusMessage({ text: `Personnage ${name} retiré.`, type: 'info' });
-    }
+    if (!confirm(`Êtes-vous sûr de vouloir retirer le personnage ${name} ?`)) return;
+
+    const remaining = AuthService.removeCharacter(charId);
+    setCharacters(remaining);
+    const newActive = AuthService.getActiveCharacter();
+    if (newActive) onSelectCharacter(newActive);
+    setStatusMessage({ text: `Personnage ${name} retiré.`, type: 'info' });
   };
 
   const handleSessionReady = async (session: EveCharacterSession) => {
     await onRefreshCharacter(session);
     reloadData();
     onSelectCharacter(session);
-    setActiveTab('fleet');
-    setStatusMessage({ text: `Personnage ${session.character_name} connecté avec succès !`, type: 'success' });
+    setActiveTab('characters');
+    setStatusMessage({
+      text: `Personnage ${session.character_name} connecté avec succès !`,
+      type: 'success',
+    });
   };
 
-  const handleUpdateFleetSettings = (
+  const handleUpdateHubSettings = (
     charId: number,
     settings: {
-      fleet_role?: FleetRole;
       assigned_hub_id?: string;
       assigned_hub_name?: string;
       assigned_station_id?: number;
-      ship_cargo_capacity_m3?: number;
-    }
+    },
   ) => {
-    AuthService.updateCharacterFleetSettings(charId, settings);
+    AuthService.updateCharacterHubSettings(charId, settings);
     reloadData();
-    setStatusMessage({ text: `Rôle et assignation de flotte mis à jour.`, type: 'success' });
+    setStatusMessage({ text: 'Hub d’opération mis à jour.', type: 'success' });
   };
 
   const formatExpiresIn = (expiresAt?: number) => {
     if (!expiresAt) return { text: 'Session active', color: 'text-emerald-400' };
     const diffMs = expiresAt - timeNow;
-    if (diffMs <= 0) return { text: 'Jeton expiré (Renouvellement auto)', color: 'text-amber-400' };
-    const mins = Math.floor(diffMs / 60000);
-    const secs = Math.floor((diffMs % 60000) / 1000);
-    if (mins < 3) return { text: `Expire dans ${mins}m ${secs}s`, color: 'text-amber-400' };
+    if (diffMs <= 0) {
+      return { text: 'Jeton expiré (Renouvellement auto)', color: 'text-amber-400' };
+    }
+    const mins = Math.floor(diffMs / 60_000);
+    const secs = Math.floor((diffMs % 60_000) / 1_000);
+    if (mins < 3) {
+      return { text: `Expire dans ${mins}m ${secs}s`, color: 'text-amber-400' };
+    }
     return { text: `Valide (${mins} min restant)`, color: 'text-emerald-400' };
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
       <div className="bg-[#161821] border border-[#262730] rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-        {/* Modal Header */}
         <div className="p-4 sm:p-5 border-b border-[#262730] flex items-center justify-between bg-[#0e1117]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 flex-shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
               <Users className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-base font-bold text-[#fafafa] flex items-center gap-2">
-                Écosystème &amp; Flotte Multi-Personnages EVE
+                Personnages &amp; Hubs
                 <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-mono">
                   {characters.length} pilote{characters.length > 1 ? 's' : ''}
                 </span>
               </h2>
               <p className="text-xs text-[#808495]">
-                Assignation des rôles (Acheteur, Fret, Vendeur), hubs d'opération et trésorerie consolidée
+                Un personnage peut être affecté à un hub pour gérer localement ses ordres ; la
+                corporation reste la vue générale des ordres d’entreprise.
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
             className="text-[#808495] hover:text-[#fafafa] p-1.5 rounded-lg hover:bg-[#262730] transition-colors"
+            aria-label="Fermer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Tab Navigation */}
         <div className="px-5 pt-3 pb-0 bg-[#0e1117] border-b border-[#262730] flex items-center gap-4">
           <button
-            onClick={() => setActiveTab('fleet')}
+            onClick={() => setActiveTab('characters')}
             className={`pb-2.5 text-xs font-bold border-b-2 transition-colors flex items-center gap-2 ${
-              activeTab === 'fleet'
+              activeTab === 'characters'
                 ? 'border-indigo-500 text-indigo-400'
                 : 'border-transparent text-[#808495] hover:text-[#fafafa]'
             }`}
           >
-            <Layers className="w-4 h-4" />
-            Flotte &amp; Rôles ({characters.length})
+            <UserCheck className="w-4 h-4" />
+            Personnages ({characters.length})
           </button>
           <button
             onClick={() => setActiveTab('connect')}
@@ -189,11 +189,10 @@ export const ConnectedCharactersModal: React.FC<ConnectedCharactersModalProps> =
             }`}
           >
             <UserCheck className="w-4 h-4" />
-            Ajouter un Pilote (SSO Unique)
+            Ajouter un pilote
           </button>
         </div>
 
-        {/* Status Notification Banner */}
         {statusMessage && (
           <div
             className={`px-5 py-2.5 text-xs flex items-center justify-between border-b ${
@@ -219,272 +218,178 @@ export const ConnectedCharactersModal: React.FC<ConnectedCharactersModalProps> =
           </div>
         )}
 
-        {/* Modal Body */}
-        <div className="p-4 sm:p-5 overflow-y-auto space-y-6 flex-1 text-xs">
-          {activeTab === 'fleet' ? (
-            <div className="space-y-5">
-              {/* Consolidated Fleet Overview KPI Bar */}
-              {fleetOverview && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#0e1117] p-3.5 rounded-xl border border-[#262730]">
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-[#808495] uppercase font-bold flex items-center gap-1.5">
-                      <Coins className="w-3.5 h-3.5 text-amber-400" />
-                      Trésorerie Flotte Totale
-                    </span>
-                    <span className="text-sm font-mono font-bold text-amber-300">
-                      {fmtIsk(fleetOverview.consolidated_wallet_balance)} ISK
-                    </span>
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 text-xs">
+          {activeTab === 'characters' ? (
+            characters.length === 0 ? (
+              <div className="p-8 text-center bg-[#0e1117] rounded-xl border border-[#262730] space-y-3">
+                <Users className="w-10 h-10 text-[#808495] mx-auto opacity-40" />
+                <div className="text-sm font-bold text-[#fafafa]">Aucun personnage connecté</div>
+                <p className="text-xs text-[#808495] max-w-md mx-auto">
+                  Connectez vos personnages via le SSO, puis affectez-les aux hubs où vous gérez
+                  vos ordres.
+                </p>
+                <button
+                  onClick={() => setActiveTab('connect')}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold text-xs transition-colors"
+                >
+                  Connecter un pilote
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-[#fafafa]">Personnages connectés</h3>
+                    <p className="text-[10px] text-[#808495] mt-0.5">
+                      Utilisez l’affectation de hub comme repère opérationnel pour vos ordres
+                      dispersés.
+                    </p>
                   </div>
-
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-[#808495] uppercase font-bold flex items-center gap-1.5">
-                      <Layers className="w-3.5 h-3.5 text-blue-400" />
-                      Ordres Marché Actifs
-                    </span>
-                    <span className="text-sm font-mono font-bold text-[#fafafa]">
-                      {fleetOverview.total_active_orders_count}
-                      <span className="text-[11px] text-[#808495] font-normal ml-1">
-                        ({fleetOverview.total_buy_orders_count}B / {fleetOverview.total_sell_orders_count}S)
-                      </span>
-                    </span>
-                  </div>
-
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-[#808495] uppercase font-bold flex items-center gap-1.5">
-                      <Lock className="w-3.5 h-3.5 text-indigo-400" />
-                      Escrow Verrouillé
-                    </span>
-                    <span className="text-sm font-mono font-bold text-indigo-300">
-                      {fmtIsk(fleetOverview.total_escrow_locked)} ISK
-                    </span>
-                  </div>
-
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-[#808495] uppercase font-bold flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-emerald-400" />
-                      Couverture Hubs
-                    </span>
-                    <span className="text-sm font-mono font-bold text-emerald-400">
-                      {Object.keys(fleetOverview.hub_coverage).length} Hubs Couverts
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* Character Cards with Role & Hub Configuration */}
-              {characters.length === 0 ? (
-                <div className="p-8 text-center bg-[#0e1117] rounded-xl border border-[#262730] space-y-3">
-                  <Users className="w-10 h-10 text-[#808495] mx-auto opacity-40" />
-                  <div className="text-sm font-bold text-[#fafafa]">Aucun personnage connecté</div>
-                  <p className="text-xs text-[#808495] max-w-md mx-auto">
-                    Connectez vos personnages via le SSO pour constituer votre écosystème de trading (Acheteurs, Transporteurs, Vendeurs).
-                  </p>
                   <button
                     onClick={() => setActiveTab('connect')}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold text-xs transition-colors"
+                    className="text-[11px] text-indigo-400 hover:text-indigo-300 font-semibold"
                   >
-                    Connecter un Pilote
+                    + Ajouter un pilote
                   </button>
                 </div>
-              ) : (
+
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-[#fafafa] flex items-center gap-2">
-                      <UserCheck className="w-4 h-4 text-emerald-400" />
-                      Pilotes de l'Écosystème &amp; Affectations
-                    </h3>
-                    <button
-                      onClick={() => setActiveTab('connect')}
-                      className="text-[11px] text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1"
-                    >
-                      + Ajouter un alt
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-3">
-                    {characters.map((char) => {
-                      const isActive = activeCharacter?.character_id === char.character_id;
-                      const expInfo = formatExpiresIn(char.expires_at);
-
-                      return (
-                        <div
-                          key={char.character_id}
-                          className={`p-4 rounded-xl border transition-all ${
-                            isActive
-                              ? 'bg-indigo-500/10 border-indigo-500/50 shadow-md ring-1 ring-indigo-500/30'
-                              : 'bg-[#0e1117] border-[#262730] hover:border-[#3a3d4d]'
-                          }`}
-                        >
-                          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                            {/* Left: Avatar & Identity */}
-                            <div className="flex items-center gap-3 min-w-[220px]">
-                              <div className="relative">
-                                <img
-                                  src={char.portrait_url || `https://images.evetech.net/characters/${char.character_id}/portrait?size=128`}
-                                  alt={char.character_name}
-                                  className="w-12 h-12 rounded-full border-2 border-[#262730] bg-[#161821] object-cover"
-                                  referrerPolicy="no-referrer"
-                                />
+                  {characters.map((char) => {
+                    const isActive = activeCharacter?.character_id === char.character_id;
+                    const expInfo = formatExpiresIn(char.expires_at);
+                    return (
+                      <div
+                        key={char.character_id}
+                        className={`p-4 rounded-xl border transition-all ${
+                          isActive
+                            ? 'bg-indigo-500/10 border-indigo-500/50 shadow-md ring-1 ring-indigo-500/30'
+                            : 'bg-[#0e1117] border-[#262730] hover:border-[#3a3d4d]'
+                        }`}
+                      >
+                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                          <div className="flex items-center gap-3 min-w-[240px]">
+                            <img
+                              src={
+                                char.portrait_url ||
+                                `https://images.evetech.net/characters/${char.character_id}/portrait?size=128`
+                              }
+                              alt={char.character_name}
+                              className="w-12 h-12 rounded-full border-2 border-[#262730] bg-[#161821] object-cover"
+                              referrerPolicy="no-referrer"
+                            />
+                            <div className="space-y-0.5 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-bold text-sm text-[#fafafa]">
+                                  {char.character_name}
+                                </span>
                                 {isActive && (
-                                  <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-[#161821] flex items-center justify-center">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                                  <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-500 text-white font-bold">
+                                    Actif
                                   </span>
                                 )}
                               </div>
-
-                              <div className="space-y-0.5">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-bold text-sm text-[#fafafa]">{char.character_name}</span>
-                                  {isActive ? (
-                                    <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-500 text-white font-bold">
-                                      Cockpit Actif
-                                    </span>
-                                  ) : null}
-                                </div>
-                                <div className="flex items-center gap-2 text-[11px] text-[#808495]">
-                                  <span className="font-mono text-amber-300 font-semibold">
-                                    {char.wallet_balance !== undefined
-                                      ? `${fmtIsk(char.wallet_balance)} ISK`
-                                      : 'Solde en attente'}
-                                  </span>
-                                  <span>&bull;</span>
-                                  <span>
-                                    Acc: {char.accounting_skill ?? 5} / BR: {char.broker_relations_skill ?? 5}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-1.5 text-[10px]">
-                                  <Clock className="w-3 h-3 text-[#808495]" />
-                                  <span className={expInfo.color}>{expInfo.text}</span>
-                                </div>
+                              <div className="text-[11px] text-[#808495]">
+                                <span className="font-mono text-amber-300 font-semibold">
+                                  {char.wallet_balance !== undefined
+                                    ? `${fmtIsk(char.wallet_balance)} ISK`
+                                    : 'Solde en attente'}
+                                </span>
+                                <span className="mx-1.5">&bull;</span>
+                                Acc: {char.accounting_skill ?? 5} / BR: {char.broker_relations_skill ?? 5}
                               </div>
-                            </div>
-
-                            {/* Middle: Fleet Assignment Controls */}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-1 max-w-xl bg-[#161821] p-2.5 rounded-lg border border-[#262730]">
-                              {/* Role Selector */}
-                              <div className="space-y-1">
-                                <label className="text-[10px] text-[#808495] block font-semibold">
-                                  Rôle Flotte
-                                </label>
-                                <select
-                                  value={char.fleet_role || 'all_rounder'}
-                                  onChange={(e) =>
-                                    handleUpdateFleetSettings(char.character_id, {
-                                      fleet_role: e.target.value as FleetRole,
-                                    })
-                                  }
-                                  className="w-full bg-[#0e1117] border border-[#262730] rounded-md px-2 py-1 text-xs text-[#fafafa] focus:border-indigo-500 outline-none"
-                                >
-                                  <option value="all_rounder">Polyvalent</option>
-                                  <option value="buyer">Acheteur (Source)</option>
-                                  <option value="hauler">Transporteur (Fret)</option>
-                                  <option value="seller">Vendeur (Destination)</option>
-                                  <option value="scout">Éclaireur</option>
-                                </select>
+                              <div className={`flex items-center gap-1.5 text-[10px] ${expInfo.color}`}>
+                                <Clock className="w-3 h-3" />
+                                <span>{expInfo.text}</span>
                               </div>
-
-                              {/* Stationed Hub */}
-                              <div className="space-y-1">
-                                <label className="text-[10px] text-[#808495] block font-semibold">
-                                  Hub / Base Station
-                                </label>
-                                <select
-                                  value={char.assigned_hub_id || ''}
-                                  onChange={(e) => {
-                                    const hub = MAJOR_MARKET_HUBS.find((h: MarketHub) => h.id === e.target.value);
-                                    handleUpdateFleetSettings(char.character_id, {
-                                      assigned_hub_id: e.target.value || undefined,
-                                      assigned_hub_name: hub?.name,
-                                      assigned_station_id: hub?.station_id,
-                                    });
-                                  }}
-                                  className="w-full bg-[#0e1117] border border-[#262730] rounded-md px-2 py-1 text-xs text-[#fafafa] focus:border-indigo-500 outline-none"
-                                >
-                                  <option value="">Nomade / Non assigné</option>
-                                  {MAJOR_MARKET_HUBS.map((hub: MarketHub) => (
-                                    <option key={hub.id} value={hub.id}>
-                                      {hub.name} ({hub.region})
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-
-                              {/* Cargo Capacity */}
-                              <div className="space-y-1">
-                                <label className="text-[10px] text-[#808495] block font-semibold">
-                                  Soute Vaisseau (m³)
-                                </label>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  step={500}
-                                  value={char.ship_cargo_capacity_m3 || 10000}
-                                  onChange={(e) =>
-                                    handleUpdateFleetSettings(char.character_id, {
-                                      ship_cargo_capacity_m3: Math.max(0, Number(e.target.value)),
-                                    })
-                                  }
-                                  className="w-full bg-[#0e1117] border border-[#262730] rounded-md px-2 py-1 text-xs text-[#fafafa] font-mono focus:border-indigo-500 outline-none"
-                                />
-                              </div>
-                            </div>
-
-                            {/* Right: Action Buttons */}
-                            <div className="flex items-center gap-2 self-end lg:self-center">
-                              {!isActive && (
-                                <button
-                                  onClick={() => handleSwitchActive(char)}
-                                  className="px-3 py-1.5 bg-[#262730] hover:bg-indigo-600 text-[#cfd3dc] hover:text-white rounded-lg font-medium transition-colors"
-                                >
-                                  Activer
-                                </button>
-                              )}
-                              <button
-                                onClick={() => handleRefresh(char)}
-                                disabled={isRefreshingId === char.character_id}
-                                className="p-2 bg-[#161821] hover:bg-[#262730] border border-[#262730] rounded-lg text-[#cfd3dc] hover:text-[#fafafa] transition-colors"
-                                title="Rafraîchir le jeton et synchroniser les données ESI"
-                              >
-                                <RefreshCw
-                                  className={`w-3.5 h-3.5 ${isRefreshingId === char.character_id ? 'animate-spin text-indigo-400' : ''}`}
-                                />
-                              </button>
-                              <button
-                                onClick={() => handleRemove(char.character_id, char.character_name)}
-                                className="p-2 bg-[#161821] hover:bg-red-500/20 border border-[#262730] hover:border-red-500/40 rounded-lg text-[#808495] hover:text-red-300 transition-colors"
-                                title="Retirer ce personnage"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
                             </div>
                           </div>
+
+                          <div className="flex-1 max-w-sm bg-[#161821] p-3 rounded-lg border border-[#262730]">
+                            <label className="text-[10px] text-[#808495] block font-semibold mb-1.5">
+                              Hub d’opération
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <MapPin className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                              <select
+                                value={char.assigned_hub_id || ''}
+                                onChange={(e) => {
+                                  const hub = MAJOR_MARKET_HUBS.find(
+                                    (entry: MarketHub) => entry.id === e.target.value,
+                                  );
+                                  handleUpdateHubSettings(char.character_id, {
+                                    assigned_hub_id: e.target.value || undefined,
+                                    assigned_hub_name: hub?.name,
+                                    assigned_station_id: hub?.station_id,
+                                  });
+                                }}
+                                className="w-full bg-[#0e1117] border border-[#262730] rounded-md px-2 py-1.5 text-xs text-[#fafafa] focus:border-indigo-500 outline-none"
+                              >
+                                <option value="">Nomade / Non assigné</option>
+                                {MAJOR_MARKET_HUBS.map((hub: MarketHub) => (
+                                  <option key={hub.id} value={hub.id}>
+                                    {hub.name} ({hub.region})
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 self-end lg:self-center">
+                            {!isActive && (
+                              <button
+                                onClick={() => handleSwitchActive(char)}
+                                className="px-3 py-1.5 bg-[#262730] hover:bg-indigo-600 text-[#cfd3dc] hover:text-white rounded-lg font-medium transition-colors"
+                              >
+                                Activer
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleRefresh(char)}
+                              disabled={isRefreshingId === char.character_id}
+                              className="p-2 bg-[#161821] hover:bg-[#262730] border border-[#262730] rounded-lg text-[#cfd3dc] hover:text-[#fafafa] transition-colors"
+                              title="Rafraîchir le jeton et synchroniser les données ESI"
+                            >
+                              <RefreshCw
+                                className={`w-3.5 h-3.5 ${
+                                  isRefreshingId === char.character_id
+                                    ? 'animate-spin text-indigo-400'
+                                    : ''
+                                }`}
+                              />
+                            </button>
+                            <button
+                              onClick={() => handleRemove(char.character_id, char.character_name)}
+                              className="p-2 bg-[#161821] hover:bg-red-500/20 border border-[#262730] hover:border-red-500/40 rounded-lg text-[#808495] hover:text-red-300 transition-colors"
+                              title="Retirer ce personnage"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
-                      );
-                    })}
-                  </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
-            </div>
+              </div>
+            )
           ) : (
-            /* Tab: Connect Another Pilot */
             <SsoConnectCard
               onSessionReady={handleSessionReady}
               onConnectSSO={onConnectSSO}
-              title={characters.length === 0 ? "Connexion EVE Online SSO v2" : "Ajouter / Connecter un Autre Pilote"}
+              title={characters.length === 0 ? 'Connexion EVE Online SSO v2' : 'Ajouter un autre pilote'}
               subtitle={
                 characters.length === 0
-                  ? "Connectez votre personnage principal ou vos alts pour synchroniser instantanément votre portefeuille, vos compétences et vos ordres."
-                  : "Associez un acheteur à Jita, un transporteur ou un vendeur à Amarr avec le sous-système SSO unifié."
+                  ? 'Connectez votre personnage principal ou vos alts pour synchroniser vos données ESI.'
+                  : 'Associez vos personnages aux hubs où vous gérez vos ordres.'
               }
             />
           )}
         </div>
 
-        {/* Modal Footer */}
         <div className="p-4 border-t border-[#262730] bg-[#0e1117] flex items-center justify-between">
           <div className="text-[11px] text-[#808495] flex items-center gap-1.5">
             <Shield className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Moteur d'arbitrage écosystème avec calcul des taxes croisées &amp; coordination de fret.</span>
+            <span>Les personnages restent des principaux distincts ; la corporation porte la vue globale de ses ordres.</span>
           </div>
           <button
             onClick={onClose}

@@ -73,12 +73,11 @@ export class InterRegionalScanner {
     config: FinancialConfig,
     orderBooks: Record<number, RawMarketOrder[]>,
     historyStats?: Record<number, HistoricalStats>,
-    qualities?: Record<number, MarketDataQuality>,
-    characters?: EveCharacterSession[]
+    qualities?: Record<number, MarketDataQuality>
   ): InterRegionalOpportunity[] {
     const all: InterRegionalOpportunity[] = [];
     for (const item of items) {
-      const opps = this.scanItemAcrossHubs(item, hubs, strategy, config, orderBooks, historyStats, qualities, characters);
+      const opps = this.scanItemAcrossHubs(item, hubs, strategy, config, orderBooks, historyStats, qualities);
       all.push(...opps);
     }
     return all.sort((a, b) => b.scores.overall_score - a.scores.overall_score);

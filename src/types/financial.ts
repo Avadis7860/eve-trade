@@ -305,6 +305,9 @@ export interface RealizedFinancialOutcome {
   readonly outcome_id: string;
   readonly execution_id: string;
   readonly character_id: number;
+  readonly accounting_scope_id: string;
+  readonly source_coverage: FinancialSourceCoverage;
+  readonly position_disposition_states: readonly PositionDispositionState[];
   readonly observation_id: string;
   readonly opportunity_id?: string;
   readonly type_id: number;
@@ -382,9 +385,22 @@ export interface RealizedFinancialCalculationOptions {
 
 export type PositionLifecycleStatus = 'OPEN' | 'PARTIALLY_REALIZED' | 'CLOSED' | 'UNKNOWN';
 
-export type FinancialSourceKind =
-  | 'ESI_WALLET_TRANSACTION'
-  | 'EXECUTION_TRANSACTION';
+export type EconomicOrigin =
+  | 'MARKET_ACQUISITION'
+  | 'PRODUCTION_OUTPUT'
+  | 'INTERNAL_TRANSFER'
+  | 'UNKNOWN_ORIGIN';
+
+export type FinancialSourceCoverage =
+  | 'MARKET_TRACEABLE'
+  | 'PARTIAL'
+  | 'UNAVAILABLE';
+
+export type EconomicOwnerType =
+  | 'character'
+  | 'corporation'
+  | 'mixed'
+  | 'unknown';
 
 export interface FinancialProvenance {
   readonly source_kind: FinancialSourceKind;
@@ -404,8 +420,9 @@ export interface AcquisitionLot {
   readonly total_original_cost: number;
   readonly remaining_cost_basis: number;
   readonly acquired_at: string;
-  readonly economic_owner_type: 'character';
-  readonly economic_owner_id: number;
+  readonly economic_origin: EconomicOrigin;
+  readonly economic_owner_type: Exclude<EconomicOwnerType, 'mixed'>;
+  readonly economic_owner_id: number | string | null;
   readonly related_order_id?: import('./order').OrderId;
   readonly status: PositionLifecycleStatus;
 }
@@ -436,26 +453,23 @@ export interface PositionDispositionState {
 
 export interface CurrentPosition {
   readonly position_id: string;
+  readonly accounting_scope_id: string;
   readonly type_id: number;
-  readonly economic_owner_type: 'character';
-  readonly economic_owner_id: number;
+  readonly economic_owner_type: EconomicOwnerType;
+  readonly economic_owner_id: number | string | null;
   readonly quantity_acquired: number;
   readonly quantity_disposed: number;
   readonly remaining_quantity: number;
   readonly remaining_cost_basis: number;
   readonly realized_gross_profit: number;
-
-  // Position-level capital recovery, kept separate from realized P&L.
   readonly capital_committed: number | null;
   readonly cash_recovered: number | null;
   readonly capital_recovery_delta: number | null;
   readonly capital_recovery_ratio: number | null;
-
-  /** Deduplicated source/provenance set covering the known position facts. */
   readonly provenance: readonly FinancialProvenance[];
-
   readonly lifecycle_status: PositionLifecycleStatus;
   readonly financial_completeness: FinancialCompleteness;
+  readonly source_coverage: FinancialSourceCoverage;
   readonly lots: readonly AcquisitionLot[];
   readonly allocations: readonly DisposalAllocation[];
   readonly disposition_states: readonly PositionDispositionState[];
@@ -464,8 +478,11 @@ export interface CurrentPosition {
 }
 
 export interface PositionLedgerResult {
-  readonly character_id: number;
+  readonly accounting_scope_id: string;
   readonly type_id: number;
+  /** @deprecated Reporting attribution only. Never an accounting boundary. */
+  readonly character_id?: number;
+  /** @deprecated Compatibility alias for the accounting scope identifier. */
   readonly principal_scope: string;
   readonly position: CurrentPosition;
 }

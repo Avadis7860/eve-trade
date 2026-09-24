@@ -359,10 +359,13 @@ test.describe('E2E-001 — browser OAuth composition', () => {
 
     await expect(page.getByRole('heading', { name: /Personnages & Hubs/ })).toBeVisible();
     await expect(page.getByText('2 pilotes', { exact: true })).toBeVisible();
-    await expect(page.getByText('Personnages connectés', { exact: true })).toBeVisible();
-    await expect(page.getByText(ALPHA.name, { exact: true })).toBeVisible();
-    await expect(page.getByText(BETA.name, { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Activer', exact: true })).toHaveCount(1);
+    const connectedCharactersSection = page
+      .getByText('Personnages connectés', { exact: true })
+      .locator('..')
+      .locator('..');
+    await expect(connectedCharactersSection.getByText(ALPHA.name, { exact: true })).toBeVisible();
+    await expect(connectedCharactersSection.getByText(BETA.name, { exact: true })).toBeVisible();
+    await expect(connectedCharactersSection.getByRole('button', { name: 'Activer', exact: true })).toHaveCount(1);
 
     await page.getByRole('button', { name: 'Activer', exact: true }).click();
 

@@ -267,8 +267,32 @@ export class EsiService {
    */
   static async lookupTypeById(typeId: number) {
     if (!Number.isInteger(typeId) || typeId <= 0) return null;
-    try { const {ok,data}=await fetchBackendApi<any>(`/api/types/lookup/${typeId}`); if(!ok || !data)return null; return {type_id:data.type_id,group_id:data.group_id,name:data.name,volume:data.volume||data.packaged_volume||0.01,packaged_volume:data.packaged_volume,description:data.description?String(data.description).replace(/<[^>]*>?/gm,'').slice(0,140):''}; }
-    catch { return null; }
+    try {
+      const { ok, data } = await fetchBackendApi<any>(`/api/types/lookup/${typeId}`);
+      if (!ok || !data || typeof data !== 'object') return null;
+      const resolvedTypeId = Number(data.type_id);
+      const resolvedVolume = Number(data.volume ?? data.packaged_volume);
+      if (
+        !Number.isSafeInteger(resolvedTypeId) ||
+        resolvedTypeId !== typeId ||
+        !Number.isFinite(resolvedVolume) ||
+        resolvedVolume <= 0
+      ) {
+        return null;
+      }
+      return {
+        type_id: resolvedTypeId,
+        group_id: data.group_id,
+        name: data.name,
+        volume: resolvedVolume,
+        packaged_volume: data.packaged_volume,
+        description: data.description
+          ? String(data.description).replace(/<[^>]*>?/gm, '').slice(0, 140)
+          : '',
+      };
+    } catch {
+      return null;
+    }
   }
 
   /**

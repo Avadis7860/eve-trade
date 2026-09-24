@@ -87,7 +87,9 @@ For a fully known valid position, the semantic quantities are:
 
 A break-even flag is a POLICY result whose basis must be explicit (for example gross or net of fees). It must not be inferred from an unrelated market snapshot.
 
-For the current FIN-002 primitive, an operation is the contiguous open position segment for one `accounting_scope_id + type_id`: new acquisitions join the active operation while at least one lot from that segment remains open; a new operation starts only after the active segment reaches zero remaining quantity. This is a deterministic ledger boundary, not an inferred trader-intent label.
+For the current FIN-002 primitive, the **economic position segment** is the contiguous open position for one `accounting_scope_id + type_id`: new acquisitions join the active segment while at least one lot from that segment remains open; a new segment starts only after the active segment reaches zero remaining quantity.
+
+This segment is a deterministic accounting boundary, not an inferred trader-intent label. The repository must not represent it as proof that the trader intended a single commercial "operation". A separate operation view may be derived for presentation, but only when its semantic basis is explicit.
 
 Example: 10,000 units acquired at 100 ISK and 1 unit disposed at 140 ISK:
 
@@ -111,7 +113,21 @@ Across duplicate observations, economic ownership is not inferred from the obser
 
 After a policy-defined cash break-even threshold is reached, pricing decisions such as accepting a lower margin remain POLICY decisions. They must not rewrite historical acquisition cost or realized accounting.
 
-### 6. Realized and open state stay separate
+### 6. Coverage is part of the financial boundary
+
+A position reconstruction carries an explicit evidence envelope:
+
+- **history coverage** — whether the supplied transaction history is known to cover the relevant accounting scope;
+- **economic-origin coverage** — whether supported economic origins capable of producing the position are sufficiently represented;
+- **source coverage** — whether the cost lineage can actually be reconstructed.
+
+A coherent subset of wallet transactions is not sufficient evidence of complete history. In particular, no orphaned sale is not proof that no earlier inventory existed.
+
+`MARKET_TRACEABLE` and an ecosystem-complete result are therefore different claims. Market-traceable cost lineage may be exposed with an explicit coverage limitation. Ecosystem-complete whole-position profitability requires the corresponding completeness evidence.
+
+The current increment must not implement PI/Industry or invent an origin source. It only establishes the generic contract required to attach those future sources to the existing EconomicOrigin -> AcquisitionLot pipeline.
+
+### 7. Realized and open state stay separate
 
 The system must expose independently:
 
@@ -124,21 +140,28 @@ The system must expose independently:
 
 A partial sale must not turn the underlying position into a closed “profitable trade”.
 
-### 7. Provenance and data health are orthogonal
+### 8. Provenance and data health are orthogonal
 
 Source provenance, economic ownership, observation principal, freshness, coverage and data health must not be collapsed into one field.
 
 UNKNOWN, PARTIAL, ERROR, STALE and UNAVAILABLE are not numeric zeros.
 
-### 8. Order ID is optional corroboration, never invented
+### 9. Order ID is optional corroboration, never invented
 
 ESI wallet transactions do not provide a trustworthy order ID for this accounting purpose. The application must not synthesize one or map unrelated identifiers such as journal references to order IDs.
 
-### 9. Direct transaction calculations do not expose synthetic observation evidence
+### 10. Direct transaction calculations do not expose synthetic observation evidence
 
 `calculateForTransactions()` may internally reuse the calculation primitive for compatibility, but its returned outcome is explicitly marked `TRANSACTION_FACTS` and does not expose a synthetic observation ID. Synthetic execution metadata must never be treated as an observed market correlation.
 
 ## Consequences
+
+The canonical financial vocabulary is:
+
+`Economic Transaction Fact -> Economic Position Segment -> AcquisitionLot -> DisposalAllocation -> CurrentPosition -> Realized Financial Outcome`
+
+The term **operation** is a consumer/reporting concept unless a stronger source contract explicitly establishes an economic grouping.
+
 
 The existing FIFO engine remains a useful deterministic matching primitive.
 
@@ -151,6 +174,8 @@ No durable position store is mandated by this ADR. Wallet transactions remain du
 ORD-001 and FIN-001 are implemented and certified. FIN-002 remains the next implementation gate; broader Real Portfolio and Performance certification remains blocked until the Performance lifecycle contract is accepted.
 
 ## Required regression scenarios
+
+0. A coherent transaction subset with UNKNOWN history coverage must not be promoted to ecosystem-complete truth.
 
 1. Acquire by taking a SELL order, then dispose through a SELL order.
 2. Acquire 10,000 units and dispose 1 unit.

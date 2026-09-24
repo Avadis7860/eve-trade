@@ -642,6 +642,8 @@ export class RealizedFinancialOutcomeEngine {
       is_buy: boolean;
       character_id?: number;
       accounting_scope_id?: string;
+      economic_owner_type?: import('../types').EconomicOwnerType;
+      economic_owner_id?: number | string | null;
       provenance?: import('../types').FinancialProvenance;
     })[],
     options?: RealizedFinancialCalculationOptions
@@ -723,6 +725,12 @@ export class RealizedFinancialOutcomeEngine {
           unit_price: tx.unit_price,
           timestamp: ts,
           ...('order_id' in tx && tx.order_id ? { order_id: tx.order_id } : {}),
+          ...('economic_owner_type' in tx && tx.economic_owner_type
+            ? { economic_owner_type: tx.economic_owner_type === 'mixed' ? undefined : tx.economic_owner_type }
+            : {}),
+          ...('economic_owner_id' in tx && tx.economic_owner_id !== undefined
+            ? { economic_owner_id: tx.economic_owner_id }
+            : {}),
           ...('provenance' in tx && tx.provenance ? { provenance: tx.provenance } : {}),
           accounting_scope_id:
             'accounting_scope_id' in tx && tx.accounting_scope_id

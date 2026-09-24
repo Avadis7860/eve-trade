@@ -77,9 +77,23 @@ export class TraderAnalyticsService {
     const snapshot = CharacterRepository.getInstance().getSnapshot(characterId);
     const syncSummary = CharacterRepository.getInstance().getTransactionSyncSummary(characterId);
 
-    const transactions: EveCharacterTransaction[] = persisted.map((tx) => ({
-      ...tx,
+    const transactions = persisted.map((tx) => ({
+      transaction_id: tx.transaction_id,
+      character_id: tx.character_id,
       date: tx.timestamp,
+      type_id: tx.type_id,
+      type_name: tx.type_name,
+      location_id: tx.location_id,
+      location_name: tx.location_name,
+      unit_price: tx.unit_price,
+      quantity: tx.quantity,
+      is_buy: tx.is_buy,
+      is_personal: tx.is_personal,
+      client_id: tx.client_id,
+      client_name: tx.client_name,
+      journal_ref_id: tx.journal_ref_id,
+      accounting_scope_id: (tx as EveCharacterTransaction).accounting_scope_id,
+      provenance: (tx as EveCharacterTransaction).provenance,
     }));
 
     const coverageEvidence =
@@ -95,7 +109,7 @@ export class TraderAnalyticsService {
       characterId,
       characterName,
       transactions,
-      snapshot?.order_history ?? [],
+      [],
       snapshot?.journal ?? [],
       accountingLevel,
       brokerRelationsLevel,
@@ -465,6 +479,11 @@ export class TraderAnalyticsService {
             (outcome.position_disposition_states.length === 0
               ? outcome.position_remaining_quantity
               : undefined);
+          // The canonical financial source is the position segment emitted by
+          // PositionLedger. Never invent a synthetic operation identity from
+          // character + type when a disposition is not segment-attributable.
+          const positionSegmentId =
+            dispositionState?.position_segment_id ?? dispositionState?.operation_id;
           const positionSegment = positionSegmentId
             ? outcome.position_segments.find(
                 (segment) => segment.position_segment_id === positionSegmentId,
@@ -476,11 +495,6 @@ export class TraderAnalyticsService {
             positionSegment?.history_coverage ?? outcome.history_coverage;
           const cycleEconomicOriginCoverage =
             positionSegment?.economic_origin_coverage ?? outcome.economic_origin_coverage;
-          // The canonical financial source is the position segment emitted by
-          // PositionLedger. Never invent a synthetic operation identity from
-          // character + type when a disposition is not segment-attributable.
-          const positionSegmentId =
-            dispositionState?.position_segment_id ?? dispositionState?.operation_id;
           const operationId = positionSegmentId;
           const operationCapitalCommitted =
             dispositionState?.position_capital_committed ??

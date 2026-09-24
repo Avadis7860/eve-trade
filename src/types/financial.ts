@@ -379,6 +379,8 @@ export interface RealizedFinancialCalculationOptions {
   readonly buyLocationProfile?: Partial<MarketLocationFeeProfile>;
   readonly sellLocationProfile?: Partial<MarketLocationFeeProfile>;
   readonly executionFeeMode?: ExecutionFeeRoleMode;
+  /** Explicit economic accounting scope; characters are reporting/provenance dimensions. */
+  readonly accounting_scope_id?: string;
   readonly transactions?: readonly any[]; // Accepts PersistedCharacterTransaction or ExecutionTransactionRef
   readonly now?: () => string;
 }

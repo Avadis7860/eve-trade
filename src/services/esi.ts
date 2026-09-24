@@ -144,15 +144,24 @@ export class EsiService {
       return { isValid: false, reason: `volume_total (${volumeTotal}) < volume_remain (${volumeRemain})` };
     }
 
-    const systemId = Number(raw.system_id ?? 0);
-    const locationId = Number(raw.location_id ?? 0);
+    const systemId = Number(raw.system_id);
+    const locationId = Number(raw.location_id);
+    if (!Number.isInteger(systemId) || systemId <= 0) {
+      return { isValid: false, reason: `Invalid system_id: ${raw.system_id}` };
+    }
     if (!Number.isInteger(locationId) || locationId <= 0) {
       return { isValid: false, reason: `Invalid location_id: ${raw.location_id}` };
     }
 
     const isBuyOrder = Boolean(raw.is_buy_order);
-    const issuedStr = typeof raw.issued === 'string' ? raw.issued : new Date().toISOString();
-    const duration = Number(raw.duration ?? 90);
+    const issuedStr = typeof raw.issued === 'string' ? raw.issued : '';
+    if (!issuedStr || Number.isNaN(Date.parse(issuedStr))) {
+      return { isValid: false, reason: `Invalid issued: ${raw.issued}` };
+    }
+    const duration = Number(raw.duration);
+    if (!Number.isInteger(duration) || duration <= 0) {
+      return { isValid: false, reason: `Invalid duration: ${raw.duration}` };
+    }
 
     const validOrder: RawMarketOrder = {
       order_id: orderId,

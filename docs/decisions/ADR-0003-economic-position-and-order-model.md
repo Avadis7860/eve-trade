@@ -87,6 +87,8 @@ For a fully known valid position, the semantic quantities are:
 
 A break-even flag is a POLICY result whose basis must be explicit (for example gross or net of fees). It must not be inferred from an unrelated market snapshot.
 
+For the current FIN-002 primitive, an operation is the contiguous open position segment for one `accounting_scope_id + type_id`: new acquisitions join the active operation while at least one lot from that segment remains open; a new operation starts only after the active segment reaches zero remaining quantity. This is a deterministic ledger boundary, not an inferred trader-intent label.
+
 Example: 10,000 units acquired at 100 ISK and 1 unit disposed at 140 ISK:
 
 - capital committed: 1,000,000 ISK;
@@ -131,6 +133,10 @@ UNKNOWN, PARTIAL, ERROR, STALE and UNAVAILABLE are not numeric zeros.
 ### 8. Order ID is optional corroboration, never invented
 
 ESI wallet transactions do not provide a trustworthy order ID for this accounting purpose. The application must not synthesize one or map unrelated identifiers such as journal references to order IDs.
+
+### 9. Direct transaction calculations do not expose synthetic observation evidence
+
+`calculateForTransactions()` may internally reuse the calculation primitive for compatibility, but its returned outcome is explicitly marked `TRANSACTION_FACTS` and does not expose a synthetic observation ID. Synthetic execution metadata must never be treated as an observed market correlation.
 
 ## Consequences
 

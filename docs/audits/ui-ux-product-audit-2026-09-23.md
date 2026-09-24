@@ -168,14 +168,16 @@ At minimum the UI should expose:
 - page counts when relevant;
 - confidence where meaningful.
 
-## Market-order retrieval incident
+## Historical market-order retrieval report
 
 Operator report:
 > market orders are no longer being retrieved from the user's PC.
 
-This is NOT considered fully root-caused by this audit.
+**Current disposition: RESOLVED / EXTERNALLY BOUNDED.** The application is currently functional. The operator confirmed that the observed symptom was explained by insufficient available data to produce a market to display; no persistent application defect is currently identified.
 
-The highest-priority diagnostic area is the public market-order acquisition path:
+The repository-side market acquisition path was nevertheless instrumented and certified through P0-A/P0-B/P0-C so future retrieval problems can be distinguished from ordinary data scarcity.
+
+The highest-priority diagnostic area established by the P0 work is the public market-order acquisition path:
 EsiService.fetchLiveOrdersDetailed
 -> /api/markets/region/orders
 -> MarketEsiGateway
@@ -192,13 +194,13 @@ References:
 - https://developers.eveonline.com/blog/market-orders-rate-limit-rolls-out-on-february-24-2026
 - https://developers.eveonline.com/docs/services/esi/rate-limiting/
 
-Therefore the first operational task is instrumentation and reproducible diagnosis, not speculative redesign.
+The operational P0 work is complete. Future incidents should use the existing health diagnostics/evidence export before any provider, transport or application hypothesis is promoted.
 
 ## Priority program
 
 | Priority | Program | Outcome |
 |---|---|---|
-| P0 | Market / ESI observability and retrieval reliability | distinguish LIVE/CACHE/STALE/PARTIAL/ERROR and establish root cause for current PC incident |
+| P0 | Market / ESI observability and retrieval reliability | distinguish LIVE/CACHE/STALE/PARTIAL/ERROR and preserve diagnostic evidence; historical target-PC report resolved |
 | P1 | Operations / Mes Ordres | usable market-position control center |
 | P1 | Allocation / Portefeuille | genuine multi-opportunity capital allocation |
 | P1 | Performance / Journal | automatic ESI-based observed-vs-predicted history |

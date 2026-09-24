@@ -1,15 +1,16 @@
 # Current Chunk
 
-Status: ACTIVE
-Scope: P0 — Market / ESI retrieval observability and reliability
+Status: READY FOR NEXT TECHNICAL CHANTIER
+Scope: UX-03 preparation + public-readiness maintenance follow-up
 Reference: [UI/UX Product Audit](../audits/ui-ux-product-audit-2026-09-23.md)
 Program: [UX-First Trading Terminal Program](ux-program.md)
 Decision: [ADR-0002](../decisions/ADR-0002-ux-first-trading-terminal.md)
-Detailed plan: [P0 Market Reliability Plan](p0-market-reliability.md)
+Detailed plan: [UX-First Trading Terminal Program](ux-program.md)
+Public-readiness audit: [Public Readiness Audit](../audits/public-readiness-audit-2026-09-24.md)
 
 ## Objective
 
-Close the remaining P0 market/ESI retrieval reliability gate while preserving canonical data truth and producing reproducible evidence for the target-PC incident.
+Prepare the next product chantier without losing the verified state of the repository. P0/UX-01 is closed; the next product build is UX-03 Allocation / Portefeuille. Public-readiness hardening is tracked separately and is not an active implementation branch.
 
 ## Completed increments
 
@@ -40,8 +41,14 @@ The target-PC evidence workflow now includes a browser-visible JSON export conta
 
 ## Next increments
 
-1. Run the exported evidence capture on the affected PC and from a controlled comparison environment, then classify the incident.
-2. Close UX-01 as either **ROOT-CAUSED** (reproducible technical cause) or **EXTERNALLY BOUNDED** (code path certified; remaining evidence dependency explicitly outside the repository).
+1. Freeze the UX-03 Allocation / Portefeuille contract.
+2. Implement UX-03 from a fresh branch based on the current main head.
+3. Address public-readiness maintenance items PUB-002/PUB-003 before the first portfolio showcase release.
+4. Keep the public-readiness audit synchronized with any material change in capabilities, security posture or release state.
+
+## Public-readiness status
+
+PUB-001 and PUB-007 are being closed by the current documentation/state synchronization. PUB-002 and PUB-003 remain high-priority maintenance decisions before portfolio publication.
 
 ## CI operator tooling — planned, not active
 
@@ -63,10 +70,10 @@ UX-02 is DONE / MERGED and is not an active branch.
 
 ## Validation
 
-P0 closes only when:
-- failure paths that can affect business truth are explicit and covered;
+P0 closure evidence is complete:
+- failure paths that affect business truth are explicit and covered;
 - ERROR / PARTIAL / STALE / UNKNOWN remain distinct;
 - deterministic 429/rate-limit diagnostics are covered;
-- the target-PC incident has either a reproducible root cause or a documented external evidence boundary;
+- the historical target-PC symptom is resolved and externally bounded;
 - roadmap/backlog/current-state are synchronized;
 - the P0-A caller matrix remains linked to the merged state.

@@ -98,7 +98,7 @@ The gate:
 - uses read-only repository permissions;
 - now pins checkout/setup-node to immutable SHAs and verifies Node.js 22.23.2 / npm 10.9.8.
 
-It is currently low-cost and reliable. CI-001 will align its concurrency and result presentation with the future certification model.
+It is currently low-cost and reliable. Further CI changes are separate maintenance follow-ups and must not reopen CI-001.
 
 ## Reference historical proof
 
@@ -113,11 +113,13 @@ The target-PC real-CCP smoke is recorded as PASS in [Browser E2E Validation](e2e
 
 ## Current CI model
 
-CI-001 defines three functional levels:
+CI-001 establishes three functional validation levels, while the current trigger behavior is narrower than the target design:
 
-1. **PR Fast Gate** — scope-aware short feedback during Draft/iteration;
-2. **PR Certification Gate** — complete conditional proof for the active PR;
-3. **Main / Full** — short post-merge smoke plus scheduled/manual exhaustive certification, now implemented as dedicated workflows.
+1. **PR workflow** — the current `pull_request` workflow performs scope-aware selection; Draft and Ready PRs currently enter the same certification workflow topology.
+2. **Main Smoke** — short post-merge validation on pushes to `main`.
+3. **Full Certification** — scheduled/manual exhaustive validation.
+
+A separate lightweight Draft Fast Gate remains a confirmed CI follow-up, not an implemented current behavior.
 
 The final architecture also includes a stable \`CI / required-gate\` aggregator so conditional jobs do not become branch-protection hazards.
 
@@ -125,7 +127,7 @@ The final architecture also includes a stable \`CI / required-gate\` aggregator 
 
 The actual branch protection/rulesets for \`main\` could not be inspected with the available GitHub integration because the relevant API endpoints returned \`403 Resource not accessible by integration\`.
 
-No check name should be changed during CI-001 until the effective protection configuration is verified with administrative access.
+No required-check name should be changed until the effective protection configuration is verified with administrative access.
 
 ## CI-001I observability
 
@@ -153,7 +155,7 @@ Any Oclif implementation is a separate maintenance chantier and must not add a s
 
 ## Completion status
 
-**CI-001G is certified; CI-001H is implemented; CI-001I is runtime-verified on PR run `35856208503` for head `9d09d8affac903de6c2ca8f39156b5b662d4fef4`.** Main Smoke and Full remain independent post-merge/scheduled health checks.
+**CI-001 is DONE / MERGED.** CI-001G is certified; CI-001H is implemented; CI-001I is runtime-verified on PR run `35856208503`. Main Smoke is independently verified on current main head `95e970933a1d440fb61d25a6f677742731b697aa` by run #9. Full Repository Certification remains an independent scheduled/manual health surface.
 
 The topology change is additive in proof ownership: existing commands remain present, the historical `validate` check name remains available, and browser execution is no longer downstream of non-browser validation.
 

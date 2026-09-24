@@ -12,6 +12,8 @@ The previous structure mixed architecture, contracts, invariants, validation, au
 
 This mission creates separate state, architecture, domain, contract, invariant, validation, roadmap, operations, decision and archive surfaces, with indexes and explicit sources of truth.
 
-## Remaining governance
+## Current governance
 
-Future contract changes must update code, tests and the affected contract/invariant/validation documents together. Old audits remain historical only.
+The active documentation set is synchronized to the current public repository state by the public-readiness/state-sync chantier. Future contract changes must update code, tests and the affected contract/invariant/validation documents together. Old audits remain historical only.
+
+The main remaining documentation risk is now keeping public-facing claims, release state and security posture synchronized as the project evolves.

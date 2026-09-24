@@ -1,6 +1,6 @@
 # CI Recovery Runbook
 
-Status: ACTIVE — CI-001H
+Status: ACTIVE — current CI operations
 
 ## Evidence rule
 
@@ -18,9 +18,8 @@ An obsolete, cancelled or superseded run is not certification evidence for a new
 
 - Never use `|| true`, an unconditional skip, or a success conversion to hide a failed invariant.
 - A genuinely transient infrastructure failure may be rerun on the same current head; the rerun does not change the head being certified.
-- A real functional or CI contract failure must be fixed on `ci/ci-001a-baseline` and PR #60, then a new head must be certified.
-- Do not create a second PR or branch to obtain another CI signal.
-- Do not merge PR #60 as part of recovery.
+- A real functional or CI contract failure must be fixed on the current dedicated branch/PR for that chantier, then a new head must be certified.
+- Do not create a second PR or branch solely to obtain another CI signal.
 - After any push, discard certification evidence from older heads and re-evaluate only the newest current head.
 
 ## Main post-merge failure
@@ -35,4 +34,4 @@ If `CI / main-smoke` fails after a merge, preserve the failing evidence, identif
 
 > One chantier = one active branch = one active PR.
 
-All CI-001 corrections remain on PR #60 until the chantier is explicitly closed.
+CI-001 is closed. New CI corrections must use a new dedicated maintenance branch and PR.

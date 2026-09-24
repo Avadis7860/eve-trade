@@ -11,6 +11,7 @@ Current project state is maintained in [state/current-state.md](../state/current
 
 - [UI/UX Product Audit — Trading Terminal](ui-ux-product-audit-2026-09-23.md) — current product/UX baseline and sequencing reference.
 - [CI Management Audit](ci-management-audit-2026-09-23.md) — deep CI topology, performance, coverage and governance study.
+- [Public Readiness Audit](public-readiness-audit-2026-09-24.md) — public repository credibility, security posture and portfolio readiness.
 
 ## Historical audits
 

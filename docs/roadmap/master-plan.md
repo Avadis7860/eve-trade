@@ -9,11 +9,11 @@ CI gate: PR CI
 
 ## Current state
 
-The functional E2E-001 baseline is stable and merged. CI-001 is merged and complete. UX-02 is merged. The active product chantier remains the P0 market/ESI retrieval reliability closure gate.
+The functional E2E-001 baseline is stable and merged. CI-001 is merged and complete. UX-02 is merged. UX-01/P0 is now closed; the next product chantier is UX-03 Allocation, after the current public-readiness/documentation sync.
 
 The application has mature market, ESI, finance, order, prediction and portfolio foundations, but the presentation layer does not yet expose them as a coherent trading workflow.
 
-**Current active chantier:** close the P0 market/ESI retrieval reliability gate without inventing a root cause for the target-PC incident.
+**Current product sequence:** finish the public-readiness/documentation synchronization, then begin UX-03 Allocation / Portefeuille. Public-readiness hardening is tracked separately as maintenance work.
 
 See:
 - [UI/UX Product Audit](../audits/ui-ux-product-audit-2026-09-23.md)
@@ -44,7 +44,7 @@ Deferred until the UX gate:
 | DOC-001 | DONE | Reconstruct modular documentation governance | current mission | stale truth if incomplete | docs/link audit + CI |
 | E2E-001 | DONE | Establish reproducible local OAuth/browser gate, deterministic CI E2E coverage, and real-CCP smoke | stable auth/ESI | environment-sensitive auth/callback integration | browser E2E + security/API + local CCP smoke |
 | UX-00 | DONE | Define and freeze product model, navigation, responsibilities and shared UX vocabulary | current audit | scope drift if implementation starts early | accepted UX contract |
-| UX-01 | P0 / CLOSURE GATE | Establish market/ESI truth, retrieval observability and diagnose target-PC market-order incident | UX-00 vocabulary; existing ESI boundary | hidden empty/error states; ESI rate limits | caller audit + ERROR/PARTIAL/STALE/429 regression + target-PC evidence |
+| UX-01 | DONE / EXTERNALLY BOUNDED | Establish market/ESI truth and retrieval observability; reported target-PC issue resolved without a persistent application defect | UX-00 vocabulary; existing ESI boundary | hidden empty/error states; ESI rate limits | caller audit + ERROR/PARTIAL/STALE/429 regression + current functional state |
 | UX-02 | DONE / MERGED | Rebuild Mes Ordres as the Operations console | UX-00, UX-01, CI-001 merged | business state fragmentation | UI/browser acceptance |
 | UX-03 | P1 | Rebuild Portefeuille as Real Portfolio + Proposed Allocation across multiple opportunities | UX-00, UX-01, UX-02 | misleading allocation / concentration | engine + UI + scenario tests |
 | UX-04 | P1 | Replace manual Journal with ESI-based automatic Performance & Historique | UX-00, UX-01, financial truth, execution data | incorrect attribution | accounting + reconciliation + browser scenarios |

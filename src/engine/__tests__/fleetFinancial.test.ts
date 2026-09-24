@@ -182,6 +182,22 @@ function runFleetFinancialTests() {
   assert(fleetMetrics.total_closed_trades === 15, `Expected 15 closed trades, got ${fleetMetrics.total_closed_trades}`);
   assert(fleetMetrics.total_broker_fees_paid === 1_500_000, `Expected 1.5M broker fees, got ${fleetMetrics.total_broker_fees_paid}`);
   assert(fleetMetrics.total_sales_tax_paid === 3_000_000, `Expected 3.0M sales tax, got ${fleetMetrics.total_sales_tax_paid}`);
+  assert(
+    fleetMetrics.average_realized_roi_scope === 'CLOSING_DISPOSAL_ALLOCATIONS',
+    'Fleet ROI scope must remain explicit'
+  );
+  assert(fleetMetrics.capital_recovery?.capital_committed === 150_000_000, 'Fleet committed capital must aggregate known positions');
+  assert(fleetMetrics.capital_recovery?.cash_recovered === 225_000_000, 'Fleet recovered cash must aggregate allocated disposal revenue');
+  assert(fleetMetrics.capital_recovery?.capital_recovery_delta === 75_000_000, 'Fleet recovery delta must remain separate from realized P&L');
+  assert(
+    fleetMetrics.capital_recovery?.capital_recovery_ratio === 1.5,
+    'Fleet recovery ratio must use known-position committed capital as denominator'
+  );
+  assert(
+    fleetMetrics.capital_recovery?.known_position_count === 15 &&
+      fleetMetrics.capital_recovery?.closed_position_count === 15,
+    'Fleet recovery must preserve position counts'
+  );
   assert(fleetMetrics.character_id === 0, 'Fleet character_id should be 0 (no fake EVE ID)');
   assert(fleetMetrics.recent_trade_cycles.length === 2, 'Should contain all trade cycles from both characters');
   assert(fleetMetrics.recent_trade_cycles[0].character_name === 'Trader Alpha' || fleetMetrics.recent_trade_cycles[1].character_name === 'Trader Alpha', 'Cycles must preserve character attribution');

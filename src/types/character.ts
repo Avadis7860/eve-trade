@@ -1,137 +1,3 @@
-import type {
-  CorporationWalletDivisionInfo,
-  FinancialCompleteness,
-  RealizedFeeBreakdown,
-  ExecutionFeeRoleMode,
-  TreasurySourceMode,
-  CapitalRecoverySummary,
-  EconomicOperationRecoveryState,
-} from './financial';
-import type { EveCharacterOrder, OrderId, OrderOwnership } from './order';
-
-export type SessionAuthStatus =
-  | 'SESSION_VALID'
-  | 'SESSION_EXPIRING'
-  | 'SESSION_REFRESHING'
-  | 'SESSION_EXPIRED'
-  | 'SESSION_REVOKED'
-  | 'SESSION_CORRUPTED';
-
-export interface EveCharacterSession {
-  session_version?: number; // Version 2
-  character_id: number;
-  character_name: string;
-  portrait_url: string;
-  access_token: string;
-  refresh_token?: string;
-  expires_at?: number; // Unix timestamp in milliseconds
-  wallet_balance?: number;
-  corporation_id?: number;
-  corporation_name?: string;
-  corporation_ticker?: string;
-  corporation_wallets?: CorporationWalletDivisionInfo[];
-  accounting_skill?: number;
-  broker_relations_skill?: number;
-  advanced_broker_relations_skill?: number;
-  location_name?: string;
-  ship_name?: string;
-  assigned_hub_id?: string; // e.g. "jita", "amarr", "dodixie", "rens", "hek"
-  assigned_hub_name?: string;
-  assigned_station_id?: number;
-  active_orders_count?: {
-    buy_orders: number;
-    sell_orders: number;
-    total: number;
-  };
-  last_sync?: string;
-  last_validated_at?: string;
-  is_active?: boolean;
-  is_token_expired?: boolean;
-  auth_status?: SessionAuthStatus;
-  auth_error?: string;
-}
-
-/**
- * Phase 2 — Order Scoping & Multi-Character Context Contracts
- */
-export type OrderScope =
-  | {
-      type: 'active_character';
-    }
-  | {
-      type: 'character';
-      characterId: string;
-    }
-  | {
-      type: 'corporation';
-      corporationId: string;
-    };
-
-export interface OrderCharacterContext {
-  characterId: string;
-  characterName: string;
-}
-
-export interface OrderCorporationContext {
-  corporationId: string;
-  corporationName?: string;
-}
-
-export interface OrderSelectionContext {
-  activeCharacterId: string;
-  corporationIds: string[];
-}
-
-export interface OrderCollection {
-  orders: EveCharacterOrder[];
-  characters: OrderCharacterContext[];
-  corporations?: OrderCorporationContext[];
-  scope: OrderScope;
-}
-
-export interface EveCharacterTransaction {
-  transaction_id: number;
-  character_id?: number;
-  character_name?: string;
-  date: string;
-  type_id: number;
-  type_name?: string;
-  location_id: number;
-  location_name?: string;
-  unit_price: number;
-  quantity: number;
-  is_buy: boolean;
-  is_personal: boolean;
-  client_id: number;
-  client_name?: string;
-  journal_ref_id?: number;
-}
-
-export interface EveCharacterOrderHistory {
-  order_id: OrderId;
-  /** Canonical ownership/provenance; legacy snapshots may omit this during migration. */
-  ownership?: OrderOwnership;
-  /** Backward-compatible character-owner projection; undefined for corporation-owned orders. */
-  character_id?: number;
-  character_name?: string;
-  type_id: number;
-  type_name?: string;
-  region_id: number;
-  region_name?: string;
-  location_id: number;
-  location_name?: string;
-  price: number;
-  volume_remain: number;
-  volume_total: number;
-  is_buy_order: boolean;
-  issued: string;
-  duration: number;
-  escrow?: number;
-  state: 'cancelled' | 'expired' | 'fulfilled' | 'open';
-  completed_at?: string;
-  /** @deprecated Use ownership.owner_type === 'corporation'. */
-  is_corporation?: boolean;
-}
 
 export interface EveCharacterJournalEntry {
   id: number;
@@ -159,10 +25,12 @@ export interface TradeCycleRecord {
   total_sell_revenue: number;
   gross_profit: number;
   estimated_fees_paid: number;
-  net_profit: number;
+  /** Null when the net result is unavailable; gross_profit remains separately observable. */
+  net_profit: number | null;
   roi: number | null; // null when the ROI denominator is unavailable
   hold_days: number;
-  is_profitable: boolean;
+  /** Null when profitability cannot be determined from available financial evidence. */
+  is_profitable: boolean | null;
   buy_location?: string;
   sell_location?: string;
   financial_completeness?: FinancialCompleteness;
@@ -212,7 +80,8 @@ export interface TraderPerformanceMetrics {
   character_name: string;
   last_calculated: string;
   /** Net result summed across realized disposal allocations, including partial positions. */
-  total_realized_profit: number; // in ISK
+  /** Null when at least one included financial result cannot be evidenced as net. */
+  total_realized_profit: number | null; // in ISK
   /** Explicit economic scope of total_realized_profit. */
   realized_profit_scope?: 'DISPOSAL_ALLOCATIONS';
   total_buy_volume: number; // in ISK
@@ -253,115 +122,3 @@ export interface TraderPerformanceMetrics {
   activity_by_location: Array<{
     location_id: number;
     location_name: string;
-    total_volume_isk: number;
-    transaction_count: number;
-  }>;
-  category_success_rate: Record<string, {
-    total_trades: number;
-    profit_isk: number;
-    win_rate: number;
-    avg_roi: number;
-    profit_label?: string;
-    is_net_estimated?: boolean;
-  }>;
-  trader_title: string;
-  trader_badge_color: string;
-  calibration_weight: number;
-  // Financial truth & completeness metrics (Chantier 3B-4A.2)
-  financial_completeness?: FinancialCompleteness;
-  is_net_estimated?: boolean;
-  realized_profit_label?: string;
-  execution_fee_mode?: ExecutionFeeRoleMode;
-  total_realized_gross?: number;
-  total_estimated_fees?: number;
-  has_unmatched_trades?: boolean;
-  unmatched_trades_count?: number;
-}
-
-export type OrderAdvisorAction = 'keep' | 'lower_price' | 'cancel' | 'relocate';
-
-export interface OrderAdvisorRecommendation {
-  order_id: OrderId;
-  type_id: number;
-  type_name: string;
-  is_buy_order: boolean;
-  order_price: number;
-  volume_remain: number;
-  volume_total: number;
-  location_name: string;
-  region_name: string;
-  action: OrderAdvisorAction;
-  urgency: 'low' | 'medium' | 'high' | 'critical';
-  headline: string;
-  summary: string;
-  reasoning: string;
-
-  // Option 1: Lower Price
-  suggested_new_price?: number;
-  price_delta_percent?: number;
-  estimated_profit_if_lowered?: number;
-  estimated_roi_if_lowered?: number;
-  estimated_days_to_sell_after_cut?: number;
-  retained_profit_isk?: number;
-
-  // Option 2: Relocate to better market
-  suggested_relocate_hub?: {
-    hub_id: string;
-    hub_name: string;
-    region_name: string;
-    station_name: string;
-    jumps: number;
-    is_highsec: boolean;
-    current_best_sell_price: number;
-    daily_volume: number;
-    estimated_extra_profit_isk: number;
-    net_profit_after_transport_and_relist: number;
-    estimated_roi: number;
-  };
-
-  // Option 3: Cancel
-  cancel_reason?: 'dead_volume' | 'severe_crash_under_cost' | 'capital_inefficiency';
-  opportunity_cost_per_day?: number;
-  capital_locked: number;
-
-  // Competition analysis
-  market_snapshot?: {
-    current_lowest_sell: number;
-    current_highest_buy: number;
-    orders_ahead: number;
-    volume_ahead: number;
-    my_price_rank: number;
-    daily_velocity: number;
-  };
-}
-
-export interface PersistedCharacterTransaction {
-  readonly transaction_id: number;
-  readonly character_id: number;
-
-  readonly type_id: number;
-  readonly location_id: number;
-
-  readonly is_buy: boolean;
-  readonly quantity: number;
-  readonly unit_price: number;
-
-  readonly timestamp: string; // ISO-8601 UTC date of the EVE transaction event
-
-  readonly is_personal?: boolean;
-  readonly client_id?: number;
-  readonly client_name?: string;
-  readonly type_name?: string;
-  readonly location_name?: string;
-  readonly journal_ref_id?: number;
-
-  // Provenance & Audit Metadata
-  readonly first_seen_at: string; // ISO-8601 UTC when locally ingested
-  readonly last_seen_at: string;  // ISO-8601 UTC when last observed in ESI
-  readonly source: 'ESI';
-  readonly source_endpoint: string; // e.g. "/characters/{character_id}/wallet/transactions/"
-  readonly ingestion_version: string; // "1.0.0"
-
-  readonly data_state: 'VALID' | 'PARTIAL' | 'INVALID';
-  readonly validation_errors?: readonly string[];
-}

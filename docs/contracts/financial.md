@@ -69,6 +69,17 @@ The -999,860 ISK value measures capital still unrecovered at the position/operat
 
 The +40 ISK value measures realized P&L on the disposed unit. It is not a whole-operation ROI.
 
+## Source coverage vs financial completeness
+
+These are independent quality dimensions.
+
+- source coverage describes whether the economic acquisition/disposal lineage is reconstructable.
+- financial completeness additionally describes whether the financial result, including fee treatment, is fully evidenced.
+
+A position can therefore be MARKET_TRACEABLE while financial completeness is UNAVAILABLE when its economic cost basis is known but fee configuration is absent. Such a position may still reach CLOSED; it must not be presented as observed net-of-fees profit.
+
+Consumer logic must never use fee availability as a proxy for lifecycle closure.
+
 ## Scope rules for ROI and break-even
 
 A KPI must declare its economic scope.

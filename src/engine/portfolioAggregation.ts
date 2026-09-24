@@ -194,50 +194,81 @@ function buildPrincipalScope(
   }
 }
 
+export interface PortfolioOrderScopeResolution {
+  scopedOrders: EveCharacterOrder[];
+  unresolvedCorporationOrders: EveCharacterOrder[];
+}
+
+export function resolvePortfolioOrderScope(
+  orders: EveCharacterOrder[],
+  treasury: PortfolioTreasurySnapshot,
+  config: FinancialConfig,
+  characters: EveCharacterSession[] = [],
+): PortfolioOrderScopeResolution {
+  const linkedCharacterIds = new Set(characters.map((character) => character.character_id));
+  const corporationId = config.corporation_id;
+  const scopedOrders: EveCharacterOrder[] = [];
+  const unresolvedCorporationOrders: EveCharacterOrder[] = [];
+
+  for (const order of orders) {
+    const ownerType = order.ownership?.owner_type;
+    const ownerId = order.ownership?.owner_id;
+
+    if (treasury.source_mode === 'corporation') {
+      if (ownerType !== 'corporation' || typeof ownerId !== 'number' || ownerId !== corporationId) {
+        continue;
+      }
+
+      const selectedDivision = treasuryDivision(treasury, config);
+      if (order.ownership?.wallet_division === selectedDivision) {
+        scopedOrders.push(order);
+      } else if (order.ownership?.wallet_division === undefined) {
+        // Economic ownership is known, but the source did not expose a wallet
+        // division. Keep the observation visible as unresolved instead of
+        // silently dropping it or inventing the selected division.
+        unresolvedCorporationOrders.push(order);
+      }
+      continue;
+    }
+
+    if (treasury.source_mode === 'fleet_consolidated') {
+      if (ownerType === 'corporation') continue;
+      if (ownerType === 'character' && typeof ownerId === 'number') {
+        if (linkedCharacterIds.has(ownerId)) scopedOrders.push(order);
+      } else if (
+        ownerType === undefined &&
+        typeof order.character_id === 'number' &&
+        linkedCharacterIds.has(order.character_id)
+      ) {
+        scopedOrders.push(order);
+      }
+      continue;
+    }
+
+    if (treasury.source_mode === 'active_character') {
+      const activeId = parseCharacterId(treasury.principal_scope);
+      if (ownerType === 'corporation') continue;
+      if (ownerType === 'character') {
+        if (ownerId === activeId) scopedOrders.push(order);
+      } else if (typeof order.character_id === 'number' && order.character_id === activeId) {
+        scopedOrders.push(order);
+      }
+      continue;
+    }
+
+    // A manual budget has no observed economic order scope by itself.
+  }
+
+  return { scopedOrders, unresolvedCorporationOrders };
+}
+
 export function scopePortfolioOrders(
   orders: EveCharacterOrder[],
   treasury: PortfolioTreasurySnapshot,
   config: FinancialConfig,
   characters: EveCharacterSession[] = [],
 ): EveCharacterOrder[] {
-  const linkedCharacterIds = new Set(characters.map((character) => character.character_id));
-  const corporationId = config.corporation_id;
-
-  return orders.filter((order) => {
-    const ownerType = order.ownership?.owner_type;
-    const ownerId = order.ownership?.owner_id;
-
-    if (treasury.source_mode === 'corporation') {
-      return (
-        ownerType === 'corporation' &&
-        typeof ownerId === 'number' &&
-        ownerId === corporationId &&
-        order.ownership?.wallet_division === treasuryDivision(treasury, config)
-      );
-    }
-
-    if (treasury.source_mode === 'fleet_consolidated') {
-      if (ownerType === 'corporation') return false;
-      if (ownerType === 'character' && typeof ownerId === 'number') {
-        return linkedCharacterIds.has(ownerId);
-      }
-      return (
-        ownerType === undefined &&
-        typeof order.character_id === 'number' &&
-        linkedCharacterIds.has(order.character_id)
-      );
-    }
-
-    if (treasury.source_mode === 'active_character') {
-      const activeId = parseCharacterId(treasury.principal_scope);
-      if (ownerType === 'corporation') return false;
-      if (ownerType === 'character') return ownerId === activeId;
-      return typeof order.character_id === 'number' && order.character_id === activeId;
-    }
-
-    // A manual budget has no observed economic order scope by itself.
-    return false;
-  });
+  return resolvePortfolioOrderScope(orders, treasury, config, characters).scopedOrders;
 }
 
 function parseCharacterId(scope: string): number | null {

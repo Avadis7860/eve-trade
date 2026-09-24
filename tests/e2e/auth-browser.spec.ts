@@ -357,11 +357,14 @@ test.describe('E2E-001 — browser OAuth composition', () => {
     );
     expect(crossCharacterStatus).toBe(403);
 
-    await page.getByRole('button', { name: /Flotte & Rôles \(2\)/ }).click();
+    await expect(page.getByRole('heading', { name: /Personnages & Hubs/ })).toBeVisible();
     await expect(page.getByText('2 pilotes', { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Activer' })).toHaveCount(1);
+    await expect(page.getByText('Personnages connectés', { exact: true })).toBeVisible();
+    await expect(page.getByText(ALPHA.name, { exact: true })).toBeVisible();
+    await expect(page.getByText(BETA.name, { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Activer', exact: true })).toHaveCount(1);
 
-    await page.getByRole('button', { name: 'Activer' }).click();
+    await page.getByRole('button', { name: 'Activer', exact: true }).click();
 
     const afterSwitch = await page.evaluate(() => JSON.parse(localStorage.getItem('eve_trade_character_store_v3')!));
     expect(afterSwitch.active_character_id).toBe(ALPHA.id);

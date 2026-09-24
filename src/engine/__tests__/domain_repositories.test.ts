@@ -180,6 +180,24 @@ if (!cachedSnap || cachedSnap.wallet_balance !== 500000000 || cachedSnap.active_
   throw new Error('CharacterRepository snapshot retrieval failed');
 }
 
+let snapshotNotificationCount = 0;
+const unsubscribeSnapshots = charRepo.subscribe(() => {
+  snapshotNotificationCount += 1;
+});
+const notificationBaseline = snapshotNotificationCount;
+
+charRepo.saveSnapshot(54321, {
+  wallet_balance: 500000000,
+  skills: { accounting: 5, broker_relations: 5 },
+  active_orders: cachedSnap.active_orders,
+});
+
+unsubscribeSnapshots();
+
+if (snapshotNotificationCount <= notificationBaseline) {
+  throw new Error('CharacterRepository must notify subscribers when a snapshot changes');
+}
+
 // Cleanup test characters from repo
 charRepo.removeCharacter(12345);
 charRepo.removeCharacter(54321);

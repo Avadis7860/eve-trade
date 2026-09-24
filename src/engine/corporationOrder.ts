@@ -245,6 +245,79 @@ export function normalizeCorporationOrderHistory(
 }
 
 /**
+ * One observer's order observations as they arrive from a durable snapshot
+ * or the active in-memory synchronization path.
+ */
+export interface OrderObservationSet {
+  readonly observerCharacterId: number;
+  readonly observerCharacterName: string;
+  readonly orders: readonly EveCharacterOrder[];
+}
+
+/**
+ * Aggregates order observations without changing economic ownership.
+ *
+ * Legacy personal orders without canonical ownership receive the observing
+ * character only as a backward-compatible character projection. Corporate
+ * orders never receive a synthetic character owner. Conflicting economic
+ * owners
+ * for one canonical order ID fail closed through mergeOrderObservations().
+ */
+export function aggregateOrderObservations(
+  observations: readonly OrderObservationSet[],
+): EveCharacterOrder[] {
+  const byId = new Map<string, EveCharacterOrder>();
+
+  for (const observation of observations) {
+    if (
+      !Number.isInteger(observation.observerCharacterId) ||
+      observation.observerCharacterId <= 0 ||
+      typeof observation.observerCharacterName !== 'string' ||
+      observation.observerCharacterName.length === 0
+    ) {
+      continue;
+    }
+
+    for (const order of observation.orders) {
+      const corporationOwned =
+        order.ownership?.owner_type === 'corporation' ||
+        order.is_corporation === true;
+
+      const candidateOrder: EveCharacterOrder = corporationOwned
+        ? {
+            ...order,
+            character_id: undefined,
+            character_name: undefined,
+          }
+        : order.ownership
+          ? order
+          : {
+              ...order,
+              character_id: observation.observerCharacterId,
+              character_name: observation.observerCharacterName,
+            };
+
+      const existingOrder = byId.get(candidateOrder.order_id);
+      if (!existingOrder) {
+        byId.set(candidateOrder.order_id, candidateOrder);
+        continue;
+      }
+
+      const mergedOrder = mergeOrderObservations(existingOrder, candidateOrder);
+      if (mergedOrder) {
+        byId.set(candidateOrder.order_id, mergedOrder);
+      } else {
+        // Conflicting economic ownership is an integrity error. Do not choose
+        // a winner and do not leak a contradictory order into downstream scope.
+        byId.delete(candidateOrder.order_id);
+      }
+    }
+  }
+
+  return Array.from(byId.values());
+}
+
+/**
  * Corporate endpoint is authoritative for corporation-owned orders when the
  * same order is also present in a character-scoped response.
  */

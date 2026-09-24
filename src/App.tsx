@@ -18,7 +18,7 @@ import { CatalogRepository } from './domain/catalog/CatalogRepository';
 import { CharacterRepository } from './domain/character/CharacterRepository';
 import { MarketOutcomeTracker } from './services/marketOutcomeTracker';
 import { selectOrdersByScope } from './engine/orderScoping';
-import { mergeOrderObservations } from './engine/corporationOrder';
+import { aggregateOrderObservations } from './engine/corporationOrder';
 
 import { AuthProvider, useAuth } from './context/AuthProvider';
 import { CatalogProvider, useCatalog } from './context/CatalogProvider';
@@ -114,94 +114,53 @@ const AppShell: React.FC = () => {
   // Phase 2 — Order Scoping & Multi-Character Context
   const [orderScope, setOrderScope] = useState<OrderScope>({ type: 'active_character' });
 
+  // The character repository is durable state, but its snapshots are mutable
+  // outside React. Subscribe explicitly so a completed ESI sync becomes a
+  // render-driving event instead of waiting for an unrelated state update.
+  const [orderRepositoryVersion, setOrderRepositoryVersion] = useState(0);
+  useEffect(() => {
+    const unsubscribe = CharacterRepository.getInstance().subscribe(() => {
+      setOrderRepositoryVersion((version) => version + 1);
+    });
+    return unsubscribe;
+  }, []);
+
+  const orderContextCharacters = useMemo(() => {
+    const contexts = [...linkedCharacters];
+    if (
+      characterSession &&
+      !contexts.some((character) => character.character_id === characterSession.character_id)
+    ) {
+      contexts.push(characterSession);
+    }
+    return contexts;
+  }, [linkedCharacters, characterSession]);
+
   const allFleetOrders = useMemo(() => {
     const snapshots = CharacterRepository.getInstance().getAllSnapshots();
-    const orderMap = new Map<string, EveCharacterOrder>();
+    const observations = orderContextCharacters.map((character) => ({
+      observerCharacterId: character.character_id,
+      observerCharacterName: character.character_name,
+      orders: snapshots[character.character_id]?.active_orders ?? [],
+    }));
 
-    // Add orders from snapshots for each linked character
-    for (const char of linkedCharacters) {
-      const snap = snapshots[char.character_id];
-      if (snap?.active_orders) {
-        for (const ord of snap.active_orders) {
-          const corporationOwned =
-            ord.ownership?.owner_type === 'corporation' || ord.is_corporation === true;
-
-          const candidateOrder: EveCharacterOrder = {
-            ...ord,
-            ...(corporationOwned
-              ? {
-                  character_id: undefined,
-                  character_name: undefined,
-                }
-              : {
-                  character_id: char.character_id,
-                  character_name: char.character_name,
-                }),
-          };
-          const existingOrder = orderMap.get(ord.order_id);
-          if (existingOrder) {
-            const mergedOrder = mergeOrderObservations(existingOrder, candidateOrder);
-            if (mergedOrder) {
-              orderMap.set(ord.order_id, mergedOrder);
-            } else {
-              console.warn(
-                `[App] conflicting ownership observations for order ${ord.order_id}; order excluded from aggregate`,
-              );
-            }
-          } else {
-            orderMap.set(ord.order_id, candidateOrder);
-          }
-        }
-      }
-    }
-
-    // Also include currently loaded characterOrders (from active character)
+    // The in-memory active-character stream is an additional observation,
+    // not a separate owner. Durable snapshots remain the fallback source.
     if (characterSession) {
-      for (const ord of characterOrders) {
-        const corporationOwned =
-          ord.ownership?.owner_type === 'corporation' || ord.is_corporation === true;
-
-        const candidateOrder: EveCharacterOrder = {
-          ...ord,
-          ...(corporationOwned
-            ? {
-                character_id: undefined,
-                character_name: undefined,
-              }
-            : {
-                character_id: characterSession.character_id,
-                character_name: characterSession.character_name,
-              }),
-        };
-        const existingOrder = orderMap.get(ord.order_id);
-        if (existingOrder) {
-          const mergedOrder = mergeOrderObservations(existingOrder, candidateOrder);
-          if (mergedOrder) {
-            orderMap.set(ord.order_id, mergedOrder);
-          } else {
-            console.warn(
-              `[App] conflicting ownership observations for order ${ord.order_id}; order excluded from aggregate`,
-            );
-          }
-        } else {
-          orderMap.set(ord.order_id, candidateOrder);
-        }
-      }
+      observations.push({
+        observerCharacterId: characterSession.character_id,
+        observerCharacterName: characterSession.character_name,
+        orders: characterOrders,
+      });
     }
 
-    return Array.from(orderMap.values());
-  }, [linkedCharacters, characterSession, characterOrders]);
-
-  const orderContextCharacters = useMemo(
-    () => (
-      linkedCharacters.length > 0
-        ? linkedCharacters
-        : characterSession
-          ? [characterSession]
-          : []
-    ),
-    [linkedCharacters, characterSession]
-  );
+    return aggregateOrderObservations(observations);
+  }, [
+    orderContextCharacters,
+    characterSession,
+    characterOrders,
+    orderRepositoryVersion,
+  ]);
 
   const orderSelectionContext: OrderSelectionContext = useMemo(
     () => ({

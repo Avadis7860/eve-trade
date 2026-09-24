@@ -1,5 +1,6 @@
 import type { EveCharacterOrder } from '../../types';
 import {
+  aggregateOrderObservations,
   mergeCharacterAndCorporationOrders,
   mergeOrderObservations,
   normalizeCorporationOrder,
@@ -197,6 +198,33 @@ function run(): void {
     [normalizedA as NonNullable<typeof normalizedA>],
   );
   assert(mergedDistinct.length === 2, 'Distinct order IDs must both remain');
+
+  const aggregatedFromSnapshot = aggregateOrderObservations([
+    {
+      observerCharacterId: 2124224223,
+      observerCharacterName: 'Observed Capsuleer',
+      orders: [observedShape as NonNullable<typeof observedShape>],
+    },
+  ]);
+  assert(
+    aggregatedFromSnapshot.length === 1,
+    'A valid corporation order retained in a snapshot observation must reach aggregation',
+  );
+  assert(
+    aggregatedFromSnapshot[0].ownership?.owner_type === 'corporation' &&
+      aggregatedFromSnapshot[0].ownership?.owner_id === 99001,
+    'Snapshot aggregation must preserve economic corporation ownership',
+  );
+  assert(
+    aggregatedFromSnapshot[0].character_id === undefined &&
+      aggregatedFromSnapshot[0].character_name === undefined,
+    'Snapshot aggregation must not assign the observing character as economic owner',
+  );
+  assert(
+    aggregatedFromSnapshot[0].ownership?.principal_character_id === 2124224223 &&
+      aggregatedFromSnapshot[0].ownership?.wallet_division === 1,
+    'Snapshot aggregation must preserve observer and wallet provenance',
+  );
 
   console.log('✅ Corporation order normalization and ownership contract verified.');
 }

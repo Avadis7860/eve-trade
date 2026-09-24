@@ -979,18 +979,9 @@ export class TraderAnalyticsService {
   /**
    * Fleet transaction projection.
    *
-   * A fleet is a reporting scope, not an economic owner. Transactions remain
-   * isolated by their economic character principal and are first processed by
-   * the canonical character-level financial engine before FleetFinancialEngine
-   * aggregates the resulting metrics.
-   *
-   * Cross-character BUY -> SELL matching is deliberately not performed here:
-   * without an explicit transfer/ownership fact, that would fabricate a causal
-   * inventory transfer between distinct economic owners.
-   *
-   * The compatibility method now passes all supplied transactions through one
-   * shared accounting scope before returning consolidated reporting metrics.
-   * Reporting character identity is not used as an accounting boundary.
+   * A fleet is a reporting scope, not an economic owner. The consolidated
+   * transaction path is reconstructed once inside one explicit accounting scope.
+   * Character identity remains transaction attribution/provenance only.
    */
   static processFleetConsolidatedTransactions(
     characters: {

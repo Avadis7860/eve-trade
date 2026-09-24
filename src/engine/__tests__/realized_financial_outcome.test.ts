@@ -617,45 +617,51 @@ async function runAllTests() {
     console.log('  [PASS] Test 18: Execution record immutability verified.');
   }
 
-  // Test 19: Cross-Character Isolation Guard
+  // Test 19: Cross-Character Economic Allocation
   {
-    console.log('--- Test 19: Cross-Character Isolation Guard ---');
-    const buy: ExecutionTransactionRef = { transaction_id: 101, type_id: 34, location_id: 60003760, is_buy: true, quantity: 1000, unit_price: 100, timestamp: '2026-09-20T10:00:00Z' };
-    const record = createMockExecutionRecord({ characterId: 2112001, buyTxs: [buy] });
-
-    // Inject external transaction belonging to Char B (2112002)
-    const foreignTx: PersistedCharacterTransaction = {
-      transaction_id: 999,
-      character_id: 2112002, // Foreign!
+    console.log('--- Test 19: Cross-Character Economic Allocation ---');
+    const buy: ExecutionTransactionRef = {
+      transaction_id: 101,
+      character_id: 2112001,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: true,
+      quantity: 1000,
+      unit_price: 100,
+      timestamp: '2026-09-20T10:00:00Z',
+    };
+    const sell: ExecutionTransactionRef = {
+      transaction_id: 201,
+      character_id: 2112002,
       type_id: 34,
       location_id: 60003760,
       is_buy: false,
-      quantity: 1000,
+      quantity: 1,
       unit_price: 150,
       timestamp: '2026-09-20T12:00:00Z',
-      client_id: 1,
-      first_seen_at: '2026-09-20T12:00:00Z',
-      last_seen_at: '2026-09-20T12:00:00Z',
-      source: 'ESI',
-      source_endpoint: '/test',
-      ingestion_version: '1.0.0',
-      data_state: 'VALID',
     };
 
-    let caughtError = false;
-    try {
-      RealizedFinancialOutcomeEngine.calculate(record, {
-        transactions: [foreignTx],
-      });
-    } catch (err) {
-      if (err instanceof CrossCharacterFinancialMappingViolationError) {
-        caughtError = true;
-      }
-    }
+    const outcome = RealizedFinancialOutcomeEngine.calculateForTransactions(
+      2112001,
+      34,
+      [buy, sell],
+      {
+        financialConfig: mockFinancialConfig,
+        accounting_scope_id: 'ecosystem:test',
+      },
+    );
 
-    assert(caughtError, 'CrossCharacterFinancialMappingViolationError must be thrown on foreign transaction');
-    console.log('  [PASS] Test 19: Cross-character isolation guard verified.');
+    assert(outcome.matched_quantity === 1, 'cross-character sale must consume shared inventory');
+    assert(outcome.position_remaining_quantity === 999, '999 units must remain');
+    assert(outcome.position_lifecycle === 'PARTIALLY_REALIZED', 'position remains partial');
+    assert(outcome.position_disposition_states[0].lifecycle_status === 'PARTIALLY_REALIZED', 'partial disposal remains open');
+    assert(outcome.fifo_allocations[0].provenance.principal_scope === 'character:2112002', 'seller provenance is preserved');
+    assert(outcome.remaining_lots[0].provenance.principal_scope === 'character:2112001', 'buyer provenance is preserved');
+    assert(outcome.accounting_scope_id === 'ecosystem:test', 'accounting scope is preserved');
+    assert(outcome.source_coverage === 'MARKET_TRACEABLE', 'market-only lineage is traceable');
+    console.log('  [PASS] Test 19: Cross-character economic allocation validated.');
   }
+
 
   // Test 20: Idempotence
   {

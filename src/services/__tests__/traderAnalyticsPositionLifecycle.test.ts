@@ -279,6 +279,47 @@ function run() {
   assert(orphanCycle.financial_completeness === 'PARTIAL', 'An orphan sale remains financially PARTIAL');
   assert(orphanMetrics.average_realized_roi === null, 'Average realized ROI must be unavailable without a closed-position denominator');
 
+  const unavailableNetMetrics = TraderAnalyticsService.processTransactions(
+    1001,
+    'Test Trader',
+    [
+      tx(800, true, 100, 100, '2026-09-20T10:00:00Z'),
+      tx(801, false, 100, 150, '2026-09-20T11:00:00Z'),
+    ],
+    [],
+    [],
+    undefined,
+    undefined,
+    {},
+  );
+
+  assert(unavailableNetMetrics.total_realized_profit === null, 'aggregate net must be UNKNOWN when fee evidence is unavailable');
+  assert(unavailableNetMetrics.total_closed_trades === 0, 'unavailable net must not publish a closed-position KPI');
+  assert(unavailableNetMetrics.recent_trade_cycles[0].net_profit === null, 'cycle net must remain UNKNOWN without fee evidence');
+  assert(unavailableNetMetrics.recent_trade_cycles[0].is_profitable === null, 'cycle profitability must remain UNKNOWN without net evidence');
+  assert(
+    unavailableNetMetrics.recent_trade_cycles[0].position_net_profit === undefined,
+    'whole-position net must not be published when fee evidence is unavailable',
+  );
+
+  const scopedCharacter = tx(820, true, 10, 100, '2026-09-20T10:00:00Z');
+  const scopedDisposition = {
+    ...tx(821, false, 10, 150, '2026-09-20T11:00:00Z'),
+    accounting_scope_id: 'ecosystem:cache-test',
+  };
+  scopedCharacter.accounting_scope_id = 'ecosystem:cache-test';
+  const scopedMetrics = TraderAnalyticsService.processTransactions(
+    1001,
+    'Test Trader',
+    [scopedCharacter, scopedDisposition],
+    [],
+    [],
+    5,
+    5,
+    { executionFeeMode: 'TAKER_TAKER', accounting_scope_id: 'ecosystem:cache-test' },
+  );
+  assert(scopedMetrics.total_realized_profit !== null, 'scoped analytics should still calculate with explicit fee evidence');
+
   console.log('[PASS] FIN-002 position-based analytics semantics validated.');
 }
 

@@ -7,7 +7,6 @@ import {
   PersonalCalibrationFit,
   EveTypeDetail,
   CharacterExecutionRecord,
-  CharacterFinancialResult,
   FinancialCompleteness,
   FinancialConfig,
   RealizedFeeBreakdown,
@@ -344,6 +343,13 @@ export class TraderAnalyticsService {
           );
           const positionLifecycle = dispositionState?.lifecycle_status ?? 'UNKNOWN';
           const positionRemainingQuantity = dispositionState?.remaining_position_quantity;
+          const operationId = dispositionState?.operation_id;
+          const operationCapitalCommitted = dispositionState?.operation_capital_committed;
+          const operationCashRecovered = dispositionState?.operation_cash_recovered;
+          const operationRecoveryDelta = dispositionState?.operation_recovery_delta;
+          const operationRecoveryRatio = dispositionState?.operation_recovery_ratio;
+          const operationRecoveryState = dispositionState?.operation_recovery_state;
+          const operationQuantityAcquired = dispositionState?.operation_quantity_acquired;
 
           const cycleProfitLabel =
             cycleCompleteness === 'UNAVAILABLE'
@@ -397,6 +403,13 @@ export class TraderAnalyticsService {
             position_remaining_quantity: positionRemainingQuantity,
             is_position_closed: positionLifecycle === 'CLOSED',
             realized_result_scope: 'DISPOSAL_ALLOCATION',
+            operation_id: operationId,
+            operation_capital_committed: operationCapitalCommitted,
+            operation_cash_recovered: operationCashRecovered,
+            operation_recovery_delta: operationRecoveryDelta,
+            operation_recovery_ratio: operationRecoveryRatio,
+            operation_recovery_state: operationRecoveryState,
+            operation_quantity_acquired: operationQuantityAcquired,
             character_id: sellTx.character_id ?? characterId,
             character_name: sellTx.character_name ?? characterName,
           };
@@ -459,61 +472,53 @@ export class TraderAnalyticsService {
       }
     }
 
-    // Derive whole-position performance only at genuine closure boundaries.
-    // Disposal results remain the event-level financial fact; closed-position
-    // KPIs use the cumulative result of every disposal in the position segment.
-    const cyclesByType = new Map<number, TradeCycleRecord[]>();
+    // Whole-operation performance is derived from canonical operation
+    // identity emitted by PositionLedger. Disposal-level P&L remains visible on
+    // every cycle; closure KPIs publish the cumulative result only on the
+    // disposal that closes that operation.
+    const cyclesByOperation = new Map<string, TradeCycleRecord[]>();
     for (const cycle of completedCycles) {
-      const list = cyclesByType.get(cycle.type_id) ?? [];
+      const key = cycle.operation_id ?? `legacy:type:${cycle.type_id}`;
+      const list = cyclesByOperation.get(key) ?? [];
       list.push(cycle);
-      cyclesByType.set(cycle.type_id, list);
+      cyclesByOperation.set(key, list);
     }
 
-    for (const [typeId, typeCycles] of cyclesByType) {
+    for (const typeCycles of cyclesByOperation.values()) {
       const orderedCycles = [...typeCycles].sort(
         (a, b) =>
           new Date(a.sell_date).getTime() - new Date(b.sell_date).getTime() ||
           a.cycle_id.localeCompare(b.cycle_id),
       );
-      let positionNetProfit = 0;
-      let positionAcquisitionCost = 0;
-      let positionQuantity = 0;
+      let operationNetProfit = 0;
       let weightedBuyTimeMs = 0;
-      let hasIncompleteSegment = false;
+      let disposedQuantity = 0;
 
       for (const cycle of orderedCycles) {
-        positionNetProfit = roundIsk(positionNetProfit + cycle.net_profit);
-        positionAcquisitionCost = roundIsk(positionAcquisitionCost + cycle.total_buy_cost);
-        positionQuantity += cycle.quantity;
+        operationNetProfit = roundIsk(operationNetProfit + cycle.net_profit);
+        disposedQuantity += cycle.quantity;
 
         const buyTime = Date.parse(cycle.buy_date);
         if (Number.isFinite(buyTime) && cycle.quantity > 0) {
           weightedBuyTimeMs += buyTime * cycle.quantity;
         }
-        // Position closure is an economic-lifecycle property, not a fee/configuration property.
-        // A MARKET_TRACEABLE position may legitimately have financial_completeness=UNAVAILABLE
-        // when fees are not configured; this must not suppress whole-position closure.
-        // PARTIAL/UNAVAILABLE source coverage, however, means the economic lineage itself
-        // is incomplete and cannot certify the whole-position result.
-        if (
-          cycle.source_coverage !== 'MARKET_TRACEABLE' ||
-          (cycle.unmatched_sell_quantity ?? 0) > 0
-        ) {
-          hasIncompleteSegment = true;
-        }
 
-        if (cycle.position_lifecycle !== 'CLOSED') continue;
+        if (!cycle.is_position_closed) continue;
 
+        const operationCapitalCommitted = cycle.operation_capital_committed;
+        const operationQuantityAcquired =
+          cycle.operation_quantity_acquired ?? disposedQuantity;
         const canPublishWholePosition =
-          !hasIncompleteSegment &&
-          positionAcquisitionCost > 0 &&
-          positionQuantity > 0 &&
+          operationCapitalCommitted !== undefined &&
+          operationCapitalCommitted > 0 &&
+          operationQuantityAcquired > 0 &&
           Number.isFinite(weightedBuyTimeMs);
 
         if (canPublishWholePosition) {
-          const positionRoi = safeDiv(positionNetProfit, positionAcquisitionCost, 0);
+          const positionRoi = safeDiv(operationNetProfit, operationCapitalCommitted!, 0);
           const finalSellTime = Date.parse(cycle.sell_date);
-          const weightedAcquisitionTime = weightedBuyTimeMs / positionQuantity;
+          const weightedAcquisitionTime =
+            weightedBuyTimeMs / Math.max(1, disposedQuantity);
           const positionHoldDays =
             Number.isFinite(finalSellTime) && Number.isFinite(weightedAcquisitionTime)
               ? Math.max(0.05, (finalSellTime - weightedAcquisitionTime) / (1000 * 60 * 60 * 24))
@@ -523,18 +528,18 @@ export class TraderAnalyticsService {
           if (index >= 0) {
             completedCycles[index] = {
               ...cycle,
-              position_net_profit: positionNetProfit,
+              position_net_profit: operationNetProfit,
               position_roi: positionRoi,
-              position_is_profitable: positionNetProfit > 0,
-              position_total_quantity: positionQuantity,
+              position_is_profitable: operationNetProfit > 0,
+              position_total_quantity: operationQuantityAcquired,
               ...(positionHoldDays !== undefined
                 ? { position_hold_days: Number(positionHoldDays.toFixed(1)) }
                 : {}),
             };
           }
 
-          const item = itemProfitMap[typeId] ?? {
-            type_id: typeId,
+          const item = itemProfitMap[cycle.type_id] ?? {
+            type_id: cycle.type_id,
             type_name: cycle.type_name,
             category_name: cycle.category_name,
             total_profit: 0,
@@ -543,20 +548,17 @@ export class TraderAnalyticsService {
             hold_days_list: [],
             total_volume_units: 0,
           };
-          item.total_profit = roundIsk(item.total_profit + positionNetProfit);
+          item.total_profit = roundIsk(item.total_profit + operationNetProfit);
           item.trades_count += 1;
           item.rois.push(positionRoi);
           item.hold_days_list.push(positionHoldDays ?? cycle.hold_days);
-          item.total_volume_units += positionQuantity;
-          itemProfitMap[typeId] = item;
+          item.total_volume_units += operationQuantityAcquired;
+          itemProfitMap[cycle.type_id] = item;
         }
 
-        // A true closure terminates the economic position segment.
-        positionNetProfit = 0;
-        positionAcquisitionCost = 0;
-        positionQuantity = 0;
+        operationNetProfit = 0;
         weightedBuyTimeMs = 0;
-        hasIncompleteSegment = false;
+        disposedQuantity = 0;
       }
     }
 

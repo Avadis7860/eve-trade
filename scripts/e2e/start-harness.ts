@@ -460,11 +460,14 @@ async function handleMock(req: http.IncomingMessage, res: http.ServerResponse): 
     }
     if (resource === 'wallet/transactions') return json(res, 200, []);
     if (resource === 'wallet/journal') return json(res, 200, []);
+    // ESI order_id is a positive decimal integer. Keep deterministic scenario
+    // labels out of the wire contract so the fixture exercises the canonical
+    // OrderId normalization path used by production data.
     const operationOrder = {
-      keep: { order_id: 'op-keep', price: 100, volume: 100 },
-      adjust: { order_id: 'op-adjust', price: 100, volume: 100 },
-      relocate: { order_id: 'op-relocate', price: 100, volume: 1_000_000 },
-      cancel: { order_id: 'op-cancel', price: 100, volume: 100 },
+      keep: { order_id: '910000001', price: 100, volume: 100 },
+      adjust: { order_id: '910000002', price: 100, volume: 100 },
+      relocate: { order_id: '910000003', price: 100, volume: 1_000_000 },
+      cancel: { order_id: '910000004', price: 100, volume: 100 },
     }[operationsScenario];
     return json(res, 200, [{
       order_id: operationOrder.order_id,

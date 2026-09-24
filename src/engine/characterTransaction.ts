@@ -436,6 +436,11 @@ export function persistedTransactionToRef(
     quantity: tx.quantity,
     unit_price: tx.unit_price,
     timestamp: tx.timestamp,
+    provenance: {
+      source_kind: 'ESI_WALLET_TRANSACTION',
+      source_id: String(tx.transaction_id),
+      principal_scope: `character:${tx.character_id}`,
+    },
     // order_id is deliberately undefined
   });
 }

@@ -670,7 +670,7 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                           {cycle.position_lifecycle === 'PARTIALLY_REALIZED' && (
                             <div className="text-[9px] text-amber-400 font-normal">cession partielle</div>
                           )}
-                          {cycle.position_roi !== undefined && (
+                          {cycle.position_roi !== undefined && cycle.position_roi !== null && (
                             <div className="text-[9px] text-[#808495] font-normal">position: {(cycle.position_roi * 100).toFixed(1)}%</div>
                           )}
                         </td>

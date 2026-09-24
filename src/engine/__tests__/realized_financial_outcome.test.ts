@@ -2084,8 +2084,8 @@ async function runAllTests() {
         `TraderPerformanceMetrics is_net_estimated must be false (got ${observedMetrics.is_net_estimated})`
       );
       assert(
-        observedMetrics.average_realized_roi_scope === 'CLOSING_DISPOSAL_ALLOCATIONS',
-        'Performance ROI scope must identify closing-disposal allocations explicitly'
+        observedMetrics.average_realized_roi_scope === 'CLOSED_POSITIONS',
+        'Performance ROI scope must identify whole closed positions explicitly'
       );
       assert(
         observedMetrics.capital_recovery?.capital_committed === 1000,

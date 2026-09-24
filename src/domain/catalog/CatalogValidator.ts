@@ -68,7 +68,7 @@ export class CatalogValidator {
         group_name: rec.group_name ? String(rec.group_name) : undefined,
         category_id: Number(rec.category_id || 0),
         category_name: rec.category_name ? String(rec.category_name) : undefined,
-        volume: Number(rec.volume || 0.01),
+        volume: Number(rec.volume),
         packaged_volume: rec.packaged_volume ? Number(rec.packaged_volume) : undefined,
         portion_size: rec.portion_size ? Number(rec.portion_size) : 1,
         average_price: rec.average_price ? Number(rec.average_price) : undefined,

@@ -1,6 +1,6 @@
 # UX-03 — Allocation / Portefeuille — Contrat métier détaillé
 
-Status: IMPLEMENTATION SCAFFOLD / FIN-001 + ORD-001 CERTIFIED / FIN-002 NEXT
+Status: IMPLEMENTATION SCAFFOLD / FIN-001 + ORD-001 CERTIFIED / FIN-002 IN PROGRESS
 Scope: UX-03 preparation, economic truth, opportunity universe, allocation semantics and validation
 Base: `main` `aec4c62691723e8fa2ee2bb2f9126249152ad57f`
 Related:
@@ -28,6 +28,10 @@ A trader may acquire by taking an existing SELL order and later dispose through 
 A disposal of 1 unit from an acquisition of 10,000 units may realize P&L on that 1 unit while leaving 9,999 units OPEN/PARTIALLY_REALIZED. UX-03 must never present that position as closed merely because a matched sale exists.
 
 Real Portfolio certification is blocked by FIN-002 and the remaining data/UX acceptance gates.
+
+### Performance semantic boundary — FIN-002
+
+The Performance projection now keeps disposal-level and whole-position semantics separate. A partial disposal can expose a positive realized sub-result while the position remains `PARTIALLY_REALIZED`; it does not count as a closed trade. When the position finally closes, the closing record may expose the cumulative whole-position result/ROI, and closed-position KPIs use that cumulative result.
 
 ## E2E findings — 2026-09-24
 

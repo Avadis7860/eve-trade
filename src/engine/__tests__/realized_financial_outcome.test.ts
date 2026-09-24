@@ -661,6 +661,21 @@ async function runAllTests() {
     console.log('  [PASS] Test 19: Cross-character economic allocation validated.');
   }
 
+    const rejected = RealizedFinancialOutcomeEngine.calculateForTransactions(
+      2112001,
+      34,
+      [
+        { ...buy, accounting_scope_id: 'ecosystem:test' },
+        { ...sell, accounting_scope_id: 'ecosystem:other' },
+      ],
+      {
+        financialConfig: mockFinancialConfig,
+        accounting_scope_id: 'ecosystem:test',
+      },
+    );
+    assert(rejected.matched_quantity === 0, 'cross-scope disposal must not consume the acquisition lot');
+    assert(rejected.source_coverage === 'PARTIAL', 'cross-scope outcome must report partial coverage');
+
 
   // Test 20: Idempotence
   {

@@ -8,7 +8,7 @@ CI gate: `npm test`
 
 ## Core areas
 
-The current test command covers order identity/scoping, corporation normalization, financial configuration/engines/realized accounting, market quality, execution correlation/outcomes/tracking, prediction/scoring, property invariants, catalog/universe truth, evidence/observations, transactions/persistence, fleet/treasury, inter-regional purity and route resolution.
+The current test command covers order identity/scoping, corporation normalization, financial configuration/engines/realized accounting, market quality, execution correlation/outcomes/tracking, prediction/scoring, property invariants, catalog/universe truth, evidence/observations, transactions/persistence, character/corporation treasury, inter-regional purity and route resolution.
 
 ## Rule
 

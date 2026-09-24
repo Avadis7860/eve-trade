@@ -185,7 +185,7 @@ export class RealizedFinancialOutcomeEngine {
       0,
     );
     // 5. Aggregate Quantities and Financial Totals
-    const totalBuyQuantity = positionLedger.position.lots.reduce(
+    const totalBuyQuantity = ledgerLots.reduce(
       (acc, lot) => acc + lot.quantity_acquired,
       0,
     );

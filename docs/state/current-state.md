@@ -74,7 +74,7 @@ The current engine/domain layers remain ahead of the UI, but the financial bound
 - Economic origin is not yet a persisted multi-source event model; FIN-002 must add the generic contract without introducing PI/Industry ingestion in this increment.
 - DATA-001 first pass preserves unavailable ratios, removes invalid economic-volume coercion, and carries financial provenance through trader analytics.
 - Missing fee evidence now leaves net realized profit and its net ratios unavailable rather than substituting a zero-fee numeric result; cross-location allocation without observed transfer evidence is explicitly PARTIAL.
-- CI remains validated for the last code increment; documentation-only commits may advance the branch ref without changing that validated code.
+- Previous CI results remain historical evidence only; the current HEAD after this hardening requires its own certification. Documentation changes and code changes alike advance the branch and therefore require current-HEAD evidence before certification.
 
 ## CI verification
 

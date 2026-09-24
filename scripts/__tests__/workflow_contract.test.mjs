@@ -93,6 +93,8 @@ assert.ok(scopeClassifier.includes('frontend = true'), 'Scope classifier must de
 assert.ok(detectionBlock.includes('scripts/ci-scope.mjs'), 'Change detection must use the tested scope classifier');
 assert.ok(detectionBlock.includes('scripts/__tests__/ci_scope.test.mjs'), 'Change detection must execute the scope classifier tests');
 assert.ok(scopeClassifier.includes('GITHUB_STEP_SUMMARY'), 'Change classifier must publish an observable scope summary');
+const contextIntegrity = read('scripts/context-integrity.mjs');
+assert.ok(contextIntegrity.includes("fs.readdirSync(workflowDir)"), 'Context integrity must inspect all workflow files so dedicated lanes such as SDE remain valid');
 
 for (const jobId of EXECUTION_JOB_IDS) {
   const block = jobBlock(jobId);

@@ -199,26 +199,6 @@ export interface TradeCycleRecord {
   character_id?: number;
   character_name?: string;}
 
-/**
- * Multi-Character Performance Contract
- */
-export type PerformanceScope =
-  | {
-      type: 'active_character';
-    }
-  | {
-      type: 'character';
-      characterId: string;
-    };
-
-export interface CharacterFinancialResult {
-  characterId: string;
-  characterName: string;
-  metrics?: TraderPerformanceMetrics;
-  dataHealth: 'fresh' | 'stale' | 'unavailable';
-  errorMessage?: string;
-}
-
 export interface TraderPerformanceMetrics {
   character_id: number;
   character_name: string;

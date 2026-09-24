@@ -174,12 +174,15 @@ function runFleetFinancialTests() {
   assert(selectionCharB.selectedMetrics?.total_realized_profit === 25_000_000, 'Profit should be 25M');
   console.log('  [PASS] Test 2: Scope specific character validated.');
 
-  // Test 3: Fleet Aggregation
-  console.log('--- Test 3: Fleet Aggregation ---');
+  // Test 3: Reporting aggregation of already-calculated character metrics.
+  // This is deliberately tested through aggregateFleetPerformance directly:
+  // selectPerformanceByScope must not use character-isolated metrics as an
+  // economic fleet fallback under FIN-002.
+  console.log('--- Test 3: Fleet Reporting Aggregation ---');
   const scopeFleet: PerformanceScope = { type: 'fleet' };
-  const selectionFleet = FleetFinancialEngine.selectPerformanceByScope(characterResults, scopeFleet, '1001');
-  assert(selectionFleet.fleetResult !== undefined, 'FleetResult must be defined');
-  const fleetMetrics = selectionFleet.fleetResult!.fleetMetrics;
+  const reportingFleet = FleetFinancialEngine.aggregateFleetPerformance(characterResults, scopeFleet);
+  assert(reportingFleet !== undefined, 'Fleet reporting result must be defined');
+  const fleetMetrics = reportingFleet.fleetMetrics;
 
   // Exact Additive Properties
   assert(fleetMetrics.total_realized_profit === 75_000_000, `Expected 75M profit, got ${fleetMetrics.total_realized_profit}`);

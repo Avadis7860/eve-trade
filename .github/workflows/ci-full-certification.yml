@@ -38,6 +38,8 @@ jobs:
       - name: CI workflow contract tests
         run: npm run test:ci-config
       - name: Agent context integrity
+        env:
+          CONTEXT_MODE: stable
         run: npm run test:context
       - name: Frontend typecheck
         run: npm run typecheck

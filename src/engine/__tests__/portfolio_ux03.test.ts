@@ -12,6 +12,7 @@ import {
   buildRealPortfolioSnapshot,
   resolvePortfolioTreasury,
   scopePortfolioOrders,
+  resolveAllocationUniverse,
 } from '../portfolioAggregation';
 import { PortfolioOptimizer } from '../portfolio';
 
@@ -201,7 +202,7 @@ function progress(overrides: Partial<GlobalSyncProgress> = {}): GlobalSyncProgre
 
 function order(overrides: Partial<EveCharacterOrder> = {}): EveCharacterOrder {
   return {
-    order_id: `order-${Math.random()}`,
+    order_id: 'order-test',
     type_id: 34,
     region_id: 10000002,
     location_id: 60003760,
@@ -244,13 +245,13 @@ async function run(): Promise<void> {
         opportunity('a', 1, 10, 100, 12_000_000),
         opportunity('b', 2, 11, 99, 11_000_000),
       ] as any;
-      const first = buildCandidateUniverseSnapshot(universe, progress());
-      const second = buildCandidateUniverseSnapshot(universe, progress());
+      const first = resolveAllocationUniverse(universe, 1);
+      const second = resolveAllocationUniverse(universe, 999999);
       assert(
-        first.candidates.map((entry) => entry.id).join(',') === second.candidates.map((entry) => entry.id).join(','),
-        'selected catalog context must not filter the candidate universe',
+        first.opportunities.map((entry) => entry.id).join(',') === second.opportunities.map((entry) => entry.id).join(','),
+        'selected catalog context must not filter the allocation universe',
       );
-      assert(first.selected_item_is_navigation_only === true, 'navigation-only marker must be explicit');
+      assert(first.source === 'GLOBAL_UNIVERSE', 'allocation source must be the global universe');
     }],
     ['C reserve leaves only 90M deployable', () => {
       const treasury = resolvePortfolioTreasury(

@@ -177,6 +177,7 @@ export class CharacterRepository {
       characters: migratedChars,
       active_character_id: activeCharId || (migratedChars[0]?.character_id ?? null),
       snapshots: {},
+      transaction_sync_summaries: {},
       updated_at: new Date().toISOString(),
     };
 
@@ -318,6 +319,33 @@ export class CharacterRepository {
    */
   getAllSnapshots(): Record<number, CharacterSnapshot> {
     return this.store.snapshots;
+  }
+
+  /** Stores transaction sync evidence without changing the freshness timestamp of market/order snapshots. */
+  saveTransactionSyncSummary(
+    characterId: number,
+    summary: import('./CharacterTypes').CharacterStoreSchemaV3['transaction_sync_summaries'] extends Record<number, infer T> ? T : never,
+  ): void {
+    if (!Number.isSafeInteger(characterId) || characterId <= 0) {
+      throw new Error('Invalid characterId for transaction sync summary');
+    }
+
+    const existing = this.store.transaction_sync_summaries ?? {};
+    const nextStore: CharacterStoreSchemaV3 = {
+      ...this.store,
+      transaction_sync_summaries: {
+        ...existing,
+        [characterId]: summary,
+      },
+      updated_at: new Date().toISOString(),
+    };
+
+    this.persist(nextStore);
+    this.notify();
+  }
+
+  getTransactionSyncSummary(characterId: number) {
+    return this.store.transaction_sync_summaries?.[characterId];
   }
 
   saveSnapshot(characterId: number, snapshot: Partial<CharacterSnapshot>): CharacterSnapshot {

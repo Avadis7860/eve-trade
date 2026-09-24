@@ -308,6 +308,15 @@ export interface TradeCycleRecord {
   realized_profit_label?: string;
   fees_breakdown?: RealizedFeeBreakdown;
   unmatched_sell_quantity?: number;
+  /**
+   * Position-level lifecycle. A sale-sized financial allocation can be realized
+   * while the underlying acquisition position remains open.
+   */
+  position_lifecycle?: import('./financial').PositionLifecycleStatus;
+  /** Remaining quantity of the economic position immediately after this disposal. */
+  position_remaining_quantity?: number;
+  /** True only when the underlying position reached zero remaining quantity. */
+  is_position_closed?: boolean;
   character_id?: number;
   character_name?: string;
   buy_character_id?: number;

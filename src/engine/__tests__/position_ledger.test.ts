@@ -62,6 +62,9 @@ function run() {
     assert(p.lots[0].provenance.source_kind === 'ESI_WALLET_TRANSACTION', 'lot source kind must remain explicit');
     assert(p.allocations[0].provenance.source_id === '200', 'disposal provenance must preserve transaction source ID');
     assert(p.allocations[0].provenance.principal_scope === 'character:1001', 'disposal provenance must preserve principal scope');
+    assert(p.provenance.length === 2, 'position provenance must expose both acquisition and disposal sources');
+    assert(p.provenance[0].source_id === '100', 'position provenance must be deterministic by source identity');
+    assert(p.provenance[1].source_id === '200', 'position provenance must retain the disposal source identity');
   }
 
   {

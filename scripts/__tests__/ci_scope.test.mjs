@@ -18,6 +18,16 @@ expectScope(['docs/validation/ci.md', 'README.md'], {
   run_static: false, run_unit_domain: false, run_server: false, run_build: false, run_browser: false,
 });
 
+expectScope(['docs/contracts/orders.md'], {
+  docs: true, ambiguous: true, full_certification: true,
+  run_static: true, run_unit_domain: true, run_server: true, run_build: true, run_browser: true,
+});
+
+expectScope(['.eve-trade/context-map.json'], {
+  ambiguous: true, full_certification: true,
+  run_static: true, run_unit_domain: true, run_server: true, run_build: true, run_browser: true,
+});
+
 expectScope(['src/components/Trading.tsx'], {
   frontend: true, ambiguous: false, full_certification: false,
   run_static: true, run_unit_domain: false, run_server: false, run_build: true, run_browser: true,

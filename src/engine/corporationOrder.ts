@@ -46,6 +46,8 @@ function normalizeCommonCorporationOrder(
   issued: string;
   duration: number;
   escrow?: number;
+  issuerCharacterId?: number;
+  walletDivision?: number;
 } | null {
   if (
     !raw ||
@@ -94,6 +96,19 @@ function normalizeCommonCorporationOrder(
     return null;
   }
 
+  const issuerCharacterId = source.issued_by;
+  if (issuerCharacterId !== undefined && !isPositiveInteger(issuerCharacterId)) {
+    return null;
+  }
+
+  const walletDivision = source.wallet_division;
+  if (
+    walletDivision !== undefined &&
+    (!isPositiveInteger(walletDivision) || walletDivision > 7)
+  ) {
+    return null;
+  }
+
   return {
     orderId,
     typeId,
@@ -106,6 +121,8 @@ function normalizeCommonCorporationOrder(
     issued: source.issued,
     duration,
     ...(escrow !== undefined ? { escrow } : {}),
+    ...(issuerCharacterId !== undefined ? { issuerCharacterId } : {}),
+    ...(walletDivision !== undefined ? { walletDivision } : {}),
   };
 }
 
@@ -145,10 +162,18 @@ export function normalizeCorporationOrder(
     issued: common.issued,
     duration: common.duration,
     ...(common.escrow !== undefined ? { escrow: common.escrow } : {}),
-    ownership,
+    ownership: {
+      ...ownership,
+      ...(common.issuerCharacterId !== undefined
+        ? { issuer_character_id: common.issuerCharacterId }
+        : {}),
+      ...(common.walletDivision !== undefined
+        ? { wallet_division: common.walletDivision }
+        : {}),
+    },
     is_corporation: true,
-    // Intentionally no character_id/name, issuer, or wallet division:
-    // CCP did not provide those facts in this normalized boundary.
+    // No character owner projection is created. Issuer and wallet division
+    // are preserved only when CCP explicitly exposes them.
   };
 }
 
@@ -201,6 +226,15 @@ export function normalizeCorporationOrderHistory(
     issued: common.issued,
     duration: common.duration,
     ...(common.escrow !== undefined ? { escrow: common.escrow } : {}),
+    ownership: {
+      ...buildOwnership(principalCharacterId, corporationId, corporationName),
+      ...(common.issuerCharacterId !== undefined
+        ? { issuer_character_id: common.issuerCharacterId }
+        : {}),
+      ...(common.walletDivision !== undefined
+        ? { wallet_division: common.walletDivision }
+        : {}),
+    },
     state,
     ...(source.completed_at !== undefined ? { completed_at: source.completed_at } : {}),
     is_corporation: true,

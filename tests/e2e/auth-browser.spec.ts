@@ -326,8 +326,10 @@ test.describe('E2E-001 — browser OAuth composition', () => {
     await first.popup.close();
 
     await page.getByTitle('Gérer vos personnages et comptes EVE liés').click();
-    await page.getByRole('button', { name: /Ajouter un pilote/i }).click();
-    await expect(page.getByText('Ajouter un autre pilote', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Ajouter un pilote', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: 'Se connecter avec EVE SSO', exact: true }),
+    ).toBeVisible();
 
     await configureNextAuth(request, { character: 'beta' });
 

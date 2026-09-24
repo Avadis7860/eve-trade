@@ -242,6 +242,7 @@ export type CapitalRecoveryScope = 'KNOWN_POSITIONS';
 
 export interface CapitalRecoverySummary {
   readonly scope: CapitalRecoveryScope;
+  readonly provenance: readonly FinancialProvenance[];
   readonly financial_completeness: Extract<FinancialCompleteness, 'OBSERVED' | 'PARTIAL'>;
   readonly capital_committed: number;
   readonly cash_recovered: number;
@@ -256,7 +257,8 @@ export interface CapitalRecoverySummary {
 }
 
 export interface FifoLotRecord {
-  readonly lot_id: string; // "lot_{buy_transaction_id}"
+  readonly lot_id: string;
+  readonly provenance: FinancialProvenance; // "lot_{buy_transaction_id}"
   readonly buy_transaction_id: number;
   readonly type_id: number;
   readonly location_id: number;
@@ -270,6 +272,7 @@ export interface FifoLotRecord {
 
 export interface FifoAllocationRecord {
   readonly allocation_id: string;
+  readonly provenance: FinancialProvenance;
   readonly sell_transaction_id: number;
   readonly buy_transaction_id: number;
   readonly type_id: number;

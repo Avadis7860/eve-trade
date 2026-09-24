@@ -837,6 +837,16 @@ export class TraderAnalyticsService {
       };
     }
 
+    if (outcome.net_realized_profit === null) {
+      return {
+        cycleBuyBrokerFee: 0,
+        cycleSellBrokerFee: 0,
+        cycleSalesTax: 0,
+        cycleFees: 0,
+        netProfit: cycleGrossProfit,
+      };
+    }
+
     if (numMatched === 1) {
       return {
         cycleBuyBrokerFee: outcome.fees.estimated_buy_broker_fee,

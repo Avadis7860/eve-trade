@@ -8,9 +8,21 @@ Validation: FIN-001 / #72, FIN-002 / #74, DATA-001 / #75
 
 ## Core model
 
-Economic Transaction -> AcquisitionLot -> DisposalAllocation -> CurrentPosition -> Realized P&L
+Economic Transaction -> AcquisitionLot -> DisposalAllocation -> CurrentPosition -> Realized Financial Outcome
 
 Market orders remain an observation/provenance domain.
+
+### Economic position segment vs trader operation
+
+The canonical financial object is the **economic position segment**, not a trader-intent operation.
+
+A position segment is the contiguous economically open quantity for one explicit `accounting_scope_id + type_id`. New acquisitions join the active segment while quantity remains open. A new segment begins only after the previous segment reaches zero remaining quantity.
+
+This boundary is deterministic and suitable for accounting reconstruction.
+
+It must **not** be described as proof of trader intent, strategy or a user-defined trade. The system cannot infer from transaction timing, market-order side, price or repeated purchases that two acquisitions belonged to one commercial operation.
+
+Any higher-level "operation" view is therefore a projection over a position segment and must never invent a stronger causal relationship than the source evidence supports.
 
 ## FACT
 
@@ -73,6 +85,18 @@ When fee evidence is `UNAVAILABLE`, gross P&L may remain known but fee-inclusive
 
 ## Source coverage vs financial completeness
 
+Economic reconstruction also carries an explicit coverage envelope.
+
+- **history coverage** answers whether the transaction history supplied to the ledger is known to cover the relevant accounting scope;
+- **economic-origin coverage** answers whether the supported economic sources capable of creating the observed inventory are sufficiently represented;
+- **source coverage** continues to describe whether the acquisition/disposal cost lineage itself is reconstructable;
+- **financial completeness** additionally describes whether the resulting financial outcome, including fee treatment, is fully evidenced.
+
+These dimensions are independent. A set of perfectly valid wallet transactions can still have UNKNOWN history coverage when the collection boundary is not known. A market-traceable FIFO result can therefore remain explicitly incomplete at the ecosystem level.
+
+Without explicit completeness evidence, the product must not promote a derived position into an ecosystem-complete economic operation.
+
+
 These are independent quality dimensions.
 
 - source coverage describes whether the economic acquisition/disposal lineage is reconstructable.
@@ -102,6 +126,15 @@ Canonical recovery state is derived from the cumulative recovery delta:
 `delta > 0 → POSITIVE`
 
 A later pricing policy may react to break-even, such as accepting a lower margin after capital recovery. That policy must not rewrite historical acquisition cost or accounting results.
+
+## History and origin coverage rules
+
+- a locally coherent transaction subset is not proof of a complete history;
+- `MAX_PAGES_GUARD`, interrupted pagination, rate limiting, network failure or an unknown collection boundary make history coverage `PARTIAL` or `UNKNOWN`;
+- absence of an orphaned sale does not prove that no prior inventory existed;
+- market-only lineage may be `MARKET_TRACEABLE` while broader economic-origin coverage remains `UNKNOWN`;
+- ecosystem-complete profitability requires the corresponding explicit coverage contract;
+- PI/Industry/internal-transfer sources are deferred and must later enter the same EconomicOrigin -> AcquisitionLot pipeline.
 
 ## Strict rules
 

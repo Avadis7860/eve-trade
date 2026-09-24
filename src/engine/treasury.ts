@@ -5,7 +5,6 @@ import { roundIsk } from './money';
  * TreasuryEngine — Pure, deterministic EVE Online Treasury & Wallet Resolution Engine.
  * Supports:
  * - Corporation Wallets (7 Divisions: Master Division 1 through Division 7)
- * - Fleet Consolidated Wallets (Aggregated character balances)
  * - Active Character Wallet (Individual pilot)
  * - Manual Budget (Fixed ISK allocation)
  *
@@ -84,40 +83,6 @@ export class TreasuryEngine {
         division_name: divisionName,
         corporation_name: corpName,
         is_corporation: true,
-        capital_status: capitalStatus,
-      };
-    }
-
-    if (mode === 'fleet_consolidated') {
-      let total = 0;
-      let capitalStatus: TreasuryCapitalStatus = 'unavailable';
-      if (characters && characters.length > 0) {
-        let observedWalletCount = 0;
-        for (const c of characters) {
-          if (typeof c.wallet_balance === 'number' && Number.isFinite(c.wallet_balance)) {
-            total += Math.max(0, c.wallet_balance);
-            observedWalletCount++;
-          }
-        }
-        if (observedWalletCount > 0) {
-          capitalStatus = 'observed_esi';
-        }
-      } else if (typeof cfg.fleet_consolidated_capital === 'number') {
-        total = cfg.fleet_consolidated_capital;
-        capitalStatus = 'manual';
-      } else if (typeof cfg.available_capital === 'number') {
-        total = cfg.available_capital;
-        capitalStatus = 'manual';
-      }
-
-      const effectiveCapital = Math.max(0, roundIsk(total));
-      const charCount = characters?.length || 0;
-
-      return {
-        source_mode: 'fleet_consolidated',
-        effective_capital: effectiveCapital,
-        label: `Trésorerie Flotte (${charCount} pilote${charCount > 1 ? 's' : ''})`,
-        is_corporation: false,
         capital_status: capitalStatus,
       };
     }

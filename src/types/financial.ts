@@ -347,3 +347,82 @@ export interface RealizedFinancialCalculationOptions {
   readonly transactions?: readonly any[]; // Accepts PersistedCharacterTransaction or ExecutionTransactionRef
   readonly now?: () => string;
 }
+
+export type PositionLifecycleStatus = 'OPEN' | 'PARTIALLY_REALIZED' | 'CLOSED' | 'UNKNOWN';
+
+export type FinancialSourceKind =
+  | 'ESI_WALLET_TRANSACTION'
+  | 'EXECUTION_TRANSACTION';
+
+export interface FinancialProvenance {
+  readonly source_kind: FinancialSourceKind;
+  readonly source_id: string;
+  readonly principal_scope: string;
+}
+
+export interface AcquisitionLot {
+  readonly lot_id: string;
+  readonly provenance: FinancialProvenance;
+  readonly transaction_id: number;
+  readonly type_id: number;
+  readonly location_id: number;
+  readonly quantity_acquired: number;
+  readonly remaining_quantity: number;
+  readonly unit_cost: number;
+  readonly total_original_cost: number;
+  readonly remaining_cost_basis: number;
+  readonly acquired_at: string;
+  readonly economic_owner_type: 'character';
+  readonly economic_owner_id: number;
+  readonly related_order_id?: import('./order').OrderId;
+  readonly status: PositionLifecycleStatus;
+}
+
+export interface DisposalAllocation {
+  readonly allocation_id: string;
+  readonly disposition_transaction_id: number;
+  readonly acquisition_lot_id: string;
+  readonly provenance: FinancialProvenance;
+  readonly allocated_quantity: number;
+  readonly acquisition_unit_cost: number;
+  readonly disposal_unit_price: number;
+  readonly acquisition_cost: number;
+  readonly disposal_revenue: number;
+  readonly gross_realized_profit: number;
+  readonly acquired_at: string;
+  readonly disposed_at: string;
+}
+
+export interface PositionDispositionState {
+  readonly disposition_transaction_id: number;
+  readonly disposed_quantity: number;
+  readonly unmatched_quantity: number;
+  readonly remaining_position_quantity: number;
+  readonly lifecycle_status: PositionLifecycleStatus;
+}
+
+export interface CurrentPosition {
+  readonly position_id: string;
+  readonly type_id: number;
+  readonly economic_owner_type: 'character';
+  readonly economic_owner_id: number;
+  readonly quantity_acquired: number;
+  readonly quantity_disposed: number;
+  readonly remaining_quantity: number;
+  readonly remaining_cost_basis: number;
+  readonly realized_gross_profit: number;
+  readonly lifecycle_status: PositionLifecycleStatus;
+  readonly financial_completeness: FinancialCompleteness;
+  readonly lots: readonly AcquisitionLot[];
+  readonly allocations: readonly DisposalAllocation[];
+  readonly disposition_states: readonly PositionDispositionState[];
+  readonly unmatched_disposition_quantity: number;
+  readonly invalid_transaction_ids: readonly number[];
+}
+
+export interface PositionLedgerResult {
+  readonly character_id: number;
+  readonly type_id: number;
+  readonly principal_scope: string;
+  readonly position: CurrentPosition;
+}

@@ -77,6 +77,8 @@ export interface FinancialConfig {
   max_capital_per_trade: number;
   max_portfolio_concentration_type: number; // e.g. 0.35 (max 35% in one type)
   max_portfolio_concentration_group: number; // e.g. 0.50 (max 50% in one group)
+  /** Explicit policy reserve withheld before Proposed Allocation. Undefined means no reserve policy configured. */
+  policy_reserve?: number;
   
   // EVE Character Skill & Standing simulation parameters
   accounting_level?: number;                // 0 to 5

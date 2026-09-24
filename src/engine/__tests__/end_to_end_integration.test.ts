@@ -386,6 +386,7 @@ function runEndToEndIntegrationTests() {
     unprofitable_trades: 0,
     win_rate_pct: 100,
     average_realized_roi: outcomeBeta.roi,
+    average_realized_roi_scope: 'CLOSING_DISPOSAL_ALLOCATIONS',
     average_hold_days: outcomeBeta.weighted_hold_days,
     total_broker_fees_paid: 0,
     total_sales_tax_paid: outcomeBeta.fees.estimated_sales_tax,

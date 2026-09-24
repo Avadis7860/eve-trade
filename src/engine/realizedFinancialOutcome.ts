@@ -429,6 +429,19 @@ export class RealizedFinancialOutcomeEngine {
 
         if (allowedTxIds.has(tx.transaction_id)) {
           foundTypeId = tx.type_id;
+
+          const provenance: import('../types').FinancialProvenance =
+            'provenance' in tx && tx.provenance && typeof tx.provenance === 'object'
+              ? tx.provenance as import('../types').FinancialProvenance
+              : {
+                  // Existing transaction inputs are wallet economic facts unless
+                  // an upstream boundary explicitly tags them otherwise.
+                  source_kind: 'ESI_WALLET_TRANSACTION',
+                  source_id: String(tx.transaction_id),
+                  principal_scope: `character:${characterId}`,
+                };
+          provenanceByTransactionId.set(tx.transaction_id, provenance);
+
           const ref: ExecutionTransactionRef = {
             transaction_id: tx.transaction_id,
             type_id: tx.type_id,
@@ -445,18 +458,6 @@ export class RealizedFinancialOutcomeEngine {
             opportunity_id: executionRecord.opportunity_id,
             provenance,
           };
-
-          const provenance: import('../types').FinancialProvenance =
-            'provenance' in tx && tx.provenance && typeof tx.provenance === 'object'
-              ? tx.provenance as import('../types').FinancialProvenance
-              : {
-                  // Existing transaction inputs are wallet economic facts unless
-                  // an upstream boundary explicitly tags them otherwise.
-                  source_kind: 'ESI_WALLET_TRANSACTION',
-                  source_id: String(tx.transaction_id),
-                  principal_scope: `character:${characterId}`,
-                };
-          provenanceByTransactionId.set(tx.transaction_id, provenance);
 
           if (tx.is_buy) {
             buyList.push(ref);

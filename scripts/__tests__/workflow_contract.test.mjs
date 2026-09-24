@@ -239,10 +239,16 @@ const scopeSource = read('scripts/ci-scope.mjs');
 for (const bootstrapPath of bootstrapPaths) {
   assert.ok(scopeSource.includes(`'${bootstrapPath}'`), `Agent bootstrap path must remain context-critical: ${bootstrapPath}`);
 }
+const contextMap = JSON.parse(read('.eve-trade/context-map.json'));
+assert.equal(contextMap.schema_version, 4, 'Context map schema must include functional CI routing metadata');
+for (const [domainName, domain] of Object.entries(contextMap.domains)) {
+  for (const lane of domain.ci_lanes) assert.ok(typeof lane.route === 'string', `${domainName}: each CI lane must declare a routing class`);
+}
 const contextSource = read('scripts/context-integrity.mjs');
 assert.ok(contextSource.includes("work.state !== 'IDLE'"), 'Context integrity must distinguish active and stable lifecycle state');
-assert.ok(contextSource.includes('current-state is stale for stable HEAD'), 'Stable context integrity must detect stale main-state documentation');
-assert.ok(contextSource.includes('canonical paths do not route to required CI output'), 'Context integrity must validate domain-to-CI routing, not only job existence');
+assert.ok(contextSource.includes('stable integration anchor mismatch'), 'Stable context integrity must validate the merge integration anchor');
+assert.ok(contextSource.includes('respectContextCritical: false'), 'Context routing validation must bypass the conservative critical-path guard');
+assert.ok(contextSource.includes('canonical paths do not classify for routing class'), 'Context integrity must validate functional domain-to-CI routing');
 assert.ok(contextSource.includes('impact_chains'), 'Context integrity must validate impact graph references');
 assert.ok(mainSmoke.includes('push:\n    branches: ["main"]'), 'Main smoke must own the main push trigger');
 assert.ok(mainSmoke.includes('name: CI / main-smoke'), 'Main smoke must expose a stable smoke job');

@@ -294,6 +294,9 @@ function run() {
   );
 
   assert(unavailableNetMetrics.total_realized_profit === null, 'aggregate net must be UNKNOWN when fee evidence is unavailable');
+  assert(unavailableNetMetrics.total_broker_fees_paid === null, 'aggregate broker fees must be UNKNOWN when fee evidence is unavailable');
+  assert(unavailableNetMetrics.total_sales_tax_paid === null, 'aggregate sales tax must be UNKNOWN when fee evidence is unavailable');
+  assert(unavailableNetMetrics.total_estimated_fees === null, 'aggregate estimated fees must be UNKNOWN when fee evidence is unavailable');
   assert(unavailableNetMetrics.total_closed_trades === 0, 'unavailable net must not publish a closed-position KPI');
   assert(unavailableNetMetrics.recent_trade_cycles[0].net_profit === null, 'cycle net must remain UNKNOWN without fee evidence');
   assert(unavailableNetMetrics.recent_trade_cycles[0].is_profitable === null, 'cycle profitability must remain UNKNOWN without net evidence');

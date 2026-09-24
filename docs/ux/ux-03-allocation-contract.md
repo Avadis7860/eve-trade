@@ -33,6 +33,8 @@ Real Portfolio certification is blocked by FIN-002 and the remaining data/UX acc
 
 The Performance projection now keeps disposal-level and whole-position semantics separate. A partial disposal can expose a positive realized sub-result while the position remains `PARTIALLY_REALIZED`; it does not count as a closed trade. When the position finally closes, the closing record may expose the cumulative whole-position result/ROI, and closed-position KPIs use that cumulative result.
 
+Financial quality axes are also independent: `source_coverage` describes economic cost-lineage coverage, while `financial_completeness` describes the availability/evidence of the financial result, including fees. A `MARKET_TRACEABLE` position may therefore be `UNAVAILABLE` for fees and still reach `CLOSED` when its remaining quantity reaches zero. Fee availability must never suppress lifecycle closure.
+
 ## E2E findings — 2026-09-24
 
 The first manual E2E pass identified two UI contract adjustments that do not change financial truth.

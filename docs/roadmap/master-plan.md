@@ -9,7 +9,7 @@ CI gate: PR CI
 
 ## Current state
 
-The functional E2E-001 baseline is stable and merged. CI-001 is merged and complete. UX-02 is merged. UX-01/P0 is closed. The current active technical chantier is Agent Context Hardening v2 on branch chore/agent-context-hardening-v2 / PR #79, based on main bacb0655b1fde3a4650b5cd94feed0fe8617be10.
+The functional E2E-001 baseline is stable and merged. CI-001 is merged and complete. UX-02 is merged. UX-01/P0 is closed. The current delivery is Agent Context Hardening v2 on branch chore/agent-context-hardening-v2 / PR #79, based on main bacb0655b1fde3a4650b5cd94feed0fe8617be10, and is CLOSING after implementation.
 
 The application has mature market, ESI, finance, order, prediction and portfolio foundations, but the presentation layer does not yet expose them as a coherent trading workflow.
 

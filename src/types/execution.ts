@@ -68,6 +68,14 @@ export interface PortfolioSimulation {
     by_group: Record<string, number>;
     by_route: Record<string, number>;
   };
+  /** UX-03 aggregation metadata; omitted only for legacy callers. */
+  allocation_budget?: number | null;
+  policy_reserve?: number;
+  unallocated_capital?: number | null;
+  unallocated_reasons?: import('./portfolio').PortfolioUnallocatedReason[];
+  candidate_coverage?: import('./portfolio').PortfolioUniverseCoverage;
+  data_health?: DataHealthStatus;
+  freshness?: DataHealthStatus;
 }
 
 export interface RecordedTradeExecution {

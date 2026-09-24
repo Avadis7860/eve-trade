@@ -122,6 +122,7 @@ export function useTradingOpportunities(
         portfolioSnapshots.treasury,
         portfolioSnapshots.candidateUniverse,
         lastReliableSimulation,
+        { preserveSimulation: true },
       );
     }
     return portfolioSnapshots.proposedAllocation;

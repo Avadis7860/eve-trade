@@ -19,3 +19,5 @@ La carte de contexte répond à « où chercher ». Elle ne répond jamais à «
 Les contrats canoniques vivent dans [docs/contracts/](docs/contracts/), les invariants dans [docs/invariants/](docs/invariants/) et les validations dans [docs/validation/](docs/validation/).
 
 Les documents sous [docs/audits/archive/](docs/audits/archive/) sont historiques. Identifier toujours l'implémentation, les tests et le gate CI avant de modifier.
+
+Le routage CI du contexte distingue la protection conservatrice des chemins critiques de leur classification fonctionnelle : les preuves de routage utilisent des probes fonctionnels explicites, déclarés par lane, sans laisser le fallback `ambiguous` produire artificiellement la preuve.

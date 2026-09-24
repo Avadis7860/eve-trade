@@ -12,7 +12,6 @@ import {
  * Sémantique obligatoire:
  * - active_character: ordre économiquement détenu par le personnage actif.
  * - character: ordre économiquement détenu par le personnage spécifié.
- * - fleet: ordre économiquement détenu par l'un des personnages de la Fleet.
  * - corporation: ordre économiquement détenu par la corporation spécifiée.
  *
  * Invariants majeurs:
@@ -43,7 +42,7 @@ export function selectOrdersByScope(
     return [];
   }
 
-  const { activeCharacterId, fleetCharacterIds } = context;
+  const { activeCharacterId } = context;
 
   const isCharacterOwned = (order: EveCharacterOrder): boolean => {
     if (order.ownership) {
@@ -78,13 +77,6 @@ export function selectOrdersByScope(
           String(characterOwnerId(order)) === scope.characterId
       );
 
-    case 'fleet':
-      return orders.filter(
-        (order) =>
-          characterOwnerId(order) !== undefined &&
-          Array.isArray(fleetCharacterIds) &&
-          fleetCharacterIds.includes(String(characterOwnerId(order)))
-      );
 
     case 'corporation':
       return orders.filter(

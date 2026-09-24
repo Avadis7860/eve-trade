@@ -55,15 +55,14 @@ Target:
 **Status: HIGH PRIORITY / ADMIN + DOCUMENTATION FOLLOW-UP.**
 
 Repository-side observations:
-- no SECURITY.md existed at baseline;
+- SECURITY.md is now published by this synchronization;
 - security-oriented application tests exist;
 - workflow token permissions are explicitly constrained in CI;
 - no repository-local CodeQL workflow was found;
 - no repository-local Dependabot configuration was found;
 - branch-protection/ruleset settings could not be verified with the available GitHub integration.
 
-Required target:
-- publish SECURITY.md;
+Remaining target:
 - enable/verify Dependabot alerts;
 - enable/verify secret scanning and push protection;
 - choose and enable a maintained code-scanning/SAST solution, such as CodeQL, where appropriate;

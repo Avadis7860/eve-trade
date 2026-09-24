@@ -443,6 +443,7 @@ export function buildProposedAllocationSnapshot(
   treasury: PortfolioTreasurySnapshot,
   candidateUniverse: PortfolioCandidateUniverseSnapshot,
   simulation: PortfolioSimulation,
+  options: { preserveSimulation?: boolean } = {},
 ): ProposedAllocationSnapshot {
   const blockedByTreasury = treasury.allocation_budget === null;
   const blockedByUniverse =
@@ -456,8 +457,34 @@ export function buildProposedAllocationSnapshot(
   ]);
 
   const proposalBlocked = blockedByTreasury || blockedByUniverse;
+  const surfacedSimulation =
+    proposalBlocked && options.preserveSimulation !== true
+      ? {
+          ...simulation,
+          total_capital_invested: 0,
+          total_expected_profit: 0,
+          total_expected_daily_profit: 0,
+          weighted_roi: 0,
+          positions: [],
+          diversification: {
+            by_category: {},
+            by_group: {},
+            by_route: {},
+          },
+          allocation_budget: treasury.allocation_budget,
+          policy_reserve: treasury.policy_reserve,
+          unallocated_capital: treasury.allocation_budget,
+          unallocated_reasons: [
+            ...(simulation.unallocated_reasons ?? []),
+            {
+              code: 'DATA_ISSUE' as const,
+              detail: 'Proposition fraîche bloquée: positions calculées sur des données insuffisantes non présentées.',
+            },
+          ],
+        }
+      : simulation;
 
-  const deployed = simulation.total_capital_invested;
+  const deployed = surfacedSimulation.total_capital_invested;
   const withinBudget =
     treasury.allocation_budget === null
       ? null
@@ -479,7 +506,7 @@ export function buildProposedAllocationSnapshot(
   }
 
   const positionRationales: Record<string, import('../types/portfolio').PortfolioPositionRationale> = {};
-  for (const position of simulation.positions) {
+  for (const position of surfacedSimulation.positions) {
     if (position.rationale) {
       positionRationales[position.opportunity.id] = position.rationale;
     }
@@ -488,7 +515,7 @@ export function buildProposedAllocationSnapshot(
   return {
     treasury,
     candidate_universe: candidateUniverse,
-    simulation,
+    simulation: surfacedSimulation,
     data_health: dataHealth,
     freshness: candidateUniverse.data_health,
     proposal_blocked: proposalBlocked,

@@ -18,6 +18,31 @@ MarketOrder Observation -> exposure/provenance
 
 remains a separate axis.
 
+## Ecosystem boundary
+
+The accounting boundary is the complete trading/industrial ecosystem represented by EVE Trade, not an individual character and not an individual corporation.
+
+Characters and corporations are participants/dimensions inside that ecosystem:
+
+- character = acting, observing and authenticated principal;
+- corporation = organizational/ownership dimension when explicitly exposed by ESI;
+- order issuer/owner = provenance and operational attribution;
+- location = physical custody/market location dimension;
+- ecosystem = the economic context in which the connected trading, hauling, storage and industrial activity is analyzed.
+
+Therefore:
+
+- a character BUY may fund a later character SELL;
+- a corporation-held acquisition may be disposed by a character, and vice versa, when both belong to the same configured ecosystem;
+- changing character, corporation, station or market location does not by itself terminate a position lifecycle;
+- internal movements must not be converted into synthetic sales/buys merely because the acting principal changes;
+- transactions must not be isolated by character_id when that identifier only describes the observer/actor;
+- crossing into a different economic ecosystem requires an explicit economic boundary/transfer fact; it must not be inferred from the actor alone.
+
+The application may preserve ownership, observer and principal provenance at transaction level without using those dimensions as automatic accounting silos.
+
+The ecosystem boundary is a product/accounting scope, not a fact invented from an individual ESI credential.
+
 ## FACT / DERIVED / AGGREGATED / NEW SOURCE / POLICY
 
 ### FACT
@@ -56,7 +81,8 @@ Character Assets is a future source for current quantity/location coverage. It d
 - historical coverage boundary;
 - opening inventory treatment when history is incomplete;
 - fee treatment;
-- owner/scope aggregation rules;
+- ecosystem boundary and aggregation rules;
+- ownership / observer / authenticated-principal attribution inside the ecosystem;
 - closure semantics;
 - break-even definition (gross or net);
 - ROI denominator/scope;
@@ -128,22 +154,30 @@ Acceptance:
 - corporation ownership never becomes character ownership;
 - market side does not affect financial transaction direction.
 
-### FIN-002 — issue #74 — NEXT IMPLEMENTATION GATE
+### FIN-002 — issue #74 — ACTIVE SEMANTIC REBASE
 
-Rebuild Performance around lot/position lifecycle, not “a sale creates a closed cycle”.
+Rebuild Performance around lot/position lifecycle and the complete trading/industrial ecosystem, not around character-isolated transaction pools and not around “a sale creates a closed cycle”.
 
-Current implementation:
-- partial positions no longer count as closed trades;
-- lifecycle and remaining quantity are exposed on realized outcomes;
-- order-history activity is kept separate from accounting buy/sell volume;
-- position-level capital recovery is derived from the canonical position ledger;
-- Performance exposes committed capital, cash recovered, recovery delta/ratio, remaining quantity/basis and lifecycle counts under the explicit KNOWN_POSITIONS scope;
-- ROI scope is explicitly declared as CLOSING_DISPOSAL_ALLOCATIONS.
+The current branch increment that prevented cross-character matching exposed the wrong economic boundary. It is an intermediate diagnostic result, not a certified business rule.
+
+Required accounting behavior:
+- a transaction remains attributable to the character/corporation/principal that supplied or observed the fact;
+- that attribution must not create an automatic accounting silo;
+- acquisitions and disposals from different actors may participate in the same lifecycle when they belong to the same configured ecosystem;
+- an internal actor/location change does not create a synthetic disposal/acquisition;
+- FIFO/cost allocation must operate on the ecosystem position for a type, while preserving every underlying transaction's provenance;
+- a separate ecosystem must never consume another ecosystem's inventory without an explicit economic transfer boundary;
+- industrial transformations are future first-class economic events and must not be fabricated from market-order observations.
 
 Acceptance:
+- 10,000 acquired by character A + 1 disposed by character B in the same ecosystem => the 1 unit can consume A's lot and 9,999 remain;
+- a corporation acquisition can be consumed by a character disposal inside the same ecosystem when the configured ecosystem contains both actors;
+- character changes, station changes and hauling do not reset the lifecycle;
+- cross-ecosystem matching is rejected unless an explicit transfer fact exists;
+- provenance preserves source_kind + source_id + principal_scope for every transaction/lot/allocation;
 - partial disposal never increments closed-position count;
-- closed means remaining lot/position quantity is zero;
-- realized P&L, capital recovery and open exposure are shown separately;
+- closed means remaining position quantity is zero;
+- realized P&L, capital recovery and open exposure remain separate;
 - recovery delta never becomes realized P&L or whole-operation ROI;
 - no current-market valuation is inferred from the recovery summary.
 

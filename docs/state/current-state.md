@@ -9,7 +9,7 @@ CI gate: [../validation/ci.md](../validation/ci.md)
 
 ## Current baseline
 
-Current main head is `bacb0655b1fde3a4650b5cd94feed0fe8617be10`. The functional E2E-001 baseline was `9438bbedb2d44cf3f5f371144bcf72094955cd46`. Deterministic browser CI is green and the target-PC real-CCP SSO/ESI smoke PASS was recorded on 2026-09-23.
+Current main integration baseline for PR #79 is `bacb0655b1fde3a4650b5cd94feed0fe8617be10`. This SHA is the merge integration anchor carried by the CLOSING delivery manifest; the eventual merge commit is intentionally not embedded because GitHub creates it at merge time. The functional E2E-001 baseline was `9438bbedb2d44cf3f5f371144bcf72094955cd46`. Deterministic browser CI is green and the target-PC real-CCP SSO/ESI smoke PASS was recorded on 2026-09-23.
 
 The UX-first program has closed the P0 market/ESI retrieval reliability gate. UX-01 is DONE / EXTERNALLY BOUNDED; the previously reported target-PC market-display symptom is resolved and the current application is functional.
 
@@ -105,7 +105,7 @@ The previously reported target-PC market-display symptom is resolved. The applic
 
 ## Agent context hardening
 
-The current delivery is **CLOSING** on branch `chore/agent-context-hardening-v2`, based on main `bacb0655b1fde3a4650b5cd94feed0fe8617be10`, PR #79. Implementation scope is frozen for certification and merge.
+The current delivery is **CLOSING** on branch `chore/agent-context-hardening-v2`, based on main `bacb0655b1fde3a4650b5cd94feed0fe8617be10`, PR #79. Implementation scope is frozen for certification and merge. Stable validation preserves this integration anchor rather than requiring a future post-merge SHA.
 
 The chantier is limited to repository navigation, active-work governance, context integrity, CI ownership and historical documentation reconciliation. It must not import UX-03 or archived Financial Truth implementation.
 

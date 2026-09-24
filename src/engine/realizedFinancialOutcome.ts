@@ -206,7 +206,10 @@ export class RealizedFinancialOutcomeEngine {
       options
     );
 
-    const netRealizedProfit = roundIsk(grossRealizedProfit - fees.estimated_total_fees);
+    const netRealizedProfit =
+      fees.fee_mode === 'UNAVAILABLE'
+        ? null
+        : roundIsk(grossRealizedProfit - fees.estimated_total_fees);
 
     // 7. Financial Completeness & Quality Determination
     // Strictly distinguishes between observed facts, estimations, partial inventory, and unavailable data.
@@ -254,11 +257,11 @@ export class RealizedFinancialOutcomeEngine {
 
     // 8. Ratios and Rates (protected against zero division)
     const roi =
-      sourceCoverage === 'MARKET_TRACEABLE' && realizedAcquisitionCost > 0
+      sourceCoverage === 'MARKET_TRACEABLE' && realizedAcquisitionCost > 0 && netRealizedProfit !== null
         ? safeDiv(netRealizedProfit, realizedAcquisitionCost, 0.0)
         : null;
-    const margin = realizedRevenue > 0 ? safeDiv(netRealizedProfit, realizedRevenue, 0.0) : null;
-    const profitPerUnit = matchedQuantity > 0 ? safeDiv(netRealizedProfit, matchedQuantity, 0.0) : null;
+    const margin = realizedRevenue > 0 && netRealizedProfit !== null ? safeDiv(netRealizedProfit, realizedRevenue, 0.0) : null;
+    const profitPerUnit = matchedQuantity > 0 && netRealizedProfit !== null ? safeDiv(netRealizedProfit, matchedQuantity, 0.0) : null;
 
     // 9. Timestamps & Quantity-Weighted Hold Durations
     const firstBuyAt = sortedBuys.length > 0 ? sortedBuys[0].timestamp : null;
@@ -361,6 +364,7 @@ export class RealizedFinancialOutcomeEngine {
       source_coverage: sourceCoverage,
       position_disposition_states: Object.freeze(positionLedger.position.disposition_states),
       observation_id: observationId,
+      calculation_source: 'EXECUTION_RECORD',
       opportunity_id: opportunityId,
       type_id: typeId,
 
@@ -758,19 +762,3 @@ export class RealizedFinancialOutcomeEngine {
         vwap_sell_price: totalSellQuantity > 0 ? totalSellRevenue / totalSellQuantity : null,
         first_buy_at: buyTxs[0]?.timestamp || null,
         last_buy_at: buyTxs[buyTxs.length - 1]?.timestamp || null,
-        first_sell_at: sellTxs[0]?.timestamp || null,
-        last_sell_at: sellTxs[sellTxs.length - 1]?.timestamp || null,
-        buy_transactions: Object.freeze(buyTxs),
-        sell_transactions: Object.freeze(sellTxs),
-        linked_order_ids: Object.freeze([]),
-        candidate_observation_ids: Object.freeze(['obs_synth_' + typeId]),
-      }),
-    });
-
-    return this.calculate(syntheticRecord, {
-      ...options,
-      accounting_scope_id: accountingScopeId,
-      transactions,
-    });
-  }
-}

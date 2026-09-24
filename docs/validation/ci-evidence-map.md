@@ -33,7 +33,7 @@ L'état `GAP` ou `UNKNOWN` signifie qu'aucune preuve durable n'est encore dispon
 | Persistence | transactions/sessions persistent selon les invariants attendus | `character_transaction_persistence.test.ts`, `character_transaction_ingestion.test.ts` | `unit_domain` | PR + push main | Node 22 | job log | conserver couverture de migration/persistence |
 | Execution / outcome | simulation, exécution et résultat réalisé restent cohérents | `execution_simulation.test.ts`, `execution_outcome.test.ts`, `execution_tracking_integration.test.ts`, `realized_financial_outcome.test.ts` | `unit_domain` | PR + push main | Node 22 | job log | certification profonde requise |
 | Domain invariants | propriétés structurelles et frontières de domaine restent vraies | `property_invariants.test.ts`, `domain_repositories.test.ts`, `systemic_certification.test.ts` | `unit_domain` | PR + push main | Node 22 | job log | canoniser la responsabilité avant déplacement |
-| Order / ownership | identité/scoping/ownership des ordres restent stricts | `order_identity.test.ts`, `order_scoping_contracts.test.ts`, `corporation_order.test.ts`, `fleetFinancial*` | `unit_domain` | PR + push main | Node 22 | job log | préserver les frontières character/corporation |
+| Order / ownership | identité/scoping/ownership des ordres restent stricts | `order_identity.test.ts`, `order_scoping_contracts.test.ts`, `corporation_order.test.ts` | `unit_domain` | PR + push main | Node 22 | job log | préserver les frontières character/corporation |
 | Corporation boundary | un principal ne peut agir/lire hors de sa frontière | `test:corporation-boundary` + ESI tests + character routes | `unit_domain` + `server` | PR + push main | Node 22 | job log | aucune simplification sans scénario négatif équivalent |
 | API | contrats/routes HTTP restent valides | `test:api` | `server` | PR + push main | Node 22 | job log | corriger route/contrat + rerun |
 | Server runtime | serveur démarre et expose la santé attendue | `test:smoke` | `server` | PR + push main | Node 22 | job log | conserver aussi dans futur post-merge smoke |
@@ -90,7 +90,7 @@ Responsabilité dominante :
 - evidence/provenance ;
 - outcomes ;
 - persistence/ingestion ;
-- fleet/treasury ;
+- character / corporation / treasury ;
 - routes/interregional ;
 - intégration end-to-end ;
 - service ESI ;

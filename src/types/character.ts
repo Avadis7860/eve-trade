@@ -244,8 +244,10 @@ export interface TraderPerformanceMetrics {
   average_hold_days: number;
   /** Position/whole-operation progress; never a substitute for realized P&L. */
   capital_recovery?: CapitalRecoverySummary;
-  total_broker_fees_paid: number;
-  total_sales_tax_paid: number;
+  /** Null when fee evidence is unavailable for any included financial result. */
+  total_broker_fees_paid: number | null;
+  /** Null when fee evidence is unavailable for any included financial result. */
+  total_sales_tax_paid: number | null;
   top_profitable_items: Array<{
     type_id: number;
     type_name: string;
@@ -282,7 +284,7 @@ export interface TraderPerformanceMetrics {
   realized_profit_label?: string;
   execution_fee_mode?: ExecutionFeeRoleMode;
   total_realized_gross?: number;
-  total_estimated_fees?: number;
+  total_estimated_fees?: number | null;
   has_unmatched_trades?: boolean;
   unmatched_trades_count?: number;
 }

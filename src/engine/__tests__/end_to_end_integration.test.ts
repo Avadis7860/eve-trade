@@ -85,6 +85,33 @@ function createTestOrders(): EveCharacterOrder[] {
       issued: '2026-03-30T12:00:00Z',
       duration: 90,
     },
+    {
+      order_id: '30001',
+      character_id: 1001,
+      character_name: 'Pilot Alpha',
+      type_id: 37,
+      type_name: 'Isogen',
+      region_id: 10000002,
+      region_name: 'The Forge',
+      location_id: 60003760,
+      price: 100.0,
+      volume_remain: 1000,
+      volume_total: 1000,
+      is_buy_order: false,
+      issued: '2026-03-30T13:00:00Z',
+      duration: 90,
+      is_corporation: true,
+      ownership: {
+        principal_character_id: 1001,
+        owner_type: 'corporation',
+        owner_id: 9001,
+        owner_name: 'Starlight Holdings Inc.',
+        corporation_id: 9001,
+        corporation_name: 'Starlight Holdings Inc.',
+        issuer_character_id: 1001,
+        wallet_division: 2,
+      },
+    },
   ];
 }
 

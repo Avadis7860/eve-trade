@@ -111,6 +111,19 @@ function run() {
     'fulfilled order history must remain available as observation-only activity',
   );
 
+  const orphanMetrics = TraderAnalyticsService.processTransactions(
+    1001,
+    'Test Trader',
+    [tx(500, false, 1, 140, '2026-09-22T10:00:00Z')],
+    [],
+    [],
+    5,
+    5,
+  );
+  const orphanCycle = orphanMetrics.recent_trade_cycles[0];
+  assert(orphanCycle.roi === null, 'An orphan sale must expose ROI as unavailable rather than 0%');
+  assert(orphanCycle.financial_completeness === 'PARTIAL', 'An orphan sale remains financially PARTIAL');
+
   console.log('[PASS] FIN-002 position-based analytics semantics validated.');
 }
 

@@ -39,7 +39,7 @@ The financial pipeline keeps two distinct quality axes:
 - source coverage describes whether the economic cost lineage is reconstructable;
 - financial completeness describes whether the financial result, including fee treatment, is fully evidenced.
 
-Therefore MARKET_TRACEABLE + UNAVAILABLE is a valid state: cost basis and lifecycle are known, while net-of-fees evidence is unavailable. Fee availability must never be used as a proxy for lifecycle closure.
+Therefore MARKET_TRACEABLE + UNAVAILABLE is a valid state: cost basis and lifecycle are known, while net-of-fees evidence is unavailable. In that state gross disposal P&L may remain known, but net P&L and its net ratios are unavailable. Fee availability must never be used as a proxy for lifecycle closure.
 
 ## AcquisitionLot
 
@@ -104,6 +104,8 @@ The recovery delta is not realized P&L, and realized P&L must not be backfilled 
 positionLedger.ts reconstructs deterministic FIFO lots and disposal allocations from transaction facts. RealizedFinancialOutcomeEngine projects its existing realized-financial contract from that boundary.
 
 The position ledger is a calculation boundary, not a durable IndexedDB source of truth.
+
+A cross-location allocation can remain matchable because inventory may legitimately move between locations, but without a corresponding transfer fact the lineage is not fully evidenced. Such allocations remain `PARTIAL` rather than silently claiming complete location-level traceability.
 
 ## Financial KPIs
 

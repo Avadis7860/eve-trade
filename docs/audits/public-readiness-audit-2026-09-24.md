@@ -29,20 +29,22 @@ The target is simple:
 - Public market error diagnostics preserve HTTP/cache/ESI/Retry-After information.
 - The previously reported market-display problem is now considered resolved: the application is currently functional, and the reported symptom was explained by insufficient available data to produce a market to display. No persistent application defect is currently identified.
 
-## Public-facing gaps confirmed in the repository
+## Public-readiness gaps identified by the baseline audit
 
 ### PUB-001 — README / first-contact presentation
 
 **Status: IN PROGRESS — documentation correction included in this sync.**
 
-Current gap:
-- README still contains the obsolete statement "Projet privé".
-- No concise current-status section distinguishes implemented capabilities from planned UX work.
-- No explicit known-limitations section.
-- No visible CI status badge.
-- The README does not yet present the project clearly as a public portfolio artifact.
+Baseline finding:
+- README contained the obsolete statement "Projet privé".
+- It lacked a concise current-status section distinguishing implemented capabilities from planned UX work.
+- It lacked an explicit known-limitations section.
+- It lacked a visible CI status badge.
+- It did not yet present the project clearly as a public portfolio artifact.
 
-Target:
+Current status after this synchronization: PUB-001 is DONE.
+
+Target achieved by PUB-001:
 - accurate public status;
 - capabilities backed by current implementation;
 - validation entry points;
@@ -122,14 +124,14 @@ Target:
 
 **Status: IN PROGRESS — addressed by this sync.**
 
-Several active documents still carried pre-merge or stale P0 language:
+At the initial baseline, several active documents carried pre-merge or stale P0 language:
 - P0 listed as ACTIVE/CLOSING;
 - target-PC incident listed as NOT ROOT-CAUSED;
 - CI-001 described as pre-merge;
 - Draft-routing follow-up mixed with current-state wording;
 - README described the project as private.
 
-This is a credibility problem because public visitors can reasonably interpret stale status text as evidence that the project is unmanaged.
+This was a credibility problem because public visitors can reasonably interpret stale status text as evidence that the project is unmanaged. PUB-007 is DONE after this synchronization.
 
 ### PUB-008 — Legacy metadata review
 

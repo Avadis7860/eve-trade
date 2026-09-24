@@ -1112,58 +1112,5 @@ export class TraderAnalyticsService {
     };
   }
 
-  /**
-   * Consolidated Multi-Character (Fleet) FIFO Transaction Processing
-   * Pools transactions from all connected characters to correctly match cross-character trades
-   * (e.g., Pilot A buys Livestock, Pilot B sells Livestock).
-   */
-  /**
-   * Fleet transaction projection.
-   *
-   * A fleet is a reporting scope, not an economic owner. The consolidated
-   * transaction path is reconstructed once inside one explicit accounting scope.
-   * Character identity remains transaction attribution/provenance only.
-   */
-  static processFleetConsolidatedTransactions(
-    characters: {
-      character_id: number;
-      character_name: string;
-      accounting_level?: number;
-      broker_relations_level?: number;
-    }[],
-    allTransactions: EveCharacterTransaction[],
-    orderHistory: EveCharacterOrderHistory[] = [],
-    journalEntries: EveCharacterJournalEntry[] = [],
-    accountingLevel?: number,
-    brokerRelationsLevel?: number,
-    options?: RealizedFinancialCalculationOptions
-  ): TraderPerformanceMetrics {
-    if (characters.length === 0) {
-      throw new Error('processFleetConsolidatedTransactions requires at least one reporting character');
-    }
 
-    const reportingCharacter = characters[0];
-    const accountingScopeId =
-      options?.accounting_scope_id?.trim() || 'ecosystem:fleet';
-
-    const metrics = this.processTransactions(
-      reportingCharacter.character_id,
-      reportingCharacter.character_name,
-      allTransactions,
-      orderHistory,
-      journalEntries,
-      accountingLevel,
-      brokerRelationsLevel,
-      {
-        ...options,
-        accounting_scope_id: accountingScopeId,
-      },
-    );
-
-    return Object.freeze({
-      ...metrics,
-      character_id: 0,
-      character_name: 'Flotte Consolidée (' + characters.length + ' pilotes)',
-    });
-  }
 }

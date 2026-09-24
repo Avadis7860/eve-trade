@@ -49,6 +49,13 @@ const createMockMetrics = (
   average_hold_days: 1.5,
   capital_recovery: {
     scope: 'KNOWN_POSITIONS',
+    provenance: [
+      {
+        source_kind: 'ESI_WALLET_TRANSACTION',
+        source_id: String(charId),
+        principal_scope: `character:${charId}`,
+      },
+    ],
     financial_completeness: 'OBSERVED',
     capital_committed: buyVol,
     cash_recovered: sellVol,

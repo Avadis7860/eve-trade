@@ -1489,6 +1489,86 @@ async function runAllTests() {
     );
   }
 
+  // FIN-002: sequential economic position segments for the same scope + type remain distinct.
+  {
+    console.log('--- FIN-002 Segment Test: Sequential position segments stay isolated ---');
+    const charId = 2113040;
+    const typeId = 34;
+    const config: Partial<FinancialConfig> = {
+      accounting_level: 5,
+      broker_relations_level: 5,
+      enable_transport_costs: false,
+    };
+    const txs: ExecutionTransactionRef[] = [
+      {
+        transaction_id: 8401,
+        type_id: typeId,
+        location_id: 60003760,
+        is_buy: true,
+        quantity: 10_000,
+        unit_price: 100,
+        timestamp: '2026-09-20T10:00:00Z',
+        character_id: charId,
+      },
+      {
+        transaction_id: 8402,
+        type_id: typeId,
+        location_id: 60003760,
+        is_buy: false,
+        quantity: 10_000,
+        unit_price: 140,
+        timestamp: '2026-09-20T11:00:00Z',
+        character_id: charId,
+      },
+      {
+        transaction_id: 8403,
+        type_id: typeId,
+        location_id: 60003760,
+        is_buy: true,
+        quantity: 10_000,
+        unit_price: 100,
+        timestamp: '2026-09-20T12:00:00Z',
+        character_id: charId,
+      },
+      {
+        transaction_id: 8404,
+        type_id: typeId,
+        location_id: 60003760,
+        is_buy: false,
+        quantity: 1,
+        unit_price: 50,
+        timestamp: '2026-09-20T13:00:00Z',
+        character_id: charId,
+      },
+    ];
+
+    const outcome = RealizedFinancialOutcomeEngine.calculateForTransactions(
+      charId,
+      typeId,
+      txs,
+      {
+        financialConfig: config,
+        executionFeeMode: 'MAKER_MAKER',
+        accounting_scope_id: 'ecosystem:segments',
+        coverage_evidence: {
+          history_coverage: 'COMPLETE_FOR_SCOPE',
+          economic_origin_coverage: 'COMPLETE_FOR_SCOPE',
+        },
+      },
+    );
+
+    assert(outcome.position_segments.length === 2, 'two sequential economic position segments must be exposed');
+    assert(outcome.position_segments[0].lifecycle_status === 'CLOSED', 'first segment must be closed');
+    assert(outcome.position_segments[1].lifecycle_status === 'PARTIALLY_REALIZED', 'second segment must remain partial');
+    assert(outcome.position_lifecycle === 'PARTIALLY_REALIZED', 'current outcome lifecycle must describe the active segment');
+    assert(outcome.position_remaining_quantity === 9_999, 'current outcome remaining quantity must belong to the active segment');
+    assert(outcome.capital_committed === 1_000_000, 'scalar capital committed must describe the active segment only');
+    assert(outcome.cash_recovered === 50, 'scalar cash recovered must describe the active segment only');
+    assert(outcome.capital_recovery_delta === -999_950, 'scalar recovery must not include the closed segment');
+    assert(outcome.gross_realized_profit === 399_950, 'realized gross result must include both closed and partial disposal events');
+    console.log('  [PASS] FIN-002 Segment Test: historical and current segments remain isolated.');
+  }
+
   console.log('\n==========================================================================');
   console.log('--- RUNNING CHANTIER 3B-4A.2 FINANCIAL TRUTH INTEGRATION GATE TESTS ---');
   console.log('==========================================================================');

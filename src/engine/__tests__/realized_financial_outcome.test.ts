@@ -493,11 +493,9 @@ async function runAllTests() {
       financialConfig: mockFinancialConfig,
     });
 
-    assert(outcomeEmpty.roi === 0.0, 'ROI is 0.0 on empty');
-    assert(outcomeEmpty.margin === 0.0, 'Margin is 0.0 on empty');
-    assert(outcomeEmpty.profit_per_unit === 0.0, 'Profit per unit is 0.0 on empty');
-    assert(!isNaN(outcomeEmpty.roi) && isFinite(outcomeEmpty.roi), 'ROI is finite');
-    assert(!isNaN(outcomeEmpty.margin) && isFinite(outcomeEmpty.margin), 'Margin is finite');
+    assert(outcomeEmpty.roi === null, 'ROI is unavailable when no economic denominator exists');
+    assert(outcomeEmpty.margin === null, 'Margin is unavailable when no economic denominator exists');
+    assert(outcomeEmpty.profit_per_unit === null, 'Profit per unit is unavailable when no economic denominator exists');
 
     // Case 2: Free items (unit price 0)
     const freeBuy: ExecutionTransactionRef = { transaction_id: 1, type_id: 34, location_id: 60003760, is_buy: true, quantity: 100, unit_price: 0, timestamp: '2026-09-20T10:00:00Z' };
@@ -1254,6 +1252,9 @@ async function runAllTests() {
     assert(takerOutcome.fees.estimated_buy_broker_fee === 0, 'Adv 3.3: TAKER buy has 0% broker fee');
     assert(takerOutcome.fees.estimated_sell_broker_fee === 0, 'Adv 3.3: TAKER sell has 0% broker fee');
     assert(takerOutcome.fees.estimated_sales_tax > 0, 'Adv 3.3: Sales tax applies regardless of role');
+    if (takerOutcome.net_realized_profit === null || makerOutcome.net_realized_profit === null) {
+      throw new Error('Configured maker/taker outcomes must expose numeric net profit');
+    }
     assert(takerOutcome.net_realized_profit > makerOutcome.net_realized_profit, 'Adv 3.3: Taker net profit > Maker net profit');
 
     console.log('  [PASS] Adversarial & edge cases verified.');
@@ -1316,6 +1317,7 @@ async function runAllTests() {
     assert(outcome.financial_completeness === 'ESTIMATED', 'Financial completeness is ESTIMATED (MAKER fees)');
     assert(outcome.is_net_estimated === true, 'is_net_estimated is true');
     assert(outcome.fees.estimated_total_fees > 0, 'Estimated fees > 0');
+    if (outcome.net_realized_profit === null) throw new Error('Configured outcome must expose numeric net profit');
     assert(outcome.net_realized_profit < outcome.gross_realized_profit, 'Net profit = Gross - Fees');
     assert(outcome.unmatched_sell_quantity === 0, 'No unmatched sell quantity');
     console.log('  [PASS] Gate 3B-4A.2.1: calculateForTransactions validated.');
@@ -1902,6 +1904,12 @@ async function runAllTests() {
       fifo_allocations: [
         {
           allocation_id: 'alloc_8102_8101',
+          position_segment_id: 'position_test_8101',
+          provenance: {
+            source_kind: 'EXECUTION_TRANSACTION',
+            source_id: '8102',
+            principal_scope: 'character:2112001',
+          },
           sell_transaction_id: 8102,
           buy_transaction_id: 8101,
           type_id: typeId,

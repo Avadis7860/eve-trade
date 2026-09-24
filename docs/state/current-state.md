@@ -36,7 +36,7 @@ A dedicated study is recorded in [CI management audit](../audits/ci-management-a
 
 ### Current CI management decision
 
-CI-001 is **DONE / MERGED** on main at `7fc6fe7ca65454d0d29843bc0eace336b2da864c`. The current main head is `95e970933a1d440fb61d25a6f677742731b697aa`, and Main Smoke #9 completed successfully against it.
+CI-001 is **DONE / MERGED** on main at `7fc6fe7ca65454d0d29843bc0eace336b2da864c`. Main Smoke #13 completed successfully against current main `aec4c62691723e8fa2ee2bb2f9126249152ad57f`.
 
 Post-merge behavior is now intentionally split: PR changes run the PR certification surface, while pushes to `main` run the short Main Smoke surface. Full Repository Certification is scheduled/manual.
 

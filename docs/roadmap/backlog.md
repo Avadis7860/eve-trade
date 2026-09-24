@@ -2,13 +2,24 @@
 
 Status: CURRENT
 Scope: open work only
-Source of truth: revalidated code and current state documents
+Source of truth: revalidated code, tests, CI and current state documents
 
-## Product / UX program
+## P0 — Financial Truth / Position Model — CONTRACT REBASE REQUIRED
 
-The authoritative product backlog is [UX-First Trading Terminal Program](ux-program.md).
+These items block further finance, performance and portfolio development until their contracts are accepted.
 
-### P0 — Market / ESI truth and retrieval reliability — DONE / CLOSED
+- **FIN-001 / #72:** derive economic acquisitions from real transactions; create first-class Acquisition Lots with source/provenance, remaining quantity and cost basis; derive Current Position from open lots.
+- **ORD-001 / #73:** keep one canonical MarketOrder model; character/corporation remain ownership/scope dimensions; issuer and observer remain explicit provenance.
+- **FIN-002 / #74:** rebuild Performance around OPEN -> PARTIALLY_REALIZED -> CLOSED. A partial sale realizes P&L on the allocated quantity but does not close the underlying position.
+- **DATA-001 / #75:** audit every financial path for UNKNOWN/PARTIAL/ERROR/ABSENT -> 0 collapse and provenance loss.
+- Active BUY orders may reserve capital but are not acquisition facts.
+- Market order side must never be treated as economic acquisition/disposition direction.
+
+## P0 — CI regression harness
+
+**CI-003 / #76** is a narrow maintenance fix for the current red Unit/Domain Certification lane on the UX-03 branch. It must repair the test harness only and preserve the exact real-corporation-payload regression.
+
+## P0 — Market / ESI truth and retrieval reliability — DONE / CLOSED
 
 Completed:
 - Observable public market-order error propagation.
@@ -16,74 +27,46 @@ Completed:
 - Stale-cache preservation on previously observed market data.
 - Deterministic ERROR / PARTIAL / STALE coverage.
 - Global sync failure accounting for market-quality ERROR.
-- Browser certification of operator-facing HTTP 401 + ESI budget diagnostics.
-- **P0-A caller audit:** all identified non-Operations market-order consumers are mapped; no concrete failure-to-empty/unchanged collapse was demonstrated.
-- Documentation of the P0-A caller matrix and the latent legacy-helper hazard.
+- P0-A caller audit.
+- P0-B 429 / Retry-After certification.
+- P0-C evidence export and target-PC evidence.
 
-Closure:
-- P0-A audit: complete and merged.
-- P0-B 429 / Retry-After: certified and merged.
-- P0-C evidence export: certified and merged.
-- The historical target-PC market-display issue is resolved; current application behavior is functional and no persistent software defect is identified.
-- P0-D: CLOSED / EXTERNALLY BOUNDED.
+There is no active P0 market reliability branch.
 
-There is no active P0 technical branch.
+## UX-02 — Operations / Mes Ordres — DONE / MERGED
 
-### UX-02 — Operations / Mes Ordres — DONE / MERGED
+The Operations console and its browser decision loop are merged and certified.
 
-- The Operations console first increment is merged.
-- Browser decision gate for keep / adjust / relocate / cancel is certified by PR #61 run `35859213922`.
-- Expose capital, escrow, active sell value, order age, fill ratio, remaining locked capital, estimated turnover, expected remaining return, market distance and data health.
-- Separate economic ownership scope from performance-analysis scope.
-- Keep the existing order advisor but make its decision context inspectable.
+## P1 — Allocation / Portefeuille
 
-### P1 — Allocation / Portefeuille
+Status: IMPLEMENTED SCAFFOLD / CERTIFICATION BLOCKED
 
-Status: IMPLEMENTATION INCREMENT 1 ACTIVE / CERTIFICATION PENDING
+The UX-03 implementation is retained as scaffolding but must be re-based on FIN-001/ORD-001/FIN-002/DATA-001 before final certification.
 
-Detailed contract: [UX-03 Allocation / Portefeuille](../ux/ux-03-allocation-contract.md)
+The Real Portfolio cost basis must come from the position/lot contract, not active BUY orders.
 
-- Split Real Portfolio from Proposed Allocation with separate economic truth boundaries.
-- Feed Proposed Allocation from the universe-wide opportunity set, never from the selected item only.
-- Define treasury scope/provenance and separate liquid cash, buy escrow, explicit reserve, contingent buy obligation and inventory cost basis.
-- Preserve type/group hard concentration controls and expose category/route concentrations without inventing hard caps.
-- Measure concentration against deployed proposed capital, not total treasury balance.
-- Keep projected net profit, capturable profit, projected ROI, profit/day, data confidence, prediction confidence and profit-realization probability distinct.
-- Treat liquidity and risk as multi-dimensional evidence rather than an opaque scalar.
-- Optimize across multiple opportunities instead of simply selecting the highest overall score.
-- Preserve valid prior proposals during stale/error refresh states and never collapse missing data to zero.
-- Cover multi-opportunity allocation, reserve, escrow, stale/partial/error, manual-budget and missing-inventory scenarios.
-- Correct current optimizer quantity/capital consistency and document allocation rationale before certification.
-- Increment 1 is implemented on `ux-03/allocation-contract`; final UX-03 certification remains the next delivery gate.
-
-### P1 — Performance / Journal
+## P1 — Performance / Journal — BLOCKED BY FIN-001/FIN-002
 
 - Replace manual financial truth with ESI-derived trade reconstruction.
-- Reconcile opportunities, orders, fills, sales, fees and realized outcomes.
-- Compare predicted vs observed profit, ROI and turnover.
+- Reconcile transactions, acquisition lots, disposal allocations, fees and realized outcomes.
+- Compare predicted vs observed profit, ROI and turnover only after the position ledger is authoritative.
 - Keep manual input only for optional personal notes.
 
-### P1 — Control Center / Paramètres
+## P1 — Control Center / Paramètres
 
-- Surface effective decision parameters: capital, ROI floor, profit floor, turnover, position cap, concentration, profile, hubs, logistics and risk.
+- Surface effective decision parameters and their actual engine consumers.
 - Separate business policy from technical maintenance.
-- Hide or mark controls that have no effective engine consumer.
+- Label non-operative controls explicitly.
 
-### P2 — Cockpit
+## P2 — Cockpit
 
-- Rebuild cockpit around "what should I know/do now?"
-- Aggregate urgent order actions, actionable discovery, proposed allocation, recent performance and data health without duplicating full screens.
+Rebuild cockpit around decision-oriented synthesis after UX-02..UX-05 contracts are stable.
 
-### P2 — UX hardening
+## P2 — UX hardening
 
-- Responsive behavior.
-- Keyboard/focus/accessibility.
-- Consistent loading/empty/stale/partial/error states.
-- Interaction and information-density tuning.
+Responsive behavior, accessibility, interaction density and consistent degraded-data states.
 
 ## Deferred technical work
-
-These remain valid but are explicitly blocked until the UX baseline is accepted:
 
 - PST-001: IndexedDB decomposition.
 - UI-001: corporation trading scope UI.
@@ -91,45 +74,9 @@ These remain valid but are explicitly blocked until the UX baseline is accepted:
 - UI-002: large frontend component decomposition.
 - PERF-001: performance measurement/optimization.
 - TYPE-001: legacy typing/facade cleanup.
+- CI-002: Draft/Ready PR routing hardening.
 
-## Public-readiness / portfolio follow-up
+## Governance rule
 
-The detailed maintenance plan is [Public Readiness](public-readiness.md). High-priority items are security posture, license decision and public-facing truth synchronization. Product work continues with UX-03.
+No feature work may bypass the current contract-rebase gate. Historical issues are not copied into active work unless there is fresh evidence.
 
-## CI follow-up candidates
-
-- **Draft routing mismatch:** the current PR workflow triggers `CI Foundation & Regression Gate` for Draft PRs as well as Ready PRs. PR #61 was created as Draft and run `35858589551` entered the full six-lane certification topology after `CI / Change Scope` succeeded. This is a confirmed behavior mismatch with the documented Draft Fast Gate model.
-- Keep this as a separate CI hardening chantier; do not mix it into the P0 product closure work.
-
-## CI operator tooling — future candidate
-
-- **CI-OPS-001 / Oclif operator CLI:** candidate separate maintenance chantier after P0 closure. Oclif would provide the project-facing operator layer (for example `eve ci status`, `eve ci watch`, `eve ci rerun-failed`, `eve ci certify`) while GitHub Actions remains the certification authority and gh remains the low-level GitHub control surface.
-- Do not activate this track during P0-B. Open it only when CI operational hardening is intentionally separated from product reliability work.
-
-## Operational issue — historical
-
-**Reported:** public market orders were not available for display from the user's PC.
-
-**Current status:** RESOLVED / EXTERNALLY BOUNDED. The application is currently functional. The reported symptom was explained by insufficient available data to produce a market to display. No persistent application defect is currently identified.
-
-Primary diagnostic path:
-EsiService.fetchLiveOrdersDetailed -> /api/markets/region/orders -> MarketEsiGateway -> EsiGateway -> ESI.
-
-Evidence now certified in code:
-- backend error responses preserve HTTP/cache/rate-limit diagnostics;
-- Operations browser flow retains active orders and surfaces market ERROR instead of false zero activity;
-- P0-A caller audit maps the non-Operations consumers and found no concrete failure-to-empty collapse affecting certifiable business truth;
-- the historical target-PC symptom is no longer an active incident and is not a current product gap.
-
-Reference:
-[UI/UX Product Audit](../audits/ui-ux-product-audit-2026-09-23.md)
-[P0 Market Reliability Plan](p0-market-reliability.md)
-[P0-A Caller Matrix](../validation/p0-a-market-consumers.md)
-
-## Rule
-
-Historical issues are not copied into the active backlog unless they remain reproducibly open today.
-
-The UX-first sequencing gate is mandatory: no deferred technical item is promoted ahead of UX-00/UX-01 and the relevant surface contract without an explicit roadmap update.
-
-CI-001 and UX-02 are merged. The current product chantier starts from the merged `main` head and uses one active delivery branch/PR at a time.

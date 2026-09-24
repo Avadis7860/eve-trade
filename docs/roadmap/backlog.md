@@ -8,7 +8,7 @@ Source of truth: revalidated code and current state documents
 
 The authoritative product backlog is [UX-First Trading Terminal Program](ux-program.md).
 
-### P0 — Market / ESI truth and retrieval reliability — ACTIVE / CLOSING
+### P0 — Market / ESI truth and retrieval reliability — DONE / CLOSED
 
 Completed:
 - Observable public market-order error propagation.
@@ -20,13 +20,16 @@ Completed:
 - **P0-A caller audit:** all identified non-Operations market-order consumers are mapped; no concrete failure-to-empty/unchanged collapse was demonstrated.
 - Documentation of the P0-A caller matrix and the latent legacy-helper hazard.
 
-Remaining:
-- **P0-B DONE / MERGED:** deterministic HTTP 429 / Retry-After browser coverage certified by PR #66 and post-merge Main Smoke.
-- **P0-C IMPLEMENTATION CERTIFIED / EXTERNAL EVIDENCE PENDING:** PR #67 merged; target-PC capture and controlled comparison remain outstanding.
+Closure:
+- P0-A audit: complete and merged.
+- P0-B 429 / Retry-After: certified and merged.
+- P0-C evidence export: certified and merged.
+- The historical target-PC market-display issue is resolved; current application behavior is functional and no persistent software defect is identified.
+- P0-D: CLOSED / EXTERNALLY BOUNDED.
 
-P0-B implementation is present on the active branch; it is not marked complete until its single PR is CI-certified, merged, and followed by a green Main Smoke.
+There is no active P0 technical branch.
 
-### P1 — Operations / Mes Ordres — DONE / MERGED
+### UX-02 — Operations / Mes Ordres — DONE / MERGED
 
 - The Operations console first increment is merged.
 - Browser decision gate for keep / adjust / relocate / cancel is certified by PR #61 run `35859213922`.
@@ -78,6 +81,10 @@ These remain valid but are explicitly blocked until the UX baseline is accepted:
 - PERF-001: performance measurement/optimization.
 - TYPE-001: legacy typing/facade cleanup.
 
+## Public-readiness / portfolio follow-up
+
+The detailed maintenance plan is [Public Readiness](public-readiness.md). High-priority items are security posture, license decision and public-facing truth synchronization. Product work continues with UX-03.
+
 ## CI follow-up candidates
 
 - **Draft routing mismatch:** the current PR workflow triggers `CI Foundation & Regression Gate` for Draft PRs as well as Ready PRs. PR #61 was created as Draft and run `35858589551` entered the full six-lane certification topology after `CI / Change Scope` succeeded. This is a confirmed behavior mismatch with the documented Draft Fast Gate model.
@@ -88,11 +95,11 @@ These remain valid but are explicitly blocked until the UX baseline is accepted:
 - **CI-OPS-001 / Oclif operator CLI:** candidate separate maintenance chantier after P0 closure. Oclif would provide the project-facing operator layer (for example `eve ci status`, `eve ci watch`, `eve ci rerun-failed`, `eve ci certify`) while GitHub Actions remains the certification authority and gh remains the low-level GitHub control surface.
 - Do not activate this track during P0-B. Open it only when CI operational hardening is intentionally separated from product reliability work.
 
-## Operational issue
+## Operational issue — historical
 
-**Reported:** public market orders no longer retrieve from the user's PC.
+**Reported:** public market orders were not available for display from the user's PC.
 
-**Current status:** NOT ROOT-CAUSED.
+**Current status:** RESOLVED / EXTERNALLY BOUNDED. The application is currently functional. The reported symptom was explained by insufficient available data to produce a market to display. No persistent application defect is currently identified.
 
 Primary diagnostic path:
 EsiService.fetchLiveOrdersDetailed -> /api/markets/region/orders -> MarketEsiGateway -> EsiGateway -> ESI.
@@ -101,7 +108,7 @@ Evidence now certified in code:
 - backend error responses preserve HTTP/cache/rate-limit diagnostics;
 - Operations browser flow retains active orders and surfaces market ERROR instead of false zero activity;
 - P0-A caller audit maps the non-Operations consumers and found no concrete failure-to-empty collapse affecting certifiable business truth;
-- the target-PC incident is still not root-caused because real-PC evidence is not in the repository.
+- the historical target-PC symptom is no longer an active incident and is not a current product gap.
 
 Reference:
 [UI/UX Product Audit](../audits/ui-ux-product-audit-2026-09-23.md)

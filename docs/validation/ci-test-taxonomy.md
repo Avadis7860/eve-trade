@@ -44,9 +44,6 @@ Canonical owner: `npm test` / `unit_domain`.
 - `execution_tracking_integration.test.ts`
 - `financial_config.test.ts`
 - `financial_engine.test.ts`
-- `fleet.test.ts`
-- `fleetFinancial.test.ts`
-- `fleetFinancialContractHardening.test.ts`
 - `interregional_purity.test.ts`
 - `interregional_route_resolution.test.ts`
 - `market_data_quality.test.ts`

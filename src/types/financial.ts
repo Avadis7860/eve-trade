@@ -353,11 +353,11 @@ export interface CurrentPosition {
   readonly type_id: number;
   readonly economic_owner_type: EconomicOwnerType;
   readonly economic_owner_id: number | string | null;
-  readonly quantity_acquired: number;
-  readonly quantity_disposed: number;
-  readonly remaining_quantity: number;
-  readonly remaining_cost_basis: number;
-  readonly realized_gross_profit: number;
+  readonly quantity_acquired: number | null;
+  readonly quantity_disposed: number | null;
+  readonly remaining_quantity: number | null;
+  readonly remaining_cost_basis: number | null;
+  readonly realized_gross_profit: number | null;
   readonly capital_committed: number | null;
   readonly cash_recovered: number | null;
   readonly capital_recovery_delta: number | null;

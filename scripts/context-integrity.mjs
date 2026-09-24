@@ -27,8 +27,15 @@ if (!/^[0-9a-f]{40}$/.test(work.base_sha || '')) fail('current work base_sha is 
 if (map.load_order?.[0] !== '.eve-trade/current-work.json') fail('load-order must start with current-work manifest');
 
 for (const file of map.load_order || []) if (!exists(file)) fail('missing load-order file: ' + file);
-const workflow = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'ci.yml'), 'utf8');
-const workflowJobIds = new Set([...workflow.matchAll(/^  ([A-Za-z0-9_-]+):[ \t]*$/gm)].map((match) => match[1]));
+const workflowDir = path.join(ROOT, '.github', 'workflows');
+const workflowSources = fs.readdirSync(workflowDir)
+  .filter((name) => name.endsWith('.yml') || name.endsWith('.yaml'))
+  .sort()
+  .map((name) => fs.readFileSync(path.join(workflowDir, name), 'utf8'))
+  .join('\n');
+const workflowJobIds = new Set(
+  [...workflowSources.matchAll(/^  ([A-Za-z0-9_-]+):[ \t]*$/gm)].map((match) => match[1]),
+);
 
 for (const [domainName, domain] of Object.entries(map.domains || {})) {
   const references = [...(domain.canonical_code || []), ...(domain.contracts || []), ...(domain.invariants || []), ...(domain.decisions || []), ...(domain.tests || [])];
@@ -51,4 +58,5 @@ try {
 } catch (error) { fail('git repository/base SHA verification failed: ' + error.message); }
 
 if (failed) { console.error('[context-integrity] Context metadata is stale or inconsistent.'); process.exit(1); }
+
 console.log('[context-integrity] Context map, active work manifest, and CI lane references passed.');

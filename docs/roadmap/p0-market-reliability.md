@@ -38,7 +38,7 @@ PR #63 / CI #698 certifies:
 
 SDE Truth Gate #459 is also green.
 
-## Remaining increments
+## Completed increments
 
 ### P0-A — Caller audit
 
@@ -131,4 +131,4 @@ Do not introduce this tooling inside P0-B. Any implementation starts as a separa
 - Every technical branch starts from current `main`.
 - Merged branches are never reused.
 - Each increment closes with deterministic tests and documentation evidence.
-- The next increment starts only after the current PR is green and merged.
+- The next product increment starts only after the current PR is green, merged and documented.

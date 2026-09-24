@@ -80,7 +80,7 @@ Gate:
 a trader can inspect an active order and decide whether to keep, adjust, relocate or cancel without leaving the operations context for routine information. Certified by PR #61 run `35859213922` and P0 browser diagnostics by PR #63 run `35862904773`.
 
 ### UX-03 — Allocation / Portefeuille
-Status: CONTRACT ENRICHMENT ACTIVE — IMPLEMENTATION NOT STARTED
+Status: IMPLEMENTATION INCREMENT 1 ACTIVE — CERTIFICATION PENDING
 
 Detailed contract:
 [UX-03 Allocation / Portefeuille — Contrat métier détaillé](../ux/ux-03-allocation-contract.md)

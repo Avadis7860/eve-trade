@@ -85,8 +85,20 @@ export function resolvePortfolioTreasury(
     config.policy_reserve > 0;
   const policyReserve = reserveConfigured ? Math.max(0, config.policy_reserve!) : 0;
 
-  const treasuryCash =
+  const fleetWalletsPartial =
+    resolution.source_mode === 'fleet_consolidated' &&
+    characters.length > 0 &&
+    characters.some((character) => typeof character.wallet_balance !== 'number' || !Number.isFinite(character.wallet_balance));
+
+  const dataHealth: DataHealthStatus =
     resolution.capital_status === 'unavailable'
+      ? 'UNKNOWN'
+      : fleetWalletsPartial
+        ? 'PARTIAL'
+        : 'LIVE';
+
+  const treasuryCash =
+    resolution.capital_status === 'unavailable' || fleetWalletsPartial
       ? null
       : resolution.effective_capital;
 
@@ -126,6 +138,7 @@ export function resolvePortfolioTreasury(
     reserve_configured: reserveConfigured,
     allocation_budget: allocationBudget,
     capital_status: resolution.capital_status,
+    data_health: dataHealth,
     is_simulation:
       resolution.capital_status === 'manual' ||
       resolution.source_mode === 'manual_budget',
@@ -411,7 +424,7 @@ export function buildRealPortfolioSnapshot(
   };
 
   const health = worstHealth([
-    treasuryHealth(treasury.capital_status),
+    treasury.data_health,
     orderExposure.data_health,
     'UNKNOWN',
   ]);
@@ -437,7 +450,7 @@ export function buildProposedAllocationSnapshot(
     BLOCKING_HEALTH.has(candidateUniverse.data_health);
 
   const dataHealth = worstHealth([
-    treasuryHealth(treasury.capital_status),
+    treasury.data_health,
     candidateUniverse.data_health,
     simulation.data_health ?? 'LIVE',
   ]);

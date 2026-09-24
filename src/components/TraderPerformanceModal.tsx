@@ -242,7 +242,7 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="bg-[#0e1117] p-3.5 rounded-xl border border-emerald-500/30 space-y-1">
                   <div className="text-[11px] text-[#808495] flex items-center justify-between">
-                    <span>{metrics.realized_profit_label || (metrics.financial_completeness === 'UNAVAILABLE' ? 'Profit Réalisé (Hors Frais)' : 'Bénéfice Net Réalisé')}</span>
+                    <span>{metrics.realized_profit_label || (metrics.financial_completeness === 'UNAVAILABLE' ? 'Résultat des cessions (Hors Frais)' : 'Résultat des cessions')}</span>
                     <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
                   </div>
                   <div className="text-lg font-bold font-mono text-emerald-400">
@@ -259,7 +259,7 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
 
                 <div className="bg-[#0e1117] p-3.5 rounded-xl border border-blue-500/30 space-y-1">
                   <div className="text-[11px] text-[#808495] flex items-center justify-between">
-                    <span>Taux de Réussite (Win Rate)</span>
+                    <span>Taux de Réussite des positions clôturées</span>
                     <Percent className="w-3.5 h-3.5 text-blue-400" />
                   </div>
                   <div className="text-lg font-bold font-mono text-blue-400">
@@ -584,9 +584,9 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                       <th className="py-2 px-2">Prix Achat Moy.</th>
                       <th className="py-2 px-2">Prix Vente Moy.</th>
                       <th className="py-2 px-2">Durée</th>
-                      <th className="py-2 px-2">ROI</th>
+                      <th className="py-2 px-2">ROI cession</th>
                       <th className="py-2 px-3 text-right">
-                        {metrics.financial_completeness === 'UNAVAILABLE' ? 'Profit Réalisé (Hors Frais)' : 'Bénéfice Net'}
+                        {metrics.financial_completeness === 'UNAVAILABLE' ? 'Résultat de cession (Hors Frais)' : 'Résultat de cession'}
                       </th>
                     </tr>
                   </thead>
@@ -656,18 +656,35 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                         <td className={`py-2 px-2 font-mono font-bold ${
                           cycle.roi === null
                             ? 'text-[#808495]'
-                            : cycle.is_profitable
-                              ? 'text-emerald-400'
-                              : 'text-red-400'
+                            : cycle.position_lifecycle === 'PARTIALLY_REALIZED'
+                              ? 'text-amber-400'
+                              : cycle.is_profitable
+                                ? 'text-emerald-400'
+                                : 'text-red-400'
                         }`}>
                           {cycle.roi === null
                             ? '—'
                             : cycle.is_profitable
                               ? `+${(cycle.roi * 100).toFixed(1)}%`
                               : `${(cycle.roi * 100).toFixed(1)}%`}
+                          {cycle.position_lifecycle === 'PARTIALLY_REALIZED' && (
+                            <div className="text-[9px] text-amber-400 font-normal">cession partielle</div>
+                          )}
+                          {cycle.position_roi !== undefined && (
+                            <div className="text-[9px] text-[#808495] font-normal">position: {(cycle.position_roi * 100).toFixed(1)}%</div>
+                          )}
                         </td>
-                        <td className={`py-2 px-3 text-right font-mono font-bold ${cycle.is_profitable ? 'text-emerald-400' : 'text-red-400'}`}>
+                        <td className={`py-2 px-3 text-right font-mono font-bold ${
+                          cycle.position_lifecycle === 'PARTIALLY_REALIZED'
+                            ? 'text-amber-400'
+                            : cycle.is_profitable
+                              ? 'text-emerald-400'
+                              : 'text-red-400'
+                        }`}>
                           <div>{cycle.is_profitable ? `+${fmtIsk(cycle.net_profit)}` : fmtIsk(cycle.net_profit)}</div>
+                          {cycle.position_net_profit !== undefined && (
+                            <div className="text-[9px] text-[#808495] font-normal">position: {cycle.position_is_profitable ? '+' : ''}{fmtIsk(cycle.position_net_profit)}</div>
+                          )}
                           {cycle.estimated_fees_paid !== undefined && (
                             <div className="text-[9px] text-[#808495] font-normal font-mono">
                               {cycle.financial_completeness === 'UNAVAILABLE'

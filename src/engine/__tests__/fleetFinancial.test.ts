@@ -193,7 +193,7 @@ function runFleetFinancialTests() {
   assert(fleetMetrics.total_broker_fees_paid === 1_500_000, `Expected 1.5M broker fees, got ${fleetMetrics.total_broker_fees_paid}`);
   assert(fleetMetrics.total_sales_tax_paid === 3_000_000, `Expected 3.0M sales tax, got ${fleetMetrics.total_sales_tax_paid}`);
   assert(
-    fleetMetrics.average_realized_roi_scope === 'CLOSING_DISPOSAL_ALLOCATIONS',
+    fleetMetrics.average_realized_roi_scope === 'CLOSED_POSITIONS',
     'Fleet ROI scope must remain explicit'
   );
   assert(fleetMetrics.capital_recovery?.capital_committed === 150_000_000, 'Fleet committed capital must aggregate known positions');

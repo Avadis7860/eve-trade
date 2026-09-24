@@ -259,6 +259,16 @@ export interface TradeCycleRecord {
    * while the underlying acquisition position remains open.
    */
   position_lifecycle?: import('./financial').PositionLifecycleStatus;
+  /** Cycle-level realized result scope: only the quantity allocated by this disposal. */
+  realized_result_scope?: 'DISPOSAL_ALLOCATION';
+  /** Whole-position result, available only once the economic position is closed and reconciled. */
+  position_net_profit?: number;
+  /** Whole-position ROI, unavailable until the position closes with a valid acquisition-cost basis. */
+  position_roi?: number | null;
+  /** Whole-position profitability, distinct from the disposal result. */
+  position_is_profitable?: boolean;
+  /** Whole-position weighted hold duration, available on a reconciled closure. */
+  position_hold_days?: number;
   /** Remaining quantity of the economic position immediately after this disposal. */
   position_remaining_quantity?: number;
   /** True only when the underlying position reached zero remaining quantity. */
@@ -313,7 +323,10 @@ export interface TraderPerformanceMetrics {
   character_id: number;
   character_name: string;
   last_calculated: string;
+  /** Net result summed across realized disposal allocations, including partial positions. */
   total_realized_profit: number; // in ISK
+  /** Explicit economic scope of total_realized_profit. */
+  realized_profit_scope?: 'DISPOSAL_ALLOCATIONS';
   total_buy_volume: number; // in ISK
   total_sell_volume: number; // in ISK
   total_turnover: number; // in ISK
@@ -329,7 +342,8 @@ export interface TraderPerformanceMetrics {
   win_rate_pct: number | null; // 0 - 100 when a closed-position sample exists
   /** Null when no fully closed position provides a valid acquisition-cost denominator. */
   average_realized_roi: number | null; // Disposal-closing ROI; denominator = allocated acquisition cost
-  average_realized_roi_scope: 'CLOSING_DISPOSAL_ALLOCATIONS';
+  /** ROI sample is based on whole positions that reached closure. */
+  average_realized_roi_scope: 'CLOSED_POSITIONS' | 'CLOSING_DISPOSAL_ALLOCATIONS';
   average_hold_days: number;
   /** Position/whole-operation progress; never a substitute for realized P&L. */
   capital_recovery?: CapitalRecoverySummary;

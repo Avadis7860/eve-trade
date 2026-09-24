@@ -47,6 +47,9 @@ function run() {
   );
 
   assert(metrics.total_realized_profit > 0, 'the disposed unit may produce realized profit');
+  assert(metrics.realized_profit_scope === 'DISPOSAL_ALLOCATIONS', 'total realized profit is disposal-scoped');
+  assert(metrics.top_profitable_items.length === 0, 'partial positions must not enter top profitable items');
+  assert(Object.keys(metrics.category_success_rate).length === 0, 'partial positions must not enter category success statistics');
   assert(metrics.total_closed_trades === 0, 'a partial disposal must not count as a closed trade');
   assert(metrics.win_rate_pct === null, 'win rate must be unavailable when no position is fully closed');
   assert(metrics.profitable_trades === 0, 'a partially realized position must not count as a profitable closed trade');
@@ -63,6 +66,7 @@ function run() {
     'personal calibration hold time must remain unavailable without historical sample',
   );
   assert(metrics.recent_trade_cycles.length === 1, 'the realized disposal remains visible as an event');
+  assert(metrics.recent_trade_cycles[0].realized_result_scope === 'DISPOSAL_ALLOCATION', 'cycle result is disposal-scoped');
   assert(
     metrics.recent_trade_cycles[0].position_lifecycle === 'PARTIALLY_REALIZED',
     'the sale event must retain the partial position lifecycle',
@@ -92,6 +96,33 @@ function run() {
 
   assert(closedMetrics.total_closed_trades === 1, 'a fully disposed position must count as one closed trade');
   assert(closedMetrics.profitable_trades === 1, 'a fully disposed profitable position must count as profitable');
+  assert(closedMetrics.average_realized_roi_scope === 'CLOSED_POSITIONS', 'average realized ROI is closed-position scoped');
+  assert(closedMetrics.recent_trade_cycles[0].position_net_profit !== undefined, 'closed cycle exposes whole-position result');
+  assert(closedMetrics.recent_trade_cycles[0].position_is_profitable === true, 'closed position profitability comes from whole-position result');
+
+  const multiDisposalMetrics = TraderAnalyticsService.processTransactions(
+    1001,
+    'Test Trader',
+    [
+      tx(500, true, 10_000, 100, '2026-09-20T10:00:00Z'),
+      tx(501, false, 1, 140, '2026-09-21T10:00:00Z'),
+      tx(502, false, 9_999, 90, '2026-09-22T10:00:00Z'),
+    ],
+    [],
+    [],
+    5,
+    5,
+    { executionFeeMode: 'TAKER_TAKER' },
+  );
+  assert(multiDisposalMetrics.total_closed_trades === 1, 'multiple disposals of one position count as one closure');
+  assert(multiDisposalMetrics.profitable_trades === 0, 'whole-position loss must override a positive partial disposal');
+  const firstDisposal = multiDisposalMetrics.recent_trade_cycles.find((cycle) => cycle.cycle_id === 'cycle_501_34');
+  const closingDisposal = multiDisposalMetrics.recent_trade_cycles.find((cycle) => cycle.cycle_id === 'cycle_502_34');
+  assert(firstDisposal?.is_profitable === true, 'positive partial disposal remains a visible sub-result');
+  assert(firstDisposal?.position_net_profit === undefined, 'partial disposal must not publish whole-position result');
+  assert(closingDisposal?.position_net_profit !== undefined, 'closing disposal publishes cumulative whole-position result');
+  assert((closingDisposal?.position_net_profit ?? 0) < 0, 'cumulative whole-position result must be negative');
+  assert(closingDisposal?.position_is_profitable === false, 'whole-position profitability must be negative');
 
   const orderOnlyMetrics = TraderAnalyticsService.processTransactions(
     1001,

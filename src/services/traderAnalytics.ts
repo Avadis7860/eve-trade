@@ -395,34 +395,15 @@ export class TraderAnalyticsService {
             position_lifecycle: positionLifecycle,
             position_remaining_quantity: positionRemainingQuantity,
             is_position_closed: positionLifecycle === 'CLOSED',
+            realized_result_scope: 'DISPOSAL_ALLOCATION',
             character_id: sellTx.character_id ?? characterId,
             character_name: sellTx.character_name ?? characterName,
           };
 
           completedCycles.push(cycleRecord);
 
-          // Update Item Profit Map
-          if (!itemProfitMap[typeId]) {
-            itemProfitMap[typeId] = {
-              type_id: typeId,
-              type_name: typeName,
-              category_name: categoryName,
-              total_profit: 0,
-              trades_count: 0,
-              rois: [],
-              hold_days_list: [],
-              total_volume_units: 0,
-            };
-          }
-          itemProfitMap[typeId].total_profit = roundIsk(itemProfitMap[typeId].total_profit + netProfit);
-          if (positionLifecycle === 'CLOSED') {
-          itemProfitMap[typeId].trades_count += 1;
-        }
-          if (roi !== null) {
-            itemProfitMap[typeId].rois.push(roi);
-          }
-          itemProfitMap[typeId].hold_days_list.push(holdDays);
-          itemProfitMap[typeId].total_volume_units += matchedQty;
+          // Ranking aggregates are populated only after a whole position closes.
+          // Partial disposal results remain visible in the cycle/event stream.
         } else {
           // Completely unmatched sell: NO prior buy lots matched (orphan/oversold)
           // INVARIANT: No synthetic buy price, cost basis, or fake profit is fabricated.
@@ -477,6 +458,102 @@ export class TraderAnalyticsService {
       }
     }
 
+    // Derive whole-position performance only at genuine closure boundaries.
+    // Disposal results remain the event-level financial fact; closed-position
+    // KPIs use the cumulative result of every disposal in the position segment.
+    const cyclesByType = new Map<number, TradeCycleRecord[]>();
+    for (const cycle of completedCycles) {
+      const list = cyclesByType.get(cycle.type_id) ?? [];
+      list.push(cycle);
+      cyclesByType.set(cycle.type_id, list);
+    }
+
+    for (const [typeId, typeCycles] of cyclesByType) {
+      const orderedCycles = [...typeCycles].sort(
+        (a, b) =>
+          new Date(a.sell_date).getTime() - new Date(b.sell_date).getTime() ||
+          a.cycle_id.localeCompare(b.cycle_id),
+      );
+      let positionNetProfit = 0;
+      let positionAcquisitionCost = 0;
+      let positionQuantity = 0;
+      let weightedBuyTimeMs = 0;
+      let hasIncompleteSegment = false;
+
+      for (const cycle of orderedCycles) {
+        positionNetProfit = roundIsk(positionNetProfit + cycle.net_profit);
+        positionAcquisitionCost = roundIsk(positionAcquisitionCost + cycle.total_buy_cost);
+        positionQuantity += cycle.quantity;
+
+        const buyTime = Date.parse(cycle.buy_date);
+        if (Number.isFinite(buyTime) && cycle.quantity > 0) {
+          weightedBuyTimeMs += buyTime * cycle.quantity;
+        }
+        if (
+          cycle.financial_completeness === 'PARTIAL' ||
+          cycle.financial_completeness === 'UNAVAILABLE' ||
+          (cycle.unmatched_sell_quantity ?? 0) > 0
+        ) {
+          hasIncompleteSegment = true;
+        }
+
+        if (cycle.position_lifecycle !== 'CLOSED') continue;
+
+        const canPublishWholePosition =
+          !hasIncompleteSegment &&
+          positionAcquisitionCost > 0 &&
+          positionQuantity > 0 &&
+          Number.isFinite(weightedBuyTimeMs);
+
+        if (canPublishWholePosition) {
+          const positionRoi = safeDiv(positionNetProfit, positionAcquisitionCost, 0);
+          const finalSellTime = Date.parse(cycle.sell_date);
+          const weightedAcquisitionTime = weightedBuyTimeMs / positionQuantity;
+          const positionHoldDays =
+            Number.isFinite(finalSellTime) && Number.isFinite(weightedAcquisitionTime)
+              ? Math.max(0.05, (finalSellTime - weightedAcquisitionTime) / (1000 * 60 * 60 * 24))
+              : undefined;
+
+          const index = completedCycles.indexOf(cycle);
+          if (index >= 0) {
+            completedCycles[index] = {
+              ...cycle,
+              position_net_profit: positionNetProfit,
+              position_roi: positionRoi,
+              position_is_profitable: positionNetProfit > 0,
+              ...(positionHoldDays !== undefined
+                ? { position_hold_days: Number(positionHoldDays.toFixed(1)) }
+                : {}),
+            };
+          }
+
+          const item = itemProfitMap[typeId] ?? {
+            type_id: typeId,
+            type_name: cycle.type_name,
+            category_name: cycle.category_name,
+            total_profit: 0,
+            trades_count: 0,
+            rois: [],
+            hold_days_list: [],
+            total_volume_units: 0,
+          };
+          item.total_profit = roundIsk(item.total_profit + positionNetProfit);
+          item.trades_count += 1;
+          item.rois.push(positionRoi);
+          item.hold_days_list.push(positionHoldDays ?? cycle.hold_days);
+          item.total_volume_units += positionQuantity;
+          itemProfitMap[typeId] = item;
+        }
+
+        // A true closure terminates the economic position segment.
+        positionNetProfit = 0;
+        positionAcquisitionCost = 0;
+        positionQuantity = 0;
+        weightedBuyTimeMs = 0;
+        hasIncompleteSegment = false;
+      }
+    }
+
     // Market-order history is activity/provenance evidence only.
     // Its is_buy_order side must never be converted into economic buy/sell volume:
     // a trader may acquire via someone else's SELL order and later resell via a SELL order.
@@ -508,18 +585,18 @@ export class TraderAnalyticsService {
     totalEstimatedFees = roundIsk(totalEstimatedFees);
 
     const closedCycles = completedCycles.filter(
-      (c) => c.quantity > 0 && c.is_position_closed === true,
+      (c) => c.quantity > 0 && c.is_position_closed === true && c.position_net_profit !== undefined,
     );
-    const profitableTrades = closedCycles.filter((c) => c.is_profitable).length;
-    const unprofitableTrades = closedCycles.filter((c) => !c.is_profitable).length;
+    const profitableTrades = closedCycles.filter((c) => c.position_is_profitable === true).length;
+    const unprofitableTrades = closedCycles.filter((c) => c.position_is_profitable === false).length;
     const totalClosedTrades = closedCycles.length;
     const winRatePct: number | null =
       totalClosedTrades > 0 ? (profitableTrades / totalClosedTrades) * 100 : null;
 
-    const closedRoiCycles = closedCycles.filter((c) => c.roi !== null);
+    const closedRoiCycles = closedCycles.filter((c) => c.position_roi !== undefined && c.position_roi !== null);
     const avgRealizedRoi =
       closedRoiCycles.length > 0
-        ? closedRoiCycles.reduce((acc, c) => c.roi === null ? acc : acc + c.roi, 0) / closedRoiCycles.length
+        ? closedRoiCycles.reduce((acc, c) => acc + (c.position_roi ?? 0), 0) / closedRoiCycles.length
         : null;
 
     const avgHoldDays =
@@ -711,7 +788,8 @@ export class TraderAnalyticsService {
       unprofitable_trades: unprofitableTrades,
       win_rate_pct: winRatePct,
       average_realized_roi: avgRealizedRoi,
-      average_realized_roi_scope: 'CLOSING_DISPOSAL_ALLOCATIONS',
+      average_realized_roi_scope: 'CLOSED_POSITIONS',
+      realized_profit_scope: 'DISPOSAL_ALLOCATIONS',
       average_hold_days: avgHoldDays,
       ...(capitalRecovery ? { capital_recovery: capitalRecovery } : {}),
       total_broker_fees_paid: totalBrokerFeesPaid,

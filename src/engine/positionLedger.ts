@@ -141,11 +141,6 @@ export function reconstructPositionLedger(
   typeId: number,
   transactions: readonly PositionLedgerTransaction[],
 ): PositionLedgerResult {
-  const accountingScopeId =export function reconstructPositionLedger(
-  accountingScopeInput: string | number,
-  typeId: number,
-  transactions: readonly PositionLedgerTransaction[],
-): PositionLedgerResult {
   const accountingScopeId =
     typeof accountingScopeInput === 'number'
       ? 'character:' + accountingScopeInput

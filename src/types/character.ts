@@ -374,7 +374,8 @@ export interface TraderPerformanceMetrics {
   total_closed_trades: number;
   profitable_trades: number;
   unprofitable_trades: number;
-  win_rate_pct: number; // 0 - 100
+  /** Null when no position has been fully closed in the current financial observation set. */
+  win_rate_pct: number | null; // 0 - 100 when a closed-position sample exists
   average_realized_roi: number; // e.g. 0.22 = 22%
   average_hold_days: number;
   total_broker_fees_paid: number;

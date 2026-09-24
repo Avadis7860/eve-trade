@@ -319,6 +319,10 @@ export interface RealizedFinancialOutcome {
   // Inventory Cost Basis (Unrealized holding cost)
   readonly remaining_inventory_cost_basis: number;
 
+  // Position lifecycle is distinct from transaction/event-level execution status.
+  readonly position_lifecycle: PositionLifecycleStatus;
+  readonly position_remaining_quantity: number;
+
   // Temporal & Hold Metrics
   readonly first_buy_at: string | null;
   readonly last_buy_at: string | null;

@@ -138,7 +138,7 @@ export class RealizedFinancialOutcomeEngine {
     const positionSegments = positionLedger.position_segments;
     const ledgerLots = positionSegments.flatMap((segment) => segment.lots);
     const ledgerAllocations = positionSegments.flatMap((segment) => segment.allocations);
-    const ledgerDispositionStates = positionSegments.flatMap((segment) => segment.disposition_states);
+    const ledgerDispositionStates = positionLedger.position.disposition_states;
     const lots: FifoLotRecord[] = ledgerLots.map((lot) => ({
       lot_id: lot.lot_id,
       position_segment_id: lot.position_segment_id,

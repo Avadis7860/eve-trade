@@ -44,7 +44,7 @@ These findings are retained as durable model rules; ORD-001 and FIN-001 themselv
 
 ## CI / delivery gaps
 
-- CI-003 / #76 is historical maintenance work; the current branch gate is green.
+- CI status for the active branch is dynamic and must be read from the current PR #71 workflow runs.
 - CI-002 remains the separate Draft/Ready PR routing hardening item.
 - Branch protection/ruleset configuration remains administratively unverified.
 

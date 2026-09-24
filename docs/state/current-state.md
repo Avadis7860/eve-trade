@@ -76,26 +76,13 @@ The current engine/domain layers remain ahead of the UI, but the financial bound
 - Remaining numeric 0 fallbacks are being classified as legitimate accumulators/scope sentinels or separate prospective-domain policies; the financial truth boundary no longer fabricates missing physical volume or ROI.
 - CI remains validated for the last code increment; documentation-only commits may advance the branch ref without changing that validated code.
 
-## Latest CI verification
+## CI verification
 
-Latest checked code head before FIN-002 implementation: d33635c164352a388e6b6fe843613b389c4241fc
+The exact CI result is intentionally not duplicated here because it changes with every branch head. For current certification, inspect PR #71 and its latest workflow runs.
 
-CI Foundation & Regression Gate #927: GREEN
-Phase 2.7C SDE Truth Gate #688: GREEN
+Historical validated baselines may be retained in audit or validation documents, but they must not be presented as evidence for the current branch head.
 
-The full gate passed including:
-- CI / Change Scope;
-- Static / Config / Auth;
-- Server / API / Security / ESI;
-- Unit / Domain Certification;
-- Production Build;
-- Browser E2E — Operations;
-- Browser E2E — Auth;
-- Browser E2E — OAuth/ESI composition;
-- Validation & Non-Regression Gate;
-- required-gate and observability completion.
-
-ORD-001 and FIN-001 certification completed after resolving the stale type/provenance regressions exposed by CI #892/#919; no financial or positive-ID invariant was weakened.
+The context layer at .eve-trade/context-map.json identifies the validation families relevant to each domain.
 
 ## Sequencing
 

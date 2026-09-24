@@ -23,10 +23,8 @@ Source of truth: code, tests, CI and state documents
 
 ## CI status
 
-Latest verified branch head 26f8f7eab0c001cd96604d0053d4f8c69e33a70a is RED on the Foundation & Regression Gate.
+CI status is runtime evidence and must be read from the active PR and workflow runs for the current HEAD. This document must not hard-code a branch SHA or a transient RED/GREEN result as current truth.
 
-The red causes are known and documented in Financial Truth Validation:
-- legacy frontend fixture missing newly required lifecycle fields;
-- legacy unit scenario using typeId = 0 against the stricter ledger invariant.
+Historical CI observations remain useful only when explicitly labeled with their commit and run. Use the context map to locate the relevant validation family; use GitHub Actions to establish the current conclusion.
 
-Do not weaken the invariant to make the legacy test pass. Reconcile the test contract with the accepted model.
+The stable rule remains: a green intermediate or historical run does not certify a later branch head, and a RED result must be investigated at its actual failing gate.

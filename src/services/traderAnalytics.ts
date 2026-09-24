@@ -188,10 +188,14 @@ export class TraderAnalyticsService {
       } else {
         hasUnavailable = true;
       }
-      totalBrokerFeesPaid +=
-        outcome.fees.estimated_buy_broker_fee + outcome.fees.estimated_sell_broker_fee;
-      totalSalesTaxPaid += outcome.fees.estimated_sales_tax;
-      totalEstimatedFees += outcome.fees.estimated_total_fees;
+      if (outcome.fees) {
+        totalBrokerFeesPaid +=
+          outcome.fees.estimated_buy_broker_fee + outcome.fees.estimated_sell_broker_fee;
+        totalSalesTaxPaid += outcome.fees.estimated_sales_tax;
+        totalEstimatedFees += outcome.fees.estimated_total_fees;
+      } else {
+        hasUnavailable = true;
+      }
 
       if (outcome.financial_completeness === 'PARTIAL' || outcome.has_unmatched_sell_quantity) {
         hasPartial = true;
@@ -320,17 +324,19 @@ export class TraderAnalyticsService {
                 ? false
                 : true,
             realized_profit_label: cycleProfitLabel,
-            fees_breakdown: {
-              fee_mode: outcome.fees.fee_mode,
-              fee_source: outcome.fees.fee_source,
-              execution_fee_mode: outcome.fees.execution_fee_mode,
-              estimated_buy_broker_fee: cycleBuyBrokerFee,
-              estimated_sell_broker_fee: cycleSellBrokerFee,
-              estimated_sales_tax: cycleSalesTax,
-              estimated_total_fees: cycleFees,
-              is_role_assumed: outcome.fees.is_role_assumed,
-              notes: outcome.fees.notes,
-            },
+            fees_breakdown: outcome.fees
+              ? {
+                  fee_mode: outcome.fees.fee_mode,
+                  fee_source: outcome.fees.fee_source,
+                  execution_fee_mode: outcome.fees.execution_fee_mode,
+                  estimated_buy_broker_fee: cycleBuyBrokerFee,
+                  estimated_sell_broker_fee: cycleSellBrokerFee,
+                  estimated_sales_tax: cycleSalesTax,
+                  estimated_total_fees: cycleFees,
+                  is_role_assumed: outcome.fees.is_role_assumed,
+                  notes: outcome.fees.notes,
+                }
+              : undefined,
             unmatched_sell_quantity: unmatchedQty,
             character_id: characterId,
             character_name: characterName,
@@ -385,21 +391,23 @@ export class TraderAnalyticsService {
             buy_location: 'Inconnu (Sans Achat Antérieur)',
             sell_location: sellLocation,
             financial_completeness: 'PARTIAL',
-            is_net_estimated: outcome.fees.fee_mode === 'UNAVAILABLE' ? false : true,
+            is_net_estimated: outcome.fees ? outcome.fees.fee_mode !== 'UNAVAILABLE' : false,
             realized_profit_label: 'Bénéfice Réalisé (Partiel)',
-            fees_breakdown: {
-              fee_mode: outcome.fees.fee_mode,
-              fee_source: outcome.fees.fee_source,
-              execution_fee_mode: outcome.fees.execution_fee_mode,
-              estimated_buy_broker_fee: 0,
-              estimated_sell_broker_fee: 0,
-              estimated_sales_tax: 0,
-              estimated_total_fees: 0,
-              is_role_assumed: outcome.fees.is_role_assumed,
-              notes: Object.freeze([
-                'Vente sans achat antérieur couvrant. Coût et profit non calculables sans inventaire préalable.',
-              ]),
-            },
+            fees_breakdown: outcome.fees
+              ? {
+                  fee_mode: outcome.fees.fee_mode,
+                  fee_source: outcome.fees.fee_source,
+                  execution_fee_mode: outcome.fees.execution_fee_mode,
+                  estimated_buy_broker_fee: 0,
+                  estimated_sell_broker_fee: 0,
+                  estimated_sales_tax: 0,
+                  estimated_total_fees: 0,
+                  is_role_assumed: outcome.fees.is_role_assumed,
+                  notes: Object.freeze([
+                    'Vente sans achat antérieur couvrant. Coût et profit non calculables sans inventaire préalable.',
+                  ]),
+                }
+              : undefined,
             unmatched_sell_quantity: sellTx.quantity,
             character_id: characterId,
             character_name: characterName,
@@ -827,7 +835,7 @@ export class TraderAnalyticsService {
     cycleFees: number;
     netProfit: number;
   } {
-    if (outcome.fees.fee_mode === 'UNAVAILABLE') {
+    if (outcome.fees === null || outcome.fees.fee_mode === 'UNAVAILABLE') {
       return {
         cycleBuyBrokerFee: 0,
         cycleSellBrokerFee: 0,

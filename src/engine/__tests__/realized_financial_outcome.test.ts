@@ -477,8 +477,8 @@ async function runAllTests() {
     // Run WITHOUT financial config
     const outcome = RealizedFinancialOutcomeEngine.calculate(record, {});
 
-    assert(outcome.fees.fee_mode === 'UNAVAILABLE', 'fee_mode === UNAVAILABLE');
-    assert(outcome.fees.fee_source === 'UNAVAILABLE', 'fee_source === UNAVAILABLE');
+    assert(outcome.fees === null, 'fees must be null when fee evidence is unavailable');
+
     assert(outcome.data_state === 'PARTIAL', 'data_state is marked PARTIAL due to unavailable fees');
     assert(outcome.state_reasons !== undefined && outcome.state_reasons.some((r) => r.includes('Fee configuration is unavailable')), 'State reasons explain fee absence');
     console.log('  [PASS] Test 13: UNAVAILABLE fee mode handled cleanly.');

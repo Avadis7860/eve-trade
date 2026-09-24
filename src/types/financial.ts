@@ -467,7 +467,8 @@ export interface RealizedFinancialOutcome {
   readonly gross_realized_profit: number;
   readonly realized_gross: number;
 
-  readonly fees: RealizedFeeBreakdown;
+  /** Null means fee evidence is unavailable; zero is reserved for an evidenced zero fee. */
+  readonly fees: RealizedFeeBreakdown | null;
   readonly net_realized_profit: number | null;
   readonly realized_net_estimated: number | null;
   readonly is_net_estimated: boolean;

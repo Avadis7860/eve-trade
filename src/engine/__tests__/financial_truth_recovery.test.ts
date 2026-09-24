@@ -72,7 +72,7 @@ function run() {
       tx(300, true, 100, 100, '2026-09-20T10:00:00Z', 1001),
       tx(301, false, 100, 120, '2026-09-20T11:00:00Z', 1001),
     ]);
-    assert(outcome.fees.fee_mode === 'UNAVAILABLE', 'missing configuration must be UNAVAILABLE');
+    assert(outcome.fees === null, 'missing fee evidence must expose no fee breakdown');
     assert(outcome.net_realized_profit === null, 'net realized profit must be null without fee evidence');
     assert(outcome.roi === null, 'ROI must be null without net fee evidence');
     assert(outcome.margin === null, 'margin must be null without net fee evidence');

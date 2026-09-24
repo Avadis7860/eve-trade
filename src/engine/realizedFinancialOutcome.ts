@@ -230,8 +230,10 @@ export class RealizedFinancialOutcomeEngine {
       options
     );
 
+    const feeMode = fees?.fee_mode ?? 'UNAVAILABLE';
+    const executionFeeMode = fees?.execution_fee_mode ?? 'UNKNOWN';
     const netRealizedProfit =
-      fees.fee_mode === 'UNAVAILABLE'
+      feeMode === 'UNAVAILABLE'
         ? null
         : roundIsk(grossRealizedProfit - fees.estimated_total_fees);
 
@@ -250,25 +252,25 @@ export class RealizedFinancialOutcomeEngine {
 
     if (hasPositionEvidenceDefect) {
       financialCompleteness = 'PARTIAL';
-      isNetEstimated = fees.fee_mode === 'ESTIMATED';
-      realizedNetEstimated = fees.fee_mode === 'ESTIMATED' ? netRealizedProfit : null;
+      isNetEstimated = feeMode === 'ESTIMATED';
+      realizedNetEstimated = feeMode === 'ESTIMATED' ? netRealizedProfit : null;
       isFinanciallyComplete = false;
     } else if (sourceCoverage === 'UNAVAILABLE') {
       financialCompleteness = 'UNAVAILABLE';
       isNetEstimated = false;
       realizedNetEstimated = null;
       isFinanciallyComplete = false;
-    } else if (fees.fee_mode === 'UNAVAILABLE') {
+    } else if (feeMode === 'UNAVAILABLE') {
       financialCompleteness = 'UNAVAILABLE';
       isNetEstimated = false;
       realizedNetEstimated = null; // NO DATA ≠ ZERO DATA: No fake estimated net profit is provided
       isFinanciallyComplete = false;
-    } else if (fees.fee_mode === 'ESTIMATED') {
+    } else if (feeMode === 'ESTIMATED') {
       financialCompleteness = 'ESTIMATED';
       isNetEstimated = true;
       realizedNetEstimated = netRealizedProfit;
       isFinanciallyComplete = false; // ESTIMATE ≠ OBSERVED FACT: Estimated net is never 100% complete observed truth
-    } else if (fees.fee_mode === 'OBSERVED') {
+    } else if (feeMode === 'OBSERVED') {
       financialCompleteness = 'OBSERVED';
       isNetEstimated = false;
       realizedNetEstimated = null;
@@ -360,7 +362,7 @@ export class RealizedFinancialOutcomeEngine {
       stateReasons.push(`Source execution record is in state ${executionRecord.data_state}`);
     }
 
-    if (fees.fee_mode === 'UNAVAILABLE') {
+    if (feeMode === 'UNAVAILABLE') {
       dataState = 'PARTIAL';
       stateReasons.push('Fee configuration is unavailable; net profit cannot account for broker fees and taxes');
     }
@@ -370,7 +372,7 @@ export class RealizedFinancialOutcomeEngine {
       stateReasons.push(`Zero buy units available to match ${totalSellQuantity} sold units`);
     }
 
-    if (fees.execution_fee_mode === 'UNKNOWN' && fees.fee_mode === 'ESTIMATED') {
+    if (executionFeeMode === 'UNKNOWN' && feeMode === 'ESTIMATED') {
       stateReasons.push(
         'Execution role (Maker/Taker) unknown: net profit is a baseline estimate assuming Taker (0% broker fee)'
       );
@@ -558,23 +560,11 @@ export class RealizedFinancialOutcomeEngine {
     realizedAcquisitionCost: number,
     realizedRevenue: number,
     options?: RealizedFinancialCalculationOptions
-  ): RealizedFeeBreakdown {
+  ): RealizedFeeBreakdown | null {
     const config = options?.financialConfig;
 
     if (!config) {
-      return {
-        fee_mode: 'UNAVAILABLE',
-        fee_source: 'UNAVAILABLE',
-        execution_fee_mode: options?.executionFeeMode ?? 'UNKNOWN',
-        estimated_buy_broker_fee: 0.0,
-        estimated_sell_broker_fee: 0.0,
-        estimated_sales_tax: 0.0,
-        estimated_total_fees: 0.0,
-        is_role_assumed: (options?.executionFeeMode ?? 'UNKNOWN') === 'UNKNOWN',
-        notes: Object.freeze([
-          'No financial configuration provided: fees and sales tax cannot be estimated',
-        ]),
-      };
+      return null;
     }
 
     // Resolve rates via FeeEngine

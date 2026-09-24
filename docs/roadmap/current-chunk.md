@@ -1,10 +1,10 @@
 # Current Chunk
 
 Status: CLOSING
-Scope: Agent Context Hardening — post-merge stable-anchor correction
-Branch: chore/agent-context-hardening-post-merge-fix
-Base: main @ 38e6aa3f65093f3feba3ddaaeb854ea6ddc68e08
-PR: #80 (Draft)
+Scope: Agent Context Hardening — raw commit stable-anchor correction
+Branch: chore/agent-context-hardening-raw-anchor-fix
+Base: main @ a05f6044b6b53fb8ece4c2a7796c885805f82542
+PR: #81 (Draft)
 
 ## Delivery status
 
@@ -25,8 +25,8 @@ Reduce the context reconstruction cost for human and AI agents without introduci
 7. State, roadmap and known-gaps synchronization.
 8. Final CLOSING lifecycle state so merged main does not inherit an ACTIVE chantier.
 9. Stable-anchor extraction must remain valid with the shallow checkout used by Main Smoke.
-10. Local validation where the execution environment permits it, followed by full PR CI certification.
 10. Stable proof using the pre-merge main integration anchor, so merge-created SHA changes require no unreviewed post-merge mutation.
+11. Local validation where the execution environment permits it, followed by full PR CI certification.
 
 ## Scope exclusions
 

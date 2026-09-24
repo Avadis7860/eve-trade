@@ -104,4 +104,6 @@ Changes to this bootstrap surface use the conservative certification path.
 
 A CI lane reference proves that the workflow/job exists. The integrity check additionally exercises the change classifier with canonical paths in a functional-probe mode that deliberately bypasses the conservative context-critical guard. Each mapped CI lane declares the classification that is supposed to trigger it, so a lane cannot pass merely because the classifier fell back to `ambiguous/full_certification`. The normal production classifier remains conservative.
 
+Each `ci_lanes[].route` is a functional classifier class (`frontend`, `domain`, `server`, `sde`, `ci`, `config`, `tests` or `docs`). `ambiguous` and `full_certification` are deliberately excluded: they are fallback/aggregate states and cannot serve as positive routing evidence.
+
 The context map does not claim that its impact graph is exhaustive. Missing edges are unresolved navigation knowledge, not proof of no downstream consumer.

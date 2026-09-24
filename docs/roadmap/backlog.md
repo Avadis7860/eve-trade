@@ -6,7 +6,7 @@ Source of truth: revalidated code and current state documents
 
 ## Repository / Agent Governance
 
-### CONTEXT-001 — Agent Context Hardening — ACTIVE
+### CONTEXT-002 — Agent Context Hardening v2 — ACTIVE
 
 - Stable machine-readable context map.
 - Separate active-work manifest.

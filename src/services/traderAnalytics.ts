@@ -185,7 +185,21 @@ export class TraderAnalyticsService {
 
       // Position state comes from economic transaction facts. Market-order side
       // and active order observations are intentionally outside this accounting path.
-      const positionLedger = reconstructPositionLedger(characterId, typeId, typeTxs);
+      // Provenance is explicit at the financial boundary; it is never inferred from
+      // optional order/opportunity correlation fields.
+      const positionLedger = reconstructPositionLedger(
+        characterId,
+        typeId,
+        typeTxs.map((tx) => ({
+          ...tx,
+          timestamp: tx.date,
+          provenance: {
+            source_kind: 'ESI_WALLET_TRANSACTION' as const,
+            source_id: String(tx.transaction_id),
+            principal_scope: `character:${characterId}`,
+          },
+        })),
+      );
 
       if (positionLedger.position.financial_completeness === 'PARTIAL') {
         capitalRecoveryPartial = true;

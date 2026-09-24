@@ -254,7 +254,7 @@ export class InterRegionalFinancialEngine {
     const unitVolume =
       opp.unit_volume && opp.unit_volume > 0
         ? opp.unit_volume
-        : CatalogRepository.getInstance().getTypeVolume(opp.type_id) || 0.01;
+        : CatalogRepository.getInstance().getTypeVolume(opp.type_id);
 
     const bestBuyPrice = opp.effective_buy_price || opp.best_buy_order_price || 0;
     const bestSellPrice = opp.effective_sell_price || opp.best_sell_order_price || 0;

@@ -371,16 +371,26 @@ async function run(): Promise<void> {
       assert(scoped.length === 1 && scoped[0].order_id === 'corp-3', 'corporation scope must filter by economic owner and wallet division');
       assert(treasury.principal_scope === 'corp:77', 'observer scope must remain separate from economic owner');
     }],
-    ['N invalid economic/liquidity metrics are rejected', () => {
+    ['N invalid economic/liquidity metrics preserve DATA_ISSUE diagnostics', () => {
       const broken = opportunity('nan', 8, 18, 100, 10_000_000, 20_000_000) as any;
       broken.expected_days_to_sell = Number.NaN;
       broken.profit_per_day = Number.POSITIVE_INFINITY;
       broken.costs.roi = Number.NaN;
       const simulation = PortfolioOptimizer.optimize([broken], config());
       assert(simulation.positions.length === 0, 'invalid opportunity metrics must not be allocated');
+
+      const reasons = simulation.unallocated_reasons ?? [];
       assert(
-        (simulation.unallocated_reasons ?? []).some((reason) => reason.code === 'DATA_ISSUE'),
+        reasons.some((reason) => reason.code === 'DATA_ISSUE'),
         'invalid opportunity metrics must surface a DATA_ISSUE reason',
+      );
+      assert(
+        !reasons.some((reason) => reason.code === 'NO_ELIGIBLE_OPPORTUNITY'),
+        'specific rejection diagnostics must not be overwritten by generic no-eligible state',
+      );
+      assert(
+        (reasons.find((reason) => reason.code === 'DATA_ISSUE')?.count ?? 0) === 1,
+        'single rejected opportunity must keep its rejection count',
       );
     }],
     ['M every proposed position retains treasury provenance', () => {

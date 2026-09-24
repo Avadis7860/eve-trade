@@ -1,9 +1,10 @@
 {
-  "schema_version": 1,
-  "purpose": "Operational state for the current technical chantier. This file is branch/PR specific and is not normative business truth.",
-  "branch": "chore/agent-context-hardening",
-  "pull_request": 78,
+  "schema_version": 2,
+  "purpose": "Operational state for the current technical chantier. This file is checkout-aware governance metadata, not normative business truth.",
+  "state": "ACTIVE",
+  "branch": "chore/agent-context-hardening-v2",
+  "pull_request": null,
   "base_branch": "main",
-  "base_sha": "aec4c62691723e8fa2ee2bb2f9126249152ad57f",
+  "base_sha": "bacb0655b1fde3a4650b5cd94feed0fe8617be10",
   "delivery_rule": "one_chantier_one_branch_one_pr"
 }

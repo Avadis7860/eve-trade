@@ -86,7 +86,7 @@ Fee evidence is independent from lifecycle.
 When fee evidence is unavailable:
 
 - gross realized facts may remain known;
-- the fee breakdown is unavailable rather than represented as observed zero fees;
+- the fee breakdown remains present with `fee_mode: UNAVAILABLE` and null fee amounts; zero is reserved for evidenced zero fees;
 - net realized P&L is `null`;
 - net ROI/margin/profit-per-unit are `null`;
 - the position can still become `CLOSED` when its remaining quantity reaches zero.

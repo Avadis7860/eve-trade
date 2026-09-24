@@ -16,7 +16,7 @@ CI gate: unit/domain certification
 - the 10,000 @ 100 / 1 @ 140 example retains +40 gross disposal result with -999,860 capital-recovery delta;
 - unmatched/oversold quantity remains explicit;
 - missing history or origin evidence remains UNKNOWN/PARTIAL;
-- missing fee evidence produces unavailable/null net result rather than numeric zero;
+- missing fee evidence preserves `UNAVAILABLE` fee mode with null amounts and produces unavailable/null net result rather than numeric zero;
 - cross-character matching requires an explicit common accounting scope;
 - character provenance remains distinct from economic owner;
 - corporation ownership is preserved only when explicitly supplied;

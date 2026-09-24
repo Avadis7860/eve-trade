@@ -52,7 +52,7 @@ Missing evidence remains UNKNOWN/PARTIAL/UNAVAILABLE and is never replaced by sy
 
 ## Fees
 
-Fee availability is independent from lifecycle. Without fee evidence, gross disposal facts can remain available while the fee breakdown and net ratios remain unavailable.
+Fee availability is independent from lifecycle. Without fee evidence, gross disposal facts can remain available while the fee breakdown remains explicitly UNAVAILABLE with null amounts, and net P&L/ratios remain unavailable.
 
 ## Future origins
 

@@ -477,7 +477,11 @@ async function runAllTests() {
     // Run WITHOUT financial config
     const outcome = RealizedFinancialOutcomeEngine.calculate(record, {});
 
-    assert(outcome.fees === null, 'fees must be null when fee evidence is unavailable');
+    assert(outcome.fees.fee_mode === 'UNAVAILABLE', 'fee_mode === UNAVAILABLE');
+    assert(outcome.fees.estimated_buy_broker_fee === null, 'unavailable buy fee is null');
+    assert(outcome.fees.estimated_sell_broker_fee === null, 'unavailable sell fee is null');
+    assert(outcome.fees.estimated_sales_tax === null, 'unavailable sales tax is null');
+    assert(outcome.fees.estimated_total_fees === null, 'unavailable total fees is null');
 
     assert(outcome.data_state === 'PARTIAL', 'data_state is marked PARTIAL due to unavailable fees');
     assert(outcome.state_reasons !== undefined && outcome.state_reasons.some((r) => r.includes('Fee configuration is unavailable')), 'State reasons explain fee absence');
@@ -1642,7 +1646,7 @@ async function runAllTests() {
     const cycle = metrics.recent_trade_cycles[0];
     assert(cycle.financial_completeness === 'UNAVAILABLE', `Cycle completeness is UNAVAILABLE (got ${cycle.financial_completeness})`);
     assert(cycle.fees_breakdown?.fee_mode === 'UNAVAILABLE', `Fees breakdown fee_mode is UNAVAILABLE`);
-    assert(cycle.estimated_fees_paid === 0, 'Estimated fees paid is 0');
+    assert(cycle.estimated_fees_paid === 0, 'Cycle keeps display compatibility; unavailable fee state is carried by financial_completeness and fees_breakdown');
     assert(cycle.financial_completeness !== 'OBSERVED', 'Absence of config is NOT falsely marked as OBSERVED');
 
     console.log('  [PASS] Test 5: UNAVAILABLE mode cleanly differentiated from observed zero fees.');

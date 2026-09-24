@@ -426,9 +426,9 @@ export interface FifoAllocationRecord {
   readonly gross_profit: number;
 }
 
-export interface RealizedFeeBreakdown {
-  readonly fee_mode: FinancialFeeMode;
-  readonly fee_source: FinancialFeeSource;
+export interface AvailableRealizedFeeBreakdown {
+  readonly fee_mode: 'OBSERVED' | 'ESTIMATED';
+  readonly fee_source: Exclude<FinancialFeeSource, 'UNAVAILABLE'>;
   readonly execution_fee_mode: ExecutionFeeRoleMode;
   readonly estimated_buy_broker_fee: number;
   readonly estimated_sell_broker_fee: number;
@@ -438,6 +438,24 @@ export interface RealizedFeeBreakdown {
   readonly is_role_assumed?: boolean;
   readonly notes?: readonly string[];
 }
+
+export interface UnavailableRealizedFeeBreakdown {
+  readonly fee_mode: 'UNAVAILABLE';
+  readonly fee_source: 'UNAVAILABLE';
+  readonly execution_fee_mode: ExecutionFeeRoleMode;
+  /** Missing evidence is represented as null; numeric zero remains an evidenced value. */
+  readonly estimated_buy_broker_fee: null;
+  readonly estimated_sell_broker_fee: null;
+  readonly estimated_sales_tax: null;
+  readonly estimated_total_fees: null;
+  readonly observed_fees_paid?: undefined;
+  readonly is_role_assumed?: boolean;
+  readonly notes?: readonly string[];
+}
+
+export type RealizedFeeBreakdown =
+  | AvailableRealizedFeeBreakdown
+  | UnavailableRealizedFeeBreakdown;
 
 export interface RealizedFinancialOutcome {
   readonly outcome_id: string;
@@ -467,8 +485,8 @@ export interface RealizedFinancialOutcome {
   readonly gross_realized_profit: number;
   readonly realized_gross: number;
 
-  /** Null means fee evidence is unavailable; zero is reserved for an evidenced zero fee. */
-  readonly fees: RealizedFeeBreakdown | null;
+  /** Fee state is explicit; unavailable fee amounts are null, while evidenced zero fees remain numeric 0. */
+  readonly fees: RealizedFeeBreakdown;
   readonly net_realized_profit: number | null;
   readonly realized_net_estimated: number | null;
   readonly is_net_estimated: boolean;

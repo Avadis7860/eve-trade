@@ -233,7 +233,7 @@ export class RealizedFinancialOutcomeEngine {
     const feeMode = fees?.fee_mode ?? 'UNAVAILABLE';
     const executionFeeMode = fees?.execution_fee_mode ?? 'UNKNOWN';
     const netRealizedProfit =
-      fees === null || feeMode === 'UNAVAILABLE'
+      feeMode === 'UNAVAILABLE'
         ? null
         : roundIsk(grossRealizedProfit - fees.estimated_total_fees);
 
@@ -560,11 +560,23 @@ export class RealizedFinancialOutcomeEngine {
     realizedAcquisitionCost: number,
     realizedRevenue: number,
     options?: RealizedFinancialCalculationOptions
-  ): RealizedFeeBreakdown | null {
+  ): RealizedFeeBreakdown {
     const config = options?.financialConfig;
 
     if (!config) {
-      return null;
+      return {
+        fee_mode: 'UNAVAILABLE',
+        fee_source: 'UNAVAILABLE',
+        execution_fee_mode: options?.executionFeeMode ?? 'UNKNOWN',
+        estimated_buy_broker_fee: null,
+        estimated_sell_broker_fee: null,
+        estimated_sales_tax: null,
+        estimated_total_fees: null,
+        is_role_assumed: (options?.executionFeeMode ?? 'UNKNOWN') === 'UNKNOWN',
+        notes: Object.freeze([
+          'No financial configuration provided: fees and sales tax cannot be estimated',
+        ]),
+      };
     }
 
     // Resolve rates via FeeEngine

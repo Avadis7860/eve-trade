@@ -15,6 +15,8 @@ Fondations sensibles :
 
 ## Navigation
 
+La carte de contexte machine-readable est `.eve-trade/context-map.json`, avec sa procédure dans `docs/operations/agent-context.md`. Elle sert uniquement à réduire le contexte de recherche et ne remplace jamais le code, les tests ou les contrats normatifs.
+
 Commencer par :
 - [docs/index.md](docs/index.md)
 - [docs/state/current-state.md](docs/state/current-state.md)

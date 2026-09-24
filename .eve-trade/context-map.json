@@ -1,0 +1,260 @@
+{
+  "schema_version": 1,
+  "purpose": "Navigation metadata for human and AI developers. It never overrides implementation, certified tests, contracts or invariants.",
+  "authority_order": [
+    "implementation_and_certified_tests",
+    "normative_contracts_and_invariants",
+    "active_state_and_roadmap",
+    "navigation_metadata"
+  ],
+  "current_work": {
+    "branch": "ux-03/allocation-contract",
+    "pull_request": 71,
+    "base_branch": "main",
+    "base_sha": "aec4c62691723e8fa2ee2bb2f9126249152ad57f",
+    "delivery_rule": "one_chantier_one_branch_one_pr"
+  },
+  "load_order": [
+    "docs/state/current-state.md",
+    "docs/state/truth-matrix.md",
+    "docs/roadmap/current-chunk.md"
+  ],
+  "domains": {
+    "orders": {
+      "canonical_code": [
+        "src/types/order.ts",
+        "src/engine/orderIdentity.ts",
+        "src/engine/orderScoping.ts",
+        "src/engine/corporationOrder.ts"
+      ],
+      "contracts": [
+        "docs/contracts/orders.md",
+        "docs/contracts/corporations.md"
+      ],
+      "invariants": [
+        "docs/invariants/order-identity.md",
+        "docs/invariants/corporation-boundary.md",
+        "docs/invariants/character-isolation.md"
+      ],
+      "tests": [
+        "src/engine/__tests__/order_identity.test.ts",
+        "src/engine/__tests__/order_scoping_contracts.test.ts",
+        "src/engine/__tests__/corporation_order.test.ts"
+      ],
+      "ci_lanes": [
+        "unit",
+        "server_esi",
+        "browser_operations"
+      ]
+    },
+    "financial_truth": {
+      "canonical_code": [
+        "src/engine/positionLedger.ts",
+        "src/engine/realizedFinancialOutcome.ts",
+        "src/types/financial.ts"
+      ],
+      "contracts": [
+        "docs/contracts/financial.md"
+      ],
+      "invariants": [
+        "docs/invariants/financial-safety.md",
+        "docs/invariants/data-semantics.md"
+      ],
+      "decisions": [
+        "docs/decisions/ADR-0003-economic-position-and-order-model.md"
+      ],
+      "tests": [
+        "src/engine/__tests__/position_ledger.test.ts",
+        "src/engine/__tests__/realized_financial_outcome.test.ts"
+      ],
+      "ci_lanes": [
+        "static",
+        "unit",
+        "build"
+      ]
+    },
+    "portfolio": {
+      "canonical_code": [
+        "src/engine/portfolio.ts",
+        "src/engine/portfolioAggregation.ts",
+        "src/types/portfolio.ts",
+        "src/components/PortfolioView.tsx"
+      ],
+      "contracts": [
+        "docs/domains/portfolio.md",
+        "docs/ux/ux-03-allocation-contract.md"
+      ],
+      "invariants": [
+        "docs/invariants/data-semantics.md",
+        "docs/invariants/financial-safety.md"
+      ],
+      "tests": [
+        "src/engine/__tests__/portfolio_ux03.test.ts",
+        "tests/e2e/portfolio-ux03.spec.ts"
+      ],
+      "ci_lanes": [
+        "static",
+        "unit",
+        "build",
+        "browser_operations"
+      ]
+    },
+    "market_data": {
+      "canonical_code": [
+        "src/services/esi.ts",
+        "src/services/marketDataStore.ts",
+        "server/gateways/marketEsiGateway.ts",
+        "server/routes/markets.ts"
+      ],
+      "contracts": [
+        "docs/contracts/esi.md",
+        "docs/domains/market-data.md"
+      ],
+      "invariants": [
+        "docs/invariants/esi-data-state.md"
+      ],
+      "tests": [
+        "src/engine/__tests__/market_data_quality.test.ts",
+        "src/services/__tests__/globalMarketSync.test.ts",
+        "server/__tests__/market_esi_gateway.test.ts"
+      ],
+      "ci_lanes": [
+        "unit",
+        "server_esi",
+        "browser_operations"
+      ]
+    },
+    "authentication": {
+      "canonical_code": [
+        "src/services/authService.ts",
+        "server/routes/auth.ts",
+        "src/context/AuthProvider.tsx"
+      ],
+      "contracts": [
+        "docs/contracts/authentication.md"
+      ],
+      "invariants": [
+        "docs/invariants/character-isolation.md"
+      ],
+      "tests": [
+        "server/__tests__/auth_token_validation.test.ts",
+        "tests/e2e/auth-browser.spec.ts"
+      ],
+      "ci_lanes": [
+        "static",
+        "server_security",
+        "browser_auth"
+      ]
+    },
+    "esi_boundary": {
+      "canonical_code": [
+        "server/utils/esiClient.ts",
+        "server/utils/esiGateway.ts",
+        "server/gateways/characterEsiGateway.ts",
+        "server/gateways/corporationEsiGateway.ts",
+        "server/gateways/marketEsiGateway.ts"
+      ],
+      "contracts": [
+        "docs/contracts/esi.md"
+      ],
+      "invariants": [
+        "docs/invariants/esi-data-state.md",
+        "docs/invariants/corporation-boundary.md"
+      ],
+      "tests": [
+        "server/__tests__/esi_gateway.test.ts",
+        "server/__tests__/character_esi_gateway.test.ts",
+        "server/__tests__/corporation_esi_gateway.test.ts",
+        "server/__tests__/market_esi_gateway.test.ts"
+      ],
+      "ci_lanes": [
+        "server_esi",
+        "browser_auth"
+      ]
+    },
+    "persistence": {
+      "canonical_code": [
+        "src/services/indexedDbStore.ts"
+      ],
+      "contracts": [
+        "docs/contracts/persistence.md"
+      ],
+      "invariants": [
+        "docs/invariants/persistence.md"
+      ],
+      "tests": [
+        "src/engine/__tests__/character_transaction_persistence.test.ts"
+      ],
+      "ci_lanes": [
+        "unit",
+        "build"
+      ]
+    },
+    "sde_truth": {
+      "canonical_code": [
+        "src/domain/universe/UniverseGraphRepository.ts",
+        "src/domain/universe/UniverseRepository.ts",
+        "src/data/catalogManifest.ts"
+      ],
+      "contracts": [
+        "docs/contracts/catalog.md"
+      ],
+      "tests": [
+        "src/engine/__tests__/catalog_universe_truth.test.ts",
+        "scripts/__tests__/universe_graph_builder.test.mjs"
+      ],
+      "ci_lanes": [
+        "sde"
+      ]
+    }
+  },
+  "legacy": {
+    "fleet_model": {
+      "status": "removed",
+      "replacement": "character_and_corporation_scope",
+      "rule": "Do not reintroduce fleet_consolidated, fleet financial engines, fleet execution-plan UI, or fleet order scope."
+    },
+    "character_financial_boundary": {
+      "status": "deprecated",
+      "replacement": "explicit_accounting_scope_id_and_economic_ecosystem",
+      "rule": "character identity is not automatically an accounting boundary."
+    },
+    "character_order_alias": {
+      "status": "compatibility",
+      "symbol": "EveCharacterOrder",
+      "replacement": "MarketOrder",
+      "rule": "Do not create a separate character-owned order entity."
+    },
+    "old_financial_projection": {
+      "status": "compatibility",
+      "replacement": "PositionLedger_to_RealizedFinancialOutcome",
+      "rule": "Do not rebuild a second accounting ledger in analytics or UI."
+    }
+  },
+  "hotspots": {
+    "orchestration": [
+      "src/App.tsx"
+    ],
+    "persistence": [
+      "src/services/indexedDbStore.ts"
+    ],
+    "analytics": [
+      "src/services/traderAnalytics.ts"
+    ],
+    "large_ui": [
+      "src/components/ConfigurationPanel.tsx",
+      "src/components/MyOrdersView.tsx",
+      "src/components/OpportunityModal.tsx"
+    ],
+    "rule": "Hotspots are explicit maintenance targets, not opportunistic refactoring targets."
+  },
+  "validation": {
+    "context": "npm run test:context",
+    "minimal_local": [
+      "npm run typecheck",
+      "npm run typecheck:server",
+      "npm test",
+      "npm run build"
+    ]
+  }
+}

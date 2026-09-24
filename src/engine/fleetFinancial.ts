@@ -127,7 +127,7 @@ export class FleetFinancialEngine {
 
     // 1. Additive Aggregations
     let totalRealizedProfit = 0;
-    let totalRealizedGross = 0;
+    let totalRealizedGross: number | undefined = 0;
     let totalBuyVolume = 0;
     let totalSellVolume = 0;
     let totalTurnover = 0;
@@ -137,8 +137,8 @@ export class FleetFinancialEngine {
     let unprofitableTrades = 0;
     let totalBrokerFeesPaid = 0;
     let totalSalesTaxPaid = 0;
-    let totalEstimatedFees = 0;
-    let unmatchedTradesCount = 0;
+    let totalEstimatedFees: number | undefined = 0;
+    let unmatchedTradesCount: number | undefined = 0;
     let hasUnmatchedTrades = false;
 
     let capitalCommittedTotal = 0;
@@ -159,7 +159,11 @@ export class FleetFinancialEngine {
     for (const res of validResults) {
       const m = res.metrics;
       totalRealizedProfit = roundIsk(totalRealizedProfit + m.total_realized_profit);
-      totalRealizedGross = roundIsk(totalRealizedGross + (m.total_realized_gross ?? m.total_realized_profit));
+      if (m.total_realized_gross === undefined) {
+        totalRealizedGross = undefined;
+      } else if (totalRealizedGross !== undefined) {
+        totalRealizedGross = roundIsk(totalRealizedGross + m.total_realized_gross);
+      }
       totalBuyVolume = roundIsk(totalBuyVolume + m.total_buy_volume);
       totalSellVolume = roundIsk(totalSellVolume + m.total_sell_volume);
       totalTurnover = roundIsk(totalTurnover + m.total_turnover);
@@ -173,8 +177,16 @@ export class FleetFinancialEngine {
       unprofitableTrades += m.unprofitable_trades;
       totalBrokerFeesPaid = roundIsk(totalBrokerFeesPaid + m.total_broker_fees_paid);
       totalSalesTaxPaid = roundIsk(totalSalesTaxPaid + m.total_sales_tax_paid);
-      totalEstimatedFees = roundIsk(totalEstimatedFees + (m.total_estimated_fees ?? 0));
-      unmatchedTradesCount += m.unmatched_trades_count ?? 0;
+      if (m.total_estimated_fees === undefined) {
+        totalEstimatedFees = undefined;
+      } else if (totalEstimatedFees !== undefined) {
+        totalEstimatedFees = roundIsk(totalEstimatedFees + m.total_estimated_fees);
+      }
+      if (m.unmatched_trades_count === undefined) {
+        unmatchedTradesCount = undefined;
+      } else if (unmatchedTradesCount !== undefined) {
+        unmatchedTradesCount += m.unmatched_trades_count;
+      }
       if (m.has_unmatched_trades) {
         hasUnmatchedTrades = true;
       }
@@ -461,10 +473,10 @@ export class FleetFinancialEngine {
       financial_completeness: financialCompleteness,
       is_net_estimated: isNetEstimated,
       realized_profit_label: profitLabel,
-      total_realized_gross: totalRealizedGross,
-      total_estimated_fees: totalEstimatedFees,
+      ...(totalRealizedGross !== undefined ? { total_realized_gross: totalRealizedGross } : {}),
+      ...(totalEstimatedFees !== undefined ? { total_estimated_fees: totalEstimatedFees } : {}),
       has_unmatched_trades: hasUnmatchedTrades,
-      unmatched_trades_count: unmatchedTradesCount,
+      ...(unmatchedTradesCount !== undefined ? { unmatched_trades_count: unmatchedTradesCount } : {}),
     };
 
     const status: FleetFinancialStatus = hasUnavailableCharacters ? 'partial' : 'complete';

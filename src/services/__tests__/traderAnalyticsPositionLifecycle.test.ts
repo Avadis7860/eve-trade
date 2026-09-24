@@ -173,6 +173,69 @@ function run() {
   assert(closingDisposal?.position_total_quantity === 10_000, 'closing disposal exposes the full position quantity');
   assert(closingDisposal?.position_is_profitable === false, 'whole-position profitability must be negative');
 
+  const sequentialSegmentMetrics = TraderAnalyticsService.processTransactions(
+    1001,
+    'Test Trader',
+    [
+      tx(910, true, 10_000, 100, '2026-09-20T10:00:00Z'),
+      tx(920, false, 10_000, 140, '2026-09-20T11:00:00Z'),
+      tx(930, true, 10_000, 100, '2026-09-20T12:00:00Z'),
+      tx(940, false, 1, 50, '2026-09-20T13:00:00Z'),
+    ],
+    [],
+    [],
+    5,
+    5,
+    {
+      executionFeeMode: 'TAKER_TAKER',
+      accounting_scope_id: 'ecosystem:segments',
+      coverage_evidence: {
+        history_coverage: 'COMPLETE_FOR_SCOPE',
+        economic_origin_coverage: 'COMPLETE_FOR_SCOPE',
+      },
+    },
+  );
+
+  assert(
+    sequentialSegmentMetrics.recent_trade_cycles.some(
+      (cycle) => cycle.position_segment_id !== undefined,
+    ),
+    'analytics cycles must preserve canonical position segment identity',
+  );
+  assert(
+    sequentialSegmentMetrics.total_closed_trades === 1,
+    'analytics must count the first segment as closed and the second segment as still open',
+  );
+  assert(
+    sequentialSegmentMetrics.capital_recovery?.known_position_count === 2,
+    'capital recovery must aggregate both economic position segments',
+  );
+  assert(
+    sequentialSegmentMetrics.capital_recovery?.closed_position_count === 1 &&
+      sequentialSegmentMetrics.capital_recovery?.partially_realized_position_count === 1,
+    'capital recovery counts must keep historical closure separate from current exposure',
+  );
+  assert(
+    sequentialSegmentMetrics.capital_recovery?.capital_committed === 2_000_000,
+    'capital committed must include both sequential position segments',
+  );
+  assert(
+    sequentialSegmentMetrics.capital_recovery?.cash_recovered === 1_400_050,
+    'cash recovered must include both sequential position segments',
+  );
+  assert(
+    sequentialSegmentMetrics.capital_recovery?.capital_recovery_delta === -599_950,
+    'aggregate recovery delta must not collapse sequential segments into the current segment only',
+  );
+  assert(
+    sequentialSegmentMetrics.capital_recovery?.history_coverage === 'COMPLETE_FOR_SCOPE',
+    'capital recovery must preserve history coverage evidence',
+  );
+  assert(
+    sequentialSegmentMetrics.capital_recovery?.economic_origin_coverage === 'COMPLETE_FOR_SCOPE',
+    'capital recovery must preserve economic-origin coverage evidence',
+  );
+
   const orderOnlyMetrics = TraderAnalyticsService.processTransactions(
     1001,
     'Test Trader',

@@ -12,7 +12,7 @@ The market/ESI retrieval reliability gate is closed and UX-02 Operations is merg
 
 ## Active working branch reality
 
-The only active product branch is ux-03/allocation-contract, associated with PR #71. It is FROZEN FOR FEATURE DEVELOPMENT pending a financial/order contract rebase and CI repair.
+The only active product branch is ux-03/allocation-contract, associated with PR #71. It remains FROZEN FOR UX-03 FEATURE DEVELOPMENT pending certification of FIN-001 / ORD-001 / FIN-002 / DATA-001; the financial/order contract rebase and CI repair are now implemented and green.
 
 The branch currently expresses the following boundaries:
 
@@ -24,7 +24,7 @@ The branch currently expresses the following boundaries:
 - a partial disposal can create a positive sale allocation while the underlying position remains PARTIALLY_REALIZED;
 - Performance closed-trade KPIs now require a fully closed position;
 - order-history activity is separated from accounting buy/sell volume;
-- position-level capital recovery is documented as a separate semantic axis and is not yet fully projected as a dedicated Performance KPI.
+- position-level capital recovery is a dedicated derived axis and is projected through CurrentPosition / RealizedFinancialOutcome into Performance metrics; realized P&L and ROI remain separate.
 
 Priority issues:
 - FIN-001 #72
@@ -54,12 +54,12 @@ The current engine/domain layers remain ahead of the UI, but the financial bound
 - UX-03 allocation scaffolding exists, but Real Portfolio certification is blocked by the position/lot contract.
 - Journal remains manual.
 - Character Assets are not implemented; therefore current inventory coverage cannot be assumed complete.
-- Performance analytics now has a position-lifecycle boundary but remains blocked from certification.
+- Performance analytics now has both a position-lifecycle boundary and a dedicated capital-recovery projection, but certification still depends on the remaining FIN-001 / ORD-001 / DATA-001 gates.
 - A complete whole-operation result is not inferred from a single matched disposal.
 
 ## Active gaps
 
-- Capital recovery is semantically specified but not yet a dedicated output across all Performance consumers.
+- Capital recovery is now a dedicated output across the canonical Performance character and fleet projections, with explicit KNOWN_POSITIONS scope.
 - Unrealized/current-market valuation is still a separate future/market-derived surface.
 - No durable AcquisitionLot / CurrentPosition store exists.
 - Provenance needs an audit across aggregation paths.
@@ -68,22 +68,24 @@ The current engine/domain layers remain ahead of the UI, but the financial bound
 
 ## Latest CI verification
 
-Branch head at verification: 26f8f7eab0c001cd96604d0053d4f8c69e33a70a
+Validated code head: 4d4694955a1e75532455a8d924922bdc23999d8e
 
-CI Foundation & Regression Gate: RED
+CI Foundation & Regression Gate: GREEN
+Phase 2.7C SDE Truth Gate: GREEN
 
-Observed failures:
-- Frontend typecheck: RealizedFinancialOutcome fixture in src/engine/__tests__/realized_financial_outcome.test.ts missing position_lifecycle and position_remaining_quantity.
-- Unit / Domain Certification: legacy division-by-zero scenario passes typeId = 0, rejected by the position-ledger contract.
-
-Verified successes on the same run:
-- Production Build;
+The full gate passed including:
+- CI / Change Scope;
+- Static / Config / Auth;
 - Server / API / Security / ESI;
+- Unit / Domain Certification;
+- Production Build;
 - Browser E2E — Operations;
 - Browser E2E — Auth;
-- Phase 2.7C SDE Truth Gate.
+- Browser E2E — OAuth/ESI composition;
+- Validation & Non-Regression Gate;
+- required-gate and observability completion.
 
-The red result is treated as a contract/fixture reconciliation problem, not as justification to weaken the new positive-ID invariant.
+The earlier RED state was resolved through test/fixture reconciliation only; no financial or positive-ID invariant was weakened.
 
 ## Sequencing
 

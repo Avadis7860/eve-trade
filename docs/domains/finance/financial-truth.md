@@ -30,6 +30,17 @@ OPEN -> PARTIALLY_REALIZED -> CLOSED
 
 CLOSED means that the remaining quantity of the relevant lot/position is zero.
 
+Lifecycle is independent from fee/configuration completeness. A position whose economic acquisition/disposal lineage is MARKET_TRACEABLE may reach CLOSED even when fee configuration is unavailable.
+
+## Source coverage vs financial completeness
+
+The financial pipeline keeps two distinct quality axes:
+
+- source coverage describes whether the economic cost lineage is reconstructable;
+- financial completeness describes whether the financial result, including fee treatment, is fully evidenced.
+
+Therefore MARKET_TRACEABLE + UNAVAILABLE is a valid state: cost basis and lifecycle are known, while net-of-fees evidence is unavailable. Fee availability must never be used as a proxy for lifecycle closure.
+
 ## AcquisitionLot
 
 A lot represents an economic acquisition and preserves, at minimum:

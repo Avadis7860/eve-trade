@@ -139,7 +139,10 @@ function run() {
       tx(201, false, 10, 150, '2026-09-20T10:00:00Z'),
       tx(101, true, 10, 100, '2026-09-20T11:00:00Z'),
     ]);
-    assert(result.position.unmatched_disposition_quantity === 10, 'disposition before acquisition must remain unmatched');
+    assert(
+      result.all_disposition_states[0].unmatched_quantity === 10,
+      'disposition before acquisition must remain unmatched at the ledger-wide disposition boundary',
+    );
     assert(result.position.financial_completeness === 'PARTIAL', 'causal inventory deficit must be PARTIAL');
     assert(result.position.realized_gross_profit === 0, 'unmatched disposition must not fabricate profit');
     assert(result.position.capital_committed === 1_000, 'the later valid acquisition still contributes known committed capital');

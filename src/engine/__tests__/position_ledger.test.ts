@@ -236,6 +236,49 @@ function run() {
     assert(result.position.position_completeness === 'PARTIAL', 'position completeness must follow economic lineage coverage');
   }
 
+  {
+    const transactions = [
+      tx(901, true, 10_000, 100, '2026-09-20T10:00:00Z'),
+      tx(902, false, 1, 140, '2026-09-20T11:00:00Z'),
+    ];
+    const result = reconstructPositionLedger('ecosystem:coverage-complete', 34, transactions, {
+      history_coverage: 'COMPLETE_FOR_SCOPE',
+      economic_origin_coverage: 'COMPLETE_FOR_SCOPE',
+    });
+    assert(result.position.history_coverage === 'COMPLETE_FOR_SCOPE', 'explicit complete history coverage must be preserved');
+    assert(
+      result.position.economic_origin_coverage === 'COMPLETE_FOR_SCOPE',
+      'explicit economic-origin coverage must be preserved',
+    );
+    assert(
+      result.position.position_completeness === 'OBSERVED',
+      'complete coverage can produce an observed position-completeness state',
+    );
+  }
+
+  {
+    const result = reconstructPositionLedger('ecosystem:coverage-unknown', 34, [
+      tx(911, true, 10_000, 100, '2026-09-20T10:00:00Z'),
+      tx(912, false, 1, 140, '2026-09-20T11:00:00Z'),
+    ]);
+    assert(
+      result.position.history_coverage === 'UNKNOWN',
+      'missing history evidence must remain UNKNOWN even for coherent transaction data',
+    );
+    assert(
+      result.position.economic_origin_coverage === 'UNKNOWN',
+      'missing economic-origin evidence must remain UNKNOWN',
+    );
+    assert(
+      result.position.position_completeness === 'PARTIAL',
+      'unknown coverage must prevent an observed completeness claim',
+    );
+    assert(
+      result.position.source_coverage === 'MARKET_TRACEABLE',
+      'market cost lineage can remain traceable independently of broader coverage',
+    );
+  }
+
   console.log('[PASS] FIN-001 position ledger scenarios validated.');
 }
 

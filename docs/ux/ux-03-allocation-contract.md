@@ -141,7 +141,6 @@ with provenance:
 Supported source modes remain:
 
 - corporation wallet division;
-- fleet consolidated;
 - active character;
 - manual budget.
 

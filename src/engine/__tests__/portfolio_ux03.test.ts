@@ -371,6 +371,30 @@ async function run(): Promise<void> {
       assert(scoped.length === 1 && scoped[0].order_id === 'corp-3', 'corporation scope must filter by economic owner and wallet division');
       assert(treasury.principal_scope === 'corp:77', 'observer scope must remain separate from economic owner');
     }],
+    ['M every proposed position retains treasury provenance', () => {
+      const treasury = resolvePortfolioTreasury(
+        config({ treasury_source_mode: 'manual_budget', available_capital: 40_000_000 }),
+        [],
+        null,
+      );
+      const simulation = PortfolioOptimizer.optimize(
+        [opportunity('provenance', 7, 17, 100, 10_000_000, 20_000_000)] as any,
+        config({ treasury_source_mode: 'manual_budget', available_capital: 40_000_000 }),
+        {
+          allocation_budget: treasury.allocation_budget,
+          policy_reserve: treasury.policy_reserve,
+          capital_provenance: {
+            source_kind: treasury.source_kind,
+            source_id: treasury.source_id,
+            principal_scope: treasury.principal_scope,
+          },
+        },
+      );
+      const provenance = simulation.positions[0]?.capital_provenance;
+      assert(provenance?.source_kind === 'MANUAL', 'allocation must retain source kind provenance');
+      assert(provenance?.source_id === 'manual_budget', 'allocation must retain source id provenance');
+      assert(provenance?.principal_scope === 'manual', 'allocation must retain principal scope');
+    }],
     ['I manual budget is explicit simulation', () => {
       const treasury = resolvePortfolioTreasury(
         config({ treasury_source_mode: 'manual_budget', available_capital: 25_000_000 }),

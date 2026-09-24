@@ -59,3 +59,15 @@ It is expected to be operationally specific to a chantier and must not become a 
 
 The UX-03 archive is reference material only. Its financial implementation, tests and documents must be re-derived against current main before any future reuse. The historical financial decision record and reconciliation memo are explicitly non-normative; the historical progressive-recovery vocabulary is preserved as a contradiction to be resolved before any new financial code.
 
+## CI trigger model
+
+The PR certification workflow is deliberately conservative for context-critical changes.
+
+- Changes under .eve-trade always force the full certification scope.
+- Changes to the context integrity script or agent navigation also force full certification.
+- Changes to any current file referenced by the stable context map force full certification, including deletion or rename of a referenced contract, invariant or test.
+- PR certification runs test:context in active mode and checks the branch, PR number and base SHA carried by current-work.
+- Scheduled/manual Full Certification runs test:context in stable mode; it validates the stable map and documents without pretending that the last delivery branch is the current repository branch.
+- Ordinary unrelated documentation remains eligible for the existing documentation-only routing.
+
+This routing exists to make context drift visible without running the entire certification surface for every documentation edit.

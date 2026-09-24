@@ -525,7 +525,8 @@ async function runAllTests() {
     assert(outcomeFree.margin === 0.0, 'Margin remains 0.0 when no valid revenue is available');
     assert(outcomeFree.data_state === 'PARTIAL', 'Invalid zero-price facts must remain PARTIAL');
     assert(
-      outcomeFree.state_reasons?.some((reason) => reason.includes('Invalid transaction facts')),
+      outcomeFree.state_reasons !== undefined &&
+        outcomeFree.state_reasons.some((reason) => reason.includes('Invalid transaction facts')),
       'Invalid zero-price facts must be explicitly diagnosed'
     );
     console.log('  [PASS] Test 14: Division by zero protection verified without weakening ledger validation.');

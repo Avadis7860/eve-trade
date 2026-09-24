@@ -1,7 +1,7 @@
 import React from 'react';
 import { ProposedAllocationSnapshot, RealPortfolioSnapshot, PortfolioPosition } from '../types';
 import { fmtIsk, fmtPct, fmtNumber } from '../engine/money';
-import { Badge, DollarSign, Layers, ShieldCheck, AlertTriangle, Database, Lock, Boxes } from 'lucide-react';
+import { DollarSign, Layers, ShieldCheck, AlertTriangle, Database, Lock, Boxes } from 'lucide-react';
 
 interface PortfolioViewProps {
   proposedAllocation: ProposedAllocationSnapshot;

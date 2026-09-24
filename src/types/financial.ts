@@ -437,6 +437,7 @@ export interface FinancialProvenance {
 
 export interface AcquisitionLot {
   readonly lot_id: string;
+  readonly position_segment_id: string;
   readonly provenance: FinancialProvenance;
   readonly transaction_id: number;
   readonly type_id: number;
@@ -456,6 +457,7 @@ export interface AcquisitionLot {
 
 export interface DisposalAllocation {
   readonly allocation_id: string;
+  readonly position_segment_id: string;
   readonly disposition_transaction_id: number;
   readonly acquisition_lot_id: string;
   readonly acquisition_transaction_id: number;
@@ -471,6 +473,7 @@ export interface DisposalAllocation {
 }
 
 export interface PositionDispositionState {
+  readonly position_segment_id?: string;
   readonly disposition_transaction_id: number;
   readonly disposed_quantity: number;
   readonly unmatched_quantity: number;
@@ -487,6 +490,7 @@ export interface PositionDispositionState {
 
 export interface CurrentPosition {
   readonly position_id: string;
+  readonly position_segment_id: string;
   readonly accounting_scope_id: string;
   readonly type_id: number;
   readonly economic_owner_type: EconomicOwnerType;
@@ -500,6 +504,7 @@ export interface CurrentPosition {
   readonly cash_recovered: number | null;
   readonly capital_recovery_delta: number | null;
   readonly capital_recovery_ratio: number | null;
+  readonly capital_recovery_state: EconomicPositionRecoveryState | null;
   readonly provenance: readonly FinancialProvenance[];
   readonly lifecycle_status: PositionLifecycleStatus;
   /** Completeness of economic position reconstruction, independent from fee evidence. */
@@ -518,6 +523,9 @@ export interface CurrentPosition {
   readonly unreconciled_location_transition_count: number;
 }
 
+/** A historical or active economic position segment. */
+export type EconomicPositionSegment = CurrentPosition;
+
 export interface PositionLedgerResult {
   readonly accounting_scope_id: string;
   readonly type_id: number;
@@ -525,5 +533,8 @@ export interface PositionLedgerResult {
   readonly character_id?: number;
   /** @deprecated Compatibility alias for the accounting scope identifier. */
   readonly principal_scope: string;
+  /** All economic position segments reconstructed for this scope + type. */
+  readonly position_segments: readonly EconomicPositionSegment[];
+  /** The active segment when one remains open; otherwise the most recently closed segment. */
   readonly position: CurrentPosition;
 }

@@ -155,9 +155,20 @@ async function run() {
   setBackendApiFetchForTesting(async (input, init) => {
     const url = String(input);
 
+    const headers = init?.headers;
+    const authorization =
+      headers instanceof Headers
+        ? headers.get('Authorization') || ''
+        : Array.isArray(headers)
+          ? headers.find(([name]) => name.toLowerCase() === 'authorization')?.[1] || ''
+          : (headers as Record<string, string> | undefined)?.Authorization ||
+            (headers as Record<string, string> | undefined)?.authorization ||
+            '';
+
     // Keep the regression mock focused while still serving the valid 1001
     // corporation request made by the preceding contract scenario.
     if (url.includes('/api/character/1001/corporation/orders')) {
+      corporationAuthHeaders.push(authorization);
       return new Response(JSON.stringify([{
         order_id: '92001',
         type_id: 34,
@@ -181,16 +192,6 @@ async function run() {
         headers: { 'Content-Type': 'application/json' },
       });
     }
-
-    const headers = init?.headers;
-    const authorization =
-      headers instanceof Headers
-        ? headers.get('Authorization') || ''
-        : Array.isArray(headers)
-          ? headers.find(([name]) => name.toLowerCase() === 'authorization')?.[1] || ''
-          : (headers as Record<string, string> | undefined)?.Authorization ||
-            (headers as Record<string, string> | undefined)?.authorization ||
-            '';
 
     assert(
       authorization === 'Bearer corp-token-real',

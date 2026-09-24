@@ -51,7 +51,7 @@ See:
 
 - **CI follow-up:** the PR workflow currently triggers the full certification surface for Draft as well as Ready PRs. This is confirmed by PR #61 run `35858589551` and should be handled in a dedicated CI-002 hardening chantier.
 
-- **Current sequencing:** Agent Context Hardening v2, PR #80 and PR #81 are merged. Main Smoke #17 is green on `a01c2a31dbabd3678d3d8674b14f4c826ab0b0d8`. The current delivery is FIN-002-ARCHIVE-RECOVERY / PR #82 from `a01c2a31dbabd3678d3d8674b14f4c826ab0b0d8`. The archive remains reference-only; this delivery selectively reconstructs validated Financial Truth elements without resurrecting UX-03 UI, Fleet, CI, Agent Context or unrelated ESI/OAuth changes. Public-readiness remains a separate maintenance track.
+- **Current sequencing:** Agent Context Hardening v2, PR #80 and PR #81 are merged. Main Smoke #17 is green on `a01c2a31dbabd3678d3d8674b14f4c826ab0b0d8`. FIN-002-ARCHIVE-RECOVERY / PR #82 is certified and ready for merge on head `3f3b10e2b4582a2feb063ae1869ae0b6299d08a9`. CI Foundation & Regression Gate #1255 / head 3f3b10e2b4582a2feb063ae1869ae0b6299d08a9; SDE Truth Gate #1016; all required lanes, Unit/Domain, Server/API/ESI, Build, Static, Operations E2E, Auth E2E, required-gate and observability: SUCCESS. The archive remains reference-only; the recovery did not resurrect UX-03 UI, Fleet, CI, Agent Context or unrelated ESI/OAuth changes. Public-readiness remains a separate maintenance track.
 
 ## Public-readiness gaps
 

@@ -8,3 +8,4 @@ Scope: development and diagnostics
 - [CI Runbook](ci-runbook.md)
 - [Browser E2E / real CCP acceptance](../validation/e2e.md)
 - [Incident Guide](incident-guide.md)
+- [Agent Context & Change Navigation](agent-context.md)

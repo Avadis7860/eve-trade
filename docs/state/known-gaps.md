@@ -4,6 +4,14 @@ Status: CURRENT
 Scope: functional and operational gaps revalidated against current main
 Source of truth: code, tests, CI and current state documents
 
+## Agent context / repository governance
+
+- The repository previously required manual reconstruction of domain/code/contract/test/CI relationships for many tasks. This branch introduces a stable context map plus a separate active-work manifest and an automated reference-integrity check.
+- The active-work state must remain operational and branch/PR specific; the stable map must not embed the current branch or PR.
+- Context references are qualified by workflow file and job because CI job IDs can repeat across workflows.
+- The archive is not a source of current implementation truth. Archived UX-03/Financial Truth code is reference-only and must be re-derived from current main.
+- The main-state documentation baseline had fallen behind the verified main SHA; this maintenance chantier synchronizes that state before the next technical work.
+
 ## UX / product gaps
 
 - The UI information architecture does not yet reflect the mature trading workflow of discovery -> operations -> performance -> allocation -> cockpit.
@@ -43,7 +51,7 @@ See:
 
 - **CI follow-up:** the PR workflow currently triggers the full certification surface for Draft as well as Ready PRs. This is confirmed by PR #61 run `35858589551` and should be handled in a dedicated CI-002 hardening chantier.
 
-- **Current product sequence:** UX-01/P0 is closed. UX-03 Allocation is the next product build. Public-readiness is a separate maintenance track.
+- **Current sequencing:** Agent Context Hardening is the active technical chantier. UX-03 remains a future product chantier and is not active here; the financial semantic reconciliation gate must be accepted before any future financial implementation is resumed. Public-readiness remains a separate maintenance track.
 
 ## Public-readiness gaps
 

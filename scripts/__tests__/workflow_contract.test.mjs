@@ -36,6 +36,7 @@ const requiredCiCommands = [
   'npm run typecheck',
   'npm run typecheck:server',
   'npm run test:ci-config',
+  'npm run test:context',
   'npm run test:config',
   'npm run test:auth-token',
   'npm run test:truth',
@@ -173,6 +174,7 @@ assert.ok(jobBlock('browser-e2e').includes('= "skipped"'), 'Browser gate must ex
 const expectedJobCommands = {
   static: [
     'npm run test:ci-config',
+    'npm run test:context',
     'npm run typecheck',
     'npm run typecheck:server',
     'npm run test:config',
@@ -244,6 +246,8 @@ for (const jobId of ['static', 'unit_domain', 'server', 'build', 'browser-auth',
   assert.ok(block.includes('test "$(npm --version)" = "10.9.8"'), `Full certification job ${jobId} must verify npm`);
   assert.ok(block.includes('timeout-minutes:'), `Full certification job ${jobId} must have an explicit timeout`);
 }
+const fullStaticBlock = fullJobsSection.split(/\n(?=  [A-Za-z0-9_-]+:[ \t]*(?:\n|$))/).find((candidate) => candidate.startsWith('  static:'));
+assert.ok(fullStaticBlock?.includes('CONTEXT_MODE: stable'), 'Full certification context validation must use stable mode');
 const fullGateBlock = fullJobsSection.split(/\n(?=  [A-Za-z0-9_-]+:[ \t]*(?:\n|$))/).find((candidate) => candidate.startsWith('  full-gate:'));
 assert.ok(fullGateBlock, 'Full certification gate block missing');
 assert.ok(fullGateBlock.includes('if: ${{ always() }}'), 'Full certification gate must always evaluate');

@@ -9,11 +9,11 @@ CI gate: PR CI
 
 ## Current state
 
-The functional E2E-001 baseline is stable and merged. CI-001 is merged and complete. UX-02 is merged. UX-01/P0 is now closed; the next product chantier is UX-03 Allocation, after the current public-readiness/documentation sync.
+The functional E2E-001 baseline is stable and merged. CI-001 is merged and complete. UX-02 is merged. UX-01/P0 is closed. The current active technical chantier is Agent Context Hardening on branch chore/agent-context-hardening / PR #78, based on main aec4c62691723e8fa2ee2bb2f9126249152ad57f.
 
 The application has mature market, ESI, finance, order, prediction and portfolio foundations, but the presentation layer does not yet expose them as a coherent trading workflow.
 
-**Current product sequence:** finish the public-readiness/documentation synchronization, then begin UX-03 Allocation / Portefeuille. Public-readiness hardening is tracked separately as maintenance work.
+After context hardening, the next financial gate is semantic reconciliation/re-acceptance of the archived Financial Truth decisions. UX-03 remains a separate future product chantier; it is not active in the current branch.
 
 See:
 - [UI/UX Product Audit](../audits/ui-ux-product-audit-2026-09-23.md)
@@ -41,12 +41,14 @@ Deferred until the UX gate:
 
 | ID | Status | Goal | Dependencies | Risk | Validation |
 |---|---|---|---|---|---|
+| CONTEXT-001 | ACTIVE | Harden AI-agent repository navigation and active-work governance | current main baseline | stale/dead context can misroute future work | test:context + PR CI + documentation sync |
 | DOC-001 | DONE | Reconstruct modular documentation governance | current mission | stale truth if incomplete | docs/link audit + CI |
 | E2E-001 | DONE | Establish reproducible local OAuth/browser gate, deterministic CI E2E coverage, and real-CCP smoke | stable auth/ESI | environment-sensitive auth/callback integration | browser E2E + security/API + local CCP smoke |
 | UX-00 | DONE | Define and freeze product model, navigation, responsibilities and shared UX vocabulary | current audit | scope drift if implementation starts early | accepted UX contract |
 | UX-01 | DONE / EXTERNALLY BOUNDED | Establish market/ESI truth and retrieval observability; reported target-PC issue resolved without a persistent application defect | UX-00 vocabulary; existing ESI boundary | hidden empty/error states; ESI rate limits | caller audit + ERROR/PARTIAL/STALE/429 regression + current functional state |
 | UX-02 | DONE / MERGED | Rebuild Mes Ordres as the Operations console | UX-00, UX-01, CI-001 merged | business state fragmentation | UI/browser acceptance |
-| UX-03 | P1 | Rebuild Portefeuille as Real Portfolio + Proposed Allocation across multiple opportunities | UX-00, UX-01, UX-02 | misleading allocation / concentration | engine + UI + scenario tests |
+| FIN-002-RECON | NEXT FINANCIAL GATE | Reconcile and explicitly re-accept the archived Financial Truth semantic boundary before new financial code | current main + historical evidence | contradictory lifecycle/profitability semantics | accepted contract + domain tests + CI ownership |
+| UX-03 | P1 / FUTURE | Rebuild Portefeuille as Real Portfolio + Proposed Allocation across multiple opportunities | UX-00, UX-01, UX-02 + accepted financial semantics | misleading allocation / concentration | engine + UI + scenario tests |
 | UX-04 | P1 | Replace manual Journal with ESI-based automatic Performance & Historique | UX-00, UX-01, financial truth, execution data | incorrect attribution | accounting + reconciliation + browser scenarios |
 | UX-05 | P1 | Rebuild Paramètres as business Control Center and remove/unwire fake controls | UX-00, engine consumer map, UX-03/04 parameter needs | settings with no effect | consumer matrix + UI tests |
 | UX-06 | P2 | Reposition Cockpit as decision-oriented synthesis | UX-02..05 contracts | dashboard duplication | browser workflow acceptance |
@@ -64,7 +66,7 @@ These tracks can be prepared in documentation before they are made active. Their
 | CI-OPS-001 | CANDIDATE / DEFERRED | Project operator CLI with Oclif around the existing CI/PR model | P0 closure; explicit CI-hardening need | maintenance candidate; separate branch/PR |
 | PUBLIC-READINESS | ACTIVE MAINTENANCE | Strengthen public repository credibility, security posture, licensing and release/showcase hygiene | public repository state | maintenance track; does not replace UX delivery |
 
-CI-001 remains the stable PR certification base. Its Draft-routing mismatch stays separate as a future CI hardening item.
+CI-001 remains the stable PR certification base. Context Hardening adds a dedicated integrity proof to the static owner. The historical Draft-routing mismatch stays separate unless explicitly activated as its own chantier.
 
 ## UX program completion gate
 

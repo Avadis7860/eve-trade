@@ -1,6 +1,33 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 
+function loadContextCriticalPaths() {
+  const file = '.eve-trade/context-map.json';
+  const critical = new Set([
+    '.eve-trade/context-map.json',
+    '.eve-trade/current-work.json',
+    'docs/operations/agent-context.md',
+    'scripts/context-integrity.mjs',
+  ]);
+  if (!fs.existsSync(file)) return critical;
+  try {
+    const map = JSON.parse(fs.readFileSync(file, 'utf8'));
+    for (const domain of Object.values(map.domains || {})) {
+      for (const key of ['canonical_code', 'contracts', 'invariants', 'decisions', 'tests']) {
+        for (const path of domain[key] || []) critical.add(path);
+      }
+    }
+    for (const path of map.history?.current_documents || []) critical.add(path);
+    for (const paths of Object.values(map.hotspots || {})) {
+      if (Array.isArray(paths)) for (const path of paths) critical.add(path);
+    }
+  } catch {
+    critical.add(file);
+  }
+  return critical;
+}
+
+const CONTEXT_CRITICAL_PATHS = loadContextCriticalPaths();
 export function classifyPaths(input) {
   const paths = Array.isArray(input)
     ? input.map((value) => String(value).trim()).filter(Boolean)
@@ -11,6 +38,11 @@ export function classifyPaths(input) {
   let ambiguous = paths.length === 0;
 
   for (const path of paths) {
+    if (path.startsWith('.eve-trade/') || CONTEXT_CRITICAL_PATHS.has(path)) {
+      ambiguous = true;
+      if (path.startsWith('docs/')) docs = true;
+      continue;
+    }
     if (path.startsWith('.github/workflows/') || path === '.github/dependabot.yml') ci = true;
     else if (path.startsWith('src/engine/')) domain = true;
     else if (path.startsWith('src/services/') || path.startsWith('server/') || path === 'server.ts') server = true;

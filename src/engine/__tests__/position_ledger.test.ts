@@ -222,6 +222,20 @@ function run() {
     assert(result.position.source_coverage === 'PARTIAL', 'scope mismatch must degrade source coverage');
   }
 
+
+  {
+    const buy = tx(701, true, 100, 100, '2026-09-20T10:00:00Z');
+    const sell = { ...tx(702, false, 100, 140, '2026-09-20T11:00:00Z'), location_id: 60008494 };
+    const result = reconstructPositionLedger('ecosystem:location-test', 34, [
+      { ...buy, accounting_scope_id: 'ecosystem:location-test' },
+      { ...sell, accounting_scope_id: 'ecosystem:location-test' },
+    ]);
+    assert(result.position.allocations.length === 1, 'cross-location disposal may be allocated when economic lineage is otherwise known');
+    assert(result.position.unreconciled_location_transition_count === 1, 'missing transfer evidence must be counted');
+    assert(result.position.source_coverage === 'PARTIAL', 'unsupported cross-location lineage precision must degrade source coverage');
+    assert(result.position.position_completeness === 'PARTIAL', 'position completeness must follow economic lineage coverage');
+  }
+
   console.log('[PASS] FIN-001 position ledger scenarios validated.');
 }
 

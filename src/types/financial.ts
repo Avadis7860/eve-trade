@@ -237,6 +237,7 @@ export type ExecutionFeeRoleMode = 'TAKER_TAKER' | 'TAKER_MAKER' | 'MAKER_TAKER'
 export type FinancialCompleteness = 'OBSERVED' | 'ESTIMATED' | 'PARTIAL' | 'UNAVAILABLE';
 
 export type CapitalRecoveryScope = 'KNOWN_POSITIONS';
+export type EconomicOperationRecoveryState = 'NEGATIVE' | 'RECOVERED' | 'POSITIVE';
 
 export interface CapitalRecoverySummary {
   readonly scope: CapitalRecoveryScope;
@@ -453,6 +454,13 @@ export interface PositionDispositionState {
   readonly unmatched_quantity: number;
   readonly remaining_position_quantity: number;
   readonly lifecycle_status: PositionLifecycleStatus;
+  readonly operation_id?: string;
+  readonly operation_quantity_acquired?: number;
+  readonly operation_capital_committed?: number;
+  readonly operation_cash_recovered?: number;
+  readonly operation_recovery_delta?: number;
+  readonly operation_recovery_ratio?: number | null;
+  readonly operation_recovery_state?: EconomicOperationRecoveryState;
 }
 
 export interface CurrentPosition {

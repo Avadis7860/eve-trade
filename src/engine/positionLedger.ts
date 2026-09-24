@@ -534,3 +534,4 @@ export function reconstructPositionLedger(
     position_segments: positionSegments,
     position,
   });
+}

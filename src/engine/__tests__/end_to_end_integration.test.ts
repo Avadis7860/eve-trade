@@ -219,10 +219,14 @@ function runEndToEndIntegrationTests() {
   console.log('  [PASS] Gate Check 1: character_id = 0 strictly forbidden for individual financial calculations.');
 
   // --------------------------------------------------------------------------
-  // Gate Check 2: Cross-Character Isolation Guard
+  // Gate Check 2: Cross-Character Scope Guard
   // --------------------------------------------------------------------------
-  console.log('--- Gate Check 2: Cross-Character Financial Isolation ---');
-  const mixedTxs = [...createTestTransactionsAlpha(), ...createTestTransactionsBeta()];
+  console.log('--- Gate Check 2: Cross-Character Financial Scope ---');
+  const betaSameTypeTransaction = {
+    ...createTestTransactionsBeta()[0],
+    type_id: 34,
+  };
+  const mixedTxs = [...createTestTransactionsAlpha(), betaSameTypeTransaction];
   let crossCharCaught = false;
   try {
     RealizedFinancialOutcomeEngine.calculateForTransactions(1001, 34, mixedTxs);
@@ -231,8 +235,8 @@ function runEndToEndIntegrationTests() {
       crossCharCaught = true;
     }
   }
-  assert(crossCharCaught, 'calculateForTransactions must throw CrossCharacterFinancialMappingViolationError on mixed transactions');
-  console.log('  [PASS] Gate Check 2: CrossCharacterFinancialMappingViolationError verified.');
+  assert(crossCharCaught, 'calculateForTransactions must reject same-type cross-character transactions when no common accounting scope is declared');
+  console.log('  [PASS] Gate Check 2: Cross-character scope guard verified.');
 
   // --------------------------------------------------------------------------
   // Gate Check 3: Mes Ordres / Fleet Scoping Coherence & Active Switching

@@ -572,6 +572,29 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                 </button>
               )}
 
+              {orderCollection.corporations?.map((corp) => {
+                const isSelected =
+                  orderCollection.scope.type === 'corporation' &&
+                  orderCollection.scope.corporationId === corp.corporationId;
+                return (
+                  <button
+                    key={`corp-${corp.corporationId}`}
+                    onClick={() =>
+                      onChangeScope?.({ type: 'corporation', corporationId: corp.corporationId })
+                    }
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                      isSelected
+                        ? 'bg-red-500/15 border-red-500 text-red-300 font-bold shadow-sm'
+                        : 'bg-[#0e1117] border-[#262730] text-[#808495] hover:text-red-300 hover:border-red-500/30'
+                    }`}
+                    title="Afficher les ordres économiquement détenus par cette corporation"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                    <span>{corp.corporationName || `Corporation #${corp.corporationId}`}</span>
+                  </button>
+                );
+              })}
+
               {orderCollection.characters.map((char) => {
                 const isSelected =
                   orderCollection.scope.type === 'character' &&
@@ -593,6 +616,15 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                   </button>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {orders.length === 0 && orderCollection?.corporations && orderCollection.corporations.length > 0 && (
+          <div className="bg-[#161821] border border-red-900/50 rounded-xl px-4 py-3 text-xs text-[#cfd3dc]">
+            <div className="font-semibold text-red-200">Aucun ordre dans la portée actuelle.</div>
+            <div className="text-[#808495] mt-1">
+              Des ordres économiquement détenus par une corporation sont disponibles dans cette session. Utilisez la portée corporation ci-dessus pour les consulter ; ils ne sont pas attribués artificiellement au personnage observateur.
             </div>
           </div>
         )}

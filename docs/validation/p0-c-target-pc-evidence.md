@@ -1,6 +1,6 @@
 # P0-C — Target-PC Market Evidence Bundle
 
-Status: IMPLEMENTATION CERTIFIED / EXTERNAL EVIDENCE PENDING
+Status: IMPLEMENTATION CERTIFIED — HISTORICAL DIAGNOSTIC TOOL
 Date: 2026-09-24
 Branch: feat/p0-target-pc-evidence (historical; do not reuse)
 Base: main at c0ddc69ef424ed0cfd4de776758166c3ee8c1abe
@@ -49,18 +49,12 @@ On the affected PC:
 
 The export currently records the comparison field as not_recorded; this is deliberate because the application cannot establish an external comparison result by itself.
 
-## Classification gate
+## Classification / closure
 
-P0-C is complete only when:
+The export itself is validated by unit tests and the browser workflow generates the bundle. The previously reported target-PC market-display symptom is now resolved; the application is currently functional, and the operator confirmed that insufficient available data explained the symptom.
 
-- the export itself is validated by unit tests;
-- the browser workflow can generate the bundle;
-- the affected-PC bundle is captured against real CCP/ESI;
-- the controlled comparison result is documented;
-- the incident can be classified as either ROOT-CAUSED or EXTERNALLY BOUNDED.
-
-Until then the target-PC incident remains NOT ROOT-CAUSED.
+The historical issue is therefore **EXTERNALLY BOUNDED** and is no longer an active P0 dependency. A real-PC bundle is not required to keep the project blocked on this historical symptom.
 
 ## Evidence boundary
 
-This increment closes a tooling gap, not the external incident. A successful export proves that the application can serialize its observed repository-side state; it does not prove that CCP/ESI is responsible for the observed failure.
+This increment closes a tooling gap and preserves a reusable diagnostic path. A successful export proves that the application can serialize its observed repository-side state; it does not attribute responsibility to CCP/ESI or any other external system.

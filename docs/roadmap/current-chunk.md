@@ -1,90 +1,59 @@
 # Current Chunk
 
-Status: UX-03 IMPLEMENTATION INCREMENT 1 ACTIVE
-Scope: UX-03 contract enrichment + public-readiness maintenance follow-up
-Reference: [UI/UX Product Audit](../audits/ui-ux-product-audit-2026-09-23.md)
-Program: [UX-First Trading Terminal Program](ux-program.md)
-Decision: [ADR-0002](../decisions/ADR-0002-ux-first-trading-terminal.md)
-Detailed plan: [UX-First Trading Terminal Program](ux-program.md)
-Detailed contract: [UX-03 Allocation / Portefeuille — Contrat métier détaillé](../ux/ux-03-allocation-contract.md)
-Data traceability: [UX-03 Data Availability & Derivation Matrix](../validation/ux-03-data-availability.md)
-Public-readiness audit: [Public Readiness Audit](../audits/public-readiness-audit-2026-09-24.md)
+Status: CONTRACT REBASE / DEVELOPMENT PAUSED
+Scope: UX-03 allocation workstream held pending financial/order model correction
+Reference: [UX-03 Allocation Contract](../ux/ux-03-allocation-contract.md)
+Decision: [ADR-0003 — Economic Transactions, Acquisition Lots and Canonical Market Orders](../decisions/ADR-0003-economic-position-and-order-model.md)
+Financial workstream: [Financial Truth Rebase](financial-truth-rebase.md)
 
 ## Objective
 
-Deliver UX-03 Allocation / Portefeuille incrementally without losing the verified state of the repository. P0/UX-01 is closed; UX-03 is now the active product build. Public-readiness hardening is tracked separately and is not an active implementation branch.
+The previous UX-03 implementation increment is now treated as scaffolding, not a certified financial contract.
 
-## Completed increments
+Deep review of the active branch identified two model-level issues:
 
-- Global synchronization now classifies market-quality `ERROR` as a failed item and carries its error count into the global sync result.
-- Market API error responses now preserve HTTP, cache, ESI error-budget and Retry-After metadata.
-- Browser Operations proof now certifies canonical ERROR state, active-order retention and operator-facing HTTP/budget diagnostics.
-- CI Foundation & Regression Gate #698 and Phase 2.7C SDE Truth Gate #459 are green on main after PR #63.
+1. Market-order side is not economic direction. A trader may acquire by taking an existing SELL order and later dispose by placing a SELL order.
+2. A partial disposal does not close the underlying position. A 1-unit disposal from a 10,000-unit acquisition may realize P&L on the disposed unit while 9,999 units remain open.
 
-## P0-A audit result
+Market observation, economic transaction, position lifecycle and realized financial state must therefore remain distinct.
 
-P0-A is **AUDIT COMPLETE / DOCUMENTATION-ONLY** on branch `audit/p0-market-consumers`.
+## Current decision
 
-The [caller matrix](../validation/p0-a-market-consumers.md) maps the direct route caller and every non-Operations production consumer found in the repository. No concrete failure-to-empty or failure-to-unchanged collapse affecting certifiable business truth was demonstrated.
+- PR #71 remains open for traceability but is not a merge candidate.
+- No new financial, allocation, profitability or execution behavior should be added during the contract rebase.
+- The existing FIFO calculation remains useful as a mathematical primitive.
+- Active BUY orders are valid evidence for reserved capital/order exposure only. They are not acquisition facts.
 
-No production code change is required by P0-A. The legacy `EsiService.fetchLiveOrders()` helper is recorded as a latent quality-loss hazard but has no production caller and is not reused.
+## Priority work
 
-## P0-B certification result
+1. FIN-001 / issue #72 — acquisition lots + position ledger.
+2. ORD-001 / issue #73 — one canonical MarketOrder with issuer / owner / observer dimensions.
+3. FIN-002 / issue #74 — Performance lifecycle based on positions/lots.
+4. DATA-001 / issue #75 — provenance and zero-fallback audit.
+5. CI-003 / issue #76 — repair the red CI unit harness without weakening the real-payload regression.
 
-P0-B is **DONE / MERGED / CERTIFIED** on main by PR #66 at merge commit `c0ddc69ef424ed0cfd4de776758166c3ee8c1abe`.
+## Explicit freeze
 
-The [deterministic 429 proof](../validation/p0-b-429-retry-after.md) certified HTTP 429, `ERROR`, active-order retention, visible HTTP status, ESI budget, Retry-After and absence of a false empty state. PR CI and post-merge Main Smoke were green.
+Until the contract reset is accepted:
 
-## P0-C certification result
+- no new allocation feature;
+- no new realized-profit KPI;
+- no new order-to-transaction correlation heuristic;
+- no Assets integration merely to mask accounting ambiguity;
+- no real order placement, cancellation or allocation execution;
+- no change that turns UNKNOWN / PARTIAL / ERROR / ABSENT into zero.
 
-P0-C implementation is **DONE / MERGED / CERTIFIED** on main by PR #67 at merge commit `31308676ec2d9104f7c6ffab29dae1e3f4f49a00`.
+## Historical certified work
 
-The target-PC evidence workflow now includes a browser-visible JSON export containing the market request template, per-hub HTTP/cache/pagination/ESI/Retry-After diagnostics, data-health state, timestamp and non-secret browser context. PR CI #719, SDE #480, and post-merge Main Smoke #8 are green. The exported bundle deliberately records the controlled comparison result as `not_recorded`; that field must be established from the affected PC and a controlled comparison environment. Validation: [P0-C target-PC evidence](../validation/p0-c-target-pc-evidence.md).
+P0 market/ESI reliability and UX-02 Operations remain certified historical foundations. This reset does not reopen those completed contracts.
 
-## UX-03 increment 1 evidence
+## Validation gate
 
-- Portfolio aggregation boundary added for treasury, scoped order exposure, candidate universe and Real/Proposed snapshots.
-- Portfolio optimizer now consumes the cross-item universe with explicit hard gates, deployed-capital concentration and safe quantity/capital arithmetic.
-- Portfolio UI now separates observed portfolio state from proposed allocation and preserves prior reliable proposals across blocked refresh states.
-- UX-03 domain and browser coverage is included in CI; current CI validation has passed typecheck, build, unit/domain certification and Operations browser E2E.
+Implementation may resume only after:
 
-## Next increments
-
-1. Complete UX-03 surface certification, including the final browser surface assertions and review of rationale/coverage/freshness presentation.
-2. Synchronize the UX-03 acceptance evidence after that certification.
-3. Address public-readiness maintenance items PUB-002/PUB-003 before the first portfolio showcase release.
-4. Keep the public-readiness audit synchronized with any material change in capabilities, security posture or release state.
-
-## Public-readiness status
-
-PUB-001 and PUB-007 are being closed by the current documentation/state synchronization. PUB-002 and PUB-003 remain high-priority maintenance decisions before portfolio publication.
-
-## CI operator tooling — planned, not active
-
-Oclif is recorded as a future operator-layer track for repository/CI operations. It is **not part of P0-B** and must not become a new parallel chantier.
-
-Planned role:
-- GitHub Actions remains the authoritative CI/certification system;
-- GitHub CLI (gh) remains the low-level GitHub control surface;
-- an Oclif-based project CLI may later expose a small operator workflow such as `eve ci status`, `eve ci watch`, `eve ci rerun-failed` and `eve ci certify`;
-- project-specific rules stay in testable domain functions rather than being hidden inside the CLI.
-
-Activation gate: only after the P0 closure gate is complete, unless a separate CI-hardening decision explicitly justifies a narrow operator-tooling increment. Implementation must use a new branch/PR and must not be folded into the current P0-B certification.
-
-## Scope discipline
-
-PST-001, UI-001, E2E-002, UI-002, PERF-001 and TYPE-001 remain deferred.
-
-UX-02 is DONE / MERGED and is not an active branch.
-
-UX-03 increment 1 is active on `ux-03/allocation-contract`. The branch contains product implementation and tests; it must not be merged as a documentation-only change.
-
-## Validation
-
-P0 closure evidence is complete:
-- failure paths that affect business truth are explicit and covered;
-- ERROR / PARTIAL / STALE / UNKNOWN remain distinct;
-- deterministic 429/rate-limit diagnostics are covered;
-- the historical target-PC symptom is resolved and externally bounded;
-- roadmap/backlog/current-state are synchronized;
-- the P0-A caller matrix remains linked to the merged state.
+- ADR-0003 is accepted;
+- FIN-001 has an executable AcquisitionLot/CurrentPosition contract and regressions;
+- ORD-001 has canonical order provenance regressions;
+- FIN-002 has position-lifecycle acceptance cases;
+- DATA-001 has completed the first data-state audit;
+- CI is green on the branch.

@@ -123,6 +123,23 @@ function run() {
     'fulfilled order history must remain available as observation-only activity',
   );
 
+  const crossCharacterMetrics = TraderAnalyticsService.processTransactions(
+    1001,
+    'Test Trader A',
+    [
+      tx(600, true, 10_000, 100, '2026-09-20T10:00:00Z'),
+      { ...tx(700, false, 1, 140, '2026-09-20T11:00:00Z'), character_id: 1002, character_name: 'Test Trader B' },
+    ],
+    [],
+    [],
+    5,
+    5,
+    { executionFeeMode: 'TAKER_TAKER', accounting_scope_id: 'ecosystem:test' },
+  );
+  assert(crossCharacterMetrics.total_closed_trades === 0, 'cross-character partial lifecycle must remain open');
+  assert(crossCharacterMetrics.recent_trade_cycles[0].character_id === 1002, 'disposal remains attributed to character B');
+  assert(crossCharacterMetrics.recent_trade_cycles[0].position_remaining_quantity === 9_999, 'shared position keeps 9,999 units');
+
   const orphanMetrics = TraderAnalyticsService.processTransactions(
     1001,
     'Test Trader',

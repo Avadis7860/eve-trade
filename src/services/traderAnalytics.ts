@@ -26,6 +26,11 @@ import {
 } from '../engine/realizedFinancialOutcome';
 import { roundIsk, safeDiv } from '../engine/money';
 
+type TraderAnalyticsTransaction = Omit<EveCharacterTransaction, 'is_personal' | 'client_id'> & {
+  readonly is_personal?: boolean;
+  readonly client_id?: number;
+};
+
 const STORAGE_KEY_PREFIX = 'eve_trader_analytics_v2_';
 const LEGACY_STORAGE_KEY_PREFIX = 'eve_trader_analytics_';
 
@@ -129,7 +134,7 @@ export class TraderAnalyticsService {
   static processTransactions(
     characterId: number,
     characterName: string,
-    transactions: EveCharacterTransaction[],
+    transactions: TraderAnalyticsTransaction[],
     orderHistory: EveCharacterOrderHistory[] = [],
     journalEntries: EveCharacterJournalEntry[] = [],
     accountingLevel?: number,
@@ -175,7 +180,7 @@ export class TraderAnalyticsService {
     let totalSellVolumeIsk = 0;
     let observedFulfilledOrderActivityIsk: number | undefined;
     const locationVolumeMap: Record<number, { name: string; volumeIsk: number; count: number }> = {};
-    const txByType: Record<number, EveCharacterTransaction[]> = {};
+    const txByType: Record<number, TraderAnalyticsTransaction[]> = {};
 
     for (const tx of sortedTx) {
       const locId = tx.location_id;

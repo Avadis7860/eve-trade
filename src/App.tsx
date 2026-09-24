@@ -291,7 +291,13 @@ const AppShell: React.FC = () => {
   const { tradeExecutions, handleExecuteTrade, handleUpdateExecution } = useTradeJournal();
 
   // Opportunities & Portfolio calculations for Cockpit
-  const { opportunities, sortedOpportunities, portfolioSimulation } = useTradingOpportunities(
+  const {
+    opportunities,
+    sortedOpportunities,
+    portfolioSimulation,
+    proposedAllocationSnapshot,
+    realPortfolioSnapshot,
+  } = useTradingOpportunities(
     selectedType,
     hubs,
     strategy,
@@ -301,7 +307,8 @@ const AppShell: React.FC = () => {
     highSecOnly,
     filterRoute,
     sortBy,
-    linkedCharacters
+    linkedCharacters,
+    allFleetOrders,
   );
 
   const handleSelectOpportunityForCockpit = (opp: UniverseWideOpportunity) => {
@@ -474,8 +481,11 @@ const AppShell: React.FC = () => {
           ) : currentView === 'portfolio' ? (
             <PortfolioView
               simulation={portfolioSimulation}
+              proposedAllocation={proposedAllocationSnapshot}
+              realPortfolio={realPortfolioSnapshot}
               onSelectOpportunity={(oppId) => {
-                const found = opportunities.find((o) => o.id === oppId);
+                const found = proposedAllocationSnapshot.candidate_universe.candidates.find((o) => o.id === oppId)
+                  ?? opportunities.find((o) => o.id === oppId);
                 if (found) setSelectedOpportunity(found);
               }}
             />

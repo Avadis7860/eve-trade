@@ -65,7 +65,7 @@ A future optimization is not accepted merely because it reduces wall-clock time.
 | Timeout policy | job timeout exists | PARTIAL | H | job + critical-step timeouts |
 | CI performance metrics | workflow/job/step timing plus recent cancellation/rerun history emitted as JSON artifacts and run summaries | COVERED | I | durable metrics and baseline |
 | Test duration telemetry | CI step timings classify test/check, npm install, browser setup and build; slowest steps are surfaced | COVERED | I | slowest suites visible |
-| Main post-merge validation | dedicated short Main Smoke workflow on `push` to `main`; first dedicated runtime proof pending | PARTIAL | H | short smoke by default |
+| Main post-merge validation | dedicated short Main Smoke workflow on `push` to `main`; Main Smoke #9 is green on current main `95e970933a1d440fb61d25a6f677742731b697aa` | COVERED | H | short smoke by default |
 | Full repository certification | dedicated scheduled/manual Full workflow implemented; first dedicated runtime proof pending | PARTIAL | H | scheduled/manual exhaustive proof |
 | Dependency vulnerability review | no dedicated dependency-review proof found | DEFERRED / FOLLOW-UP | C/I | dedicated supply-chain security track |
 | Static application security analysis | no CodeQL workflow/configuration found in repository search | DEFERRED / FOLLOW-UP | C/I | explicit SAST decision and implementation track |
@@ -88,7 +88,7 @@ A future optimization is not accepted merely because it reduces wall-clock time.
 
 ## CI-001 closure classification
 
-The following were complete as part of the CI-001 merge gate: required-gate stability, test ownership/taxonomy, browser isolation at job level, general change detection, PR/concurrency governance, Main/Full separation, scheduled/manual Full workflow, CI observability, workflow permission hardening, rollback guidance and documentation synchronization.
+The following were complete as part of the CI-001 merge gate: required-gate stability, test ownership/taxonomy, browser isolation at job level, general change detection, PR/concurrency governance, Main/Full separation, scheduled/manual Full workflow, CI observability, workflow permission hardening, rollback guidance and documentation synchronization. Main Smoke runtime proof is also established on the current main head; the remaining Partial/Deferred rows are explicit follow-up or conditional controls.
 
 The rows explicitly marked **DEFERRED / FOLLOW-UP** below are known, reviewable future hardening work. They are not unexplained blockers inside CI-001.
 

@@ -507,7 +507,14 @@ export class EsiService {
     );
 
     const classified = classifyCollectionResult(result);
-    if (classified.state !== 'AVAILABLE' && classified.state !== 'EMPTY') {
+    if (
+      classified.state !== 'AVAILABLE' &&
+      classified.state !== 'EMPTY' &&
+      classified.state !== 'PARTIAL'
+    ) {
+      return classified;
+    }
+    if (classified.state === 'EMPTY') {
       return classified;
     }
 

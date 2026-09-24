@@ -22,7 +22,13 @@ import {
 } from '../engine/realizedFinancialOutcome';
 import { roundIsk, safeDiv } from '../engine/money';
 
-const STORAGE_KEY_PREFIX = 'eve_trader_analytics_';
+const STORAGE_KEY_PREFIX = 'eve_trader_analytics_v2_';
+const LEGACY_STORAGE_KEY_PREFIX = 'eve_trader_analytics_';
+
+function analyticsStorageKey(characterId: number, accountingScopeId?: string): string {
+  const scope = accountingScopeId?.trim() || 'character:' + characterId;
+  return STORAGE_KEY_PREFIX + encodeURIComponent(scope);
+}
 
 export class TraderAnalyticsService {
   /**
@@ -882,7 +888,7 @@ export class TraderAnalyticsService {
 
     // Cache metrics in localStorage
     try {
-      localStorage.setItem(`${STORAGE_KEY_PREFIX}${characterId}`, JSON.stringify(metrics));
+      localStorage.setItem(analyticsStorageKey(characterId, calcOptions.accounting_scope_id), JSON.stringify(metrics));
     } catch {}
 
     return metrics;
@@ -956,10 +962,19 @@ export class TraderAnalyticsService {
   /**
    * Retrieves cached trader metrics from storage
    */
-  static getCachedMetrics(characterId: number): TraderPerformanceMetrics | null {
+  static getCachedMetrics(
+    characterId: number,
+    accountingScopeId?: string,
+  ): TraderPerformanceMetrics | null {
     try {
-      const data = localStorage.getItem(`${STORAGE_KEY_PREFIX}${characterId}`);
+      const data = localStorage.getItem(analyticsStorageKey(characterId, accountingScopeId));
       if (data) return JSON.parse(data);
+
+      // Compatibility fallback for the pre-FIN-002 character-keyed cache.
+      if (!accountingScopeId) {
+        const legacyData = localStorage.getItem(`${LEGACY_STORAGE_KEY_PREFIX}${characterId}`);
+        if (legacyData) return JSON.parse(legacyData);
+      }
     } catch {}
     return null;
   }
@@ -978,15 +993,3 @@ export class TraderAnalyticsService {
         has_personal_history: false,
         total_historical_trades: 0,
         historical_realized_profit: 0,
-        historical_avg_roi: null,
-        historical_win_rate: null,
-        historical_avg_hold_days: null,
-        calibration_confidence_boost: 0,
-        badge_text: 'Nouvel Horizon',
-        badge_type: 'new',
-        summary: 'Aucun historique réel enregistré pour ce type d\'article.',
-      };
-    }
-
-    const itemRecord = metrics.top_profitable_items.find((item) => item.type_id === typeId);
-    const categoryInfo = CatalogRepository.getInstance().getCategory(categoryId);

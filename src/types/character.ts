@@ -204,7 +204,11 @@ export interface TradeCycleRecord {
   position_hold_days?: number;
   /** Remaining quantity of the economic position immediately after this disposal. */
   position_remaining_quantity?: number;
+  /** Canonical economic position-segment identity. */
+  position_segment_id?: string;
+  /** @deprecated Use position_segment_id. */
   operation_id?: string;
+  /** @deprecated Compatibility projections; use the position-segment fields from Financial Truth. */
   operation_capital_committed?: number;
   operation_cash_recovered?: number;
   operation_recovery_delta?: number;

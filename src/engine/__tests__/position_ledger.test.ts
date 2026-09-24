@@ -13,6 +13,8 @@ function tx(
   quantity: number,
   unit_price: number,
   timestamp: string,
+  character_id = 1001,
+  accounting_scope_id?: string,
 ): ExecutionTransactionRef & { provenance: { source_kind: 'ESI_WALLET_TRANSACTION'; source_id: string; principal_scope: string } } {
   return {
     transaction_id,
@@ -22,8 +24,10 @@ function tx(
     quantity,
     unit_price,
     timestamp,
-    character_id: 1001,
+    character_id,
+    ...(accounting_scope_id ? { accounting_scope_id } : {}),
     provenance: {
+
       source_kind: 'ESI_WALLET_TRANSACTION',
       source_id: String(transaction_id),
       principal_scope: 'character:1001',
@@ -132,6 +136,28 @@ function run() {
     assert(result.position.financial_completeness === 'PARTIAL', 'missing provenance must keep the position partial');
     assert(result.position.invalid_transaction_ids.includes(301), 'missing provenance transaction must be rejected explicitly');
     assert(result.position.quantity_acquired === 0, 'unprovenanced acquisition must not enter economic inventory');
+  }
+
+  {
+    const result = reconstructPositionLedger('ecosystem:test', 34, [
+      tx(401, true, 10_000, 100, '2026-09-20T10:00:00Z', 1001, 'ecosystem:test'),
+      tx(402, false, 1, 140, '2026-09-20T11:00:00Z', 1002, 'ecosystem:test'),
+    ]);
+    assert(result.position.remaining_quantity === 9_999, 'shared ecosystem inventory must be consumable by another character');
+    assert(result.position.lifecycle_status === 'PARTIALLY_REALIZED', 'cross-character partial disposal must preserve lifecycle');
+    assert(result.position.lots[0].provenance.principal_scope === 'character:1001', 'acquisition provenance remains on character A');
+    assert(result.position.allocations[0].provenance.principal_scope === 'character:1002', 'disposal provenance remains on character B');
+    assert(result.position.accounting_scope_id === 'ecosystem:test', 'position uses explicit accounting scope');
+  }
+
+  {
+    const result = reconstructPositionLedger('ecosystem:test', 34, [
+      tx(501, true, 10, 100, '2026-09-20T10:00:00Z', 1001, 'ecosystem:test'),
+      tx(502, false, 10, 150, '2026-09-20T11:00:00Z', 1002, 'ecosystem:other'),
+    ]);
+    assert(result.position.allocations.length === 0, 'different economic scopes must not be matched');
+    assert(result.position.invalid_transaction_ids.includes(502), 'scope mismatch must remain explicit');
+    assert(result.position.source_coverage === 'PARTIAL', 'scope mismatch must degrade source coverage');
   }
 
   console.log('[PASS] FIN-001 position ledger scenarios validated.');

@@ -44,7 +44,7 @@ import {
 } from '../types';
 import { FeeEngine } from './fee';
 import { safeDiv, roundIsk } from './money';
-import { reconstructPositionLedger } from './positionLedger';
+import { PositionLedgerTransaction, reconstructPositionLedger } from './positionLedger';
 
 export const REALIZED_FINANCIAL_ENGINE_VERSION = '1.0.0';
 
@@ -88,7 +88,8 @@ export class RealizedFinancialOutcomeEngine {
     const opportunityId = executionRecord.opportunity_id;
 
     // 1. Resolve candidate transactions
-    const { buyTxs, sellTxs, typeId } = this.resolveTransactions(executionRecord, options);
+    const { buyTxs, sellTxs, typeId, provenanceByTransactionId } =
+      this.resolveTransactions(executionRecord, options);
 
     // 2. Sort chronologically (timestamp ASC, transaction_id ASC)
     const sortedBuys = [...buyTxs].sort((a, b) => {
@@ -107,10 +108,20 @@ export class RealizedFinancialOutcomeEngine {
 
     // 3-4. Reconstruct economic position state through the canonical ledger.
     // Market order side is deliberately absent: transaction is the accounting fact.
-    const positionLedger = reconstructPositionLedger(characterId, typeId, [
+    const ledgerTransactions: PositionLedgerTransaction[] = [
       ...sortedBuys,
       ...sortedSells,
-    ]);
+    ].map((tx) => ({
+      ...tx,
+      provenance:
+        provenanceByTransactionId.get(tx.transaction_id) ?? {
+          source_kind: 'EXECUTION_TRANSACTION',
+          source_id: String(tx.transaction_id),
+          principal_scope: `character:${characterId}`,
+        },
+    }));
+
+    const positionLedger = reconstructPositionLedger(characterId, typeId, ledgerTransactions);
 
     const ledgerLots = positionLedger.position.lots;
     const lots: FifoLotRecord[] = ledgerLots.map((lot) => ({
@@ -393,6 +404,7 @@ export class RealizedFinancialOutcomeEngine {
     buyTxs: ExecutionTransactionRef[];
     sellTxs: ExecutionTransactionRef[];
     typeId: number;
+    provenanceByTransactionId: ReadonlyMap<number, import('../types').FinancialProvenance>;
   } {
     const characterId = executionRecord.character_id;
 
@@ -401,6 +413,7 @@ export class RealizedFinancialOutcomeEngine {
       const allowedTxIds = new Set(executionRecord.transaction_ids);
       const buyList: ExecutionTransactionRef[] = [];
       const sellList: ExecutionTransactionRef[] = [];
+      const provenanceByTransactionId = new Map<number, import('../types').FinancialProvenance>();
       let foundTypeId = 0;
 
       for (const tx of options.transactions) {
@@ -422,11 +435,34 @@ export class RealizedFinancialOutcomeEngine {
             is_buy: tx.is_buy,
             quantity: tx.quantity,
             unit_price: tx.unit_price,
-            timestamp: tx.timestamp,
+            timestamp: 'timestamp' in tx && tx.timestamp
+              ? tx.timestamp
+              : ('date' in tx && tx.date ? tx.date : new Date(0).toISOString()),
             character_id: characterId,
+            ...( 'order_id' in tx && tx.order_id ? { order_id: tx.order_id } : {}),
             observation_id: executionRecord.observation_id,
             opportunity_id: executionRecord.opportunity_id,
           };
+
+          const explicitProvenance =
+            'provenance' in tx && tx.provenance && typeof tx.provenance === 'object'
+              ? tx.provenance as import('../types').FinancialProvenance
+              : null;
+          const provenance: import('../types').FinancialProvenance =
+            explicitProvenance ??
+            ('source' in tx && tx.source === 'ESI'
+              ? {
+                  source_kind: 'ESI_WALLET_TRANSACTION',
+                  source_id: String(tx.transaction_id),
+                  principal_scope: `character:${characterId}`,
+                }
+              : {
+                  source_kind: 'EXECUTION_TRANSACTION',
+                  source_id: String(tx.transaction_id),
+                  principal_scope: `character:${characterId}`,
+                });
+          provenanceByTransactionId.set(tx.transaction_id, provenance);
+
           if (tx.is_buy) {
             buyList.push(ref);
           } else {
@@ -439,16 +475,25 @@ export class RealizedFinancialOutcomeEngine {
         buyTxs: buyList,
         sellTxs: sellList,
         typeId: foundTypeId,
+        provenanceByTransactionId,
       };
     }
 
     // Default: use the transactions already correlated inside executionRecord.execution_outcome
     const buyTxs = [...executionRecord.execution_outcome.buy_transactions];
     const sellTxs = [...executionRecord.execution_outcome.sell_transactions];
+    const provenanceByTransactionId = new Map<number, import('../types').FinancialProvenance>();
+    for (const tx of [...buyTxs, ...sellTxs]) {
+      provenanceByTransactionId.set(tx.transaction_id, {
+        source_kind: 'EXECUTION_TRANSACTION',
+        source_id: String(tx.transaction_id),
+        principal_scope: `character:${characterId}`,
+      });
+    }
     const sampleTx = buyTxs[0] || sellTxs[0];
     const typeId = sampleTx ? sampleTx.type_id : 0;
 
-    return { buyTxs, sellTxs, typeId };
+    return { buyTxs, sellTxs, typeId, provenanceByTransactionId };
   }
 
   /**
@@ -593,7 +638,10 @@ export class RealizedFinancialOutcomeEngine {
     const refs: ExecutionTransactionRef[] = transactions
       .filter((tx) => tx.type_id === typeId)
       .map((tx) => {
-        const ts = 'timestamp' in tx && tx.timestamp ? tx.timestamp : ('date' in tx && tx.date ? tx.date : new Date(0).toISOString());
+        const ts =
+          'timestamp' in tx && tx.timestamp
+            ? tx.timestamp
+            : ('date' in tx && tx.date ? tx.date : new Date(0).toISOString());
         return {
           transaction_id: tx.transaction_id,
           character_id: characterId,
@@ -603,6 +651,7 @@ export class RealizedFinancialOutcomeEngine {
           quantity: tx.quantity,
           unit_price: tx.unit_price,
           timestamp: ts,
+          ...( 'order_id' in tx && tx.order_id ? { order_id: tx.order_id } : {}),
         };
       });
 
@@ -654,6 +703,9 @@ export class RealizedFinancialOutcomeEngine {
       }),
     });
 
-    return this.calculate(syntheticRecord, options);
+    return this.calculate(syntheticRecord, {
+      ...options,
+      transactions,
+    });
   }
 }

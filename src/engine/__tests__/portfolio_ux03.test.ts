@@ -28,10 +28,6 @@ const hub = (id: string, name = id): MarketHub => ({
   active: true,
 } as any);
 
-function treasuryConfigForScope(value: FinancialConfig): FinancialConfig {
-  return value;
-}
-
 function config(overrides: Partial<FinancialConfig> = {}): FinancialConfig {
   return {
     available_capital: 100_000_000,
@@ -361,14 +357,14 @@ async function run(): Promise<void> {
           }) as any,
         ],
         treasury,
-        treasuryConfigForScope(config({
+        config({
           treasury_source_mode: 'corporation',
           corporation_id: 77,
           corporation_wallet_division: 3,
           corporation_wallet_balance: 500_000_000,
           corporation_wallet_source: 'esi',
           corporation_divisions: [{ division: 3, name: 'Trade', balance: 500_000_000 }],
-        })),
+        }),
         [{ character_id: 1001, character_name: 'Observer', wallet_balance: 10_000_000, is_active: true } as any],
       );
 
@@ -418,7 +414,7 @@ async function run(): Promise<void> {
           limiting_factors: ['competition'],
         },
       );
-      const simulation = PortfolioOptimizer.optimize([pred as any], config({ max_portfolio_concentration_type: 1, max_portfolio_concentration_group: 1 }));
+      const simulation = PortfolioOptimizer.optimize([predicted as any], config({ max_portfolio_concentration_type: 1, max_portfolio_concentration_group: 1 }));
       const position = simulation.positions[0];
       assert(position.expected_realized_profit === predicted.prediction?.expected_realized_profit, 'expected realized profit must stay explicit');
       assert(position.prediction_confidence === 70, 'prediction confidence must stay separate');

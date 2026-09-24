@@ -69,6 +69,8 @@ The -999,860 ISK value measures capital still unrecovered at the position/operat
 
 The +40 ISK value measures realized P&L on the disposed unit. It is not a whole-operation ROI.
 
+When fee evidence is `UNAVAILABLE`, gross P&L may remain known but fee-inclusive net P&L, net ROI, margin and profit-per-unit are `UNKNOWN`/`null`; no zero-fee assumption may turn unavailable net evidence into a numeric result.
+
 ## Source coverage vs financial completeness
 
 These are independent quality dimensions.
@@ -110,6 +112,8 @@ A later pricing policy may react to break-even, such as accepting a lower margin
 - future acquisition cannot finance earlier disposition;
 - unmatched/oversold quantity remains explicit;
 - absent/incomplete data never becomes observed zero;
+- unavailable fee evidence never becomes a numeric net result;
+- cross-location lot allocation without an observed transfer fact remains economically traceable only at `PARTIAL` source coverage;
 - realized P&L and capital-recovery delta must never be merged into one field;
 - a partial disposal never establishes a closed position.
 

@@ -9,7 +9,7 @@ CI gate: [../validation/ci.md](../validation/ci.md)
 
 ## Current baseline
 
-Current main integration anchor for the active PR #82 is `a01c2a31dbabd3678d3d8674b14f4c826ab0b0d8`. Main Smoke #17 completed successfully on the current main commit `a01c2a31dbabd3678d3d8674b14f4c826ab0b0d8`. The active branch is based directly on this revalidated main head; the archive is a separate historical reference at `75df2e8f77d8ccc0cd5a2a631661902d1b54fab6`.
+Current main integration base for PR #82 is `a01c2a31dbabd3678d3d8674b14f4c826ab0b0d8`. Main Smoke #17 completed successfully on the current main commit `a01c2a31dbabd3678d3d8674b14f4c826ab0b0d8`. The active branch is based directly on this revalidated main head; the archive is a separate historical reference at `75df2e8f77d8ccc0cd5a2a631661902d1b54fab6`.
 
 The UX-first program has closed the P0 market/ESI retrieval reliability gate. UX-01 is DONE / EXTERNALLY BOUNDED; the previously reported target-PC market-display symptom is resolved and the current application is functional.
 
@@ -111,7 +111,7 @@ The stable navigation layer is `.eve-trade/context-map.json`; the checkout-aware
 
 ## Current chantier / sequencing
 
-**Current delivery:** selective Financial Truth archive recovery on branch `chore/financial-truth-archive-recovery`, PR #82, based on `a01c2a31dbabd3678d3d8674b14f4c826ab0b0d8`. PRs #79/#80/#81 and Agent Context Hardening are merged; Main Smoke #17 is green. The recovery is a FIN-002 semantic/engine chantier, not UX-03 UI work. UX-02 is DONE / MERGED. CI-001 is DONE / MERGED. UX-01/P0 is DONE / EXTERNALLY BOUNDED.
+**Current delivery:** FIN-002 selective Financial Truth archive recovery on branch `chore/financial-truth-archive-recovery`, PR #82. Base `main@a01c2a31dbabd3678d3d8674b14f4c826ab0b0d8`. CI Foundation & Regression Gate #1255 / head 3f3b10e2b4582a2feb063ae1869ae0b6299d08a9; SDE Truth Gate #1016; all required lanes, Unit/Domain, Server/API/ESI, Build, Static, Operations E2E, Auth E2E, required-gate and observability: SUCCESS. The recovery is a FIN-002 semantic/engine chantier, not UX-03 UI work. UX-02 is DONE / MERGED. CI-001 is DONE / MERGED. UX-01/P0 is DONE / EXTERNALLY BOUNDED. The branch is ready for merge; Main Smoke will be checked on the resulting main SHA.
 
 Public Readiness remains a separate maintenance track; it is not merged into this chantier.
 

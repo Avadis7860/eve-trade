@@ -91,6 +91,13 @@ function run() {
     assert(secondOperation.operation_recovery_delta === -999_950, 'second operation recovery must use its own capital');
     assert(secondOperation.operation_id !== firstOperation.operation_id, 'a new operation must start after full liquidation');
     assert(secondOperation.remaining_position_quantity === 9_999, 'second operation must retain 9,999 units');
+    assert(result.position_segments.length === 2, 'each sequential economic position segment must remain separately addressable');
+    assert(result.position_segments[0].capital_committed === 1_000_000, 'first segment capital must remain isolated');
+    assert(result.position_segments[0].cash_recovered === 1_400_000, 'first segment recovery must remain isolated');
+    assert(result.position_segments[1].capital_committed === 1_000_000, 'second segment capital must remain isolated');
+    assert(result.position_segments[1].cash_recovered === 50, 'second segment recovery must remain isolated');
+    assert(result.position.position_segment_id === result.position_segments[1].position_segment_id, 'current position must point to the active segment');
+    assert(result.position.capital_recovery_delta === -999_950, 'current position recovery must not include the closed segment');
   }
 
   {

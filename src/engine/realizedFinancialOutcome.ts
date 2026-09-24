@@ -642,9 +642,56 @@ export class RealizedFinancialOutcomeEngine {
       );
     }
 
-    const accountingScopeId = options?.accounting_scope_id?.trim() || 'character:' + characterId;
-    const refs: ExecutionTransactionRef[] = transactions
-      .filter((tx) => tx.type_id === typeId)
+    const explicitAccountingScopeId = options?.accounting_scope_id?.trim();
+    const typeFilteredTransactions = transactions.filter((tx) => tx.type_id === typeId);
+    const transactionCharacterIds = new Set(
+      typeFilteredTransactions
+        .map((tx) => ('character_id' in tx && tx.character_id !== undefined ? tx.character_id : characterId)),
+    );
+    const transactionAccountingScopes = new Set(
+      typeFilteredTransactions
+        .map((tx) => ('accounting_scope_id' in tx ? tx.accounting_scope_id?.trim() : undefined))
+        .filter((scope): scope is string => Boolean(scope)),
+    );
+
+    if (transactionCharacterIds.size > 1 && !explicitAccountingScopeId) {
+      const commonTransactionScope =
+        transactionAccountingScopes.size === 1
+          ? [...transactionAccountingScopes][0]
+          : undefined;
+      const allTransactionsDeclareCommonScope =
+        Boolean(commonTransactionScope) &&
+        typeFilteredTransactions.every(
+          (tx) =>
+            'accounting_scope_id' in tx &&
+            tx.accounting_scope_id?.trim() === commonTransactionScope,
+        );
+
+      if (!allTransactionsDeclareCommonScope) {
+        const foreignCharacterId =
+          [...transactionCharacterIds].find((id) => id !== characterId) ?? characterId;
+        const offendingTransaction =
+          typeFilteredTransactions.find(
+            (tx) =>
+              'character_id' in tx &&
+              tx.character_id !== undefined &&
+              tx.character_id === foreignCharacterId,
+          ) ?? typeFilteredTransactions[0];
+
+        throw new CrossCharacterFinancialMappingViolationError(
+          foreignCharacterId,
+          characterId,
+          offendingTransaction.transaction_id,
+        );
+      }
+    }
+
+    const accountingScopeId =
+      explicitAccountingScopeId ||
+      (transactionAccountingScopes.size === 1 ? [...transactionAccountingScopes][0] : undefined) ||
+      'character:' + characterId;
+
+    const refs: ExecutionTransactionRef[] = typeFilteredTransactions
       .map((tx) => {
         const txCharacterId =
           'character_id' in tx && tx.character_id !== undefined

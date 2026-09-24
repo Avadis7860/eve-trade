@@ -296,7 +296,7 @@ async function run(): Promise<void> {
       const candidate = buildCandidateUniverseSnapshot([stale as any], progress());
       const prior = PortfolioOptimizer.optimize([opportunity('fresh', 2, 11, 99, 10_000_000)] as any, config());
       const treasury = resolvePortfolioTreasury(config(), [], null);
-      const proposed = buildProposedAllocationSnapshot(treasury, candidate, prior);
+      const proposed = buildProposedAllocationSnapshot(treasury, candidate, prior, { preserveSimulation: true });
       assert(proposed.proposal_blocked === true, 'STALE data must block a fresh proposal');
       assert(proposed.freshness === 'STALE', 'stale state must remain visible');
       assert(proposed.simulation.positions.length === 1, 'previous trustworthy snapshot must not be erased');
@@ -391,6 +391,24 @@ async function run(): Promise<void> {
       assert(
         (reasons.find((reason) => reason.code === 'DATA_ISSUE')?.count ?? 0) === 1,
         'single rejected opportunity must keep its rejection count',
+      );
+    }],
+    ['O blocked initial proposal never exposes positions from degraded candidates', () => {
+      const partial = opportunity('partial-initial', 9, 19, 100, 10_000_000, 20_000_000);
+      const candidate = buildCandidateUniverseSnapshot(
+        [partial as any],
+        progress({ completed_items: 50, failed_items: 50 }),
+      );
+      const treasury = resolvePortfolioTreasury(config({ available_capital: 100_000_000 }), [], null);
+      const diagnosticSimulation = PortfolioOptimizer.optimize([partial as any], config());
+      assert(diagnosticSimulation.positions.length === 1, 'diagnostic optimizer should still be able to calculate candidate positions');
+      const proposed = buildProposedAllocationSnapshot(treasury, candidate, diagnosticSimulation);
+      assert(proposed.proposal_blocked === true, 'partial initial proposal must be blocked');
+      assert(proposed.simulation.positions.length === 0, 'blocked fresh positions must not be presented');
+      assert(proposed.unallocated_capital === 100_000_000, 'blocked proposal must expose the entire budget as unallocated');
+      assert(
+        (proposed.unallocated_reasons ?? []).some((reason) => reason.code === 'DATA_ISSUE'),
+        'blocked proposal must explain why fresh positions are suppressed',
       );
     }],
     ['M every proposed position retains treasury provenance', () => {

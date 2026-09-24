@@ -694,13 +694,18 @@ export class TraderAnalyticsService {
       }
     > = {};
 
-    for (const c of completedCycles) {
+    // Category success is a closed-position KPI, not a disposal-event counter.
+    // Partial/open disposals remain visible in recent_trade_cycles but must not
+    // inflate category trade counts or profit totals.
+    for (const c of closedCycles) {
       const cat = c.category_name || 'Général';
       if (!categorySuccessRate[cat]) {
         categorySuccessRate[cat] = { total_trades: 0, profit_isk: 0, win_rate: 0, avg_roi: 0 };
       }
       categorySuccessRate[cat].total_trades += 1;
-      categorySuccessRate[cat].profit_isk += c.net_profit;
+      categorySuccessRate[cat].profit_isk = roundIsk(
+        categorySuccessRate[cat].profit_isk + (c.position_net_profit ?? c.net_profit),
+      );
     }
 
     for (const cat of Object.keys(categorySuccessRate)) {
@@ -713,12 +718,10 @@ export class TraderAnalyticsService {
         catRoiCycles.length > 0
           ? catRoiCycles.reduce((a, b) => a + (b.position_roi ?? 0), 0) / catRoiCycles.length
           : 0;
-      // Category labels must propagate the financial completeness of the
-      // category's observed cycle stream, independently from KPI eligibility.
-      // Win rate / ROI remain strictly scoped to closed positions above.
-      const status = deriveFinancialStatus(
-        completedCycles.filter((c) => (c.category_name || 'Général') === cat),
-      );
+      // The category status must describe the same population as the KPI:
+      // closed economic positions only. Partial/open cycle completeness is not
+      // silently mixed into a closed-position category result.
+      const status = deriveFinancialStatus(catCycles);
       categorySuccessRate[cat].profit_label = status.label;
       categorySuccessRate[cat].is_net_estimated = status.is_net_estimated;
     }

@@ -1,6 +1,6 @@
 # UX-03 — Allocation / Portefeuille — Contrat métier détaillé
 
-Status: IMPLEMENTATION INCREMENT 1 / CERTIFICATION PENDING
+Status: IMPLEMENTATION SCAFFOLD / CERTIFICATION BLOCKED — FINANCIAL MODEL REBASE
 Scope: UX-03 preparation, economic truth, opportunity universe, allocation semantics and validation
 Base: `main` `aec4c62691723e8fa2ee2bb2f9126249152ad57f`
 Related:
@@ -8,6 +8,26 @@ Related:
 - [Portfolio domain](../domains/portfolio.md)
 - [UX Program](../roadmap/ux-program.md)
 - [Known Gaps](../state/known-gaps.md)
+
+
+
+## Contract reset — 2026-09-24
+
+The existing UX-03 implementation is retained as scaffolding but is not certifiable yet.
+
+The financial model must explicitly separate:
+
+1. market order observation;
+2. economic transaction fact;
+3. acquisition lot / open position;
+4. realized disposal allocation;
+5. prospective allocation/valuation.
+
+A trader may acquire by taking an existing SELL order and later dispose through a SELL order. Market order side therefore cannot define accounting direction.
+
+A disposal of 1 unit from an acquisition of 10,000 units may realize P&L on that 1 unit while leaving 9,999 units OPEN/PARTIALLY_REALIZED. UX-03 must never present that position as closed merely because a matched sale exists.
+
+Real Portfolio certification is blocked by FIN-001, ORD-001, FIN-002 and DATA-001.
 
 ## 1. Purpose
 

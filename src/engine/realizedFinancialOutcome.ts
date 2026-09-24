@@ -762,3 +762,28 @@ export class RealizedFinancialOutcomeEngine {
         vwap_sell_price: totalSellQuantity > 0 ? totalSellRevenue / totalSellQuantity : null,
         first_buy_at: buyTxs[0]?.timestamp || null,
         last_buy_at: buyTxs[buyTxs.length - 1]?.timestamp || null,
+        first_sell_at: sellTxs[0]?.timestamp || null,
+        last_sell_at: sellTxs[sellTxs.length - 1]?.timestamp || null,
+        buy_transactions: Object.freeze(buyTxs),
+        sell_transactions: Object.freeze(sellTxs),
+        linked_order_ids: Object.freeze([]),
+        candidate_observation_ids: Object.freeze(['obs_synth_' + typeId]),
+      }),
+    });
+
+    const outcome = this.calculate(syntheticRecord, {
+      ...options,
+      accounting_scope_id: accountingScopeId,
+      transactions,
+    });
+
+    // Direct transaction calculations are sourced from transaction facts, not
+    // a real correlated observation. Synthetic observation IDs must not escape
+    // the calculation boundary as if they were observed evidence.
+    return Object.freeze({
+      ...outcome,
+      observation_id: undefined,
+      calculation_source: 'TRANSACTION_FACTS' as const,
+    });
+  }
+}

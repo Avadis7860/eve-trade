@@ -1,12 +1,12 @@
 # P0 — Market / ESI Reliability Closure Plan
 
-Status: ACTIVE / CLOSING
+Status: CLOSED / EXTERNALLY BOUNDED
 Owner: UX-01 / market reliability
 Base: main `c0ddc69ef424ed0cfd4de776758166c3ee8c1abe`
 
 ## Objective
 
-Close the market/ESI reliability gate without inventing a root cause for the reported target-PC incident.
+Close the market/ESI reliability gate without inventing a root cause. The reported target-PC market-display issue is now resolved; current application behavior is functional and no persistent software defect is identified.
 
 The goal is to make every repository-side failure path explicit, preserve the canonical data-health vocabulary, and produce enough evidence to classify the external incident.
 
@@ -76,6 +76,8 @@ The increment was certified by PR #66, including green CI required-gate/SDE-rele
 
 **Implementation: DONE / MERGED / CERTIFIED on main by PR #67 at `31308676ec2d9104f7c6ffab29dae1e3f4f49a00`.**
 
+The external bundle capture is not required to keep investigating the historical symptom: the operator has confirmed that the application is currently functional and that the observed symptom was caused by insufficient available data to produce a market display.
+
 Capture on the affected PC, against real CCP/ESI:
 - UTC timestamp;
 - affected hub/region and type;
@@ -88,7 +90,7 @@ Capture on the affected PC, against real CCP/ESI:
 - whether the same request succeeds from a controlled comparison environment;
 - application/browser/OS context sufficient to reproduce the failure.
 
-The application now provides an exportable JSON bundle for repository-side diagnostics. PR CI #719, SDE #480 and Main Smoke #8 are green. The repository does not yet contain the real-PC evidence or the controlled comparison result, so the incident remains NOT ROOT-CAUSED.
+The application now provides an exportable JSON bundle for repository-side diagnostics. PR CI #719, SDE #480 and Main Smoke #8 are green. The repository does not contain a real-PC evidence bundle for the historical symptom. This is no longer an active blocker because the symptom has been explained operationally and the application is currently functional.
 
 Validation details: [P0-C target-PC evidence](../validation/p0-c-target-pc-evidence.md).
 

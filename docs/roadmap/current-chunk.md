@@ -2,9 +2,9 @@
 
 Status: ACTIVE
 Scope: Agent Context Hardening
-Branch: chore/agent-context-hardening
-Base: main @ aec4c62691723e8fa2ee2bb2f9126249152ad57f
-PR: #78 (Draft)
+Branch: chore/agent-context-hardening-v2
+Base: main @ bacb0655b1fde3a4650b5cd94feed0fe8617be10
+PR: #79 (Draft)
 
 ## Objective
 
@@ -19,6 +19,7 @@ Reduce the context reconstruction cost for human and AI agents without introduci
 5. Historical financial decision preservation as explicitly non-normative documentation.
 6. Explicit reconciliation memo for the unresolved whole-operation profitability semantics.
 7. State, roadmap and known-gaps synchronization.
+8. Final CLOSING lifecycle state so merged main does not inherit an ACTIVE chantier.
 8. Local validation where the execution environment permits it, followed by full PR CI certification.
 
 ## Scope exclusions

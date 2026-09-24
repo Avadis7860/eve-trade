@@ -322,6 +322,8 @@ export interface RealizedFinancialOutcome {
   readonly source_coverage: FinancialSourceCoverage;
   readonly history_coverage: FinancialHistoryCoverage;
   readonly economic_origin_coverage: EconomicOriginCoverage;
+  /** All historical/current economic position segments represented by this calculation. */
+  readonly position_segments: readonly EconomicPositionSegment[];
   readonly position_disposition_states: readonly PositionDispositionState[];
   /** Real source observation when correlated; absent for direct transaction calculations. */
   readonly observation_id?: string;

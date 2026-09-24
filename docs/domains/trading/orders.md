@@ -1,12 +1,12 @@
 # Trading Orders
 
-Status: STABLE FOUNDATION / MODEL REBASE REQUIRED
+Status: STABLE FOUNDATION — ORD-001 CERTIFIED
 Scope: canonical order identity, market side, economic ownership and observation provenance
 Source of truth: `src/types/order.ts`, `src/engine/orderIdentity.ts`, `src/engine/orderScoping.ts`, `src/engine/corporationOrder.ts`
 
 ## Purpose
 
-Represent one CCP market order without turning character and corporation observations into separate financial species. The canonical application type is `MarketOrder`; `EveCharacterOrder` is only a compatibility alias during migration.
+Represent one CCP market order without turning character and corporation observations into separate financial species. The canonical application type is `MarketOrder`; `EveCharacterOrder` is a compatibility alias only; no separate character-order entity exists.
 
 ## Canonical dimensions
 

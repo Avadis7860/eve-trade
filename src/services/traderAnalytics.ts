@@ -16,8 +16,11 @@ import {
   FinancialProvenance,
   FinancialHistoryCoverage,
   EconomicOriginCoverage,
+  EveCharacterSession,
 } from '../types';
 import { CatalogRepository } from '../domain/catalog/CatalogRepository';
+import { CharacterRepository } from '../domain/character/CharacterRepository';
+import { IndexedDbStore } from './indexedDbStore';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
 import {
   RealizedFinancialOutcomeEngine,
@@ -57,6 +60,53 @@ function mergeOriginCoverage(
 }
 
 export class TraderAnalyticsService {
+  /**
+   * Canonical persistence-to-financial boundary.
+   *
+   * Reads durable transaction FACTS and the latest durable transaction-sync
+   * coverage evidence, then invokes processTransactions with that explicit
+   * evidence. Missing coverage remains UNKNOWN instead of being inferred.
+   */
+  static async processPersistedCharacterTransactions(
+    characterId: number,
+    characterName: string,
+    accountingLevel?: number,
+    brokerRelationsLevel?: number,
+    options?: RealizedFinancialCalculationOptions,
+  ): Promise<TraderPerformanceMetrics> {
+    const persisted = await IndexedDbStore.getCharacterTransactions(characterId);
+    const snapshot = CharacterRepository.getInstance().getSnapshot(characterId);
+    const syncSummary = CharacterRepository.getInstance().getTransactionSyncSummary(characterId);
+
+    const transactions: EveCharacterTransaction[] = persisted.map((tx) => ({
+      ...tx,
+      date: tx.timestamp,
+    }));
+
+    const coverageEvidence =
+      options?.coverage_evidence ??
+      (syncSummary
+        ? {
+            history_coverage: syncSummary.history_coverage,
+            economic_origin_coverage: syncSummary.economic_origin_coverage,
+          }
+        : undefined);
+
+    return TraderAnalyticsService.processTransactions(
+      characterId,
+      characterName,
+      transactions,
+      snapshot?.order_history ?? [],
+      snapshot?.journal ?? [],
+      accountingLevel,
+      brokerRelationsLevel,
+      {
+        ...options,
+        coverage_evidence: coverageEvidence,
+      },
+    );
+  }
+
   /**
    * Matches buy and sell transactions chronologically (causal FIFO with RealizedFinancialOutcomeEngine)
    * to compute actual realized P&L cycles for each traded item.

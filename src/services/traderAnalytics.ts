@@ -275,6 +275,7 @@ export class TraderAnalyticsService {
       executionFeeMode: options?.executionFeeMode ?? 'MAKER_MAKER',
       buyLocationProfile: options?.buyLocationProfile,
       sellLocationProfile: options?.sellLocationProfile,
+      coverage_evidence: options?.coverage_evidence,
     };
 
     for (const [typeIdStr, typeTxs] of Object.entries(txByType)) {

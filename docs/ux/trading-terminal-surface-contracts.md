@@ -174,13 +174,17 @@ Proposed allocation is advisory and must not be presented as realized financial 
 
 Primary questions:
 - What did I earn?
-- How efficient was the capital?
+- How much acquisition capital has been recovered?
+- How efficient was the capital within an explicitly declared scope?
 - Where did the model over/under-perform?
 - Which items/routes/categories work best for me?
 
 Required dimensions:
+
+### Realized accounting
+
 - realized net profit;
-- realized ROI;
+- realized gross profit where fee state permits;
 - hold time;
 - fees/taxes;
 - slippage/capture;
@@ -189,6 +193,33 @@ Required dimensions:
 - category;
 - character/corporation attribution;
 - predicted vs observed.
+
+Realized P&L is calculated only on quantities actually disposed and allocated to known acquisition lots.
+
+### Position / whole-operation progress
+
+- capital committed;
+- cash recovered from actual disposals;
+- capital recovery delta;
+- capital recovery ratio when defined;
+- remaining quantity;
+- remaining cost basis;
+- position lifecycle: OPEN / PARTIALLY_REALIZED / CLOSED / UNKNOWN;
+- data coverage/completeness.
+
+Capital recovery delta is not realized P&L. A negative recovery delta means the acquisition capital has not yet been recovered at the position/operation level.
+
+Example: 10,000 units bought at 100 ISK and 1 sold at 140 ISK yields +40 ISK realized gross P&L on the disposed unit, while the position remains PARTIALLY_REALIZED with 999,860 ISK of unrecovered acquisition capital.
+
+### ROI and break-even
+
+Every ROI display must declare its scope and denominator. A disposal-level ROI must not be presented as the ROI of the complete still-open position.
+
+Whole-position realized performance is complete only once the position is closed, unless a separate explicitly marked current-market valuation is displayed.
+
+Break-even is a POLICY state. Its basis must be explicit, for example gross or net of fees. A later pricing policy may use break-even as a threshold for accepting a lower margin; this does not alter historical acquisition cost or realized accounting.
+
+Current-market valuation remains separate from realized P&L and must carry its own data-health state.
 
 Manual notes are annotations only, never financial truth.
 

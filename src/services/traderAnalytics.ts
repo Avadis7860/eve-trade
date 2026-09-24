@@ -1236,7 +1236,8 @@ export class TraderAnalyticsService {
 
           const buyCharNameStr = Array.from(buyCharNames).join(', ');
           const isCrossCharacter =
-            buyCharIds.size > 1 || (buyCharIds.size === 1 && !buyCharIds.has(sellCharId));
+            buyCharIds.size > 1 ||
+            (buyCharIds.size === 1 && sellCharId !== undefined && !buyCharIds.has(sellCharId));
 
           const cycleCompleteness: FinancialCompleteness = unmatchedQty > 0 ? 'PARTIAL' : 'OBSERVED';
           const cycleProfitLabel =

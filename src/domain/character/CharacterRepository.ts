@@ -87,6 +87,12 @@ export class CharacterRepository {
       access_token: session.access_token || '',
       refresh_token: session.refresh_token || '',
       expires_at: rawExpiresAt,
+      assigned_hub_id: session.assigned_hub_id,
+      assigned_hub_name: session.assigned_hub_name,
+      assigned_station_id:
+        typeof session.assigned_station_id === 'number' && Number.isInteger(session.assigned_station_id)
+          ? session.assigned_station_id
+          : undefined,
       last_sync: session.last_sync || new Date().toISOString(),
       is_active: Boolean(session.is_active),
       is_token_expired: isExpired,

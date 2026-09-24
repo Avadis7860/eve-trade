@@ -486,7 +486,7 @@ export interface RealizedFinancialOutcome {
   readonly capital_recovery_ratio: number | null;
 
   readonly position_lifecycle: PositionLifecycleStatus;
-  readonly position_remaining_quantity: number;
+  readonly position_remaining_quantity: number | null;
 
   readonly first_buy_at: string | null;
   readonly last_buy_at: string | null;

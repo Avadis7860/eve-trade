@@ -13,6 +13,7 @@ import {
   RealizedFinancialCalculationOptions,
   RealizedFinancialOutcome,
   CapitalRecoverySummary,
+  FinancialProvenance,
 } from '../types';
 import { CatalogRepository } from '../domain/catalog/CatalogRepository';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
@@ -133,6 +134,7 @@ export class TraderAnalyticsService {
     let partialCapitalPositions = 0;
     let closedCapitalPositions = 0;
     let capitalRecoveryPartial = false;
+    const capitalRecoveryProvenance = new Map<string, FinancialProvenance>();
 
     // Determine effective financial configuration
     let effectiveFinancialConfig: Partial<FinancialConfig> | undefined;
@@ -203,6 +205,20 @@ export class TraderAnalyticsService {
           remainingCostBasisTotal + positionLedger.position.remaining_cost_basis,
         );
         knownCapitalPositions += 1;
+        for (const lot of positionLedger.position.lots) {
+          const provenance = lot.provenance;
+          capitalRecoveryProvenance.set(
+            `${provenance.source_kind}|${provenance.source_id}|${provenance.principal_scope}`,
+            provenance,
+          );
+        }
+        for (const allocation of positionLedger.position.allocations) {
+          const provenance = allocation.provenance;
+          capitalRecoveryProvenance.set(
+            `${provenance.source_kind}|${provenance.source_id}|${provenance.principal_scope}`,
+            provenance,
+          );
+        }
 
         if (positionLedger.position.lifecycle_status === 'OPEN') {
           openCapitalPositions += 1;
@@ -288,7 +304,7 @@ export class TraderAnalyticsService {
             allocatedState
           );
 
-          const roi = totalBuyCost > 0 ? safeDiv(netProfit, totalBuyCost, 0) : 0;
+          const roi = totalBuyCost > 0 ? safeDiv(netProfit, totalBuyCost, 0) : null;
           const isProfitable = netProfit > 0;
 
           const weightedBuyTimeMs =
@@ -632,6 +648,7 @@ export class TraderAnalyticsService {
               capitalCommittedTotal > 0
                 ? cashRecoveredTotal / capitalCommittedTotal
                 : null,
+            provenance: Object.freeze([...capitalRecoveryProvenance.values()]),
             remaining_quantity: remainingQuantityTotal,
             remaining_cost_basis: remainingCostBasisTotal,
             known_position_count: knownCapitalPositions,

@@ -43,6 +43,7 @@ import {
   TradeCycleRecord,
   RealizedFinancialOutcome,
   RealizedFinancialCalculationOptions,
+  CharacterTransactionSyncSummary,
 } from '../../types';
 import {
   RealizedFinancialOutcomeEngine,
@@ -50,6 +51,7 @@ import {
 } from '../realizedFinancialOutcome';
 import { ExecutionTrackingService } from '../../services/executionTrackingService';
 import { IndexedDbStore } from '../../services/indexedDbStore';
+import { CharacterRepository } from '../../domain/character/CharacterRepository';
 import { TraderAnalyticsService } from '../../services/traderAnalytics';
 import { roundIsk } from '../money';
 
@@ -1567,6 +1569,95 @@ async function runAllTests() {
     assert(outcome.capital_recovery_delta === -999_950, 'scalar recovery must not include the closed segment');
     assert(outcome.gross_realized_profit === 399_950, 'realized gross result must include both closed and partial disposal events');
     console.log('  [PASS] FIN-002 Segment Test: historical and current segments remain isolated.');
+  }
+
+  // FIN-002: persisted transaction analytics must consume durable coverage evidence.
+  {
+    console.log('--- FIN-002 Persistence Boundary Test: transaction coverage reaches analytics ---');
+    const charId = 2113050;
+
+    const persistedBuy: PersistedCharacterTransaction = {
+      transaction_id: 8501,
+      character_id: charId,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: true,
+      quantity: 10,
+      unit_price: 100,
+      timestamp: '2026-09-20T10:00:00Z',
+      first_seen_at: '2026-09-20T10:01:00Z',
+      last_seen_at: '2026-09-20T10:01:00Z',
+      source: 'ESI',
+      source_endpoint: `/characters/${charId}/wallet/transactions/`,
+      ingestion_version: '1.0.0',
+      data_state: 'VALID',
+    };
+    const persistedSell: PersistedCharacterTransaction = {
+      ...persistedBuy,
+      transaction_id: 8502,
+      is_buy: false,
+      quantity: 1,
+      unit_price: 140,
+      timestamp: '2026-09-20T11:00:00Z',
+    };
+
+    await IndexedDbStore.clearCharacterTransactions(charId);
+    await IndexedDbStore.saveCharacterTransactions([persistedBuy, persistedSell]);
+
+    const syncSummary: CharacterTransactionSyncSummary = {
+      character_id: charId,
+      started_at: '2026-09-20T11:01:00Z',
+      completed_at: '2026-09-20T11:01:01Z',
+      duration_ms: 1000,
+      full_history_requested: true,
+      history_coverage: 'COMPLETE_FOR_SCOPE',
+      economic_origin_coverage: 'UNKNOWN',
+      pages_fetched: 1,
+      transactions_received: 2,
+      transactions_valid: 2,
+      transactions_invalid: 0,
+      transactions_new: 2,
+      transactions_existing: 0,
+      duplicates_removed: 0,
+      pagination_completed: true,
+      stopped_reason: 'NO_MORE_DATA',
+      error_count: 0,
+      errors: [],
+      latest_transaction_id: 8502,
+      oldest_transaction_id: 8501,
+      data_state: 'VALID',
+      health_status: 'LIVE',
+    };
+
+    CharacterRepository.getInstance().saveTransactionSyncSummary(charId, syncSummary);
+
+    const metrics = await TraderAnalyticsService.processPersistedCharacterTransactions(
+      charId,
+      'Persisted Trader',
+      5,
+      5,
+      { executionFeeMode: 'TAKER_TAKER' },
+    );
+
+    assert(
+      metrics.recent_trade_cycles[0].history_coverage === 'COMPLETE_FOR_SCOPE',
+      'persisted analytics must consume the durable history coverage evidence',
+    );
+    assert(
+      metrics.recent_trade_cycles[0].economic_origin_coverage === 'UNKNOWN',
+      'persisted analytics must not upgrade unknown economic-origin coverage',
+    );
+    assert(
+      metrics.capital_recovery?.history_coverage === 'COMPLETE_FOR_SCOPE',
+      'capital recovery must preserve persisted history coverage',
+    );
+    assert(
+      metrics.capital_recovery?.economic_origin_coverage === 'UNKNOWN',
+      'capital recovery must preserve unknown economic-origin coverage',
+    );
+
+    await IndexedDbStore.clearCharacterTransactions(charId);
+    console.log('  [PASS] FIN-002 Persistence Boundary Test: coverage reaches analytics without inference.');
   }
 
   console.log('\n==========================================================================');

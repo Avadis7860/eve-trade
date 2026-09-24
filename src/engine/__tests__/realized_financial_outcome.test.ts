@@ -1413,7 +1413,12 @@ async function runAllTests() {
     assert(takerOutcome.fees.estimated_buy_broker_fee === 0, 'Adv 3.3: TAKER buy has 0% broker fee');
     assert(takerOutcome.fees.estimated_sell_broker_fee === 0, 'Adv 3.3: TAKER sell has 0% broker fee');
     assert(takerOutcome.fees.estimated_sales_tax > 0, 'Adv 3.3: Sales tax applies regardless of role');
-    assert(takerOutcome.net_realized_profit > makerOutcome.net_realized_profit, 'Adv 3.3: Taker net profit > Maker net profit');
+    assert(
+      takerOutcome.net_realized_profit !== null &&
+        makerOutcome.net_realized_profit !== null &&
+        takerOutcome.net_realized_profit > makerOutcome.net_realized_profit,
+      'Adv 3.3: Taker net profit > Maker net profit',
+    );
 
     console.log('  [PASS] Adversarial & edge cases verified.');
   }
@@ -1475,7 +1480,11 @@ async function runAllTests() {
     assert(outcome.financial_completeness === 'ESTIMATED', 'Financial completeness is ESTIMATED (MAKER fees)');
     assert(outcome.is_net_estimated === true, 'is_net_estimated is true');
     assert(outcome.fees.estimated_total_fees > 0, 'Estimated fees > 0');
-    assert(outcome.net_realized_profit < outcome.gross_realized_profit, 'Net profit = Gross - Fees');
+    assert(
+      outcome.net_realized_profit !== null &&
+        outcome.net_realized_profit < outcome.gross_realized_profit,
+      'Net profit = Gross - Fees',
+    );
     assert(outcome.unmatched_sell_quantity === 0, 'No unmatched sell quantity');
     console.log('  [PASS] Gate 3B-4A.2.1: calculateForTransactions validated.');
   }
@@ -1685,7 +1694,7 @@ async function runAllTests() {
 
     assert(metrics.recent_trade_cycles.length === 3, 'Exactly 3 cycles for 3 sales');
 
-    const sumCycleNetProfit = roundIsk(metrics.recent_trade_cycles.reduce((sum, c) => sum + c.net_profit, 0));
+    const sumCycleNetProfit = roundIsk(metrics.recent_trade_cycles.reduce((sum, c) => sum + (c.net_profit ?? 0), 0));
     const sumCycleGrossProfit = roundIsk(metrics.recent_trade_cycles.reduce((sum, c) => sum + c.gross_profit, 0));
     const sumCycleFees = roundIsk(metrics.recent_trade_cycles.reduce((sum, c) => sum + c.estimated_fees_paid, 0));
 
@@ -2012,6 +2021,7 @@ async function runAllTests() {
         },
       ],
       observation_id: 'obs_test_34',
+      calculation_source: 'EXECUTION_RECORD',
       type_id: typeId,
 
       total_buy_quantity: 100,
@@ -2310,7 +2320,7 @@ async function runAllTests() {
 
     const sumCycleGross = roundIsk(cycles.reduce((acc, c) => acc + c.gross_profit, 0));
     const sumCycleFees = roundIsk(cycles.reduce((acc, c) => acc + c.estimated_fees_paid, 0));
-    const sumCycleNet = roundIsk(cycles.reduce((acc, c) => acc + c.net_profit, 0));
+    const sumCycleNet = roundIsk(cycles.reduce((acc, c) => acc + (c.net_profit ?? 0), 0));
 
     // INVARIANT 1: Exact gross profit conservation
     assert(
@@ -2333,6 +2343,7 @@ async function runAllTests() {
     // INVARIANT 4: Every cycle satisfies net = gross - fees AND exact fee breakdown decomposition
     for (const c of cycles) {
       assert(
+        c.net_profit !== null &&
         c.net_profit === roundIsk(c.gross_profit - c.estimated_fees_paid),
         `Cycle ${c.cycle_id} internal balance: ${c.net_profit} == ${c.gross_profit} - ${c.estimated_fees_paid}`
       );

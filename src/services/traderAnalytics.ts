@@ -12,6 +12,7 @@ import {
   RealizedFeeBreakdown,
   RealizedFinancialCalculationOptions,
   RealizedFinancialOutcome,
+  CapitalRecoverySummary,
 } from '../types';
 import { CatalogRepository } from '../domain/catalog/CatalogRepository';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
@@ -119,6 +120,16 @@ export class TraderAnalyticsService {
     let hasPartial = false;
     let hasUnavailable = false;
 
+    let capitalCommittedTotal = 0;
+    let cashRecoveredTotal = 0;
+    let remainingQuantityTotal = 0;
+    let remainingCostBasisTotal = 0;
+    let knownCapitalPositions = 0;
+    let openCapitalPositions = 0;
+    let partialCapitalPositions = 0;
+    let closedCapitalPositions = 0;
+    let capitalRecoveryPartial = false;
+
     // Determine effective financial configuration
     let effectiveFinancialConfig: Partial<FinancialConfig> | undefined;
     if (options && 'financialConfig' in options) {
@@ -169,6 +180,36 @@ export class TraderAnalyticsService {
       // Position state comes from economic transaction facts. Market-order side
       // and active order observations are intentionally outside this accounting path.
       const positionLedger = reconstructPositionLedger(characterId, typeId, typeTxs);
+
+      if (positionLedger.position.financial_completeness === 'PARTIAL') {
+        capitalRecoveryPartial = true;
+      }
+      if (
+        positionLedger.position.capital_committed !== null &&
+        positionLedger.position.cash_recovered !== null
+      ) {
+        capitalCommittedTotal = roundIsk(
+          capitalCommittedTotal + positionLedger.position.capital_committed,
+        );
+        cashRecoveredTotal = roundIsk(
+          cashRecoveredTotal + positionLedger.position.cash_recovered,
+        );
+        remainingQuantityTotal += positionLedger.position.remaining_quantity;
+        remainingCostBasisTotal = roundIsk(
+          remainingCostBasisTotal + positionLedger.position.remaining_cost_basis,
+        );
+        knownCapitalPositions += 1;
+
+        if (positionLedger.position.lifecycle_status === 'OPEN') {
+          openCapitalPositions += 1;
+        }
+        if (positionLedger.position.lifecycle_status === 'PARTIALLY_REALIZED') {
+          partialCapitalPositions += 1;
+        }
+        if (positionLedger.position.lifecycle_status === 'CLOSED') {
+          closedCapitalPositions += 1;
+        }
+      }
 
       totalRealizedGross += outcome.gross_realized_profit;
       totalRealizedProfit += outcome.net_realized_profit;
@@ -569,6 +610,27 @@ export class TraderAnalyticsService {
       .sort((a, b) => b.total_volume_isk - a.total_volume_isk)
       .slice(0, 8);
 
+    const capitalRecovery: CapitalRecoverySummary | undefined =
+      knownCapitalPositions > 0
+        ? Object.freeze({
+            scope: 'KNOWN_POSITIONS',
+            financial_completeness: capitalRecoveryPartial ? 'PARTIAL' : 'OBSERVED',
+            capital_committed: capitalCommittedTotal,
+            cash_recovered: cashRecoveredTotal,
+            capital_recovery_delta: roundIsk(cashRecoveredTotal - capitalCommittedTotal),
+            capital_recovery_ratio:
+              capitalCommittedTotal > 0
+                ? cashRecoveredTotal / capitalCommittedTotal
+                : null,
+            remaining_quantity: remainingQuantityTotal,
+            remaining_cost_basis: remainingCostBasisTotal,
+            known_position_count: knownCapitalPositions,
+            open_position_count: openCapitalPositions,
+            partially_realized_position_count: partialCapitalPositions,
+            closed_position_count: closedCapitalPositions,
+          })
+        : undefined;
+
     // Determine Overall Financial Completeness
     const overallStatus = deriveFinancialStatus(completedCycles);
     const overallCompleteness: FinancialCompleteness = overallStatus.completeness;
@@ -612,7 +674,9 @@ export class TraderAnalyticsService {
       unprofitable_trades: unprofitableTrades,
       win_rate_pct: winRatePct,
       average_realized_roi: avgRealizedRoi,
+      average_realized_roi_scope: 'CLOSING_DISPOSAL_ALLOCATIONS',
       average_hold_days: avgHoldDays,
+      ...(capitalRecovery ? { capital_recovery: capitalRecovery } : {}),
       total_broker_fees_paid: totalBrokerFeesPaid,
       total_sales_tax_paid: totalSalesTaxPaid,
       top_profitable_items: topProfitableItems,

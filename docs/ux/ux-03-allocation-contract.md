@@ -27,11 +27,11 @@ A trader may acquire by taking an existing SELL order and later dispose through 
 
 A disposal of 1 unit from an acquisition of 10,000 units may realize P&L on that 1 unit while leaving 9,999 units OPEN/PARTIALLY_REALIZED. UX-03 must never present that position as closed merely because a matched sale exists.
 
-Real Portfolio certification is blocked by FIN-002 and the remaining data/UX acceptance gates.
+Real Portfolio certification is blocked by FIN-002 and the remaining data/UX acceptance gates. The current branch does not yet certify ecosystem-complete economic operations.
 
-### Progressive profitability of an economic operation — normative contract — 2026-09-24
+### Progressive profitability of an economic position segment — normative contract — 2026-09-24
 
-An economic operation keeps its identity from the acquisition that creates its exposed quantity until the full quantity belonging to that operation is liquidated.
+An economic position segment keeps its accounting identity from the acquisition that creates its exposed quantity until the full quantity attributable to that segment is liquidated. This is an accounting reconstruction boundary, not proof of trader intent.
 
 **Lifecycle and profitability are independent dimensions.**
 
@@ -55,7 +55,7 @@ Canonical example:
 
 The system must never infer whole-operation profitability from the isolated disposal result.
 
-The cumulative operation-level recovery therefore tracks **all disposals already attributable to the same operation** against the **initial capital committed by that operation**. It is not recomputed from only the quantity sold by the latest disposal.
+The cumulative segment-level recovery therefore tracks **all disposals already attributable to the same economic position segment** against the **initial capital committed by that segment**. It is not recomputed from only the quantity sold by the latest disposal.
 
 At any point the operation can be classified independently as:
 
@@ -77,9 +77,9 @@ The product must therefore distinguish, and never substitute one for another:
 
 A **closed-position KPI** may still require the genuine `CLOSED` boundary. That does not prevent the system from showing progressive recovery before closure.
 
-### Accounting lineage rule for the operation
+### Accounting lineage rule for the economic position segment
 
-An operation is not defined by the existence of a BUY order.
+An economic position segment is not defined by the existence of a BUY order.
 
 The accounting lineage must instead be built from economic transaction facts and their causally attributable acquisition/disposal quantities. A trader may acquire by taking an existing SELL order and later dispose through a SELL order created by the trader.
 
@@ -90,6 +90,19 @@ Therefore:
 - the absence of a trader BUY order is not proof that no acquisition occurred;
 - sales must be attached to the economic operation through the actual transaction/position lineage available to the system;
 - a new acquisition after an operation is fully liquidated begins a new operation rather than extending the closed one.
+
+### History / origin coverage boundary — FIN-002
+
+A valid set of transaction facts is not automatically a complete history.
+
+The financial boundary must carry:
+
+- history coverage of the supplied transaction collection;
+- economic-origin coverage for the accounting scope;
+- source coverage of the actual acquisition/disposal lineage;
+- freshness and health separately.
+
+A coherent transaction subset without complete-history evidence remains explicitly limited. `MARKET_TRACEABLE` lineage must not be described as ecosystem-complete profitability.
 
 ### Performance semantic boundary — FIN-002
 

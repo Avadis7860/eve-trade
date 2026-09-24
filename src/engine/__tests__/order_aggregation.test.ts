@@ -101,7 +101,6 @@ function run(): void {
     { type: 'corporation', corporationId: '98830882' },
     {
       activeCharacterId: '2124224223',
-      fleetCharacterIds: ['2124224223'],
       corporationIds: ['98830882'],
     },
   );

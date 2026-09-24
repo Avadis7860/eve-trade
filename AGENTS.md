@@ -23,10 +23,10 @@ Le dépôt possède une couche de navigation agent dédiée :
 Cette couche répond à où chercher, jamais à ce qui est vrai. Elle ne remplace ni le code, ni les tests certifiés, ni les contrats/invariants normatifs.
 
 Commencer par :
-- docs/index.md
-- docs/state/current-state.md
-- docs/state/truth-matrix.md
-- docs/roadmap/current-chunk.md
+- [docs/index.md](docs/index.md)
+- [docs/state/current-state.md](docs/state/current-state.md)
+- [docs/state/truth-matrix.md](docs/state/truth-matrix.md)
+- [docs/roadmap/current-chunk.md](docs/roadmap/current-chunk.md)
 
 Puis charger seulement le domaine utile depuis la carte stable.
 
@@ -42,11 +42,13 @@ Puis charger seulement le domaine utile depuis la carte stable.
 
 ## Validation
 
+```bash
 npm run test:context
 npm run typecheck
 npm run typecheck:server
 npm test
 npm run build
+```
 
 Ajouter les suites ciblées pour la surface modifiée. La CI est la validation partagée.
 
@@ -64,4 +66,4 @@ Ajouter les suites ciblées pour la surface modifiée. La CI est la validation p
 
 ## Documentation
 
-Voir docs/documentation-guide.md.
+Voir [docs/documentation-guide.md](docs/documentation-guide.md).

@@ -66,6 +66,7 @@ export class TraderAnalyticsService {
     // Group by type_id & track location metrics
     let totalBuyVolumeIsk = 0;
     let totalSellVolumeIsk = 0;
+    let observedFulfilledOrderActivityIsk: number | undefined;
     const locationVolumeMap: Record<number, { name: string; volumeIsk: number; count: number }> = {};
     const txByType: Record<number, EveCharacterTransaction[]> = {};
 
@@ -403,13 +404,26 @@ export class TraderAnalyticsService {
       }
     }
 
-    // Also include fulfilled orders from orderHistory if transactions array was partially truncated
-    if (completedCycles.length === 0 && orderHistory.length > 0) {
-      const fulfilledOrders = orderHistory.filter((o) => o.state === 'fulfilled');
-      for (const order of fulfilledOrders) {
-        const orderVolIsk = order.price * order.volume_total;
-        if (order.is_buy_order) totalBuyVolumeIsk += orderVolIsk;
-        else totalSellVolumeIsk += orderVolIsk;
+    // Market-order history is activity/provenance evidence only.
+    // Its is_buy_order side must never be converted into economic buy/sell volume:
+    // a trader may acquire via someone else's SELL order and later resell via a SELL order.
+    if (orderHistory.length > 0) {
+      let observedVolume = 0;
+      let hasObservedVolume = false;
+      for (const order of orderHistory) {
+        if (
+          order.state === 'fulfilled' &&
+          Number.isFinite(order.price) &&
+          order.price > 0 &&
+          Number.isFinite(order.volume_total) &&
+          order.volume_total > 0
+        ) {
+          observedVolume += order.price * order.volume_total;
+          hasObservedVolume = true;
+        }
+      }
+      if (hasObservedVolume) {
+        observedFulfilledOrderActivityIsk = roundIsk(observedVolume);
       }
     }
 
@@ -590,6 +604,9 @@ export class TraderAnalyticsService {
       total_buy_volume: roundIsk(totalBuyVolumeIsk),
       total_sell_volume: roundIsk(totalSellVolumeIsk),
       total_turnover: roundIsk(totalBuyVolumeIsk + totalSellVolumeIsk),
+      ...(observedFulfilledOrderActivityIsk !== undefined
+        ? { observed_fulfilled_order_activity_isk: observedFulfilledOrderActivityIsk }
+        : {}),
       total_closed_trades: totalClosedTrades,
       profitable_trades: profitableTrades,
       unprofitable_trades: unprofitableTrades,

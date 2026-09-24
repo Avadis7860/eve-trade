@@ -448,7 +448,7 @@ export class TraderAnalyticsService {
               estimated_buy_broker_fee: cycleBuyBrokerFee,
               estimated_sell_broker_fee: cycleSellBrokerFee,
               estimated_sales_tax: cycleSalesTax,
-              estimated_total_fees: cycleFees,
+              estimated_total_fees: cycleFees ?? 0,
               is_role_assumed: outcome.fees.is_role_assumed,
               notes: outcome.fees.notes,
             },
@@ -653,7 +653,15 @@ export class TraderAnalyticsService {
     if (totalEstimatedFees !== null) totalEstimatedFees = roundIsk(totalEstimatedFees);
 
     const closedCycles = completedCycles.filter(
-      (c) => c.quantity > 0 && c.is_position_closed === true && c.position_net_profit !== undefined,
+      (c): c is TradeCycleRecord & {
+        position_net_profit: number;
+        position_roi?: number | null;
+        position_is_profitable: boolean;
+        position_hold_days?: number;
+      } =>
+        c.quantity > 0 &&
+        c.is_position_closed === true &&
+        typeof c.position_net_profit === 'number',
     );
     const profitableTrades = closedCycles.filter((c) => c.position_is_profitable === true).length;
     const unprofitableTrades = closedCycles.filter((c) => c.position_is_profitable === false).length;

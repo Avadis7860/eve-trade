@@ -482,7 +482,10 @@ export function reconstructPositionLedger(
   );
 
   const currentPosition =
-    [...positionSegments].reverse().find((segment) => segment.remaining_quantity > 0) ??
+    [...positionSegments].reverse().find(
+      (segment) =>
+        segment.remaining_quantity !== null && segment.remaining_quantity > 0,
+    ) ??
     [...positionSegments].reverse()[0];
 
   const emptyPosition: CurrentPosition = Object.freeze({

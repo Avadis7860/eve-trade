@@ -72,7 +72,7 @@ Ajouter les suites ciblées pour la surface modifiée. La CI est la validation p
 - `CLOSING` : le chantier est gelé pour certification/fusion ; aucune nouvelle portée ne doit être ajoutée.
 - `IDLE` : aucun chantier de livraison n'est actif sur l'état stable de `main`.
 
-Sur `main`, `.eve-trade/current-work.json` ne doit jamais être interprété comme un chantier actif. L'état `CLOSING` représente le dernier chantier livré en attendant qu'un nouveau checkout rétablisse `ACTIVE`.
+Sur `main`, `.eve-trade/current-work.json` ne doit jamais être interprété comme un chantier actif. L'état `CLOSING` représente le dernier chantier livré en attendant qu'un nouveau checkout rétablisse `ACTIVE`. La validation stable utilise l'ancre d'intégration du dernier delivery (le premier parent du merge commit, ou `HEAD` si le commit stable n'est pas un merge), afin d'éviter toute mutation automatique post-merge.
 
 ## Documentation
 

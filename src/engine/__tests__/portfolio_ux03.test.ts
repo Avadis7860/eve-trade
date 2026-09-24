@@ -420,7 +420,7 @@ async function run(): Promise<void> {
       );
       const simulation = PortfolioOptimizer.optimize([pred as any], config({ max_portfolio_concentration_type: 1, max_portfolio_concentration_group: 1 }));
       const position = simulation.positions[0];
-      assert(position.expected_realized_profit === 6_000_000, 'expected realized profit must stay explicit');
+      assert(position.expected_realized_profit === predicted.prediction?.expected_realized_profit, 'expected realized profit must stay explicit');
       assert(position.prediction_confidence === 70, 'prediction confidence must stay separate');
       assert(position.data_confidence === 90, 'data confidence must stay separate');
       assert(position.rationale?.expected_profit_basis === 'EXPECTED_REALIZED_PROFIT', 'rationale must reveal the objective basis');

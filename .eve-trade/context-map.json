@@ -1,0 +1,479 @@
+{
+  "schema_version": 2,
+  "purpose": "Stable machine-readable navigation metadata for human and AI developers. This layer is navigational and governance-oriented; it never overrides current implementation, certified tests, CI, normative contracts, invariants, or accepted decisions.",
+  "authority_order": [
+    "normative_contracts_invariants_and_accepted_decisions",
+    "current_implementation_certified_tests_and_ci",
+    "current_state_and_roadmap",
+    "navigation_metadata"
+  ],
+  "read_sequence": [
+    ".eve-trade/current-work.json",
+    "docs/state/current-state.md",
+    "docs/state/truth-matrix.md",
+    "docs/roadmap/current-chunk.md",
+    ".eve-trade/context-map.json"
+  ],
+  "domains": {
+    "orders": {
+      "canonical_code": [
+        "src/types/order.ts",
+        "src/engine/orderIdentity.ts",
+        "src/engine/orderScoping.ts",
+        "src/engine/corporationOrder.ts"
+      ],
+      "contracts": [
+        "docs/contracts/orders.md",
+        "docs/contracts/corporations.md"
+      ],
+      "invariants": [
+        "docs/invariants/order-identity.md",
+        "docs/invariants/corporation-boundary.md",
+        "docs/invariants/character-isolation.md"
+      ],
+      "tests": [
+        "src/engine/__tests__/order_identity.test.ts",
+        "src/engine/__tests__/order_scoping_contracts.test.ts",
+        "src/engine/__tests__/corporation_order.test.ts"
+      ],
+      "ci_lanes": [
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "job": "unit_domain"
+        },
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "job": "server"
+        },
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "job": "browser-operations"
+        }
+      ]
+    },
+    "market_data": {
+      "canonical_code": [
+        "src/services/esi.ts",
+        "src/services/marketDataStore.ts",
+        "server/gateways/marketEsiGateway.ts",
+        "server/routes/markets.ts"
+      ],
+      "contracts": [
+        "docs/contracts/esi.md",
+        "docs/contracts/market-data.md"
+      ],
+      "invariants": [
+        "docs/invariants/esi-data-state.md"
+      ],
+      "tests": [
+        "src/engine/__tests__/market_data_quality.test.ts",
+        "src/services/__tests__/globalMarketSync.test.ts",
+        "server/__tests__/market_esi_gateway.test.ts"
+      ],
+      "ci_lanes": [
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "job": "unit_domain"
+        },
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "job": "server"
+        },
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "job": "browser-operations"
+        }
+      ]
+    },
+    "authentication": {
+      "canonical_code": [
+        "src/services/authService.ts",
+        "server/routes/auth.ts",
+        "src/context/AuthProvider.tsx"
+      ],
+      "contracts": [
+        "docs/contracts/authentication.md"
+      ],
+      "invariants": [
+        "docs/invariants/character-isolation.md"
+      ],
+      "tests": [
+        "server/__tests__/auth_token_validation.test.ts",
+        "tests/e2e/auth-browser.spec.ts"
+      ],
+      "ci_lanes": [
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "job": "static"
+        },
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "job": "server"
+        },
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "job": "browser-auth"
+        }
+      ]
+    },
+    "esi_boundary": {
+      "canonical_code": [
+        "server/utils/esiClient.ts",
+        "server/utils/esiGateway.ts",
+        "server/gateways/characterEsiGateway.ts",
+        "server/gateways/corporationEsiGateway.ts",
+        "server/gateways/marketEsiGateway.ts"
+      ],
+      "contracts": [
+        "docs/contracts/esi.md"
+      ],
+      "invariants": [
+        "docs/invariants/esi-data-state.md",
+        "docs/invariants/corporation-boundary.md"
+      ],
+      "tests": [
+        "server/__tests__/esi_gateway.test.ts",
+        "server/__tests__/character_esi_gateway.test.ts",
+        "server/__tests__/corporation_esi_gateway.test.ts",
+        "server/__tests__/market_esi_gateway.test.ts"
+      ],
+      "ci_lanes": [
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "job": "server"
+        },
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "job": "browser-auth"
+        }
+      ]
+    },
+    "persistence": {
+      "canonical_code": [
+        "src/services/indexedDbStore.ts"
+      ],
+      "contracts": [
+        "docs/contracts/persistence.md"
+      ],
+      "invariants": [
+        "docs/invariants/persistence.md"
+      ],
+      "tests": [
+        "src/engine/__tests__/character_transaction_persistence.test.ts"
+      ],
+      "ci_lanes": [
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "job": "unit_domain"
+        },
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "job": "build"
+        }
+      ]
+    },
+    "catalog_universe": {
+      "canonical_code": [
+        "src/domain/universe/UniverseGraphRepository.ts",
+        "src/domain/universe/UniverseRepository.ts",
+        "src/data/catalogManifest.ts",
+        "src/data/universeGraph.json",
+        "src/data/universeGraphManifest.ts"
+      ],
+      "contracts": [
+        "docs/contracts/catalog.md"
+      ],
+      "tests": [
+        "src/engine/__tests__/catalog_universe_truth.test.ts",
+        "scripts/__tests__/universe_graph_builder.test.mjs"
+      ],
+      "ci_lanes": [
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "job": "unit_domain"
+        },
+        {
+          "workflow": ".github/workflows/phase-2.7c-sde.yml",
+          "job": "sde-truth"
+        }
+      ]
+    },
+    "transaction_ingestion": {
+      "canonical_code": [
+        "src/engine/characterTransaction.ts",
+        "src/services/characterTransactionSyncService.ts"
+      ],
+      "contracts": [
+        "docs/contracts/characters.md",
+        "docs/contracts/financial.md"
+      ],
+      "invariants": [
+        "docs/invariants/data-semantics.md"
+      ],
+      "tests": [
+        "src/engine/__tests__/character_transaction_ingestion.test.ts",
+        "src/engine/__tests__/character_transaction_persistence.test.ts"
+      ],
+      "ci_lanes": [
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "job": "unit_domain"
+        },
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "job": "server"
+        }
+      ]
+    },
+    "execution": {
+      "canonical_code": [
+        "src/engine/executionCorrelation.ts",
+        "src/engine/executionOutcome.ts",
+        "src/services/executionTrackingService.ts"
+      ],
+      "contracts": [
+        "docs/contracts/execution.md",
+        "docs/domains/execution/overview.md",
+        "docs/domains/execution/correlation.md"
+      ],
+      "invariants": [
+        "docs/invariants/financial-safety.md"
+      ],
+      "tests": [
+        "src/engine/__tests__/execution_correlation.test.ts",
+        "src/engine/__tests__/execution_outcome.test.ts",
+        "src/engine/__tests__/execution_tracking_integration.test.ts"
+      ],
+      "ci_lanes": [
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "job": "unit_domain"
+        }
+      ]
+    },
+    "treasury": {
+      "canonical_code": [
+        "src/engine/treasury.ts",
+        "src/services/corporationTreasurySync.ts"
+      ],
+      "contracts": [
+        "docs/contracts/financial.md"
+      ],
+      "invariants": [
+        "docs/invariants/corporation-boundary.md",
+        "docs/invariants/data-semantics.md"
+      ],
+      "tests": [
+        "src/engine/__tests__/treasury.test.ts",
+        "src/services/__tests__/corporationTreasurySync.test.ts"
+      ],
+      "ci_lanes": [
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "job": "unit_domain"
+        },
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "job": "server"
+        }
+      ]
+    },
+    "financial_truth": {
+      "canonical_code": [
+        "src/types/financial.ts",
+        "src/engine/financialConfig.ts",
+        "src/engine/realizedFinancialOutcome.ts",
+        "src/engine/profit.ts"
+      ],
+      "contracts": [
+        "docs/contracts/financial.md"
+      ],
+      "invariants": [
+        "docs/invariants/financial-safety.md",
+        "docs/invariants/data-semantics.md"
+      ],
+      "tests": [
+        "src/engine/__tests__/financial_config.test.ts",
+        "src/engine/__tests__/financial_engine.test.ts",
+        "src/engine/__tests__/realized_financial_outcome.test.ts"
+      ],
+      "ci_lanes": [
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "job": "static"
+        },
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "job": "unit_domain"
+        },
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "job": "build"
+        }
+      ]
+    },
+    "portfolio": {
+      "canonical_code": [
+        "src/engine/portfolio.ts",
+        "src/components/PortfolioView.tsx"
+      ],
+      "contracts": [
+        "docs/domains/portfolio.md"
+      ],
+      "invariants": [
+        "docs/invariants/data-semantics.md"
+      ],
+      "tests": [
+        "src/engine/__tests__/end_to_end_integration.test.ts",
+        "src/engine/__tests__/systemic_certification.test.ts"
+      ],
+      "test_role": "Integration/system certification coverage on current main; there is no dedicated portfolio certification suite on main.",
+      "ci_lanes": [
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "job": "unit_domain"
+        },
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "job": "build"
+        },
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "job": "browser-operations"
+        }
+      ]
+    },
+    "prediction": {
+      "canonical_code": [
+        "src/engine/prediction.ts",
+        "src/engine/scoring.ts"
+      ],
+      "contracts": [
+        "docs/domains/prediction.md"
+      ],
+      "tests": [
+        "src/engine/__tests__/scoring_and_prediction.test.ts"
+      ],
+      "ci_lanes": [
+        {
+          "workflow": ".github/workflows/ci.yml",
+          "job": "unit_domain"
+        }
+      ]
+    }
+  },
+  "legacy": {
+    "archive_financial_rebase": {
+      "status": "reference_only_not_imported",
+      "branch": "archive/ux-03-allocation-contract-2026-09-24",
+      "head": "75df2e8f77d8ccc0cd5a2a631661902d1b54fab6",
+      "rule": "Do not import archived financial implementation by cherry-pick or bulk copy. Re-derive any future implementation from current main after explicit contract reconciliation."
+    },
+    "ux_03_archive": {
+      "status": "closed_not_merged",
+      "branches": [
+        "ux-03/allocation-contract",
+        "ux-03/allocation-contract-v2"
+      ],
+      "pull_requests": [
+        71,
+        77
+      ],
+      "rule": "Archived UX-03 implementation and tests are historical evidence only. Do not resurrect them on this branch."
+    },
+    "current_main_fleet_surface": {
+      "status": "present_on_main",
+      "rule": "Archive claims that fleet code was removed are not current-main truth. Do not encode archive-only removal states into the stable context map."
+    }
+  },
+  "hotspots": {
+    "orchestration": [
+      "src/App.tsx"
+    ],
+    "persistence": [
+      "src/services/indexedDbStore.ts"
+    ],
+    "analytics": [
+      "src/services/traderAnalytics.ts"
+    ],
+    "large_ui": [
+      "src/components/ConfigurationPanel.tsx",
+      "src/components/ConnectedCharactersModal.tsx",
+      "src/components/MyOrdersView.tsx",
+      "src/components/PortfolioView.tsx"
+    ],
+    "rule": "Hotspots are navigation warnings, never automatic refactoring targets."
+  },
+  "validation": {
+    "context": "npm run test:context",
+    "ci_owner": {
+      "workflow": ".github/workflows/ci.yml",
+      "job": "static"
+    },
+    "minimal_local": [
+      "npm run test:context",
+      "npm run typecheck",
+      "npm run typecheck:server",
+      "npm test",
+      "npm run build"
+    ]
+  },
+  "impact_chains": [
+    [
+      "transaction_ingestion",
+      "execution"
+    ],
+    [
+      "execution",
+      "financial_truth"
+    ],
+    [
+      "financial_truth",
+      "portfolio"
+    ],
+    [
+      "financial_truth",
+      "prediction"
+    ],
+    [
+      "treasury",
+      "portfolio"
+    ],
+    [
+      "market_data",
+      "portfolio"
+    ],
+    [
+      "orders",
+      "portfolio"
+    ]
+  ],
+  "change_rule": "Update this stable map only when canonical ownership, domain boundaries, contracts/invariants, validation ownership, or legacy replacement status changes. Ordinary implementation-only changes do not require a map edit.",
+  "history": {
+    "source_commits": [
+      "67ae1d20c8f8723a473c17fb4eca34e6addeabe5",
+      "5634ddb0b8a078a1d6bd3117084146b3615148d8",
+      "b6c7c701053e7683ac92ad4cdd15d7bbb27a9bb0",
+      "ca9e1ea253acf11b59d29933bd2f0ef782605caa",
+      "4d9714648972c665c720543bfba3649d3afcbb78",
+      "774110fbba92f534bbd20d63c3bbe858af74d0f5"
+    ],
+    "historical_documents": [
+      "docs/decisions/ADR-0003-economic-position-and-order-model.md",
+      "docs/roadmap/financial-truth-rebase.md",
+      "docs/contracts/financial.md",
+      "docs/domains/finance/financial-truth.md",
+      "docs/ux/ux-03-allocation-contract.md",
+      "docs/ux/trading-terminal-surface-contracts.md",
+      "docs/roadmap/master-plan.md",
+      "docs/roadmap/backlog.md",
+      "docs/roadmap/current-chunk.md",
+      "docs/roadmap/ux-program.md",
+      "docs/state/current-state.md",
+      "docs/state/known-gaps.md",
+      "docs/state/truth-matrix.md",
+      "docs/validation/ux-03-data-availability.md"
+    ],
+    "rule": "Historical documents are evidence for future reconciliation. They are not copied into the current implementation contract without revalidation against main."
+  }
+}

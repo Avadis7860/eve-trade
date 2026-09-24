@@ -15,36 +15,38 @@ Fondations sensibles :
 
 ## Navigation
 
-Commencer par :
-- [docs/index.md](docs/index.md)
-- [docs/state/current-state.md](docs/state/current-state.md)
-- [docs/state/truth-matrix.md](docs/state/truth-matrix.md)
-- [docs/roadmap/current-chunk.md](docs/roadmap/current-chunk.md)
+Le dépôt possède une couche de navigation agent dédiée :
+- carte stable : .eve-trade/context-map.json
+- état de chantier : .eve-trade/current-work.json
+- procédure : docs/operations/agent-context.md
 
-Puis charger seulement le domaine utile :
-- Ordres : [domains/trading/orders.md](docs/domains/trading/orders.md) + [contracts/orders.md](docs/contracts/orders.md) + [invariants/order-identity.md](docs/invariants/order-identity.md)
-- Corporation : [domains/trading/corporation-trading.md](docs/domains/trading/corporation-trading.md) + [contracts/corporations.md](docs/contracts/corporations.md) + [invariants/corporation-boundary.md](docs/invariants/corporation-boundary.md)
-- ESI : [architecture/esi-boundary.md](docs/architecture/esi-boundary.md) + [contracts/esi.md](docs/contracts/esi.md) + [invariants/esi-data-state.md](docs/invariants/esi-data-state.md)
-- Financial Truth : [domains/finance/financial-truth.md](docs/domains/finance/financial-truth.md) + [contracts/financial.md](docs/contracts/financial.md) + [invariants/financial-safety.md](docs/invariants/financial-safety.md)
+Cette couche répond à où chercher, jamais à ce qui est vrai. Elle ne remplace ni le code, ni les tests certifiés, ni les contrats/invariants normatifs.
+
+Commencer par :
+- docs/index.md
+- docs/state/current-state.md
+- docs/state/truth-matrix.md
+- docs/roadmap/current-chunk.md
+
+Puis charger seulement le domaine utile depuis la carte stable.
 
 ## Où chercher
 
-- Frontend : `src/components`, `src/hooks`, `src/services`
-- Domaines : `src/domain`
-- Moteurs purs : `src/engine`
-- Types : `src/types`
-- Backend : `server`, `server.ts`
-- Données canoniques : `src/data`
-- Persistance : `src/services/indexedDbStore.ts`
+- Frontend : src/components, src/hooks, src/services
+- Domaines : src/domain
+- Moteurs purs : src/engine
+- Types : src/types
+- Backend : server, server.ts
+- Données canoniques : src/data
+- Persistance : src/services/indexedDbStore.ts
 
 ## Validation
 
-```bash
+npm run test:context
 npm run typecheck
 npm run typecheck:server
 npm test
 npm run build
-```
 
 Ajouter les suites ciblées pour la surface modifiée. La CI est la validation partagée.
 
@@ -58,7 +60,8 @@ Ajouter les suites ciblées pour la surface modifiée. La CI est la validation p
 6. Préserver les identifiants canoniques.
 7. Tout changement de contrat doit être protégé par une validation correspondante.
 8. Aucun refactoring opportuniste hors périmètre.
+9. Ne pas importer de code depuis l'archive UX-03 uniquement parce qu'il était certifié ou testé ; toute réutilisation future doit être re-dérivée depuis main après réconciliation explicite des contrats.
 
 ## Documentation
 
-Voir [docs/documentation-guide.md](docs/documentation-guide.md).
+Voir docs/documentation-guide.md.

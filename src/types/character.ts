@@ -181,6 +181,10 @@ export interface TradeCycleRecord {
    * known market acquisition lots; it does not imply that fees are observed.
    */
   source_coverage?: import('./financial').FinancialSourceCoverage;
+  /** Coverage of the transaction history for the economic position segment. */
+  history_coverage?: import('./financial').FinancialHistoryCoverage;
+  /** Coverage of supported economic origins for the economic position segment. */
+  economic_origin_coverage?: import('./financial').EconomicOriginCoverage;
   is_net_estimated?: boolean;
   realized_profit_label?: string;
   fees_breakdown?: RealizedFeeBreakdown;

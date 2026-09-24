@@ -244,6 +244,29 @@ export function reconstructPositionLedger(
     allocations.reduce((sum, allocation) => sum + allocation.gross_realized_profit, 0),
   );
 
+  const provenanceByKey = new Map<string, FinancialProvenance>();
+  for (const lot of lots) {
+    const provenance = lot.provenance;
+    provenanceByKey.set(
+      `${provenance.source_kind}|${provenance.source_id}|${provenance.principal_scope}`,
+      provenance,
+    );
+  }
+  for (const allocation of allocations) {
+    const provenance = allocation.provenance;
+    provenanceByKey.set(
+      `${provenance.source_kind}|${provenance.source_id}|${provenance.principal_scope}`,
+      provenance,
+    );
+  }
+  const positionProvenance = Object.freeze(
+    [...provenanceByKey.values()].sort((a, b) =>
+      `${a.source_kind}|${a.source_id}|${a.principal_scope}`.localeCompare(
+        `${b.source_kind}|${b.source_id}|${b.principal_scope}`,
+      ),
+    ),
+  );
+
   // Capital recovery is position-level progress, not realized P&L:
   // - committed = original cost of known acquisition lots;
   // - recovered = revenue from causally allocated disposals only;
@@ -280,6 +303,7 @@ export function reconstructPositionLedger(
     cash_recovered: cashRecovered,
     capital_recovery_delta: capitalRecoveryDelta,
     capital_recovery_ratio: capitalRecoveryRatio,
+    provenance: positionProvenance,
     lifecycle_status: statusFor(lots, quantityAcquired, quantityDisposed, unmatchedDispositionQuantity),
     financial_completeness:
       invalidTransactionIds.length > 0 || unmatchedDispositionQuantity > 0

@@ -51,6 +51,14 @@ function run() {
   assert(metrics.top_profitable_items.length === 0, 'partial positions must not enter top profitable items');
   assert(Object.keys(metrics.category_success_rate).length === 0, 'partial positions must not enter category success statistics');
   assert(metrics.total_closed_trades === 0, 'a partial disposal must not count as a closed trade');
+  assert(
+    metrics.realized_profit_history_coverage === 'UNKNOWN',
+    'aggregate realized profit must expose unknown history coverage when no completeness evidence is supplied',
+  );
+  assert(
+    metrics.realized_profit_economic_origin_coverage === 'UNKNOWN',
+    'aggregate realized profit must expose unknown economic-origin coverage when those sources are not covered',
+  );
   assert(metrics.win_rate_pct === null, 'win rate must be unavailable when no position is fully closed');
   assert(metrics.profitable_trades === 0, 'a partially realized position must not count as a profitable closed trade');
   assert(

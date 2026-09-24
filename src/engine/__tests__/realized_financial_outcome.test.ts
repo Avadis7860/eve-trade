@@ -172,6 +172,12 @@ async function runAllTests() {
     assert(outcome.net_realized_profit === 44600, 'Net profit = 50,000 - 5400 = 44,600 ISK');
     assert(outcome.roi === 0.446, 'ROI = 44,600 / 100,000 = 0.446 (44.6%)');
     assert(outcome.fifo_allocations.length === 1, 'Exactly 1 allocation');
+    assert(
+      outcome.fifo_allocations[0].provenance.source_kind === 'ESI_WALLET_TRANSACTION' &&
+        outcome.fifo_allocations[0].provenance.source_id === '201' &&
+        outcome.fifo_allocations[0].provenance.principal_scope === 'character:2112001',
+      'FIFO allocation must preserve source kind, source ID and principal scope',
+    );
     assert(outcome.fifo_allocations[0].hold_days === 2 / 24, 'Hold days = 2 hours = 0.0833 days');
     console.log('  [PASS] Test 1: Simple buy + simple sell validated.');
   }
@@ -1938,6 +1944,11 @@ async function runAllTests() {
       fifo_allocations: [
         {
           allocation_id: 'alloc_8102_8101',
+          provenance: {
+            source_kind: 'ESI_WALLET_TRANSACTION',
+            source_id: '8102',
+            principal_scope: 'character:2113010',
+          },
           sell_transaction_id: 8102,
           buy_transaction_id: 8101,
           type_id: typeId,

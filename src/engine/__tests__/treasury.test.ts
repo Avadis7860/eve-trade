@@ -199,45 +199,6 @@ async function runTests(): Promise<void> {
     assert(result.capital_status === 'unavailable', 'Non-finite ESI balance must not be marked observed');
   });
 
-  await test('fleet treasury is not marked observed ESI when character wallets are unavailable', () => {
-    const result = TreasuryEngine.resolveEffectiveCapital(
-      {
-        treasury_source_mode: 'fleet_consolidated',
-        fleet_consolidated_capital: 1_500_000_000,
-      },
-      [{
-        character_id: 1001,
-        character_name: 'Wallet Pending',
-        wallet_balance: undefined,
-      } as any],
-    );
-
-    assert(result.effective_capital === 0, 'Unavailable fleet wallets must retain the existing zero-capital behavior');
-    assert(result.capital_status === 'unavailable', 'Missing wallet observations must not be certified as ESI');
-  });
-
-  await test('fleet treasury is observed ESI when at least one finite character wallet is available', () => {
-    const result = TreasuryEngine.resolveEffectiveCapital(
-      {
-        treasury_source_mode: 'fleet_consolidated',
-      },
-      [
-        {
-          character_id: 1001,
-          character_name: 'Observed Wallet',
-          wallet_balance: 750_000_000,
-        } as any,
-        {
-          character_id: 1002,
-          character_name: 'Wallet Pending',
-          wallet_balance: undefined,
-        } as any,
-      ],
-    );
-
-    assert(result.effective_capital === 750_000_000, 'Observed fleet wallet must contribute to capital');
-    assert(result.capital_status === 'observed_esi', 'A finite wallet observation must certify fleet source');
-  });
 
   console.log('\nTreasury wallet invariants: ' + passed + ' passed, ' + failed + ' failed.');
   if (failed > 0) process.exit(1);

@@ -7,14 +7,8 @@
     "active_state_and_roadmap",
     "navigation_metadata"
   ],
-  "current_work": {
-    "branch": "ux-03/allocation-contract",
-    "pull_request": 71,
-    "base_branch": "main",
-    "base_sha": "aec4c62691723e8fa2ee2bb2f9126249152ad57f",
-    "delivery_rule": "one_chantier_one_branch_one_pr"
-  },
   "load_order": [
+    ".eve-trade/current-work.json",
     "docs/state/current-state.md",
     "docs/state/truth-matrix.md",
     "docs/roadmap/current-chunk.md"
@@ -42,9 +36,9 @@
         "src/engine/__tests__/corporation_order.test.ts"
       ],
       "ci_lanes": [
-        "unit",
-        "server_esi",
-        "browser_operations"
+        "unit_domain",
+        "server",
+        "browser-operations"
       ]
     },
     "financial_truth": {
@@ -69,7 +63,7 @@
       ],
       "ci_lanes": [
         "static",
-        "unit",
+        "unit_domain",
         "build"
       ]
     },
@@ -94,9 +88,9 @@
       ],
       "ci_lanes": [
         "static",
-        "unit",
+        "unit_domain",
         "build",
-        "browser_operations"
+        "browser-operations"
       ]
     },
     "market_data": {
@@ -119,9 +113,9 @@
         "server/__tests__/market_esi_gateway.test.ts"
       ],
       "ci_lanes": [
-        "unit",
-        "server_esi",
-        "browser_operations"
+        "unit_domain",
+        "server",
+        "browser-operations"
       ]
     },
     "authentication": {
@@ -142,8 +136,8 @@
       ],
       "ci_lanes": [
         "static",
-        "server_security",
-        "browser_auth"
+        "server",
+        "browser-auth"
       ]
     },
     "esi_boundary": {
@@ -168,8 +162,8 @@
         "server/__tests__/market_esi_gateway.test.ts"
       ],
       "ci_lanes": [
-        "server_esi",
-        "browser_auth"
+        "server",
+        "browser-auth"
       ]
     },
     "persistence": {
@@ -186,7 +180,7 @@
         "src/engine/__tests__/character_transaction_persistence.test.ts"
       ],
       "ci_lanes": [
-        "unit",
+        "unit_domain",
         "build"
       ]
     },
@@ -204,7 +198,7 @@
         "scripts/__tests__/universe_graph_builder.test.mjs"
       ],
       "ci_lanes": [
-        "sde"
+        "sde-truth"
       ]
     }
   },
@@ -250,7 +244,10 @@
   },
   "validation": {
     "context": "npm run test:context",
+    "context_manifest": ".eve-trade/current-work.json",
+    "workflow_contract": "npm run test:ci-config",
     "minimal_local": [
+      "npm run test:context",
       "npm run typecheck",
       "npm run typecheck:server",
       "npm test",

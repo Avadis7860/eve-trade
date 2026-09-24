@@ -30,7 +30,7 @@ function tx(
 
       source_kind: 'ESI_WALLET_TRANSACTION',
       source_id: String(transaction_id),
-      principal_scope: 'character:1001',
+      principal_scope: 'character:' + String(character_id),
     },
   };
 }

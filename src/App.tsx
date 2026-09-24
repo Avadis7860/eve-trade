@@ -111,7 +111,7 @@ const AppShell: React.FC = () => {
   useCorporationTreasurySync();
 
 
-  // Phase 2 — Order Scoping & Multi-Character Context
+  // Order scoping & multi-character operational context
   const [orderScope, setOrderScope] = useState<OrderScope>({ type: 'active_character' });
 
   // The character repository is durable state, but its snapshots are mutable
@@ -136,7 +136,7 @@ const AppShell: React.FC = () => {
     return contexts;
   }, [linkedCharacters, characterSession]);
 
-  const allFleetOrders = useMemo(() => {
+  const allObservedOrders = useMemo(() => {
     const snapshots = CharacterRepository.getInstance().getAllSnapshots();
     const observations = orderContextCharacters.map((character) => ({
       observerCharacterId: character.character_id,
@@ -165,7 +165,6 @@ const AppShell: React.FC = () => {
   const orderSelectionContext: OrderSelectionContext = useMemo(
     () => ({
       activeCharacterId: characterSession ? String(characterSession.character_id) : '',
-      fleetCharacterIds: orderContextCharacters.map((c) => String(c.character_id)),
       corporationIds: Array.from(
         new Set(
           orderContextCharacters
@@ -179,8 +178,8 @@ const AppShell: React.FC = () => {
   );
 
   const scopedOrders = useMemo(() => {
-    return selectOrdersByScope(allFleetOrders, orderScope, orderSelectionContext);
-  }, [allFleetOrders, orderScope, orderSelectionContext]);
+    return selectOrdersByScope(allObservedOrders, orderScope, orderSelectionContext);
+  }, [allObservedOrders, orderScope, orderSelectionContext]);
 
   const orderCharacterContexts: OrderCharacterContext[] = useMemo(() => {
     if (linkedCharacters.length > 0) {
@@ -225,7 +224,7 @@ const AppShell: React.FC = () => {
     // Observed corporation-owned orders are also a direct source of available
     // economic scopes. Their owner identity is authoritative; the observing
     // character is not substituted as owner.
-    for (const order of allFleetOrders) {
+    for (const order of allObservedOrders) {
       if (order.ownership?.owner_type !== 'corporation') continue;
       if (!Number.isInteger(order.ownership.owner_id) || order.ownership.owner_id <= 0) continue;
       const id = String(order.ownership.owner_id);
@@ -240,7 +239,7 @@ const AppShell: React.FC = () => {
       corporationId: entry.corporationId,
       corporationName: entry.corporationName,
     }));
-  }, [allFleetOrders, config.corporation_id, config.corporation_name, orderContextCharacters]);
+  }, [allObservedOrders, config.corporation_id, config.corporation_name, orderContextCharacters]);
 
   const orderCollection: OrderCollection = useMemo(
     () => ({
@@ -291,7 +290,7 @@ const AppShell: React.FC = () => {
     filterRoute,
     sortBy,
     linkedCharacters,
-    allFleetOrders,
+    allObservedOrders,
   );
 
   const handleSelectOpportunityForCockpit = (opp: UniverseWideOpportunity) => {

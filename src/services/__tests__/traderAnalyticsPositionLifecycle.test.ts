@@ -48,6 +48,7 @@ function run() {
 
   assert(metrics.total_realized_profit > 0, 'the disposed unit may produce realized profit');
   assert(metrics.total_closed_trades === 0, 'a partial disposal must not count as a closed trade');
+  assert(metrics.win_rate_pct === null, 'win rate must be unavailable when no position is fully closed');
   assert(metrics.profitable_trades === 0, 'a partially realized position must not count as a profitable closed trade');
   assert(metrics.recent_trade_cycles.length === 1, 'the realized disposal remains visible as an event');
   assert(

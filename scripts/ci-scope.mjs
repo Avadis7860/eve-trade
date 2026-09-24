@@ -10,6 +10,7 @@ function loadContextCriticalPaths() {
     '.eve-trade/current-work.json',
     'docs/operations/agent-context.md',
     'scripts/context-integrity.mjs',
+    'scripts/ci-scope.mjs',
     'AGENTS.md',
     'GEMINI.md',
     'CONTRIBUTING.md',

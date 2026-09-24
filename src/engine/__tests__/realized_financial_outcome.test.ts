@@ -1401,8 +1401,11 @@ async function runAllTests() {
     assert(cycle.estimated_fees_paid !== undefined && cycle.estimated_fees_paid > 0, 'estimated_fees_paid recorded');
     assert(cycle.unmatched_sell_quantity === 0, 'Cycle unmatched_sell_quantity is 0');
     assert(cycle.fees_breakdown !== undefined, 'Fees breakdown populated');
-    if (cycle.fees_breakdown?.fee_mode === 'UNAVAILABLE') throw new Error('Configured cycle unexpectedly has unavailable fees');
-    assert(cycle.fees_breakdown.estimated_sales_tax > 0, 'Sales tax present');
+    const configuredFeesBreakdown = cycle.fees_breakdown;
+    if (configuredFeesBreakdown === undefined || configuredFeesBreakdown.fee_mode === 'UNAVAILABLE') {
+      throw new Error('Configured cycle unexpectedly has unavailable fees');
+    }
+    assert(configuredFeesBreakdown.estimated_sales_tax > 0, 'Sales tax present');
 
     console.log('  [PASS] Gate 3B-4A.2.2: TraderAnalyticsService delegation & enrichment verified.');
   }

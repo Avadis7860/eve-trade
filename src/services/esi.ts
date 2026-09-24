@@ -30,6 +30,8 @@ export interface EsiCollectionResult<T> {
   readonly data: T[];
   readonly status: number;
   readonly error?: string;
+  /** Number of source records rejected during domain normalization. */
+  readonly rejected_count?: number;
 }
 
 function classifyCollectionResult<T>(
@@ -517,19 +519,29 @@ export class EsiService {
         corporationName,
       ),
     );
+    const validOrders = normalized.filter(
+      (order): order is EveCharacterOrder => order !== null,
+    );
+    const rejectedCount = normalized.length - validOrders.length;
 
-    if (normalized.some((order) => order === null)) {
+    if (rejectedCount === 0) {
       return {
-        state: 'ERROR',
-        data: [],
-        status: 502,
-        error: 'INVALID_CORPORATION_ORDER_PAYLOAD',
+        ...classified,
+        data: validOrders,
       };
     }
 
+    // Keep every valid observation available and make the loss explicit.
+    // A single malformed order must not erase an otherwise usable collection.
     return {
       ...classified,
-      data: normalized as EveCharacterOrder[],
+      state: validOrders.length > 0 ? 'PARTIAL' : 'ERROR',
+      data: validOrders,
+      status: classified.status,
+      error: validOrders.length > 0
+        ? 'INVALID_CORPORATION_ORDER_PAYLOAD:rejected=' + rejectedCount + ':accepted=' + validOrders.length
+        : 'INVALID_CORPORATION_ORDER_PAYLOAD',
+      rejected_count: rejectedCount,
     };
   }
 

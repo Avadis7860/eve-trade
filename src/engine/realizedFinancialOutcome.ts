@@ -637,7 +637,7 @@ export class RealizedFinancialOutcomeEngine {
   ): RealizedFinancialOutcome {
     if (!characterId || characterId <= 0) {
       throw new Error(
-        'RealizedFinancialOutcomeEngine.calculateForTransactions requires a valid positive reporting characterId. Received: ' +
+        'RealizedFinancialOutcomeEngine.calculateForTransactions requires a valid positive characterId. Received: ' +
           characterId
       );
     }

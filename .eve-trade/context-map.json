@@ -200,6 +200,92 @@
       "ci_lanes": [
         "sde-truth"
       ]
+    },
+    "transaction_ingestion": {
+      "canonical_code": [
+        "src/engine/characterTransaction.ts",
+        "src/services/characterTransactionSyncService.ts"
+      ],
+      "contracts": [
+        "docs/contracts/characters.md",
+        "docs/contracts/financial.md"
+      ],
+      "invariants": [
+        "docs/invariants/data-semantics.md"
+      ],
+      "tests": [
+        "src/engine/__tests__/character_transaction_ingestion.test.ts",
+        "src/engine/__tests__/character_transaction_persistence.test.ts"
+      ],
+      "ci_lanes": [
+        "unit_domain",
+        "server"
+      ]
+    },
+    "execution": {
+      "canonical_code": [
+        "src/engine/executionCorrelation.ts",
+        "src/engine/executionOutcome.ts",
+        "src/services/executionTrackingService.ts"
+      ],
+      "contracts": [
+        "docs/domains/execution/overview.md",
+        "docs/domains/execution/correlation.md"
+      ],
+      "invariants": [
+        "docs/invariants/financial-safety.md"
+      ],
+      "tests": [
+        "src/engine/__tests__/execution_correlation.test.ts",
+        "src/engine/__tests__/execution_outcome.test.ts",
+        "src/engine/__tests__/execution_tracking_integration.test.ts"
+      ],
+      "ci_lanes": [
+        "unit_domain"
+      ]
+    },
+    "treasury": {
+      "canonical_code": [
+        "src/engine/treasury.ts",
+        "src/services/corporationTreasurySync.ts"
+      ],
+      "contracts": [
+        "docs/domains/finance/treasury.md",
+        "docs/contracts/financial.md"
+      ],
+      "invariants": [
+        "docs/invariants/corporation-boundary.md",
+        "docs/invariants/data-semantics.md"
+      ],
+      "tests": [
+        "src/engine/__tests__/treasury.test.ts",
+        "src/services/__tests__/corporationTreasurySync.test.ts"
+      ],
+      "ci_lanes": [
+        "unit_domain",
+        "server"
+      ]
+    },
+    "performance": {
+      "canonical_code": [
+        "src/services/traderAnalytics.ts",
+        "src/types/character.ts"
+      ],
+      "contracts": [
+        "docs/domains/finance/financial-truth.md",
+        "docs/contracts/financial.md"
+      ],
+      "invariants": [
+        "docs/invariants/financial-safety.md",
+        "docs/invariants/data-semantics.md"
+      ],
+      "tests": [
+        "src/services/__tests__/traderAnalyticsPositionLifecycle.test.ts"
+      ],
+      "ci_lanes": [
+        "unit_domain",
+        "build"
+      ]
     }
   },
   "legacy": {
@@ -253,5 +339,36 @@
       "npm test",
       "npm run build"
     ]
-  }
+  },
+  "impact_chains": [
+    [
+      "transaction_ingestion",
+      "execution"
+    ],
+    [
+      "execution",
+      "financial_truth"
+    ],
+    [
+      "financial_truth",
+      "performance"
+    ],
+    [
+      "financial_truth",
+      "portfolio"
+    ],
+    [
+      "treasury",
+      "portfolio"
+    ],
+    [
+      "market_data",
+      "portfolio"
+    ],
+    [
+      "orders",
+      "portfolio"
+    ]
+  ],
+  "change_rule": "Every semantic financial change must trace task → domain → canonical source → contract → invariant → tests → CI → downstream consumers."
 }

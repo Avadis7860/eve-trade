@@ -603,12 +603,13 @@ export function buildPortfolioSnapshots(
     characters,
     input.active_character_id ?? null,
   );
-  const scopedOrders = scopePortfolioOrders(
+  const orderScopeResolution = resolvePortfolioOrderScope(
     input.orders ?? [],
     treasury,
     input.config,
     characters,
   );
+  const scopedOrders = orderScopeResolution.scopedOrders;
 
   const candidateUniverse = buildCandidateUniverseSnapshot(
     input.universe ?? [],
@@ -631,7 +632,11 @@ export function buildPortfolioSnapshots(
   return {
     treasury,
     scopedOrders,
-    realPortfolio: buildRealPortfolioSnapshot(treasury, scopedOrders),
+    realPortfolio: buildRealPortfolioSnapshot(
+      treasury,
+      scopedOrders,
+      orderScopeResolution.unresolvedCorporationOrders,
+    ),
     candidateUniverse,
     proposedAllocation: buildProposedAllocationSnapshot(treasury, candidateUniverse, simulation),
     simulation,

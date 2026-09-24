@@ -97,11 +97,11 @@ function resolveEconomicOrigin(tx: PositionLedgerTransaction): EconomicOrigin {
 }
 
 function resolveEconomicOwnerType(tx: PositionLedgerTransaction): Exclude<EconomicOwnerType, 'mixed'> {
-  return tx.economic_owner_type ?? (tx.character_id !== undefined ? 'character' : 'unknown');
+  return tx.economic_owner_type ?? 'unknown';
 }
 
 function resolveEconomicOwnerId(tx: PositionLedgerTransaction): number | string | null {
-  return tx.economic_owner_id !== undefined ? tx.economic_owner_id : tx.character_id ?? null;
+  return tx.economic_owner_id ?? null;
 }
 
 function derivePositionOwner(

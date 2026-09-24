@@ -247,7 +247,8 @@ assert.ok(contextSource.includes('impact_chains'), 'Context integrity must valid
 assert.ok(mainSmoke.includes('push:\n    branches: ["main"]'), 'Main smoke must own the main push trigger');
 assert.ok(mainSmoke.includes('name: CI / main-smoke'), 'Main smoke must expose a stable smoke job');
 assert.ok(mainSmoke.includes('timeout-minutes: 10'), 'Main smoke must have an explicit timeout');
-assert.ok(mainSmoke.includes('npm run test:smoke'), 'Main smoke must run server smoke proof');
+assert.ok(mainSmoke.includes('npm run test:smoke'), 'Main smoke must run server smoke proof');\nassert.ok(mainSmoke.includes('CONTEXT_MODE: stable'), 'Main smoke must validate stable agent context');
+assert.ok(mainSmoke.includes('npm run test:context'), 'Main smoke must run stable context integrity proof');
 assert.ok(mainSmoke.includes('npm run build'), 'Main smoke must run the minimal production build proof');
 assert.ok(!mainSmoke.includes('npm test'), 'Main smoke must not rerun the full unit suite');
 assert.ok(!mainSmoke.includes('npm run test:e2e'), 'Main smoke must not rerun browser certification');

@@ -1,10 +1,10 @@
 # Order Contract
 
-Status: PROVISIONAL — MODEL REBASE REQUIRED
+Status: STABLE — ORD-001 CERTIFIED
 Owner: trading order identity / ownership
 Decision: [ADR-0003](../decisions/ADR-0003-economic-position-and-order-model.md)
 Implementation: `src/types/order.ts` (`MarketOrder`, `OrderOwnership`), `src/engine/orderIdentity.ts`, `src/engine/orderScoping.ts`, `src/engine/corporationOrder.ts`
-Validation: existing order/corporation suites + ORD-001 / #71
+Validation: corporation/order aggregation suites + CI Foundation & Regression Gate #893 / ORD-001 / #71
 
 ## Canonical entity
 

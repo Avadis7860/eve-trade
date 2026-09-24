@@ -349,6 +349,8 @@ async function runAllTests() {
     assert(outcome.remaining_inventory_quantity === 600, 'Remaining 600');
     assert(outcome.realized_acquisition_cost === 40000, 'Cost 40,000 ISK');
     assert(outcome.realized_revenue === 60000, 'Revenue 60,000 ISK');
+    assert(outcome.position_lifecycle === 'PARTIALLY_REALIZED', 'Partial sell must leave the position partially realized');
+    assert(outcome.position_remaining_quantity === 600, 'Position lifecycle must expose 600 units remaining');
     console.log('  [PASS] Test 6: Partial sell validated.');
   }
 
@@ -367,6 +369,8 @@ async function runAllTests() {
     assert(outcome.remaining_inventory_cost_basis === 400000, '400,000 ISK remaining cost basis');
     assert(outcome.remaining_lots.length === 1, '1 open lot');
     assert(outcome.remaining_lots[0].remaining_quantity === 4000, 'Lot remaining 4000');
+    assert(outcome.position_lifecycle === 'PARTIALLY_REALIZED', 'Position must remain partial while inventory remains');
+    assert(outcome.position_remaining_quantity === 4000, 'Position must expose remaining quantity');
     console.log('  [PASS] Test 7: Remaining inventory & cost basis validated.');
   }
 

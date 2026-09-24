@@ -1,6 +1,6 @@
 # Portfolio
 
-Status: IMPLEMENTED / UX-03 CONTRACT ENRICHED
+Status: IMPLEMENTED / UX-03 INCREMENT 1
 Scope: allocation and diversification across opportunities
 Source of truth: `src/engine/portfolio.ts`
 Implementation: `PortfolioOptimizer`
@@ -11,20 +11,21 @@ Tests: portfolio-related engine/property tests
 `PortfolioOptimizer` is a valid domain foundation for capital allocation across an opportunity list.
 
 It currently:
-- filters non-viable/non-profitable opportunities;
-- ranks by overall score;
-- allocates under max capital per trade;
-- enforces concentration caps by type and group;
-- reports category and route exposure;
-- produces projected profit, profit/day and weighted ROI.
+- filters non-viable/non-profitable opportunities through explicit hard gates;
+- accepts the resolved cross-item candidate universe used by UX-03;
+- ranks with expected realized profit when a sufficiently supported forecast exists, otherwise capturable profit, then profit/day, ROI, liquidity/capture and deterministic tie-breakers;
+- allocates under max capital per trade with type/group concentration caps measured against deployed proposed capital;
+- enforces integer quantity/capital invariants without fabricating a minimum unit;
+- reports category and route exposure and explicit unallocated-capital reasons;
+- produces projected net profit, capturable profit, profit/day and projected ROI as prospective metrics.
 
-## UX-03 contract boundary
+## UX-03 implementation boundary
 
-The optimizer is not yet the complete UX-03 implementation.
+The first UX-03 implementation increment is now present on `ux-03/allocation-contract`; full UX-03 certification remains pending.
 
 UX-03 requires:
-- a cross-item opportunity universe;
 - explicit treasury scope and capital provenance;
+- a cross-item opportunity universe;
 - separation of liquid cash, escrow, reserve and inventory exposure;
 - concentration percentages based on deployed proposed capital;
 - transparent allocation rationale;

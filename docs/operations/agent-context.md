@@ -59,7 +59,7 @@ CI lane references are workflow-qualified because job IDs are not globally uniqu
 
 A stable `main` state must never be `ACTIVE`. The last merged delivery may remain represented as `CLOSING` until the next chantier creates a new `ACTIVE` manifest. This avoids requiring an unreviewed post-merge mutation of `main`.
 
-During PR certification, branch, PR number and base SHA must match the GitHub event. In stable mode, the CLOSING manifest carries the pre-merge main integration anchor. Validation reads the commit metadata directly to obtain the first parent of a merge commit (or HEAD when no parent exists) and checks that current-state identifies the same anchor. This avoids shallow-history traversal assumptions and keeps stable proof deterministic without any post-merge mutation.
+During PR certification, branch, PR number and base SHA must match the GitHub event. In stable mode, the CLOSING manifest carries the pre-merge main integration anchor. Validation reads the raw commit object with `git cat-file commit HEAD`, extracts the first `parent` line of a merge commit (or uses HEAD when no parent exists), and checks that current-state identifies the same anchor. This is deliberately independent of shallow-history traversal and keeps stable proof deterministic without any post-merge mutation.
 
 ## Historical archive rule
 
@@ -84,7 +84,7 @@ This routing exists to make context drift visible without running the entire cer
 
 - bootstrap files exist and expose the context entrypoints;
 - current-work lifecycle state is legal for the certification mode;
-- stable-state documentation identifies the stable integration anchor from the checked-out main history;
+- stable-state documentation identifies the stable integration anchor from the checked-out main commit object;
 - every mapped workflow/job exists;
 - canonical domain paths route to the expected CI certification family;
 - domain-documentation mappings reference known map domains;

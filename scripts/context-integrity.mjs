@@ -229,9 +229,13 @@ if (mode === 'active') {
   let anchor = '';
   let head = '';
   try {
-    const commitMetadata = execFileSync('git', ['show', '-s', '--format=%H %P', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim().split(/\s+/);
-    head = commitMetadata[0] || '';
-    anchor = commitMetadata[1] || head;
+    head = execFileSync('git', ['rev-parse', '--verify', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim();
+    const commitObject = execFileSync('git', ['cat-file', 'commit', 'HEAD'], { cwd: ROOT, encoding: 'utf8' });
+    const parents = commitObject
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith('parent '))
+      .map((line) => line.slice('parent '.length).trim());
+    anchor = parents[0] || head;
   } catch (error) {
     fail('git stable-anchor verification failed: ' + error.message);
     failed = true;

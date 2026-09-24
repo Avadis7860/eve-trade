@@ -10,7 +10,7 @@ Validation: `npm run test:context`
 
 This layer reduces context reconstruction cost as EVE Trade grows. It is navigation metadata, not business truth.
 
-Authority remains: implementation and certified tests, then normative contracts/invariants, then active state/roadmap, then this map.
+Authority remains: normative contracts/invariants/accepted decisions first; then current implementation, certified tests and CI; then active state/roadmap; then this navigation layer.
 
 ## Standard workflow
 

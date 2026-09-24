@@ -170,6 +170,7 @@ export function reconstructPositionLedger(
   const allocations: DisposalAllocation[] = [];
   const dispositionStates: PositionDispositionState[] = [];
   let unmatchedDispositionQuantity = 0;
+  let unreconciledLocationTransitionCount = 0;
 
   const activeOperationLotIds = new Set<string>();
   let operationSequence = 0;
@@ -223,6 +224,7 @@ export function reconstructPositionLedger(
       for (let index = 0; index < lots.length && remainingSellQuantity > 0; index += 1) {
         const lot = lots[index];
         if (!activeOperationLotIds.has(lot.lot_id) || lot.remaining_quantity <= 0) continue;
+        if (lot.location_id !== tx.location_id) unreconciledLocationTransitionCount += 1;
 
         const allocated = Math.min(lot.remaining_quantity, remainingSellQuantity);
         const acquisitionCost = roundIsk(allocated * lot.unit_cost);
@@ -348,7 +350,7 @@ export function reconstructPositionLedger(
       : null;
 
   const hasUnknownOrigin = lots.some((lot) => lot.economic_origin !== 'MARKET_ACQUISITION');
-  const hasSourceDefects = invalidTransactionIds.length > 0 || unmatchedDispositionQuantity > 0 || hasUnknownOrigin;
+  const hasSourceDefects = invalidTransactionIds.length > 0 || unmatchedDispositionQuantity > 0 || hasUnknownOrigin || unreconciledLocationTransitionCount > 0;
   const sourceCoverage: FinancialSourceCoverage =
     hasSourceDefects ? 'PARTIAL' : quantityAcquired <= 0 ? 'UNAVAILABLE' : 'MARKET_TRACEABLE';
 
@@ -370,6 +372,7 @@ export function reconstructPositionLedger(
     capital_recovery_ratio: capitalRecoveryRatio,
     provenance: positionProvenance,
     lifecycle_status: lifecycleStatus(lots, quantityAcquired, quantityDisposed, unmatchedDispositionQuantity),
+    position_completeness: sourceCoverage === 'UNAVAILABLE' ? 'UNAVAILABLE' : sourceCoverage === 'PARTIAL' ? 'PARTIAL' : 'OBSERVED',
     financial_completeness: sourceCoverage === 'UNAVAILABLE' ? 'UNAVAILABLE' : sourceCoverage === 'PARTIAL' ? 'PARTIAL' : 'OBSERVED',
     source_coverage: sourceCoverage,
     lots: Object.freeze(lots.filter((lot) => lot.remaining_quantity > 0 || lot.quantity_acquired > 0)),
@@ -377,6 +380,7 @@ export function reconstructPositionLedger(
     disposition_states: Object.freeze(dispositionStates),
     unmatched_disposition_quantity: unmatchedDispositionQuantity,
     invalid_transaction_ids: Object.freeze(invalidTransactionIds),
+    unreconciled_location_transition_count: unreconciledLocationTransitionCount,
   });
 
   const firstCharacterId = valid.find((tx) => tx.character_id !== undefined)?.character_id;

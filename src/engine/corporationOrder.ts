@@ -211,11 +211,6 @@ export function normalizeCorporationOrderHistory(
 
   return {
     order_id: common.orderId,
-    ownership: buildOwnership(
-      principalCharacterId,
-      corporationId,
-      corporationName,
-    ),
     type_id: common.typeId,
     region_id: common.regionId,
     location_id: common.locationId,

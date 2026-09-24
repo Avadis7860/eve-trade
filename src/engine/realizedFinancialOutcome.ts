@@ -135,7 +135,7 @@ export class RealizedFinancialOutcomeEngine {
       return {
         allocation_id: `alloc_${allocation.disposition_transaction_id}_${allocation.acquisition_lot_id.replace(/^acquisition_/, '')}_${allocationSeq++}`,
         sell_transaction_id: allocation.disposition_transaction_id,
-        buy_transaction_id: Number(allocation.acquisition_lot_id.replace(/^acquisition_/, '')),
+        buy_transaction_id: allocation.acquisition_transaction_id,
         type_id: typeId,
         allocated_quantity: allocation.allocated_quantity,
         buy_unit_price: allocation.acquisition_unit_cost,

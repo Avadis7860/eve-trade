@@ -88,7 +88,7 @@ export class FleetFinancialEngine {
         total_closed_trades: 0,
         profitable_trades: 0,
         unprofitable_trades: 0,
-        win_rate_pct: 100,
+        win_rate_pct: null,
         average_realized_roi: 0,
         average_hold_days: 0,
         total_broker_fees_paid: 0,
@@ -190,7 +190,8 @@ export class FleetFinancialEngine {
     }
 
     // 2. Non-Additive Metric Calculations
-    const winRatePct = totalClosedTrades > 0 ? (profitableTrades / totalClosedTrades) * 100 : 100;
+    const winRatePct: number | null =
+      totalClosedTrades > 0 ? (profitableTrades / totalClosedTrades) * 100 : null;
 
     // Sort all trade cycles deterministically: sell_date DESC, buy_date DESC, cycle_id ASC
     const sortedCycles = [...allCycles].sort((a, b) => {

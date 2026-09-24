@@ -148,6 +148,21 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
           />
         </div>
 
+        {realPortfolio.orders.unresolved_corporation_order_count > 0 ? (
+          <div className="bg-[#161821] border border-orange-900/60 rounded-lg p-4 flex items-start gap-3">
+            <AlertTriangle className="w-4 h-4 text-orange-300 flex-shrink-0 mt-0.5" />
+            <div>
+              <div className="font-semibold text-orange-200">Ordres corporation non attribués à la division</div>
+              <div className="text-[11px] text-[#b9bac5] mt-1">
+                {realPortfolio.orders.unresolved_corporation_order_count} ordre(s) corporation sont observés mais leur division de portefeuille n'est pas connue. Les totaux d'escrow, d'obligation et d'exposition restent UNKNOWN plutôt que d'être présentés comme nuls.
+              </div>
+              <div className="text-[10px] text-orange-300/80 font-mono mt-1">
+                Périmètre : {realPortfolio.treasury.source_id} · Notional non attribué : {displayIsk(realPortfolio.orders.unresolved_corporation_order_notional)}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         <div className="bg-[#161821] border border-amber-900/50 rounded-lg p-4 flex items-start gap-3">
           <AlertTriangle className="w-4 h-4 text-amber-300 flex-shrink-0 mt-0.5" />
           <div>

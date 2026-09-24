@@ -357,17 +357,18 @@ export class CatalogRepository {
     // 3. Fallback details provided (e.g. from opportunity or scanner)
     // A dynamic type without authoritative physical volume stays TYPE_UNKNOWN;
     // it must never receive a fabricated default volume.
+    const fallbackVolume = fallbackDetails?.volume;
     if (
       fallbackDetails &&
       fallbackDetails.name &&
-      Number.isFinite(fallbackDetails.volume) &&
-      fallbackDetails.volume > 0
+      Number.isFinite(fallbackVolume) &&
+      fallbackVolume > 0
     ) {
       const dynamicType: EveTypeDetail = {
         type_id: typeId,
         name: fallbackDetails.name,
         description: fallbackDetails.description || '',
-        volume: fallbackDetails.volume,
+        volume: fallbackVolume,
         group_id: fallbackDetails.group_id || 0,
         group_name: fallbackDetails.group_name,
         category_id: fallbackDetails.category_id || 0,

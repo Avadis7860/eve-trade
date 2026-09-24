@@ -12,6 +12,15 @@ export function normalizeFinancialConfig(
   config: Partial<FinancialConfig> | null | undefined,
 ): Partial<FinancialConfig> {
   const normalized: Partial<FinancialConfig> = { ...(config || {}) };
+  const runtimeConfig = normalized as Partial<FinancialConfig> & Record<string, unknown>;
+
+  // Legacy migration: the obsolete fleet treasury mode represented an
+  // aggregate of character wallets without a distinct economic owner. It must
+  // never survive as a current source of trading capital.
+  if (runtimeConfig.treasury_source_mode === 'fleet_consolidated') {
+    normalized.treasury_source_mode = 'corporation';
+    delete runtimeConfig.fleet_consolidated_capital;
+  }
 
   if (normalized.treasury_source_mode === 'corporation') {
     const source = normalized.corporation_wallet_source;
@@ -25,6 +34,7 @@ export function normalizeFinancialConfig(
     ) as CorporationWalletSource;
   }
 
+  delete runtimeConfig.fleet_calculation_mode;
   return normalized;
 }
 

@@ -52,6 +52,8 @@ Current-market valuation, when available, is an explicitly separate unrealized/p
 
 OPEN -> PARTIALLY_REALIZED -> CLOSED
 
+Lifecycle closure is an economic state derived from the position ledger's remaining quantity and causally attributable inventory. It is independent from fee/configuration availability.
+
 Example: acquisition 10,000 @ 100, disposal 1 @ 140:
 
 - realized gross P&L on the 1 allocated unit: +40 ISK before fees;

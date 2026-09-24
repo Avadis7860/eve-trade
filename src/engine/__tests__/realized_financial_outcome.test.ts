@@ -503,8 +503,8 @@ async function runAllTests() {
     const freeRecord = createMockExecutionRecord({ buyTxs: [freeBuy], sellTxs: [freeSell] });
     const outcomeFree = RealizedFinancialOutcomeEngine.calculate(freeRecord, { financialConfig: mockFinancialConfig });
 
-    assert(outcomeFree.roi === 0.0, 'ROI is 0.0 when cost is 0');
-    assert(outcomeFree.margin === 0.0, 'Margin is 0.0 when revenue is 0');
+    assert(outcomeFree.roi === null, 'ROI is unavailable when cost is 0');
+    assert(outcomeFree.margin === null, 'Margin is unavailable when revenue is 0');
     console.log('  [PASS] Test 14: Division by zero protection verified.');
   }
 

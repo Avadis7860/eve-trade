@@ -847,6 +847,52 @@ async function runAllTests() {
   // ==========================================================================
   // CHANTIER 3B-4A.1: FINANCIAL CORRECTNESS GATE (CASES A TO F & ADVERSARIAL)
   // ==========================================================================
+  {
+    const persistedBuy: PersistedCharacterTransaction = {
+      transaction_id: 9101,
+      character_id: 1001,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: true,
+      quantity: 10,
+      unit_price: 100,
+      timestamp: '2026-09-20T10:00:00Z',
+      first_seen_at: '2026-09-20T10:01:00Z',
+      last_seen_at: '2026-09-20T10:01:00Z',
+      source: 'ESI',
+      source_endpoint: '/characters/1001/wallet/transactions/',
+      ingestion_version: '1.0.0',
+      data_state: 'VALID',
+    };
+    const persistedSell: PersistedCharacterTransaction = {
+      ...persistedBuy,
+      transaction_id: 9102,
+      is_buy: false,
+      quantity: 1,
+      unit_price: 140,
+      timestamp: '2026-09-21T10:00:00Z',
+    };
+
+    const outcome = RealizedFinancialOutcomeEngine.calculateForTransactions(
+      1001,
+      34,
+      [persistedBuy, persistedSell],
+    );
+    assert(outcome.fifo_allocations.length === 1, 'Persisted ESI transactions must still produce a causal allocation');
+    assert(
+      outcome.fifo_allocations[0].provenance.source_kind === 'ESI_WALLET_TRANSACTION',
+      'Persisted ESI transactions must retain explicit ESI provenance through the realized outcome',
+    );
+    assert(
+      outcome.fifo_allocations[0].provenance.source_id === '9102',
+      'Disposal provenance must retain the source transaction ID',
+    );
+    assert(
+      outcome.fifo_allocations[0].provenance.principal_scope === 'character:1001',
+      'Disposal provenance must retain the accounting principal scope',
+    );
+  }
+
   console.log('\n==========================================================================');
   console.log('--- RUNNING CHANTIER 3B-4A.1 FINANCIAL CORRECTNESS GATE (CASES A -> F) ---');
   console.log('==========================================================================');

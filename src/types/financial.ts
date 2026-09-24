@@ -236,13 +236,27 @@ export type ExecutionFeeRoleMode = 'TAKER_TAKER' | 'TAKER_MAKER' | 'MAKER_TAKER'
  */
 export type FinancialCompleteness = 'OBSERVED' | 'ESTIMATED' | 'PARTIAL' | 'UNAVAILABLE';
 
+export type FinancialHistoryCoverage = 'COMPLETE_FOR_SCOPE' | 'PARTIAL' | 'UNKNOWN';
+export type EconomicOriginCoverage = 'COMPLETE_FOR_SCOPE' | 'PARTIAL' | 'UNKNOWN';
+
+export interface FinancialCoverageEvidence {
+  /** Whether the supplied transaction history is known to cover the accounting scope. */
+  readonly history_coverage: FinancialHistoryCoverage;
+  /** Whether supported economic origins capable of creating the position are covered for the scope. */
+  readonly economic_origin_coverage: EconomicOriginCoverage;
+}
+
 export type CapitalRecoveryScope = 'KNOWN_POSITIONS';
-export type EconomicOperationRecoveryState = 'NEGATIVE' | 'RECOVERED' | 'POSITIVE';
+export type EconomicPositionRecoveryState = 'NEGATIVE' | 'RECOVERED' | 'POSITIVE';
+/** @deprecated Use EconomicPositionRecoveryState. */
+export type EconomicOperationRecoveryState = EconomicPositionRecoveryState;
 
 export interface CapitalRecoverySummary {
   readonly scope: CapitalRecoveryScope;
   readonly provenance: readonly FinancialProvenance[];
   readonly financial_completeness: Extract<FinancialCompleteness, 'OBSERVED' | 'PARTIAL'>;
+  readonly history_coverage: FinancialHistoryCoverage;
+  readonly economic_origin_coverage: EconomicOriginCoverage;
   readonly capital_committed: number;
   readonly cash_recovered: number;
   readonly capital_recovery_delta: number;
@@ -306,6 +320,8 @@ export interface RealizedFinancialOutcome {
   readonly character_id: number;
   readonly accounting_scope_id: string;
   readonly source_coverage: FinancialSourceCoverage;
+  readonly history_coverage: FinancialHistoryCoverage;
+  readonly economic_origin_coverage: EconomicOriginCoverage;
   readonly position_disposition_states: readonly PositionDispositionState[];
   /** Real source observation when correlated; absent for direct transaction calculations. */
   readonly observation_id?: string;
@@ -489,6 +505,8 @@ export interface CurrentPosition {
   /** @deprecated Use position_completeness; financial result completeness belongs to RealizedFinancialOutcome. */
   readonly financial_completeness: FinancialCompleteness;
   readonly source_coverage: FinancialSourceCoverage;
+  readonly history_coverage: FinancialHistoryCoverage;
+  readonly economic_origin_coverage: EconomicOriginCoverage;
   readonly lots: readonly AcquisitionLot[];
   readonly allocations: readonly DisposalAllocation[];
   readonly disposition_states: readonly PositionDispositionState[];

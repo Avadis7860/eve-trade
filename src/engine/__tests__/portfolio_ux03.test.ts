@@ -12,6 +12,7 @@ import {
   buildRealPortfolioSnapshot,
   resolvePortfolioTreasury,
   scopePortfolioOrders,
+  resolvePortfolioOrderScope,
   resolveAllocationUniverse,
 } from '../portfolioAggregation';
 import { PortfolioOptimizer } from '../portfolio';
@@ -370,6 +371,50 @@ async function run(): Promise<void> {
 
       assert(scoped.length === 1 && scoped[0].order_id === 'corp-3', 'corporation scope must filter by economic owner and wallet division');
       assert(treasury.principal_scope === 'corp:77', 'observer scope must remain separate from economic owner');
+    }],
+    ['P corporation orders without division remain observable as PARTIAL, not zero', () => {
+      const cfg = config({
+        treasury_source_mode: 'corporation',
+        corporation_id: 77,
+        corporation_wallet_division: 1,
+        corporation_wallet_balance: 500_000_000,
+        corporation_wallet_source: 'esi',
+        corporation_divisions: [{ division: 1, name: 'Master', balance: 500_000_000 }],
+      });
+      const treasury = resolvePortfolioTreasury(
+        cfg,
+        [{ character_id: 1001, character_name: 'Observer', wallet_balance: 1_000_000, is_active: true } as any],
+        1001,
+      );
+      const corpOrder = order({
+        order_id: 'corp-unattributed',
+        is_buy_order: false,
+        price: 6_000_000,
+        volume_remain: 10,
+        ownership: {
+          principal_character_id: 1001,
+          observed_by_character_ids: [1001],
+          owner_type: 'corporation',
+          owner_id: 77,
+          owner_name: 'Corp',
+          corporation_id: 77,
+          corporation_name: 'Corp',
+        },
+      });
+      const resolution = resolvePortfolioOrderScope([corpOrder], treasury, cfg, [
+        { character_id: 1001, character_name: 'Observer', wallet_balance: 1_000_000, is_active: true } as any,
+      ]);
+      assert(resolution.scopedOrders.length === 0, 'unknown division order must not enter the selected division arithmetic');
+      assert(resolution.unresolvedCorporationOrders.length === 1, 'unknown division order must remain observable as unresolved');
+      const real = buildRealPortfolioSnapshot(
+        treasury,
+        resolution.scopedOrders,
+        resolution.unresolvedCorporationOrders,
+      );
+      assert(real.orders.data_health === 'PARTIAL', 'unresolved corporation scope must degrade order exposure health');
+      assert(real.orders.sell_exposure === null, 'overall sell exposure must stay UNKNOWN while corporate division attribution is incomplete');
+      assert(real.orders.unresolved_corporation_order_count === 1, 'unresolved order count must be explicit');
+      assert(real.orders.unresolved_corporation_order_notional === 60_000_000, 'unresolved notional must preserve known order economics');
     }],
     ['N invalid economic/liquidity metrics preserve DATA_ISSUE diagnostics', () => {
       const broken = opportunity('nan', 8, 18, 100, 10_000_000, 20_000_000) as any;

@@ -201,4 +201,6 @@ function runOrderScopingTests() {
 
   console.log('===============================================================');
   console.log('ALL PHASE 2 ORDER SCOPING & CONTRACT TESTS PASSED (100%)');
+}
+
 runOrderScopingTests();

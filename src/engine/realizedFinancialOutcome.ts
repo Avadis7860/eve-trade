@@ -44,6 +44,7 @@ import {
 } from '../types';
 import { FeeEngine } from './fee';
 import { safeDiv, roundIsk } from './money';
+import { reconstructPositionLedger } from './positionLedger';
 
 export const REALIZED_FINANCIAL_ENGINE_VERSION = '1.0.0';
 
@@ -104,96 +105,52 @@ export class RealizedFinancialOutcomeEngine {
       return timeDiff !== 0 ? timeDiff : a.transaction_id - b.transaction_id;
     });
 
-    // 3. Initialize FIFO Lots from Buy Transactions (defensive against NaN/Infinity/negative quantities)
-    const lots: FifoLotRecord[] = sortedBuys.map((buy) => {
-      const origQty = Number.isFinite(buy.quantity) ? Math.max(0, buy.quantity) : 0;
-      const unitCost = Number.isFinite(buy.unit_price) ? Math.max(0, buy.unit_price) : 0;
+    // 3-4. Reconstruct economic position state through the canonical ledger.
+    // Market order side is deliberately absent: transaction is the accounting fact.
+    const positionLedger = reconstructPositionLedger(characterId, typeId, [
+      ...sortedBuys,
+      ...sortedSells,
+    ]);
+
+    const ledgerLots = positionLedger.position.lots;
+    const lots: FifoLotRecord[] = ledgerLots.map((lot) => ({
+      lot_id: lot.lot_id,
+      buy_transaction_id: lot.transaction_id,
+      type_id: lot.type_id,
+      location_id: lot.location_id,
+      timestamp: lot.acquired_at,
+      original_quantity: lot.quantity_acquired,
+      remaining_quantity: lot.remaining_quantity,
+      unit_cost: lot.unit_cost,
+      total_original_cost: lot.total_original_cost,
+      total_remaining_cost: lot.remaining_cost_basis,
+    }));
+
+    let allocationSeq = 1;
+    const allocations: FifoAllocationRecord[] = positionLedger.position.allocations.map((allocation) => {
+      const holdDurationMs = Math.max(
+        0,
+        Date.parse(allocation.disposed_at) - Date.parse(allocation.acquired_at),
+      );
       return {
-        lot_id: `lot_${buy.transaction_id}`,
-        buy_transaction_id: buy.transaction_id,
-        type_id: buy.type_id,
-        location_id: buy.location_id,
-        timestamp: buy.timestamp,
-        original_quantity: origQty,
-        remaining_quantity: origQty,
-        unit_cost: unitCost,
-        total_original_cost: roundIsk(origQty * unitCost),
-        total_remaining_cost: roundIsk(origQty * unitCost),
+        allocation_id: `alloc_${allocation.disposition_transaction_id}_${allocation.acquisition_lot_id.replace(/^acquisition_/, '')}_${allocationSeq++}`,
+        sell_transaction_id: allocation.disposition_transaction_id,
+        buy_transaction_id: Number(allocation.acquisition_lot_id.replace(/^acquisition_/, '')),
+        type_id: typeId,
+        allocated_quantity: allocation.allocated_quantity,
+        buy_unit_price: allocation.acquisition_unit_cost,
+        sell_unit_price: allocation.disposal_unit_price,
+        buy_timestamp: allocation.acquired_at,
+        sell_timestamp: allocation.disposed_at,
+        hold_duration_ms: holdDurationMs,
+        hold_days: holdDurationMs / 86_400_000,
+        gross_cost: allocation.acquisition_cost,
+        gross_revenue: allocation.disposal_revenue,
+        gross_profit: allocation.gross_realized_profit,
       };
     });
 
-    // 4. Match Sales against FIFO Lots with Strict Causal FIFO Enforcement
-    const allocations: FifoAllocationRecord[] = [];
-    let unmatchedSellQuantity = 0;
-    let allocationSeq = 1;
-
-    for (const sell of sortedSells) {
-      let sellRemaining = Number.isFinite(sell.quantity) ? Math.max(0, sell.quantity) : 0;
-      const sellUnitPrice = Number.isFinite(sell.unit_price) ? Math.max(0, sell.unit_price) : 0;
-      const sellTimeMs = Number.isNaN(new Date(sell.timestamp).getTime()) ? 0 : new Date(sell.timestamp).getTime();
-
-      for (let i = 0; i < lots.length; i++) {
-        const lot = lots[i];
-        if (sellRemaining <= 0) break;
-        if (lot.remaining_quantity <= 0) continue;
-
-        const buyTimeMs = Number.isNaN(new Date(lot.timestamp).getTime()) ? 0 : new Date(lot.timestamp).getTime();
-
-        // CAUSAL GUARD: A SELL transaction can ONLY consume BUY lots executed at or prior to the SELL timestamp.
-        // Tie-breaker: If timestamps are identical, transaction_id ASC determines execution priority.
-        const isCausallyEligible =
-          buyTimeMs < sellTimeMs ||
-          (buyTimeMs === sellTimeMs && lot.buy_transaction_id <= sell.transaction_id);
-
-        if (!isCausallyEligible) {
-          // Because `lots` is sorted chronologically (timestamp ASC, transaction_id ASC),
-          // all subsequent lots in `lots` are also strictly after this sell.
-          break;
-        }
-
-        const allocatedQty = Math.min(lot.remaining_quantity, sellRemaining);
-        const updatedRemainingQty = lot.remaining_quantity - allocatedQty;
-
-        // Update lot in-place within this local pure function scope
-        lots[i] = {
-          ...lot,
-          remaining_quantity: updatedRemainingQty,
-          total_remaining_cost: roundIsk(updatedRemainingQty * lot.unit_cost),
-        };
-
-        sellRemaining -= allocatedQty;
-
-        // Calculate hold duration between buy and sell timestamps
-        const holdDurationMs = Math.max(0, sellTimeMs - buyTimeMs);
-        const holdDays = holdDurationMs / 86_400_000;
-
-        const grossCost = roundIsk(allocatedQty * lot.unit_cost);
-        const grossRevenue = roundIsk(allocatedQty * sellUnitPrice);
-        const grossProfit = roundIsk(grossRevenue - grossCost);
-
-        allocations.push({
-          allocation_id: `alloc_${sell.transaction_id}_${lot.buy_transaction_id}_${allocationSeq++}`,
-          sell_transaction_id: sell.transaction_id,
-          buy_transaction_id: lot.buy_transaction_id,
-          type_id: lot.type_id,
-          allocated_quantity: allocatedQty,
-          buy_unit_price: lot.unit_cost,
-          sell_unit_price: sellUnitPrice,
-          buy_timestamp: lot.timestamp,
-          sell_timestamp: sell.timestamp,
-          hold_duration_ms: holdDurationMs,
-          hold_days: holdDays,
-          gross_cost: grossCost,
-          gross_revenue: grossRevenue,
-          gross_profit: grossProfit,
-        });
-      }
-
-      if (sellRemaining > 0) {
-        unmatchedSellQuantity += sellRemaining;
-      }
-    }
-
+    const unmatchedSellQuantity = positionLedger.position.unmatched_disposition_quantity;
     // 5. Aggregate Quantities and Financial Totals
     const totalBuyQuantity = sortedBuys.reduce(
       (acc, b) => acc + (Number.isFinite(b.quantity) ? Math.max(0, b.quantity) : 0),
@@ -206,6 +163,8 @@ export class RealizedFinancialOutcomeEngine {
     const matchedQuantity = allocations.reduce((acc, a) => acc + a.allocated_quantity, 0);
     const remainingInventoryQuantity = lots.reduce((acc, l) => acc + l.remaining_quantity, 0);
     const hasUnmatchedSellQuantity = unmatchedSellQuantity > 0;
+    const positionLifecycle = positionLedger.position.lifecycle_status;
+    const positionRemainingQuantity = positionLedger.position.remaining_quantity;
 
     const realizedAcquisitionCost = roundIsk(allocations.reduce((acc, a) => acc + a.gross_cost, 0));
     const realizedRevenue = roundIsk(allocations.reduce((acc, a) => acc + a.gross_revenue, 0));
@@ -378,6 +337,8 @@ export class RealizedFinancialOutcomeEngine {
       profit_per_unit: profitPerUnit,
 
       remaining_inventory_cost_basis: remainingInventoryCostBasis,
+      position_lifecycle: positionLifecycle,
+      position_remaining_quantity: positionRemainingQuantity,
 
       first_buy_at: firstBuyAt,
       last_buy_at: lastBuyAt,

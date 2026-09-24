@@ -329,9 +329,9 @@ export interface RealizedFinancialOutcome {
   readonly financial_completeness: FinancialCompleteness;
 
   // Ratios & Rates
-  readonly roi: number;
-  readonly margin: number;
-  readonly profit_per_unit: number;
+  readonly roi: number | null;
+  readonly margin: number | null;
+  readonly profit_per_unit: number | null;
 
   // Inventory Cost Basis (Unrealized holding cost)
   readonly remaining_inventory_cost_basis: number;

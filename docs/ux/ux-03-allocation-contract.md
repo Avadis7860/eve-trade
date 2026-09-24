@@ -700,6 +700,10 @@ The result must contain:
 - projected ROI;
 - profit/day;
 - expected days to sell;
+- treasury provenance on the allocation scope and each proposed position:
+  - source kind;
+  - source id;
+  - principal scope;
 - liquidity;
 - capturability;
 - prediction probability when available;

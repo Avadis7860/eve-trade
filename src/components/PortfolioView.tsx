@@ -59,6 +59,9 @@ function renderPositionEvidence(pos: PortfolioPosition): string {
 
   return [
     `category: ${opp.category_name || `Category ${opp.category_id}`}`,
+    pos.capital_provenance
+      ? `capital: ${pos.capital_provenance.source_kind} / ${pos.capital_provenance.source_id} / ${pos.capital_provenance.principal_scope}`
+      : 'capital provenance: UNKNOWN',
     `liquidity: days=${Number.isFinite(pos.expected_days_to_sell) ? pos.expected_days_to_sell!.toFixed(2) : 'UNKNOWN'}`,
     `capturability score: ${Number.isFinite(opp.scores.capturability_score) ? opp.scores.capturability_score : 'UNKNOWN'}`,
     pos.expected_realized_profit !== undefined ? `expected realized: ${fmtIsk(pos.expected_realized_profit)}` : null,

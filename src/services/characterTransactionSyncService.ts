@@ -138,6 +138,38 @@ export class HttpEsiWalletClientAdapter implements EsiWalletClientAdapter {
  * CharacterTransactionSyncService
  * Production-ready orchestration for ESI wallet transaction ingestion.
  */
+export function deriveTransactionHistoryCoverage(params: {
+  readonly full_history_requested: boolean;
+  readonly last_known_transaction_id_before_sync?: number;
+  readonly stopped_reason: CharacterTransactionSyncStoppedReason;
+  readonly transactions_received: number;
+}): FinancialHistoryCoverage {
+  const {
+    full_history_requested,
+    last_known_transaction_id_before_sync,
+    stopped_reason,
+    transactions_received,
+  } = params;
+
+  if (
+    stopped_reason === 'NO_MORE_DATA' &&
+    (full_history_requested || last_known_transaction_id_before_sync === undefined)
+  ) {
+    return 'COMPLETE_FOR_SCOPE';
+  }
+
+  if (
+    transactions_received > 0 &&
+    stopped_reason !== 'VALIDATION_ERROR' &&
+    stopped_reason !== 'AUTH_REQUIRED' &&
+    stopped_reason !== 'NO_NEW_DATA'
+  ) {
+    return 'PARTIAL';
+  }
+
+  return 'UNKNOWN';
+}
+
 export class CharacterTransactionSyncService {
   private static defaultAdapter: EsiWalletClientAdapter = new HttpEsiWalletClientAdapter();
 
@@ -629,6 +661,7 @@ export class CharacterTransactionSyncService {
 
     return this.persistSummary({
       characterId,
+      fullHistoryRequested: options?.fullHistory === true,
       startedAt,
       completedAt,
       durationMs,
@@ -684,16 +717,12 @@ export class CharacterTransactionSyncService {
     dataState: DataState;
     healthStatus: DataHealthStatus;
   }): CharacterTransactionSyncSummary {
-    const historyCoverage: FinancialHistoryCoverage =
-      params.stoppedReason === 'NO_MORE_DATA' &&
-      (params.fullHistoryRequested === true || params.lastKnownTransactionIdBeforeSync === undefined)
-        ? 'COMPLETE_FOR_SCOPE'
-        : params.transactionsReceived > 0 &&
-            params.stoppedReason !== 'VALIDATION_ERROR' &&
-            params.stoppedReason !== 'AUTH_REQUIRED' &&
-            params.stoppedReason !== 'NO_NEW_DATA'
-          ? 'PARTIAL'
-          : 'UNKNOWN';
+    const historyCoverage = deriveTransactionHistoryCoverage({
+      full_history_requested: params.fullHistoryRequested === true,
+      last_known_transaction_id_before_sync: params.lastKnownTransactionIdBeforeSync,
+      stopped_reason: params.stoppedReason,
+      transactions_received: params.transactionsReceived,
+    });
 
     const economicOriginCoverage: EconomicOriginCoverage = 'UNKNOWN';
 

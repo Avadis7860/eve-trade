@@ -1,10 +1,14 @@
 # Current Chunk
 
-Status: ACTIVE
+Status: CLOSING
 Scope: Agent Context Hardening
 Branch: chore/agent-context-hardening-v2
 Base: main @ bacb0655b1fde3a4650b5cd94feed0fe8617be10
 PR: #79 (Draft)
+
+## Delivery status
+
+Implementation scope is frozen for certification and merge. No new work may be added to this delivery.
 
 ## Objective
 

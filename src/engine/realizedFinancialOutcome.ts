@@ -115,6 +115,7 @@ export class RealizedFinancialOutcomeEngine {
     const ledgerLots = positionLedger.position.lots;
     const lots: FifoLotRecord[] = ledgerLots.map((lot) => ({
       lot_id: lot.lot_id,
+      provenance: lot.provenance,
       buy_transaction_id: lot.transaction_id,
       type_id: lot.type_id,
       location_id: lot.location_id,
@@ -134,6 +135,7 @@ export class RealizedFinancialOutcomeEngine {
       );
       return {
         allocation_id: `alloc_${allocation.disposition_transaction_id}_${allocation.acquisition_lot_id.replace(/^acquisition_/, '')}_${allocationSeq++}`,
+        provenance: allocation.provenance,
         sell_transaction_id: allocation.disposition_transaction_id,
         buy_transaction_id: allocation.acquisition_transaction_id,
         type_id: typeId,

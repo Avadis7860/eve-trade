@@ -44,7 +44,8 @@ function transactionCharacterId(tx: LedgerTransaction, fallback: number): number
   return value === undefined ? fallback : value;
 }
 
-function validProvenance(provenance: FinancialProvenance): boolean {
+function validProvenance(provenance: FinancialProvenance | undefined): boolean {
+  if (!provenance) return false;
   return (
     provenance.source_kind === 'ESI_WALLET_TRANSACTION' ||
     provenance.source_kind === 'EXECUTION_TRANSACTION'

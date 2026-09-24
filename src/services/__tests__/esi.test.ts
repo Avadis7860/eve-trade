@@ -406,6 +406,10 @@ async function run() {
     !EsiService.validateOrder({ ...validOrderFixture, type_id: 0 }, 10000002, 34).isValid,
     'Explicit type_id=0 must remain invalid even when an expected type is provided',
   );
+  assert(
+    !EsiService.validateOrder({ ...validOrderFixture, is_buy_order: undefined }, 10000002).isValid,
+    'Missing market order side must remain invalid rather than becoming a SELL order',
+  );
 
   console.log('=== FRONTEND ESI / BACKEND TRANSPORT CONTRACT TESTS ===');
 
@@ -457,8 +461,9 @@ async function run() {
       });
     });
     const empty = await EsiService.fetchLiveOrdersDetailed(10000002, 34);
-    assert(empty.orders.length === 0, 'A market 404 remains an empty order book at the service boundary');
-    assert(empty.quality.completeness === 'empty', 'Empty market must not become a transport error');
+    assert(empty.orders.length === 0, 'A market 404 must not fabricate market orders');
+    assert(empty.quality.data_state === 'ERROR', 'A market 404 must remain ERROR rather than EMPTY');
+    assert(empty.quality.health_status === 'ERROR', 'A market 404 must degrade market health');
 
     console.log('✅ Frontend ESI transport contract tests passed.');
   } finally {

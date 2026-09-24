@@ -86,10 +86,10 @@ function run() {
     assert(result.position.unmatched_disposition_quantity === 10, 'disposition before acquisition must remain unmatched');
     assert(result.position.financial_completeness === 'PARTIAL', 'causal inventory deficit must be PARTIAL');
     assert(result.position.realized_gross_profit === 0, 'unmatched disposition must not fabricate profit');
-    assert(result.position.capital_committed === null, 'no causally known acquisition means committed capital is UNKNOWN');
-    assert(result.position.cash_recovered === null, 'orphan disposal must not fabricate recoverable capital');
-    assert(result.position.capital_recovery_delta === null, 'orphan disposal must not fabricate recovery delta');
-    assert(result.position.capital_recovery_ratio === null, 'orphan disposal must keep recovery ratio UNKNOWN');
+    assert(result.position.capital_committed === 1_000, 'the later valid acquisition still contributes known committed capital');
+    assert(result.position.cash_recovered === 0, 'the unmatched earlier disposal contributes no allocated recovery');
+    assert(result.position.capital_recovery_delta === -1_000, 'recovery delta reflects known capital with no allocated recovery yet');
+    assert(result.position.capital_recovery_ratio === 0, 'zero recovery is valid when known committed capital has no allocated disposals');
   }
 
   {

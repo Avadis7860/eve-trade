@@ -1438,6 +1438,7 @@ export class TraderAnalyticsService {
       unprofitable_trades: unprofitableTrades,
       win_rate_pct: winRatePct,
       average_realized_roi: avgRealizedRoi,
+      average_realized_roi_scope: 'CLOSING_DISPOSAL_ALLOCATIONS',
       average_hold_days: avgHoldDays,
       total_broker_fees_paid: totalBrokerFeesPaid,
       total_sales_tax_paid: totalSalesTaxPaid,

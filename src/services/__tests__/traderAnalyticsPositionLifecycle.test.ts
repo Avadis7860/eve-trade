@@ -123,6 +123,7 @@ function run() {
   const orphanCycle = orphanMetrics.recent_trade_cycles[0];
   assert(orphanCycle.roi === null, 'An orphan sale must expose ROI as unavailable rather than 0%');
   assert(orphanCycle.financial_completeness === 'PARTIAL', 'An orphan sale remains financially PARTIAL');
+  assert(orphanMetrics.average_realized_roi === null, 'Average realized ROI must be unavailable without a closed-position denominator');
 
   console.log('[PASS] FIN-002 position-based analytics semantics validated.');
 }

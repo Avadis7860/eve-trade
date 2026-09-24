@@ -75,6 +75,15 @@ assert(canonicalCatalog.isReady(), 'Canonical catalog must be restored before co
 const dynamic = canonicalCatalog.resolveType(987654321, { type_id: 987654321, name: 'Synthetic Type', volume: 1 });
 assert(!dynamic.is_verified && dynamic.confidence === 0, 'Dynamic fallback resolution must remain unverified');
 
+const missingVolumeDynamic = canonicalCatalog.resolveType(987654322, {
+  type_id: 987654322,
+  name: 'Synthetic Missing Volume',
+});
+assert(
+  missingVolumeDynamic.status === 'TYPE_UNKNOWN' && missingVolumeDynamic.volume === null,
+  'Dynamic type without physical volume must remain TYPE_UNKNOWN with unavailable volume',
+);
+
 const canonicalCollision = canonicalCatalog.registerCustomType({
   type_id: 34,
   name: 'Fake Canonical Override',

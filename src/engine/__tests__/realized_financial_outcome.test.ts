@@ -1852,6 +1852,13 @@ async function runAllTests() {
       execution_id: 'exec_obs_test_34',
       character_id: charId,
       observation_id: 'obs_test_34',
+      accounting_scope_id: `character:${charId}`,
+      source_coverage: 'MARKET_TRACEABLE',
+      history_coverage: 'COMPLETE_FOR_SCOPE',
+      economic_origin_coverage: 'COMPLETE_FOR_SCOPE',
+      position_segments: [],
+      position_disposition_states: [],
+      calculation_source: 'EXECUTION_RECORD',
       type_id: typeId,
 
       total_buy_quantity: 100,
@@ -1890,6 +1897,12 @@ async function runAllTests() {
       profit_per_unit: 4.4,
 
       remaining_inventory_cost_basis: 0,
+      capital_committed: 1000,
+      cash_recovered: 1500,
+      capital_recovery_delta: 500,
+      capital_recovery_ratio: 1.5,
+      position_lifecycle: 'CLOSED',
+      position_remaining_quantity: 0,
 
       first_buy_at: '2026-09-20T10:00:00Z',
       last_buy_at: '2026-09-20T10:00:00Z',

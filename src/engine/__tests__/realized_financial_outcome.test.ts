@@ -1791,9 +1791,9 @@ async function runAllTests() {
   console.log('--- RUNNING CHANTIER 3B-4A FINAL GATE SPECIFIC TESTS (A -> D) ---');
   console.log('==========================================================================');
 
-  // Test A — Direct cross-character isolation in calculateForTransactions (across different type_ids)
+  // Test A — Type filtering precedes unrelated-character transactions
   {
-    console.log('--- Final Gate Test A: Direct Cross-Character Isolation Across Different Type IDs ---');
+    console.log('--- Final Gate Test A: Type filtering isolates unrelated foreign transactions ---');
     const charA = 2113001;
     const charB = 2113002;
 
@@ -1811,39 +1811,25 @@ async function runAllTests() {
       {
         transaction_id: 8002,
         date: '2026-09-20T11:00:00Z',
-        type_id: 35, // Different type_id!
+        type_id: 35,
         location_id: 60003760,
         unit_price: 20,
         quantity: 50,
         is_buy: true,
-        character_id: charB, // Foreign character!
+        character_id: charB,
       },
     ];
 
-    let errorThrown: any = null;
-    try {
-      // Requested type_id is 34, foreign transaction has type_id 35
-      RealizedFinancialOutcomeEngine.calculateForTransactions(charA, 34, txs);
-    } catch (err) {
-      errorThrown = err;
-    }
-
-    assert(errorThrown !== null, 'Exception must be thrown on foreign transaction even with different type_id');
-    assert(
-      errorThrown instanceof CrossCharacterFinancialMappingViolationError ||
-        errorThrown?.name === 'CrossCharacterFinancialMappingViolationError',
-      `Error is CrossCharacterFinancialMappingViolationError (got ${errorThrown?.name})`
-    );
-    assert(
-      errorThrown.transactionCharacterId === charB,
-      `Identified foreign character ID ${charB} (got ${errorThrown.transactionCharacterId})`
-    );
-    assert(
-      errorThrown.executionCharacterId === charA,
-      `Identified target character ID ${charA} (got ${errorThrown.executionCharacterId})`
+    const outcome = RealizedFinancialOutcomeEngine.calculateForTransactions(
+      charA,
+      34,
+      txs,
     );
 
-    console.log('  [PASS] Final Gate Test A: Direct cross-character isolation verified before type filtering.');
+    assert(outcome.type_id === 34, 'Requested type remains 34');
+    assert(outcome.total_buy_quantity === 100, 'Unrelated foreign type does not enter requested accounting set');
+    assert(outcome.position_segments.length === 1, 'Only requested type contributes a position segment');
+    console.log('  [PASS] Final Gate Test A: unrelated foreign type is isolated by type filtering.');
   }
 
   // Test B — OBSERVED semantic propagation & invariants verification

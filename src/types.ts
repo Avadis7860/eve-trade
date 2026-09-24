@@ -6,7 +6,7 @@
  * - `universe.ts`: Resolution states, types, categories, groups, hubs, routes
  * - `financial.ts`: Financial configs, profit models, fee resolutions, FIFO outcomes
  * - `opportunity.ts`: Opportunities, certification, evidence, observations, forecasting
- * - `character.ts`: Sessions, fleet operations, orders, transactions, advisor recommendations
+ * - `character.ts`: Sessions, character/hub context, orders, transactions, advisor recommendations
  * - `execution.ts`: Execution tracking, correlation engine, fill mechanics, simulation
  */
 

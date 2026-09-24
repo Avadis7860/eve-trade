@@ -361,6 +361,7 @@ export class CatalogRepository {
     if (
       fallbackDetails &&
       fallbackDetails.name &&
+      typeof fallbackVolume === 'number' &&
       Number.isFinite(fallbackVolume) &&
       fallbackVolume > 0
     ) {

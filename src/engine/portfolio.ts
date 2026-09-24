@@ -144,9 +144,27 @@ function hardGateReasons(
     details.push('ROI sous le seuil configuré.');
   }
 
-  if (opp.expected_days_to_sell > config.max_days_to_sell) {
+  if (!Number.isFinite(opp.expected_days_to_sell) || opp.expected_days_to_sell <= 0) {
+    codes.push('DATA_ISSUE');
+    details.push('Expected days to sell invalide ou indisponible.');
+  } else if (opp.expected_days_to_sell > config.max_days_to_sell) {
     codes.push('POLICY_LIMIT');
     details.push('Expected days to sell au-dessus du plafond configuré.');
+  }
+
+  if (!Number.isFinite(opp.capturable_profit) || opp.capturable_profit < 0) {
+    codes.push('DATA_ISSUE');
+    details.push('Capturable profit invalide.');
+  }
+
+  if (!Number.isFinite(opp.profit_per_day) || opp.profit_per_day < 0) {
+    codes.push('DATA_ISSUE');
+    details.push('Profit/jour invalide.');
+  }
+
+  if (!Number.isFinite(opp.costs.roi)) {
+    codes.push('DATA_ISSUE');
+    details.push('ROI projeté invalide.');
   }
 
   if (config.avoid_chokepoints && !opp.route.is_highsec_only) {

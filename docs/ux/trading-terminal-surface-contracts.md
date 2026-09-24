@@ -16,7 +16,7 @@ Freeze the product responsibilities and information hierarchy before the major U
 | Discovery | What opportunities exist? | market observations + opportunity engine | which opportunity deserves inspection |
 | Operations | What should I do with active positions? | character/corporation orders + live market context | keep / adjust / relocate / cancel |
 | Allocation | Where should available capital go? | opportunity universe + treasury + risk policy | allocate / reserve / leave cash |
-| Performance | What did my trading actually produce? | ESI transactions + orders history + wallet journal + execution/outcome data | measure realized performance and model accuracy |
+| Performance | What did my trading actually produce? | ESI economic transactions + derived positions/allocations; order history and market observations are corroborating activity/provenance | measure realized performance and model accuracy |
 | Control Center | Which rules govern the engine? | persisted FinancialConfig + runtime sources | change trading policy |
 | Cockpit | What matters right now? | aggregation of the five surfaces above | prioritize attention |
 
@@ -30,6 +30,8 @@ Control Center is configurational.
 Cockpit is synthesizing.
 
 No surface should silently become the source of truth for another domain.
+
+Financial Truth is transaction/position based. Market-order side, current order history and opportunity snapshots are not substitutes for acquisition facts or realized P&L.
 
 ## Shared data-truth vocabulary
 

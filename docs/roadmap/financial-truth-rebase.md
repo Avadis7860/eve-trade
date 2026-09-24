@@ -96,8 +96,11 @@ The semantic correction is documented before the next code change:
 Create and validate the AcquisitionLot / CurrentPosition boundary. Preserve provenance and incomplete-history states.
 
 Current implementation:
-- deterministic positionLedger.ts reconstruction exists;
-- executable position-ledger regressions exist;
+- deterministic `positionLedger.ts` reconstruction exists;
+- `AcquisitionLot`, `DisposalAllocation` and `CurrentPosition` are first-class typed calculation outputs;
+- transaction provenance is explicit at the ledger boundary and is never inferred from optional order/opportunity correlation;
+- optional `order_id` is preserved only as normalized corroborating provenance;
+- executable position-ledger regressions cover partial, closed, FIFO, causal and incomplete-source scenarios;
 - no durable IndexedDB position source has been introduced.
 
 Acceptance:

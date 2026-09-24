@@ -534,7 +534,9 @@ export class TraderAnalyticsService {
         if (cycle.net_profit === null) {
           operationNetProfit = null;
         } else if (operationNetProfit !== null) {
-          operationNetProfit = roundIsk(operationNetProfit + cycle.net_profit);
+          // keep the whole-operation result unavailable when any cycle net is unavailable
+      if (cycle.net_profit === null) operationNetProfit = null;
+      else if (operationNetProfit !== null) operationNetProfit = roundIsk(operationNetProfit + cycle.net_profit);
         }
         disposedQuantity += cycle.quantity;
 
@@ -812,19 +814,19 @@ export class TraderAnalyticsService {
     let traderTitle = 'Négociant Initié';
     let traderBadgeColor = 'text-blue-400 bg-blue-500/10 border-blue-500/20';
 
-    if (totalRealizedProfit >= 1_000_000_000) {
+    if (totalRealizedProfit !== null && totalRealizedProfit >= 1_000_000_000) {
       traderTitle = 'Tycoon Suprême de New Eden';
       traderBadgeColor = 'text-amber-300 bg-amber-500/15 border-amber-500/30';
-    } else if (totalRealizedProfit >= 250_000_000) {
+    } else if (totalRealizedProfit !== null && totalRealizedProfit >= 250_000_000) {
       traderTitle = 'Magnat Commercial Régional';
       traderBadgeColor = 'text-purple-300 bg-purple-500/15 border-purple-500/30';
-    } else if (totalRealizedProfit >= 50_000_000) {
+    } else if (totalRealizedProfit !== null && totalRealizedProfit >= 50_000_000) {
       traderTitle = 'Capitaine Marchand Vétéran';
       traderBadgeColor = 'text-cyan-300 bg-cyan-500/15 border-cyan-500/30';
-    } else if (totalRealizedProfit >= 10_000_000) {
+    } else if (totalRealizedProfit !== null && totalRealizedProfit >= 10_000_000) {
       traderTitle = 'Arbitragiste Agile';
       traderBadgeColor = 'text-green-300 bg-green-500/15 border-green-500/30';
-    } else if (totalRealizedProfit < 0) {
+    } else if (totalRealizedProfit !== null && totalRealizedProfit < 0) {
       traderTitle = 'Trader en Restructuration';
       traderBadgeColor = 'text-orange-300 bg-orange-500/15 border-orange-500/30';
     }
@@ -910,9 +912,14 @@ export class TraderAnalyticsService {
           unit_price: tx.unit_price,
           quantity: tx.quantity,
           is_buy: true,
-          is_personal: true,
+          is_personal: tx.economic_owner_type === 'character',
           client_id: 0,
-        });
+          ...(tx.character_id !== undefined ? { character_id: tx.character_id } : { character_id: rec.character_id }),
+          ...(tx.accounting_scope_id ?? options?.accounting_scope_id
+            ? { accounting_scope_id: tx.accounting_scope_id ?? options?.accounting_scope_id }
+            : {}),
+          ...(tx.provenance ? { provenance: tx.provenance } : {}),
+        } as EveCharacterTransaction);
       }
       for (const tx of rec.execution_outcome.sell_transactions) {
         allTxs.push({
@@ -923,9 +930,14 @@ export class TraderAnalyticsService {
           unit_price: tx.unit_price,
           quantity: tx.quantity,
           is_buy: false,
-          is_personal: true,
+          is_personal: tx.economic_owner_type === 'character',
           client_id: 0,
-        });
+          ...(tx.character_id !== undefined ? { character_id: tx.character_id } : { character_id: rec.character_id }),
+          ...(tx.accounting_scope_id ?? options?.accounting_scope_id
+            ? { accounting_scope_id: tx.accounting_scope_id ?? options?.accounting_scope_id }
+            : {}),
+          ...(tx.provenance ? { provenance: tx.provenance } : {}),
+        } as EveCharacterTransaction);
       }
     }
 
@@ -978,12 +990,3 @@ export class TraderAnalyticsService {
 
     const itemRecord = metrics.top_profitable_items.find((item) => item.type_id === typeId);
     const categoryInfo = CatalogRepository.getInstance().getCategory(categoryId);
-    const catName = categoryInfo?.name || '';
-    const catRecord = catName ? metrics.category_success_rate[catName] : null;
-
-    if (itemRecord) {
-      const isVeryProfitable = itemRecord.total_profit > 10_000_000 && itemRecord.avg_roi > 0.15;
-      const isLoss = itemRecord.total_profit < 0;
-
-      if (isLoss) {
-        return {

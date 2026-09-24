@@ -229,9 +229,9 @@ if (mode === 'active') {
   let anchor = '';
   let head = '';
   try {
-    const parents = execFileSync('git', ['rev-list', '--parents', '-n', '1', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim().split(/\s+/);
-    head = parents[0] || '';
-    anchor = parents[1] || head;
+    const commitMetadata = execFileSync('git', ['show', '-s', '--format=%H %P', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim().split(/\s+/);
+    head = commitMetadata[0] || '';
+    anchor = commitMetadata[1] || head;
   } catch (error) {
     fail('git stable-anchor verification failed: ' + error.message);
     failed = true;

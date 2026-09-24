@@ -59,7 +59,7 @@ CI lane references are workflow-qualified because job IDs are not globally uniqu
 
 A stable `main` state must never be `ACTIVE`. The last merged delivery may remain represented as `CLOSING` until the next chantier creates a new `ACTIVE` manifest. This avoids requiring an unreviewed post-merge mutation of `main`.
 
-During PR certification, branch, PR number and base SHA must match the GitHub event. In stable mode, the CLOSING manifest carries the pre-merge main integration anchor. Validation checks that this anchor is the first parent of a merge commit (or HEAD for a non-merge stable commit) and that current-state identifies the same anchor. This keeps stable proof deterministic without any post-merge mutation.
+During PR certification, branch, PR number and base SHA must match the GitHub event. In stable mode, the CLOSING manifest carries the pre-merge main integration anchor. Validation reads the commit metadata directly to obtain the first parent of a merge commit (or HEAD when no parent exists) and checks that current-state identifies the same anchor. This avoids shallow-history traversal assumptions and keeps stable proof deterministic without any post-merge mutation.
 
 ## Historical archive rule
 

@@ -16,6 +16,14 @@ Source of truth: revalidated code and current state documents
 
 This is the only delivery chantier, on branch `chore/agent-context-hardening-v2` / PR #79, frozen for final certification and merge.
 
+### CONTEXT-003 — Stable Anchor Extraction Follow-up — CLOSING
+
+- Main Smoke post-merge proof must remain valid with the workflow's shallow checkout.
+- Stable integration anchor is read from commit metadata, not revision traversal.
+- Regression coverage protects the shallow-checkout behavior.
+
+This is the only active delivery chantier on branch `chore/agent-context-hardening-post-merge-fix` / PR #80.
+
 ## Product / UX program
 
 The authoritative product backlog is [UX-First Trading Terminal Program](ux-program.md).

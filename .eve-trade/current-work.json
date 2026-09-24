@@ -2,9 +2,9 @@
   "schema_version": 2,
   "purpose": "Operational state for the current technical chantier. This file is checkout-aware governance metadata, not normative business truth.",
   "state": "CLOSING",
-  "branch": "chore/agent-context-hardening-v2",
-  "pull_request": 79,
+  "branch": "chore/agent-context-hardening-post-merge-fix",
+  "pull_request": 80,
   "base_branch": "main",
-  "base_sha": "bacb0655b1fde3a4650b5cd94feed0fe8617be10",
+  "base_sha": "38e6aa3f65093f3feba3ddaaeb854ea6ddc68e08",
   "delivery_rule": "one_chantier_one_branch_one_pr"
 }

@@ -303,7 +303,7 @@ export interface TradeCycleRecord {
   gross_profit: number;
   estimated_fees_paid: number;
   net_profit: number;
-  roi: number; // e.g. 0.25 = +25%
+  roi: number | null; // null when the ROI denominator is unavailable
   hold_days: number;
   is_profitable: boolean;
   buy_location?: string;

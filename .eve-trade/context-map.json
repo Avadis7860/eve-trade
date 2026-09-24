@@ -582,9 +582,7 @@
       "ci": "CI/workflow configuration classification.",
       "config": "Package/runtime/build configuration classification.",
       "tests": "Test-path classification.",
-      "docs": "Documentation classification.",
-      "ambiguous": "Conservative unknown/unclassified fallback; never use this as positive functional evidence.",
-      "full_certification": "Derived aggregate certification condition; not a substitute for a functional class."
+      "docs": "Documentation classification."
     }
   }
 }

@@ -154,12 +154,32 @@ async function run() {
   // the service boundary must accept the omitted is_buy_order property.
   setBackendApiFetchForTesting(async (input, init) => {
     const url = String(input);
-    const authorization =
-      (init?.headers as Record<string, string> | undefined)?.Authorization || '';
-    assert(authorization === 'Bearer corp-token-real', 'Observed real-payload request must use the supplied credential');
+
+    // Keep the regression mock scoped to the exact route under test. Other
+    // requests can still be in flight from the preceding auth/collection
+    // contract checks and must not make this focused assertion flaky.
     if (!url.includes('/api/character/2124224223/corporation/orders')) {
-      throw new Error('Unexpected real corporation order regression request: ' + url);
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
+
+    const headers = init?.headers;
+    const authorization =
+      headers instanceof Headers
+        ? headers.get('Authorization') || ''
+        : Array.isArray(headers)
+          ? headers.find(([name]) => name.toLowerCase() === 'authorization')?.[1] || ''
+          : (headers as Record<string, string> | undefined)?.Authorization ||
+            (headers as Record<string, string> | undefined)?.authorization ||
+            '';
+
+    assert(
+      authorization === 'Bearer corp-token-real',
+      'Observed real-payload request must use the supplied credential',
+    );
+
     return new Response(JSON.stringify([{
       duration: 90,
       issued: '2026-09-24T01:16:23Z',

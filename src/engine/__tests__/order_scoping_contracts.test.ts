@@ -139,9 +139,9 @@ function runOrderScopingTests() {
   console.log('--- Test 4: Identity & Immutability invariants ---');
   for (const o of [orderA, orderB]) {
     const characterId = o.character_id;
-    assert(characterId !== undefined, 'character_id must be defined');
-    assert(typeof characterId === 'number', 'character_id must be a real EVE ID');
-    assert(characterId > 0, 'character_id must be positive');
+    if (typeof characterId !== 'number' || characterId <= 0) {
+      throw new Error('character_id must be a positive numeric EVE ID');
+    }
   }
   console.log('  [PASS] Test 4: No artificial character identity was introduced.');
 

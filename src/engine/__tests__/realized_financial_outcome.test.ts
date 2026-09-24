@@ -1208,7 +1208,7 @@ async function runAllTests() {
     assert(resShuffled.realized_acquisition_cost === resSorted.realized_acquisition_cost, 'Adv 1: Sorting determinism for cost');
     assert(resShuffled.fifo_allocations[0].buy_transaction_id === 101, 'Adv 1: Earlier buy lot 101 consumed first despite array ordering');
 
-    // Adv 2: Non-finite and negative inputs clamped defensively
+    // Adv 2: Non-finite and negative inputs remain explicit and cannot fabricate ratios
     const degenBuy: ExecutionTransactionRef = {
       transaction_id: 109,
       type_id: 34,
@@ -1231,8 +1231,8 @@ async function runAllTests() {
     const degenOutcome = RealizedFinancialOutcomeEngine.calculate(degenRecord, { financialConfig: mockFinancialConfig });
 
     assert(Number.isFinite(degenOutcome.gross_realized_profit), 'Adv 2: No NaN or Infinity propagation');
-    assert(Number.isFinite(degenOutcome.roi), 'Adv 2: Finite ROI');
-    assert(Number.isFinite(degenOutcome.margin), 'Adv 2: Finite margin');
+    assert(degenOutcome.roi === null, 'Adv 2: ROI is unavailable without a valid cost denominator');
+    assert(degenOutcome.margin === null, 'Adv 2: Margin is unavailable without a valid revenue denominator');
 
     // Adv 3: Financial completeness taxonomy verification
     // 3.1: UNAVAILABLE when no config

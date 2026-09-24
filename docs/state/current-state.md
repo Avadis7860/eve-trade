@@ -9,7 +9,7 @@ CI gate: [../validation/ci.md](../validation/ci.md)
 
 ## Current baseline
 
-The functional E2E-001 baseline is 9438bbedb2d44cf3f5f371144bcf72094955cd46. Deterministic browser CI is green and the target-PC real-CCP SSO/ESI smoke PASS was recorded on 2026-09-23.
+Current main head is `95e970933a1d440fb61d25a6f677742731b697aa` after PR #68. The functional E2E-001 baseline was `9438bbedb2d44cf3f5f371144bcf72094955cd46`. Deterministic browser CI is green and the target-PC real-CCP SSO/ESI smoke PASS was recorded on 2026-09-23.
 
 The UX-first program has closed the P0 market/ESI retrieval reliability gate. UX-01 is DONE / EXTERNALLY BOUNDED; the previously reported target-PC market-display symptom is resolved and the current application is functional.
 
@@ -44,7 +44,7 @@ The single-active-branch/PR rule remains mandatory: one delivery branch at a tim
 
 ## CI operator tooling status
 
-Oclif is **planned / not implemented** as a future project CLI operator layer. It is intentionally not part of the active P0-B branch scope.
+Oclif is **planned / not implemented** as a future project CLI operator layer. It is not part of any active product branch.
 
 The intended separation is:
 - GitHub Actions = CI and certification authority;

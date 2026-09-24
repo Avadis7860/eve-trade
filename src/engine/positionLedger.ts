@@ -488,6 +488,15 @@ export function reconstructPositionLedger(
     ) ??
     [...positionSegments].reverse()[0];
 
+  const emptyPositionCompleteness =
+    invalidTransactionIds.length > 0 || unmatchedDispositionQuantity > 0
+      ? 'PARTIAL'
+      : 'UNAVAILABLE';
+  const emptyPositionSourceCoverage: FinancialSourceCoverage =
+    invalidTransactionIds.length > 0 || unmatchedDispositionQuantity > 0
+      ? 'PARTIAL'
+      : 'UNAVAILABLE';
+
   const emptyPosition: CurrentPosition = Object.freeze({
     position_id: 'position_' + accountingScopeId + '_' + typeId + '_unknown',
     position_segment_id: 'unknown',
@@ -507,9 +516,9 @@ export function reconstructPositionLedger(
     capital_recovery_state: null,
     provenance: Object.freeze([]),
     lifecycle_status: 'UNKNOWN',
-    position_completeness: 'UNAVAILABLE',
-    financial_completeness: 'UNAVAILABLE',
-    source_coverage: 'UNAVAILABLE',
+    position_completeness: emptyPositionCompleteness,
+    financial_completeness: emptyPositionCompleteness,
+    source_coverage: emptyPositionSourceCoverage,
     history_coverage: historyCoverage,
     economic_origin_coverage: economicOriginCoverage,
     lots: Object.freeze([]),

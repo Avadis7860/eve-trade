@@ -400,6 +400,8 @@ export interface RealizedFinancialCalculationOptions {
   readonly executionFeeMode?: ExecutionFeeRoleMode;
   /** Explicit economic accounting scope; characters are reporting/provenance dimensions. */
   readonly accounting_scope_id?: string;
+  /** Evidence envelope for transaction-history and economic-origin coverage. Omitted means UNKNOWN. */
+  readonly coverage_evidence?: FinancialCoverageEvidence;
   readonly transactions?: readonly any[]; // Accepts PersistedCharacterTransaction or ExecutionTransactionRef
   readonly now?: () => string;
 }

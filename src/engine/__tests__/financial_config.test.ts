@@ -149,6 +149,18 @@ async function runTests(): Promise<void> {
     assert(result.corporation_wallet_balance === 7_000_000_000, 'Persisted balance must remain readable');
   });
 
+  test('legacy fleet treasury mode is migrated to corporation and never restores combined capital', () => {
+    const result = loadPersistedFinancialConfig(
+      JSON.stringify({
+        treasury_source_mode: 'fleet_consolidated',
+        fleet_consolidated_capital: 9_000_000_000,
+      }),
+      defaults,
+    );
+    assert(result.treasury_source_mode === 'corporation', 'Legacy fleet treasury mode must migrate to corporation');
+    assert((result as any).fleet_consolidated_capital === undefined, 'Legacy combined capital must not survive normalization');
+  });
+
   test('invalid persisted JSON falls back to defaults without throwing', () => {
     const result = loadPersistedFinancialConfig('{not-json', defaults);
     assert(result.available_capital === defaults.available_capital, 'Invalid JSON must fall back to defaults');

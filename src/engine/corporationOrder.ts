@@ -68,6 +68,15 @@ function normalizeCommonCorporationOrder(
   const volumeTotal = Number(source.volume_total);
   const duration = Number(source.duration ?? 90);
 
+  const rawIsBuyOrder = source.is_buy_order;
+  if (rawIsBuyOrder !== undefined && typeof rawIsBuyOrder !== 'boolean') {
+    return null;
+  }
+  // ESI declares is_buy_order optional on this corporation endpoint. When the
+  // field is omitted, the observed order is the non-buy/sell form; never
+  // fabricate a buy order from an absent property.
+  const isBuyOrder = rawIsBuyOrder ?? false;
+
   if (
     !orderId ||
     !Number.isInteger(typeId) ||
@@ -85,8 +94,7 @@ function normalizeCommonCorporationOrder(
     !finiteNumber(duration) ||
     duration < 0 ||
     typeof source.issued !== 'string' ||
-    source.issued.length === 0 ||
-    typeof source.is_buy_order !== 'boolean'
+    source.issued.length === 0
   ) {
     return null;
   }
@@ -117,7 +125,7 @@ function normalizeCommonCorporationOrder(
     price,
     volumeRemain,
     volumeTotal,
-    isBuyOrder: source.is_buy_order,
+    isBuyOrder,
     issued: source.issued,
     duration,
     ...(escrow !== undefined ? { escrow } : {}),

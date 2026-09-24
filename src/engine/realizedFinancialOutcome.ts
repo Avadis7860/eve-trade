@@ -49,6 +49,7 @@ import type { PositionLedgerTransaction } from './positionLedger';
 
 export const REALIZED_FINANCIAL_ENGINE_VERSION = '1.0.0';
 
+/** @deprecated Character identity is attribution/provenance, not an accounting boundary. */
 export class CrossCharacterFinancialMappingViolationError extends Error {
   constructor(
     public readonly transactionCharacterId: number,
@@ -56,7 +57,9 @@ export class CrossCharacterFinancialMappingViolationError extends Error {
     public readonly transactionId: number
   ) {
     super(
-      `Cross-character mapping violation: Transaction ${transactionId} belongs to character ${transactionCharacterId}, but execution record belongs to character ${executionCharacterId}. Cross-character financial attribution is strictly prohibited.`
+      'Legacy cross-character financial mapping guard invoked for transaction ' +
+        transactionId +
+        '; FIN-002 now permits cross-character allocation inside an explicit accounting scope.'
     );
     this.name = 'CrossCharacterFinancialMappingViolationError';
   }
@@ -79,6 +82,7 @@ export class RealizedFinancialOutcomeEngine {
     }
 
     const characterId = executionRecord.character_id;
+    const accountingScopeId = options?.accounting_scope_id?.trim() || 'character:' + characterId;
     if (!characterId || characterId <= 0) {
       throw new Error(
         `RealizedFinancialOutcomeEngine.calculate requires a valid positive character_id. Received: ${characterId} (character_id=0 is reserved for fleet contexts and cannot be used for individual character calculations)`
@@ -114,6 +118,7 @@ export class RealizedFinancialOutcomeEngine {
       ...sortedSells,
     ].map((tx) => ({
       ...tx,
+      accounting_scope_id: accountingScopeId,
       provenance:
         provenanceByTransactionId.get(tx.transaction_id) ?? {
           source_kind: 'EXECUTION_TRANSACTION',
@@ -122,7 +127,7 @@ export class RealizedFinancialOutcomeEngine {
         },
     }));
 
-    const positionLedger = reconstructPositionLedger(characterId, typeId, ledgerTransactions);
+    const positionLedger = reconstructPositionLedger(accountingScopeId, typeId, ledgerTransactions);
 
     const ledgerLots = positionLedger.position.lots;
     const lots: FifoLotRecord[] = ledgerLots.map((lot) => ({
@@ -191,6 +196,7 @@ export class RealizedFinancialOutcomeEngine {
     const cashRecovered = positionLedger.position.cash_recovered;
     const capitalRecoveryDelta = positionLedger.position.capital_recovery_delta;
     const capitalRecoveryRatio = positionLedger.position.capital_recovery_ratio;
+    const sourceCoverage = positionLedger.position.source_coverage;
 
     // 6. Fee Calculations via FeeEngine
     const fees = this.calculateFees(
@@ -209,6 +215,7 @@ export class RealizedFinancialOutcomeEngine {
     let realizedNetEstimated: number | null = null;
 
     if (
+      sourceCoverage === 'UNAVAILABLE' ||
       positionLedger.position.invalid_transaction_ids.length > 0 ||
       hasUnmatchedSellQuantity ||
       (matchedQuantity === 0 && totalSellQuantity > 0)
@@ -240,7 +247,10 @@ export class RealizedFinancialOutcomeEngine {
     }
 
     // 8. Ratios and Rates (protected against zero division)
-    const roi = realizedAcquisitionCost > 0 ? safeDiv(netRealizedProfit, realizedAcquisitionCost, 0.0) : null;
+    const roi =
+      sourceCoverage === 'MARKET_TRACEABLE' && realizedAcquisitionCost > 0
+        ? safeDiv(netRealizedProfit, realizedAcquisitionCost, 0.0)
+        : null;
     const margin = realizedRevenue > 0 ? safeDiv(netRealizedProfit, realizedRevenue, 0.0) : null;
     const profitPerUnit = matchedQuantity > 0 ? safeDiv(netRealizedProfit, matchedQuantity, 0.0) : null;
 
@@ -341,6 +351,9 @@ export class RealizedFinancialOutcomeEngine {
       outcome_id: outcomeId,
       execution_id: executionId,
       character_id: characterId,
+      accounting_scope_id: accountingScopeId,
+      source_coverage: sourceCoverage,
+      position_disposition_states: Object.freeze(positionLedger.position.disposition_states),
       observation_id: observationId,
       opportunity_id: opportunityId,
       type_id: typeId,
@@ -409,7 +422,6 @@ export class RealizedFinancialOutcomeEngine {
   } {
     const characterId = executionRecord.character_id;
 
-    // If external transactions were provided, validate isolation and filter
     if (options?.transactions && options.transactions.length > 0) {
       const allowedTxIds = new Set(executionRecord.transaction_ids);
       const buyList: ExecutionTransactionRef[] = [];
@@ -418,53 +430,45 @@ export class RealizedFinancialOutcomeEngine {
       let foundTypeId = 0;
 
       for (const tx of options.transactions) {
-        // Enforce cross-character guard if character_id is present
-        if ('character_id' in tx && tx.character_id !== undefined && tx.character_id !== characterId) {
-          throw new CrossCharacterFinancialMappingViolationError(
-            tx.character_id,
-            characterId,
-            tx.transaction_id
-          );
-        }
+        if (!allowedTxIds.has(tx.transaction_id)) continue;
+        foundTypeId = tx.type_id;
 
-        if (allowedTxIds.has(tx.transaction_id)) {
-          foundTypeId = tx.type_id;
+        const txCharacterId =
+          'character_id' in tx && tx.character_id !== undefined
+            ? tx.character_id
+            : characterId;
 
-          const provenance: import('../types').FinancialProvenance =
-            'provenance' in tx && tx.provenance && typeof tx.provenance === 'object'
-              ? tx.provenance as import('../types').FinancialProvenance
-              : {
-                  // Existing transaction inputs are wallet economic facts unless
-                  // an upstream boundary explicitly tags them otherwise.
-                  source_kind: 'ESI_WALLET_TRANSACTION',
-                  source_id: String(tx.transaction_id),
-                  principal_scope: `character:${characterId}`,
-                };
-          provenanceByTransactionId.set(tx.transaction_id, provenance);
+        const provenance: import('../types').FinancialProvenance =
+          'provenance' in tx && tx.provenance && typeof tx.provenance === 'object'
+            ? tx.provenance as import('../types').FinancialProvenance
+            : {
+                source_kind: 'ESI_WALLET_TRANSACTION',
+                source_id: String(tx.transaction_id),
+                principal_scope: 'character:' + txCharacterId,
+              };
 
-          const ref: ExecutionTransactionRef = {
-            transaction_id: tx.transaction_id,
-            type_id: tx.type_id,
-            location_id: tx.location_id,
-            is_buy: tx.is_buy,
-            quantity: tx.quantity,
-            unit_price: tx.unit_price,
-            timestamp: 'timestamp' in tx && tx.timestamp
+        provenanceByTransactionId.set(tx.transaction_id, provenance);
+
+        const ref: ExecutionTransactionRef = {
+          transaction_id: tx.transaction_id,
+          type_id: tx.type_id,
+          location_id: tx.location_id,
+          is_buy: tx.is_buy,
+          quantity: tx.quantity,
+          unit_price: tx.unit_price,
+          timestamp:
+            'timestamp' in tx && tx.timestamp
               ? tx.timestamp
               : ('date' in tx && tx.date ? tx.date : new Date(0).toISOString()),
-            character_id: characterId,
-            ...( 'order_id' in tx && tx.order_id ? { order_id: tx.order_id } : {}),
-            observation_id: executionRecord.observation_id,
-            opportunity_id: executionRecord.opportunity_id,
-            provenance,
-          };
+          character_id: txCharacterId,
+          ...('order_id' in tx && tx.order_id ? { order_id: tx.order_id } : {}),
+          observation_id: executionRecord.observation_id,
+          opportunity_id: executionRecord.opportunity_id,
+          provenance,
+        };
 
-          if (tx.is_buy) {
-            buyList.push(ref);
-          } else {
-            sellList.push(ref);
-          }
-        }
+        if (tx.is_buy) buyList.push(ref);
+        else sellList.push(ref);
       }
 
       return {
@@ -475,26 +479,28 @@ export class RealizedFinancialOutcomeEngine {
       };
     }
 
-    // Default: use the transactions already correlated inside executionRecord.execution_outcome
     const buyTxs = [...executionRecord.execution_outcome.buy_transactions];
     const sellTxs = [...executionRecord.execution_outcome.sell_transactions];
     const provenanceByTransactionId = new Map<number, import('../types').FinancialProvenance>();
+
     for (const tx of [...buyTxs, ...sellTxs]) {
       provenanceByTransactionId.set(
         tx.transaction_id,
         tx.provenance ?? {
           source_kind: 'ESI_WALLET_TRANSACTION',
           source_id: String(tx.transaction_id),
-          principal_scope: `character:${characterId}`,
+          principal_scope:
+            tx.character_id !== undefined
+              ? 'character:' + tx.character_id
+              : 'character:' + characterId,
         },
       );
     }
+
     const sampleTx = buyTxs[0] || sellTxs[0];
     const typeId = sampleTx ? sampleTx.type_id : 0;
-
     return { buyTxs, sellTxs, typeId, provenanceByTransactionId };
   }
-
   /**
    * Calculates fees using FeeEngine, distinguishing between observed, estimated, and unavailable.
    */
@@ -615,44 +621,47 @@ export class RealizedFinancialOutcomeEngine {
       quantity: number;
       is_buy: boolean;
       character_id?: number;
+      accounting_scope_id?: string;
+      provenance?: import('../types').FinancialProvenance;
     })[],
     options?: RealizedFinancialCalculationOptions
   ): RealizedFinancialOutcome {
     if (!characterId || characterId <= 0) {
       throw new Error(
-        `RealizedFinancialOutcomeEngine.calculateForTransactions requires a valid positive characterId. Received: ${characterId} (character_id=0 is reserved for fleet contexts and cannot be used for individual character calculations)`
+        'RealizedFinancialOutcomeEngine.calculateForTransactions requires a valid positive reporting characterId. Received: ' +
+          characterId
       );
     }
 
-    // Invariant: Direct cross-character isolation check across ALL provided transactions BEFORE any type_id filtering.
-    // If ANY transaction contains a character_id different from characterId, immediately reject with
-    // CrossCharacterFinancialMappingViolationError, regardless of its type_id.
-    for (const tx of transactions) {
-      const txCharId = 'character_id' in tx && tx.character_id !== undefined ? tx.character_id : characterId;
-      if (txCharId !== characterId) {
-        throw new CrossCharacterFinancialMappingViolationError(txCharId, characterId, tx.transaction_id);
-      }
-    }
-
+    const accountingScopeId = options?.accounting_scope_id?.trim() || 'character:' + characterId;
     const refs: ExecutionTransactionRef[] = transactions
       .filter((tx) => tx.type_id === typeId)
       .map((tx) => {
+        const txCharacterId =
+          'character_id' in tx && tx.character_id !== undefined
+            ? tx.character_id
+            : characterId;
         const ts =
           'timestamp' in tx && tx.timestamp
             ? tx.timestamp
             : ('date' in tx && tx.date ? tx.date : new Date(0).toISOString());
+
         return {
           transaction_id: tx.transaction_id,
-          character_id: characterId,
+          character_id: txCharacterId,
           type_id: tx.type_id,
           location_id: tx.location_id,
           is_buy: tx.is_buy,
           quantity: tx.quantity,
           unit_price: tx.unit_price,
           timestamp: ts,
-          ...( 'order_id' in tx && tx.order_id ? { order_id: tx.order_id } : {}),
-          ...( 'provenance' in tx && tx.provenance ? { provenance: tx.provenance } : {}),
-        };
+          ...('order_id' in tx && tx.order_id ? { order_id: tx.order_id } : {}),
+          ...('provenance' in tx && tx.provenance ? { provenance: tx.provenance } : {}),
+          accounting_scope_id:
+            'accounting_scope_id' in tx && tx.accounting_scope_id
+              ? tx.accounting_scope_id
+              : accountingScopeId,
+        } as ExecutionTransactionRef;
       });
 
     const buyTxs = refs.filter((r) => r.is_buy);
@@ -664,17 +673,16 @@ export class RealizedFinancialOutcomeEngine {
 
     const firstTime = refs[0]?.timestamp || new Date(0).toISOString();
     const lastTime = refs[refs.length - 1]?.timestamp || new Date(0).toISOString();
-
     const executionStatus =
       buyTxs.length > 0 && sellTxs.length > 0
         ? (totalSellQuantity >= totalBuyQuantity ? 'CLOSED' : 'SELL_PARTIAL')
         : (buyTxs.length > 0 ? 'BUY_FILLED' : 'PLANNED');
 
     const syntheticRecord: CharacterExecutionRecord = Object.freeze({
-      execution_id: `exec_synth_${characterId}_${typeId}`,
+      execution_id: 'exec_synth_' + characterId + '_' + typeId + '_' + accountingScopeId,
       character_id: characterId,
-      observation_id: `obs_synth_${typeId}`,
-      opportunity_id: `opp_synth_${typeId}`,
+      observation_id: 'obs_synth_' + typeId,
+      opportunity_id: 'opp_synth_' + typeId,
       match_level: 'DIRECT_MATCH',
       transaction_ids: Object.freeze(refs.map((r) => r.transaction_id)),
       first_correlated_at: firstTime,
@@ -688,7 +696,7 @@ export class RealizedFinancialOutcomeEngine {
         executed_buy_quantity: totalBuyQuantity,
         executed_sell_quantity: totalSellQuantity,
         remaining_inventory_quantity: Math.max(0, totalBuyQuantity - totalSellQuantity),
-        buy_fill_ratio: 1.0,
+        buy_fill_ratio: totalBuyQuantity > 0 ? 1.0 : 0.0,
         sell_fill_ratio: totalBuyQuantity > 0 ? Math.min(1.0, totalSellQuantity / totalBuyQuantity) : 0,
         vwap_buy_price: totalBuyQuantity > 0 ? totalBuyCost / totalBuyQuantity : null,
         vwap_sell_price: totalSellQuantity > 0 ? totalSellRevenue / totalSellQuantity : null,
@@ -699,13 +707,13 @@ export class RealizedFinancialOutcomeEngine {
         buy_transactions: Object.freeze(buyTxs),
         sell_transactions: Object.freeze(sellTxs),
         linked_order_ids: Object.freeze([]),
-        candidate_observation_ids: Object.freeze([`obs_synth_${typeId}`]),
+        candidate_observation_ids: Object.freeze(['obs_synth_' + typeId]),
       }),
     });
 
     return this.calculate(syntheticRecord, {
       ...options,
+      accounting_scope_id: accountingScopeId,
       transactions,
     });
-  }
-}
+  }}

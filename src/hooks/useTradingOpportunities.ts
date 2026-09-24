@@ -60,7 +60,6 @@ export function useTradingOpportunities(
       orderBooks,
       historyCache,
       qualities,
-      characters,
     );
   }, [selectedType, hubs, strategy, config, orderBooks, historyCache, characters]);
 

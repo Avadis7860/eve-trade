@@ -50,6 +50,18 @@ function run() {
   assert(metrics.total_closed_trades === 0, 'a partial disposal must not count as a closed trade');
   assert(metrics.win_rate_pct === null, 'win rate must be unavailable when no position is fully closed');
   assert(metrics.profitable_trades === 0, 'a partially realized position must not count as a profitable closed trade');
+  assert(
+    TraderAnalyticsService.calibrateOpportunity(34, 4, metrics).historical_avg_roi === null,
+    'personal calibration ROI must remain unavailable without historical sample',
+  );
+  assert(
+    TraderAnalyticsService.calibrateOpportunity(34, 4, metrics).historical_win_rate === null,
+    'personal calibration win rate must remain unavailable without historical sample',
+  );
+  assert(
+    TraderAnalyticsService.calibrateOpportunity(34, 4, metrics).historical_avg_hold_days === null,
+    'personal calibration hold time must remain unavailable without historical sample',
+  );
   assert(metrics.recent_trade_cycles.length === 1, 'the realized disposal remains visible as an event');
   assert(
     metrics.recent_trade_cycles[0].position_lifecycle === 'PARTIALLY_REALIZED',

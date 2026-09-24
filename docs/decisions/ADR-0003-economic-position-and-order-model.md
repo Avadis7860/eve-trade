@@ -1,6 +1,6 @@
 # ADR-0003 — Economic Transactions, Acquisition Lots and Canonical Market Orders
 
-Status: PROPOSED / BLOCKING DEPENDENT DEVELOPMENT
+Status: ACCEPTED / ORD-001 CERTIFIED; FIN-001 IMPLEMENTATION NEXT
 Date: 2026-09-24
 Scope: financial truth, performance, portfolio and market-order provenance
 
@@ -142,7 +142,7 @@ Performance must expose realized disposal outcomes separately from position-leve
 
 No durable position store is mandated by this ADR. Wallet transactions remain durable FACTS; position/lots are deterministic projections unless a later decision explicitly introduces persistence.
 
-UX-03 Real Portfolio and UX-04 Performance remain blocked until this contract is implemented, validated and reflected consistently in UI and analytics.
+ORD-001 is implemented and certified. FIN-001 remains the next implementation gate for the AcquisitionLot / CurrentPosition boundary; broader Real Portfolio and Performance certification remains blocked until the financial sequence is complete.
 
 ## Required regression scenarios
 

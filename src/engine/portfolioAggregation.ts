@@ -467,7 +467,7 @@ export function buildProposedAllocationSnapshot(
   const unallocatedTotal =
     treasury.allocation_budget === null
       ? null
-      : reserveLocked + withinBudget;
+      : reserveLocked + (withinBudget ?? 0);
 
   const reasons = [...(simulation.unallocated_reasons ?? [])];
   if (reserveLocked > 0) {

@@ -169,6 +169,9 @@ export const PortfolioView: React.FC<PortfolioViewProps> = ({
             <HealthBadge status={proposedAllocation.data_health} />
             <HealthBadge status={proposedAllocation.freshness} />
             <span className="text-[10px] font-mono text-[#808495]">
+              Scope {proposedAllocation.treasury.source_id} · {proposedAllocation.treasury.principal_scope}
+            </span>
+            <span className="text-[10px] font-mono text-[#808495]">
               Couverture {proposedAllocation.candidate_universe.coverage}
             </span>
             <span className="text-[10px] font-mono text-[#808495]">

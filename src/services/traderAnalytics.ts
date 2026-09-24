@@ -510,7 +510,7 @@ export class TraderAnalyticsService {
     const avgRealizedRoi =
       closedRoiCycles.length > 0
         ? closedRoiCycles.reduce((acc, c) => c.roi === null ? acc : acc + c.roi, 0) / closedRoiCycles.length
-        : 0;
+        : null;
 
     const avgHoldDays =
       totalClosedTrades > 0
@@ -1366,7 +1366,7 @@ export class TraderAnalyticsService {
     const avgRealizedRoi =
       legacyRoiCycles.length > 0
         ? legacyRoiCycles.reduce((acc, c) => c.roi === null ? acc : acc + c.roi, 0) / legacyRoiCycles.length
-        : 0;
+        : null;
     const avgHoldDays =
       totalClosedTrades > 0
         ? completedCycles.filter((c) => c.quantity > 0).reduce((acc, c) => acc + c.hold_days, 0) /

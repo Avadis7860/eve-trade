@@ -47,7 +47,7 @@ function loadContextCriticalPaths() {
 }
 
 const CONTEXT_CRITICAL_PATHS = loadContextCriticalPaths();
-export function classifyPaths(input) {
+export function classifyPaths(input, { respectContextCritical = true } = {}) {
   const paths = Array.isArray(input)
     ? input.map((value) => String(value).trim()).filter(Boolean)
     : String(input ?? '').split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
@@ -60,6 +60,7 @@ export function classifyPaths(input) {
     if (path.startsWith('.eve-trade/') || CONTEXT_CRITICAL_PATHS.has(path)) {
       ambiguous = true;
       if (path.startsWith('docs/')) docs = true;
+      if (respectContextCritical) continue;
     }
     if (path.startsWith('.github/workflows/') || path === '.github/dependabot.yml') ci = true;
     else if (path.startsWith('src/engine/')) domain = true;

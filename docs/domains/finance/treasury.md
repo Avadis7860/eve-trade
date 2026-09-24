@@ -9,7 +9,7 @@ CI gate: corporation boundary
 
 ## Sources
 
-Supported modes are corporation, fleet-consolidated, active-character and manual-budget.
+Supported modes are corporation, active-character and manual-budget. A legacy `fleet_consolidated` persisted value is migrated to the corporation mode and is never treated as certified combined capital.
 
 Corporation wallet provenance distinguishes fresh ESI observation, manual value and unavailable state. Unavailable corporation capital is not converted into spendable zero or character capital.
 

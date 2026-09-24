@@ -426,7 +426,8 @@ export class TraderAnalyticsService {
     const profitableTrades = closedCycles.filter((c) => c.is_profitable).length;
     const unprofitableTrades = closedCycles.filter((c) => !c.is_profitable).length;
     const totalClosedTrades = closedCycles.length;
-    const winRatePct = totalClosedTrades > 0 ? (profitableTrades / totalClosedTrades) * 100 : 100;
+    const winRatePct: number | null =
+      totalClosedTrades > 0 ? (profitableTrades / totalClosedTrades) * 100 : null;
 
     const avgRealizedRoi =
       totalClosedTrades > 0
@@ -609,7 +610,10 @@ export class TraderAnalyticsService {
       category_success_rate: categorySuccessRate,
       trader_title: traderTitle,
       trader_badge_color: traderBadgeColor,
-      calibration_weight: Math.min(1.3, Math.max(0.7, 1 + (winRatePct - 50) / 100)),
+      calibration_weight:
+        winRatePct === null
+          ? 1.0
+          : Math.min(1.3, Math.max(0.7, 1 + (winRatePct - 50) / 100)),
       // Financial Truth & Completeness metrics (Chantier 3B-4A.2 & Final Gate)
       financial_completeness: overallCompleteness,
       is_net_estimated: isNetEstimated,

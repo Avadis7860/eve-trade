@@ -540,9 +540,7 @@ export class TraderAnalyticsService {
         if (cycle.net_profit === null) {
           operationNetProfit = null;
         } else if (operationNetProfit !== null) {
-          // keep the whole-operation result unavailable when any cycle net is unavailable
-      if (cycle.net_profit === null) operationNetProfit = null;
-      else if (operationNetProfit !== null) operationNetProfit = roundIsk(operationNetProfit + cycle.net_profit);
+          operationNetProfit = roundIsk(operationNetProfit + cycle.net_profit);
         }
         disposedQuantity += cycle.quantity;
 
@@ -978,18 +976,3 @@ export class TraderAnalyticsService {
     } catch {}
     return null;
   }
-
-  /**
-   * Evaluates a trade opportunity against the user's real historical trade track record.
-   * Provides adaptive weighting, confidence boosts, and personalized risk badges.
-   */
-  static calibrateOpportunity(
-    typeId: number,
-    categoryId: number,
-    metrics: TraderPerformanceMetrics | null
-  ): PersonalCalibrationFit {
-    if (!metrics || metrics.total_closed_trades === 0) {
-      return {
-        has_personal_history: false,
-        total_historical_trades: 0,
-        historical_realized_profit: 0,

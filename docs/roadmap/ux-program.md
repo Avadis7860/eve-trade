@@ -36,7 +36,7 @@ Status: P0 / BLOCKING
 Reference: issue #73
 
 ### FIN-002 — Position lifecycle / Performance
-Status: P0 / BLOCKING
+Status: P0 / IN PROGRESS
 Reference: issue #74
 
 ### DATA-001 — Provenance and zero-fallback audit

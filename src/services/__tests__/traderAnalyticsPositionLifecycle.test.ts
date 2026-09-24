@@ -101,6 +101,30 @@ function run() {
   assert(closedMetrics.recent_trade_cycles[0].position_total_quantity === 10_000, 'closed cycle exposes whole-position quantity');
   assert(closedMetrics.recent_trade_cycles[0].position_is_profitable === true, 'closed position profitability comes from whole-position result');
 
+  const closedThenPartialMetrics = TraderAnalyticsService.processTransactions(
+    1001,
+    'Test Trader',
+    [
+      tx(310, true, 10_000, 100, '2026-09-20T10:00:00Z'),
+      tx(320, false, 10_000, 140, '2026-09-21T10:00:00Z'),
+      tx(330, true, 10_000, 100, '2026-09-22T10:00:00Z'),
+      tx(340, false, 1, 50, '2026-09-23T10:00:00Z'),
+    ],
+    [],
+    [],
+    5,
+    5,
+    { executionFeeMode: 'TAKER_TAKER' },
+  );
+
+  const categoryStats = Object.values(closedThenPartialMetrics.category_success_rate);
+  assert(categoryStats.length === 1, 'category statistics should contain the traded category');
+  assert(categoryStats[0].total_trades === 1, 'category total_trades must count closed positions, not partial disposals');
+  assert(
+    categoryStats[0].profit_isk === closedThenPartialMetrics.recent_trade_cycles.find((cycle) => cycle.cycle_id === 'cycle_320_34')?.position_net_profit,
+    'category profit must use the cumulative closed-position result only',
+  );
+
   const multiDisposalMetrics = TraderAnalyticsService.processTransactions(
     1001,
     'Test Trader',

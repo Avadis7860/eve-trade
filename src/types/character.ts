@@ -488,6 +488,13 @@ export interface PersistedCharacterTransaction {
   readonly location_name?: string;
   readonly journal_ref_id?: number;
 
+  // Optional financial reconstruction metadata; it does not alter the ESI fact.
+  readonly accounting_scope_id?: string;
+  readonly economic_owner_type?: import('./financial').EconomicOwnerType;
+  readonly economic_owner_id?: number | string | null;
+  readonly economic_origin?: import('./financial').EconomicOrigin;
+  readonly provenance?: import('./financial').FinancialProvenance;
+
   // Provenance & Audit Metadata
   readonly first_seen_at: string; // ISO-8601 UTC when locally ingested
   readonly last_seen_at: string;  // ISO-8601 UTC when last observed in ESI

@@ -13,7 +13,7 @@ Represent character identity, corporation affiliation, session state, orders and
 
 Character ID identifies the authenticated character principal. Corporation ID identifies the economic corporation when applicable; it does not replace the character principal.
 
-Character-scoped data remains attributable to its character. Fleet aggregation is an explicit scope, not accidental cross-character mutation.
+Character-scoped data remains attributable to its character. Multiple connected characters are independent operational contexts; hub assignment helps organize where each character manages its orders. No consolidated character/fleet economic scope exists.
 
 ## Related
 

@@ -20,9 +20,7 @@ import { CatalogRepository } from '../domain/catalog/CatalogRepository';
 import { UniverseRepository } from '../domain/universe/UniverseRepository';
 import {
   RealizedFinancialOutcomeEngine,
-  CrossCharacterFinancialMappingViolationError,
 } from '../engine/realizedFinancialOutcome';
-import { reconstructPositionLedger } from '../engine/positionLedger';
 import { FleetFinancialEngine } from '../engine/fleetFinancial';
 import { roundIsk, safeDiv } from '../engine/money';
 
@@ -45,21 +43,6 @@ export class TraderAnalyticsService {
     brokerRelationsLevel?: number,
     options?: RealizedFinancialCalculationOptions
   ): TraderPerformanceMetrics {
-    // 1. Cross-character isolation: reject foreign transactions immediately
-    for (const tx of transactions) {
-      const txCharId =
-        'character_id' in tx && (tx as any).character_id !== undefined
-          ? (tx as any).character_id
-          : characterId;
-      if (txCharId !== characterId) {
-        throw new CrossCharacterFinancialMappingViolationError(
-          txCharId,
-          characterId,
-          tx.transaction_id
-        );
-      }
-    }
-
     // Sort transactions deterministically: timestamp ASC, transaction_id ASC
     const sortedTx = [...transactions].sort(
       (a, b) =>
@@ -161,6 +144,7 @@ export class TraderAnalyticsService {
 
     const calcOptions: RealizedFinancialCalculationOptions = {
       financialConfig: effectiveFinancialConfig,
+      accounting_scope_id: options?.accounting_scope_id ?? 'character:' + characterId,
       executionFeeMode: options?.executionFeeMode ?? 'MAKER_MAKER',
       buyLocationProfile: options?.buyLocationProfile,
       sellLocationProfile: options?.sellLocationProfile,
@@ -185,85 +169,46 @@ export class TraderAnalyticsService {
         calcOptions
       );
 
-      // Position state comes from economic transaction facts. Market-order side
-      // and active order observations are intentionally outside this accounting path.
-      // Provenance is explicit at the financial boundary; it is never inferred from
-      // optional order/opportunity correlation fields.
-      const positionLedger = reconstructPositionLedger(
-        characterId,
-        typeId,
-        typeTxs.map((tx) => ({
-          ...tx,
-          timestamp: tx.date,
-          provenance: {
-            source_kind: 'ESI_WALLET_TRANSACTION' as const,
-            source_id: String(tx.transaction_id),
-            principal_scope: `character:${characterId}`,
-          },
-        })),
-      );
-
-      if (positionLedger.position.financial_completeness === 'PARTIAL') {
+      // Capital recovery is projected by the canonical outcome/position ledger.
+      // TraderAnalytics must not reconstruct a second FIFO ledger.
+      if (outcome.financial_completeness === 'PARTIAL' || outcome.source_coverage === 'PARTIAL') {
         capitalRecoveryPartial = true;
       }
-      if (
-        positionLedger.position.capital_committed !== null &&
-        positionLedger.position.cash_recovered !== null
-      ) {
+      if (outcome.capital_committed !== null && outcome.cash_recovered !== null) {
         capitalCommittedTotal = roundIsk(
-          capitalCommittedTotal + positionLedger.position.capital_committed,
+          capitalCommittedTotal + outcome.capital_committed,
         );
         cashRecoveredTotal = roundIsk(
-          cashRecoveredTotal + positionLedger.position.cash_recovered,
+          cashRecoveredTotal + outcome.cash_recovered,
         );
-        remainingQuantityTotal += positionLedger.position.remaining_quantity;
+        remainingQuantityTotal += outcome.position_remaining_quantity;
         remainingCostBasisTotal = roundIsk(
-          remainingCostBasisTotal + positionLedger.position.remaining_cost_basis,
+          remainingCostBasisTotal + outcome.remaining_inventory_cost_basis,
         );
         knownCapitalPositions += 1;
-        for (const lot of positionLedger.position.lots) {
-          const provenance = lot.provenance;
+
+        for (const allocation of outcome.fifo_allocations) {
           capitalRecoveryProvenance.set(
-            `${provenance.source_kind}|${provenance.source_id}|${provenance.principal_scope}`,
-            provenance,
+            allocation.provenance.source_kind + '|' +
+              allocation.provenance.source_id + '|' +
+              allocation.provenance.principal_scope,
+            allocation.provenance,
           );
         }
-        for (const allocation of positionLedger.position.allocations) {
-          const provenance = allocation.provenance;
+        for (const lot of outcome.remaining_lots) {
           capitalRecoveryProvenance.set(
-            `${provenance.source_kind}|${provenance.source_id}|${provenance.principal_scope}`,
-            provenance,
+            lot.provenance.source_kind + '|' +
+              lot.provenance.source_id + '|' +
+              lot.provenance.principal_scope,
+            lot.provenance,
           );
         }
 
-        if (positionLedger.position.lifecycle_status === 'OPEN') {
-          openCapitalPositions += 1;
-        }
-        if (positionLedger.position.lifecycle_status === 'PARTIALLY_REALIZED') {
-          partialCapitalPositions += 1;
-        }
-        if (positionLedger.position.lifecycle_status === 'CLOSED') {
-          closedCapitalPositions += 1;
-        }
+        if (outcome.position_lifecycle === 'OPEN') openCapitalPositions += 1;
+        if (outcome.position_lifecycle === 'PARTIALLY_REALIZED') partialCapitalPositions += 1;
+        if (outcome.position_lifecycle === 'CLOSED') closedCapitalPositions += 1;
       }
 
-      totalRealizedGross += outcome.gross_realized_profit;
-      totalRealizedProfit += outcome.net_realized_profit;
-      totalBrokerFeesPaid +=
-        outcome.fees.estimated_buy_broker_fee + outcome.fees.estimated_sell_broker_fee;
-      totalSalesTaxPaid += outcome.fees.estimated_sales_tax;
-      totalEstimatedFees += outcome.fees.estimated_total_fees;
-
-      if (outcome.financial_completeness === 'PARTIAL' || outcome.has_unmatched_sell_quantity) {
-        hasPartial = true;
-        hasUnmatchedTrades = true;
-        unmatchedTradesCount += 1;
-      }
-      if (outcome.financial_completeness === 'UNAVAILABLE') {
-        hasUnavailable = true;
-      }
-
-      // Group allocations by sell_transaction_id to derive trade cycles directly from engine output
       const allocationsBySellTx: Record<number, typeof outcome.fifo_allocations[number][]> = {};
       for (const alloc of outcome.fifo_allocations) {
         if (!allocationsBySellTx[alloc.sell_transaction_id]) {
@@ -346,7 +291,7 @@ export class TraderAnalyticsService {
 
           const cycleCompleteness: FinancialCompleteness =
             unmatchedQty > 0 ? 'PARTIAL' : outcome.financial_completeness;
-          const dispositionState = positionLedger.position.disposition_states.find(
+          const dispositionState = outcome.position_disposition_states.find(
             (state) => state.disposition_transaction_id === sellTx.transaction_id,
           );
           const positionLifecycle = dispositionState?.lifecycle_status ?? 'UNKNOWN';
@@ -402,8 +347,8 @@ export class TraderAnalyticsService {
             position_lifecycle: positionLifecycle,
             position_remaining_quantity: positionRemainingQuantity,
             is_position_closed: positionLifecycle === 'CLOSED',
-            character_id: characterId,
-            character_name: characterName,
+            character_id: sellTx.character_id ?? characterId,
+            character_name: sellTx.character_name ?? characterName,
           };
 
           completedCycles.push(cycleRecord);
@@ -1058,46 +1003,36 @@ export class TraderAnalyticsService {
     allTransactions: EveCharacterTransaction[],
     orderHistory: EveCharacterOrderHistory[] = [],
     journalEntries: EveCharacterJournalEntry[] = [],
+    accountingLevel?: number,
+    brokerRelationsLevel?: number,
     options?: RealizedFinancialCalculationOptions
   ): TraderPerformanceMetrics {
-    const characterResults: CharacterFinancialResult[] = characters.map((character) => {
-      const characterTransactions = allTransactions.filter(
-        (tx) => tx.character_id === character.character_id,
-      );
+    if (characters.length === 0) {
+      throw new Error('processFleetConsolidatedTransactions requires at least one reporting character');
+    }
 
-      const characterOrders = orderHistory.filter((order) => {
-        if (order.character_id !== undefined) {
-          return order.character_id === character.character_id;
-        }
-        return order.ownership?.owner_type === 'character' &&
-          order.ownership.owner_id === character.character_id;
-      });
+    const reportingCharacter = characters[0];
+    const accountingScopeId =
+      options?.accounting_scope_id?.trim() || 'ecosystem:fleet';
 
-      const metrics = this.processTransactions(
-        character.character_id,
-        character.character_name,
-        characterTransactions,
-        characterOrders,
-        journalEntries,
-        character.accounting_level,
-        character.broker_relations_level,
-        options,
-      );
-
-      return {
-        characterId: String(character.character_id),
-        characterName: character.character_name,
-        metrics,
-        dataHealth: 'fresh',
-      };
-    });
-
-    const fleet = FleetFinancialEngine.aggregateFleetPerformance(
-      characterResults,
-      { type: 'fleet' },
+    const metrics = this.processTransactions(
+      reportingCharacter.character_id,
+      reportingCharacter.character_name,
+      allTransactions,
+      orderHistory,
+      journalEntries,
+      accountingLevel,
+      brokerRelationsLevel,
+      {
+        ...options,
+        accounting_scope_id: accountingScopeId,
+      },
     );
 
-    return fleet.fleetMetrics;
-  }
-}
+    return Object.freeze({
+      ...metrics,
+      character_id: 0,
+      character_name: 'Flotte Consolidée (' + characters.length + ' pilotes)',
+    });
+  }}
 

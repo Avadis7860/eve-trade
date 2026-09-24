@@ -168,6 +168,10 @@ export interface EveCharacterOrder {
   price: number;
   volume_remain: number;
   volume_total: number;
+  /**
+   * Side of this observed market order. This is NOT the accounting direction
+   * of a trader transaction that may have interacted with the order.
+   */
   is_buy_order: boolean;
   issued: string;
   duration: number;

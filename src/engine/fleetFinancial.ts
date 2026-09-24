@@ -129,6 +129,7 @@ export class FleetFinancialEngine {
     let totalBuyVolume = 0;
     let totalSellVolume = 0;
     let totalTurnover = 0;
+    let observedFulfilledOrderActivityIsk: number | undefined;
     let totalClosedTrades = 0;
     let profitableTrades = 0;
     let unprofitableTrades = 0;
@@ -149,6 +150,11 @@ export class FleetFinancialEngine {
       totalBuyVolume = roundIsk(totalBuyVolume + m.total_buy_volume);
       totalSellVolume = roundIsk(totalSellVolume + m.total_sell_volume);
       totalTurnover = roundIsk(totalTurnover + m.total_turnover);
+      if (m.observed_fulfilled_order_activity_isk !== undefined) {
+        observedFulfilledOrderActivityIsk = roundIsk(
+          (observedFulfilledOrderActivityIsk ?? 0) + m.observed_fulfilled_order_activity_isk,
+        );
+      }
       totalClosedTrades += m.total_closed_trades;
       profitableTrades += m.profitable_trades;
       unprofitableTrades += m.unprofitable_trades;
@@ -368,6 +374,9 @@ export class FleetFinancialEngine {
       total_buy_volume: totalBuyVolume,
       total_sell_volume: totalSellVolume,
       total_turnover: totalTurnover,
+      ...(observedFulfilledOrderActivityIsk !== undefined
+        ? { observed_fulfilled_order_activity_isk: observedFulfilledOrderActivityIsk }
+        : {}),
       total_closed_trades: totalClosedTrades,
       profitable_trades: profitableTrades,
       unprofitable_trades: unprofitableTrades,

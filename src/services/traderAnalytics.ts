@@ -1423,7 +1423,7 @@ export class TraderAnalyticsService {
       const catRoiCycles = catCycles.filter((c) => c.roi !== null);
       categorySuccessRate[cat].avg_roi =
         catRoiCycles.length > 0
-          ? catRoiCycles.reduce((a, b) => a + b.roi, 0) / catRoiCycles.length
+          ? catRoiCycles.reduce((a, b) => a + (b.roi ?? 0), 0) / catRoiCycles.length
           : 0;
       categorySuccessRate[cat].profit_label = 'Bénéfice Net Flotte';
       categorySuccessRate[cat].is_net_estimated = false;

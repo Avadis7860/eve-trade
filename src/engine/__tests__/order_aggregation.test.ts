@@ -58,6 +58,44 @@ function run(): void {
     'Corporation order must not gain a synthetic character owner',
   );
 
+  const secondObservation = {
+    ...(normalized as EveCharacterOrder),
+    ownership: {
+      ...(normalized as EveCharacterOrder).ownership!,
+      principal_character_id: 2124224999,
+      observed_by_character_ids: [2124224999],
+    },
+  };
+  const multiObserved = aggregateOrderObservations([
+    {
+      observerCharacterId: 2124224223,
+      observerCharacterName: 'Observed Capsuleer',
+      orders: [normalized as EveCharacterOrder],
+    },
+    {
+      observerCharacterId: 2124224999,
+      observerCharacterName: 'Second Observer',
+      orders: [secondObservation],
+    },
+  ]);
+  assert(multiObserved.length === 1, 'The same CCP order must remain one canonical entity across observers');
+  assert(
+    JSON.stringify(multiObserved[0].ownership?.observed_by_character_ids) === '[2124224223,2124224999]',
+    'Observer provenance must accumulate without changing economic ownership',
+  );
+  assert(
+    multiObserved[0].ownership?.principal_character_id === 2124224223,
+    'Primary observation principal remains deterministic',
+  );
+  assert(
+    multiObserved[0].ownership?.issuer_character_id === 2124224223,
+    'Issuer provenance remains distinct from economic owner',
+  );
+  assert(
+    multiObserved[0].is_buy_order === false,
+    'Market order side remains a market observation and is not rewritten as accounting direction',
+  );
+
   const corporationScoped = selectOrdersByScope(
     snapshotLike,
     { type: 'corporation', corporationId: '98830882' },

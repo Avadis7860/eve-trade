@@ -81,10 +81,10 @@ function run() {
     ]);
     const [firstOperation, secondOperation] = result.all_disposition_states;
     assert(firstOperation.lifecycle_status === 'CLOSED', 'a later acquisition must not keep the earlier operation open');
-    assert(firstOperation.capital_recovery_state === 'POSITIVE', 'closed position segment should expose positive recovery state');
-    assert(firstOperation.capital_recovery_delta === 400_000, 'first position segment recovery delta must use its own capital');
+    assert(firstOperation.position_recovery_state === 'POSITIVE', 'closed position segment should expose positive recovery state');
+    assert(firstOperation.position_recovery_delta === 400_000, 'first position segment recovery delta must use its own capital');
     assert(secondOperation.lifecycle_status === 'PARTIALLY_REALIZED', 'second operation must remain partial');
-    assert(secondOperation.capital_recovery_delta === -999_950, 'second position segment recovery must use its own capital');
+    assert(secondOperation.position_recovery_delta === -999_950, 'second position segment recovery must use its own capital');
     assert(secondOperation.position_segment_id !== firstOperation.position_segment_id, 'a new position segment must start after full liquidation');
     assert(secondOperation.remaining_position_quantity === 9_999, 'second operation must retain 9,999 units');
     assert(result.position_segments.length === 2, 'each sequential economic position segment must remain separately addressable');

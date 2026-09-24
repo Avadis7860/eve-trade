@@ -517,11 +517,9 @@ async function runAllTests() {
       financialConfig: mockFinancialConfig,
     });
 
-    assert(outcomeEmpty.roi === 0.0, 'ROI is 0.0 on empty');
-    assert(outcomeEmpty.margin === 0.0, 'Margin is 0.0 on empty');
-    assert(outcomeEmpty.profit_per_unit === 0.0, 'Profit per unit is 0.0 on empty');
-    assert(!isNaN(outcomeEmpty.roi) && isFinite(outcomeEmpty.roi), 'ROI is finite');
-    assert(!isNaN(outcomeEmpty.margin) && isFinite(outcomeEmpty.margin), 'Margin is finite');
+    assert(outcomeEmpty.roi === null, 'ROI is unavailable when no acquisition cost denominator exists');
+    assert(outcomeEmpty.margin === null, 'Margin is unavailable when no realized revenue denominator exists');
+    assert(outcomeEmpty.profit_per_unit === null, 'Profit per unit is unavailable when no matched quantity exists');
 
     // Case 2: Zero-price facts are invalid source data, not a valid zero-cost acquisition.
     // The ledger must surface them as PARTIAL rather than relaxing its positive-price invariant.
@@ -530,8 +528,9 @@ async function runAllTests() {
     const freeRecord = createMockExecutionRecord({ buyTxs: [freeBuy], sellTxs: [freeSell] });
     const outcomeFree = RealizedFinancialOutcomeEngine.calculate(freeRecord, { financialConfig: mockFinancialConfig });
 
-    assert(outcomeFree.roi === 0.0, 'ROI remains 0.0 when no valid acquisition cost is available');
-    assert(outcomeFree.margin === 0.0, 'Margin remains 0.0 when no valid revenue is available');
+    assert(outcomeFree.roi === null, 'ROI remains unavailable when no valid acquisition cost is available');
+    assert(outcomeFree.margin === null, 'Margin remains unavailable when no valid revenue is available');
+    assert(outcomeFree.profit_per_unit === null, 'Profit per unit remains unavailable when no valid matched quantity exists');
     assert(outcomeFree.data_state === 'PARTIAL', 'Invalid zero-price facts must remain PARTIAL');
     assert(
       outcomeFree.state_reasons !== undefined &&

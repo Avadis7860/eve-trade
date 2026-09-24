@@ -59,7 +59,7 @@ CI lane references are workflow-qualified because job IDs are not globally uniqu
 
 A stable `main` state must never be `ACTIVE`. The last merged delivery may remain represented as `CLOSING` until the next chantier creates a new `ACTIVE` manifest. This avoids requiring an unreviewed post-merge mutation of `main`.
 
-During PR certification, branch, PR number and base SHA must match the GitHub event. In stable mode, the current-state document must identify the actual checked-out HEAD SHA.
+During PR certification, branch, PR number and base SHA must match the GitHub event. In stable mode, the CLOSING manifest carries the pre-merge main integration anchor. Validation checks that this anchor is the first parent of a merge commit (or HEAD for a non-merge stable commit) and that current-state identifies the same anchor. This keeps stable proof deterministic without any post-merge mutation.
 
 ## Historical archive rule
 
@@ -84,7 +84,7 @@ This routing exists to make context drift visible without running the entire cer
 
 - bootstrap files exist and expose the context entrypoints;
 - current-work lifecycle state is legal for the certification mode;
-- stable-state documentation identifies the actual main HEAD;
+- stable-state documentation identifies the stable integration anchor from the checked-out main history;
 - every mapped workflow/job exists;
 - canonical domain paths route to the expected CI certification family;
 - domain-documentation mappings reference known map domains;
@@ -102,6 +102,6 @@ Changes to this bootstrap surface use the conservative certification path.
 
 ## Routing versus ownership
 
-A CI lane reference proves that the workflow/job exists. The integrity check additionally exercises the change classifier with canonical paths so a mapped domain cannot silently lose all certification routing.
+A CI lane reference proves that the workflow/job exists. The integrity check additionally exercises the change classifier with canonical paths in a functional-probe mode that deliberately bypasses the conservative context-critical guard. Each mapped CI lane declares the classification that is supposed to trigger it, so a lane cannot pass merely because the classifier fell back to `ambiguous/full_certification`. The normal production classifier remains conservative.
 
 The context map does not claim that its impact graph is exhaustive. Missing edges are unresolved navigation knowledge, not proof of no downstream consumer.

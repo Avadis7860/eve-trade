@@ -127,16 +127,17 @@ Rebuild Performance around lot/position lifecycle, not “a sale creates a close
 Current implementation:
 - partial positions no longer count as closed trades;
 - lifecycle and remaining quantity are exposed on realized outcomes;
-- order-history activity is kept separate from accounting buy/sell volume.
-
-Next semantic requirement:
-- expose position-level capital recovery separately from realized P&L;
-- never turn the recovery delta into realized P&L or a disposal-level ROI.
+- order-history activity is kept separate from accounting buy/sell volume;
+- position-level capital recovery is derived from the canonical position ledger;
+- Performance exposes committed capital, cash recovered, recovery delta/ratio, remaining quantity/basis and lifecycle counts under the explicit KNOWN_POSITIONS scope;
+- ROI scope is explicitly declared as CLOSING_DISPOSAL_ALLOCATIONS.
 
 Acceptance:
 - partial disposal never increments closed-position count;
 - closed means remaining lot/position quantity is zero;
-- realized P&L, capital recovery and open exposure are shown separately.
+- realized P&L, capital recovery and open exposure are shown separately;
+- recovery delta never becomes realized P&L or whole-operation ROI;
+- no current-market valuation is inferred from the recovery summary.
 
 ### DATA-001 — issue #75
 
@@ -150,14 +151,15 @@ Acceptance:
 
 ### CI-003 — issue #76
 
-Repair the current red CI validation without weakening the contract.
+Repair the CI validation without weakening the contract.
 
-Current RED observations on 26f8f7eab0c001cd96604d0053d4f8c69e33a70a:
-- frontend typecheck: existing realized-financial test fixture missing the two required lifecycle fields;
-- unit certification: division-by-zero fixture still uses invalid typeId = 0;
-- Production Build, Server/API/ESI, Browser E2E and SDE Truth Gate succeeded on the same CI run.
+Resolved on validated code head 4d4694955a1e75532455a8d924922bdc23999d8e:
+- frontend typecheck fixture reconciled with lifecycle fields;
+- division-by-zero legacy fixture reconciled with the positive type-id invariant;
+- corporation ESI mock isolation/credential assertions reconciled with the real request sequence;
+- full CI Foundation & Regression Gate and Phase 2.7C SDE Truth Gate passed.
 
-The fixes must update test contracts/fixtures deliberately rather than relax ledger validation.
+The fixes updated test contracts/fixtures deliberately rather than relaxing ledger validation.
 
 ## Blocking rule
 

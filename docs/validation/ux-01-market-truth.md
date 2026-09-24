@@ -1,6 +1,6 @@
 # UX-01 — Market Data Truth Validation
 
-Status: ACTIVE
+Status: CLOSED — EXTERNALLY BOUNDED
 Date: 2026-09-23
 Scope: market-order retrieval, quality propagation and UI truth states
 Reference: [UX-First Trading Terminal Program](../roadmap/ux-program.md)
@@ -63,27 +63,15 @@ Expected behavior:
 5. verify the recovered order is present;
 6. verify the resulting health returns to LIVE.
 
-## Target-PC incident
+## Historical target-PC incident
 
-The user-reported market-order retrieval issue is still classified as NOT ROOT-CAUSED.
+The previously reported market-order display problem is resolved. The application is currently functional, and the operator confirmed that the symptom was caused by insufficient available data to produce a market to display.
 
-P0-C is implemented and certified on main. The **Exporter preuve P0-C** JSON bundle lets the target-PC capture be preserved as one non-secret artifact.
+P0-C is implemented and certified on main. The **Exporter preuve P0-C** JSON bundle remains available as a reusable diagnostic tool, but the historical incident no longer blocks product work.
 
-The next acceptance step is to run the target PC against a failing/recovering market path and capture:
-- hub;
-- timestamp;
-- HTTP status;
-- X-Cache-Status;
-- X-Pages;
-- X-ESI-Error-Limit-Remain;
-- X-ESI-Error-Limit-Reset;
-- Retry-After when rate limited;
-- displayed health state;
-- exported P0-C JSON bundle.
+The classification is **EXTERNALLY BOUNDED**: the repository-side path is certified, while the historical symptom is explained by the data-availability context rather than by a reproducible persistent software defect.
 
-Procedure: [P0-C target-PC evidence](p0-c-target-pc-evidence.md)
-
-No conclusion about a remaining root cause should be recorded until that evidence exists.
+The procedure in [P0-C target-PC evidence](p0-c-target-pc-evidence.md) is retained for future real-world diagnostic cases.
 
 ## External ESI constraint
 

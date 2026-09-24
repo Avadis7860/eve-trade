@@ -5,6 +5,7 @@ import type {
   ExecutionFeeRoleMode,
   TreasurySourceMode,
   CapitalRecoverySummary,
+  EconomicOperationRecoveryState,
 } from './financial';
 import type { EveCharacterOrder, OrderId, OrderOwnership } from './order';
 
@@ -194,6 +195,13 @@ export interface TradeCycleRecord {
   position_hold_days?: number;
   /** Remaining quantity of the economic position immediately after this disposal. */
   position_remaining_quantity?: number;
+  operation_id?: string;
+  operation_capital_committed?: number;
+  operation_cash_recovered?: number;
+  operation_recovery_delta?: number;
+  operation_recovery_ratio?: number | null;
+  operation_recovery_state?: EconomicOperationRecoveryState;
+  operation_quantity_acquired?: number;
   /** True only when the underlying position reached zero remaining quantity. */
   is_position_closed?: boolean;
   character_id?: number;

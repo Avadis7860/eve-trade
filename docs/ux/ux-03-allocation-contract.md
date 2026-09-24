@@ -29,6 +29,68 @@ A disposal of 1 unit from an acquisition of 10,000 units may realize P&L on that
 
 Real Portfolio certification is blocked by FIN-002 and the remaining data/UX acceptance gates.
 
+### Progressive profitability of an economic operation — normative contract — 2026-09-24
+
+An economic operation keeps its identity from the acquisition that creates its exposed quantity until the full quantity belonging to that operation is liquidated.
+
+**Lifecycle and profitability are independent dimensions.**
+
+- `OPEN` = no quantity has been disposed from the operation.
+- `PARTIALLY_REALIZED` = some quantity has been disposed and some quantity remains economically exposed.
+- `CLOSED` = the full quantity attributable to that operation has been disposed.
+
+A partial disposal may therefore be profitable at the disposal-event level while the operation as a whole is still negative.
+
+Canonical example:
+
+`10,000 × 100 = 1,000,000 ISK` acquired, then `1 × 140 = 140 ISK` disposed.
+
+- disposal result: `+40 ISK` before fees;
+- capital initially committed: `1,000,000 ISK`;
+- cumulative cash recovered: `140 ISK`;
+- cumulative recovery delta: `-999,860 ISK`;
+- remaining quantity: `9,999`;
+- lifecycle: `PARTIALLY_REALIZED`;
+- operation recovery state: still below recovery threshold.
+
+The system must never infer whole-operation profitability from the isolated disposal result.
+
+The cumulative operation-level recovery therefore tracks **all disposals already attributable to the same operation** against the **initial capital committed by that operation**. It is not recomputed from only the quantity sold by the latest disposal.
+
+At any point the operation can be classified independently as:
+
+- **NEGATIVE**: cumulative recovered capital is below initial capital committed;
+- **RECOVERED**: cumulative recovered capital has reached the initial capital committed;
+- **POSITIVE**: cumulative recovered capital exceeds initial capital committed.
+
+This state may coexist with `PARTIALLY_REALIZED`. For example, after approximately `7,143 × 140 = 1,000,020 ISK` of cumulative disposals against the canonical `1,000,000 ISK` acquisition, the operation remains `PARTIALLY_REALIZED` with `2,857` units exposed, while the capital-recovery delta is positive.
+
+The product must therefore distinguish, and never substitute one for another:
+
+- disposal P&L;
+- cumulative operation recovery;
+- operation recovery state;
+- lifecycle;
+- remaining exposure;
+- whole-operation closed result/ROI;
+- financial completeness.
+
+A **closed-position KPI** may still require the genuine `CLOSED` boundary. That does not prevent the system from showing progressive recovery before closure.
+
+### Accounting lineage rule for the operation
+
+An operation is not defined by the existence of a BUY order.
+
+The accounting lineage must instead be built from economic transaction facts and their causally attributable acquisition/disposal quantities. A trader may acquire by taking an existing SELL order and later dispose through a SELL order created by the trader.
+
+Therefore:
+
+- `MarketOrder.is_buy_order` is observation/provenance only;
+- the presence of a trader BUY order is not proof of acquisition intent;
+- the absence of a trader BUY order is not proof that no acquisition occurred;
+- sales must be attached to the economic operation through the actual transaction/position lineage available to the system;
+- a new acquisition after an operation is fully liquidated begins a new operation rather than extending the closed one.
+
 ### Performance semantic boundary — FIN-002
 
 The Performance projection now keeps disposal-level and whole-position semantics separate. A partial disposal can expose a positive realized sub-result while the position remains `PARTIALLY_REALIZED`; it does not count as a closed trade. When the position finally closes, the closing record may expose the cumulative whole-position result/ROI, and closed-position KPIs use that cumulative result.

@@ -80,17 +80,24 @@ A position can therefore be MARKET_TRACEABLE while financial completeness is UNA
 
 Consumer logic must never use fee availability as a proxy for lifecycle closure.
 
-## Scope rules for ROI and break-even
+## Scope rules for ROI, recovery and break-even
 
 A KPI must declare its economic scope.
 
-- Disposal-level ROI may describe the allocated disposal(s), including a partial disposal that remains attached to an open position.
-- Whole-position performance is published only at a genuine closure boundary and incorporates the cumulative disposals of that position segment.
-- Win rate, closed-position ROI, item rankings and category success use whole-position results only; a positive partial disposal is never a profitable closed trade.
-- Position/operation-level recovery describes how much acquisition capital has been recovered.
-- Whole-position realized P&L is complete only when the position is closed.
+- Disposal-level ROI describes the quantity allocated to a specific disposal and may be positive while the underlying operation remains `PARTIALLY_REALIZED`.
+- Progressive operation recovery is cumulative across all attributable disposals and compares cumulative recovered cash with the **initial capital committed by that operation**.
+- Progressive recovery is independent from lifecycle closure. An operation may be `PARTIALLY_REALIZED + RECOVERED` or `PARTIALLY_REALIZED + POSITIVE`.
+- Win rate, closed-position ROI, item rankings and category success use whole-position results only; they are closure metrics, not substitutes for progressive recovery.
+- Whole-position realized P&L is complete only when the operation is genuinely closed and its economic lineage is reconciled.
 - Current-market valuation is not realized P&L.
-- Break-even is a POLICY state whose basis must be explicit (for example gross or net of fees).
+- Break-even is a `POLICY` state whose basis must be explicit (for example gross or net of fees).
+- Fee unavailability must not prevent physical/economic lifecycle closure, but it must prevent the product from presenting a fee-inclusive result as observed fact.
+
+Canonical recovery state is derived from the cumulative recovery delta:
+
+`delta < 0 → NEGATIVE`
+`delta = 0 → RECOVERED`
+`delta > 0 → POSITIVE`
 
 A later pricing policy may react to break-even, such as accepting a lower margin after capital recovery. That policy must not rewrite historical acquisition cost or accounting results.
 

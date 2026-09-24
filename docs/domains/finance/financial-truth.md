@@ -24,6 +24,14 @@ A trader may acquire by taking an existing SELL order and later dispose using a 
 
 Active BUY orders are evidence of reserved capital/order exposure. They are not acquisition facts.
 
+## Economic position segment
+
+The canonical accounting boundary is an **economic position segment** for one explicit `accounting_scope_id + type_id`.
+
+It starts when an acquisition creates an economically open quantity and remains active while one or more lots from that segment remain open. New acquisitions join that segment while it is open. A later acquisition after full liquidation starts a new segment.
+
+This deterministic segment is an accounting reconstruction boundary. It is **not** evidence of trader intent, strategy or a user-defined trade.
+
 ## Position lifecycle
 
 OPEN -> PARTIALLY_REALIZED -> CLOSED
@@ -31,6 +39,18 @@ OPEN -> PARTIALLY_REALIZED -> CLOSED
 CLOSED means that the remaining quantity of the relevant lot/position is zero.
 
 Lifecycle is independent from fee/configuration completeness. A position whose economic acquisition/disposal lineage is MARKET_TRACEABLE may reach CLOSED even when fee configuration is unavailable.
+
+## History and economic-origin coverage
+
+Financial Truth distinguishes three questions that must not be collapsed:
+
+- **history coverage** — whether the available transaction history is known to cover the relevant accounting scope;
+- **economic-origin coverage** — whether the economic sources capable of originating the position are sufficiently represented;
+- **source coverage** — whether the acquisition/disposal lineage itself can be reconstructed from the evidence received.
+
+A transaction set may therefore be valid and FIFO-matchable while history coverage is UNKNOWN. For example, a coherent `10,000 BUY + 1,000 SELL` subset does not prove that no inventory existed before the first observed BUY.
+
+Current transaction ingestion can provide collection-state evidence such as pagination completion or an explicit partial/error stop. That evidence must be propagated rather than discarded before the financial boundary.
 
 ## Source coverage vs financial completeness
 
@@ -122,12 +142,16 @@ Keep these separate:
 
 A “closed trade” count must use lot/position lifecycle, not the mere existence of a matched sale allocation.
 
-Performance keeps two scopes explicit:
+Performance keeps these scopes explicit:
+
+- supported market-traceable result;
+- ecosystem-complete result, only when the corresponding history and economic-origin coverage contract is satisfied.
+
 
 - disposal result / ROI: the result of the currently displayed allocation;
 - whole-position result / ROI: the cumulative result of the economic position segment, published only once that position closes with a valid reconciled cost basis.
 
-A positive partial disposal may therefore remain visible as a sub-result without making the position profitable. Win rate, closed-position ROI, item ranking and category success use the whole-position result.
+A positive partial disposal may therefore remain visible as a sub-result without making the position profitable. A fully closed position may still carry an explicit coverage limitation; closure alone does not upgrade UNKNOWN/PARTIAL source evidence into ecosystem-complete truth. Win rate, closed-position ROI, item ranking and category success use the whole-position result.
 
 ## Data completeness
 

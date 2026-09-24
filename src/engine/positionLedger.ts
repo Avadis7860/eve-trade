@@ -2,7 +2,10 @@ import type {
   AcquisitionLot,
   CurrentPosition,
   DisposalAllocation,
+  EconomicOrigin,
+  EconomicOwnerType,
   FinancialProvenance,
+  FinancialSourceCoverage,
   PositionDispositionState,
   PositionLedgerResult,
   PositionLifecycleStatus,
@@ -25,46 +28,49 @@ export type PositionLedgerTransaction = {
   /** Optional corroborating CCP order identity; never required for accounting. */
   readonly order_id?: OrderId;
   readonly opportunity_id?: string;
-  /** Explicit source/provenance supplied by the caller at the accounting boundary. */
+  /**
+   * Explicit economic accounting scope. Character identity is not the scope.
+   * Legacy callers may omit it and inherit the scope passed to the ledger.
+   */
+  readonly accounting_scope_id?: string;
+  /** Explicit economic origin when already established by an upstream source. */
+  readonly economic_origin?: EconomicOrigin;
+  /** Transaction-level owner attribution; never used as an accounting silo. */
+  readonly economic_owner_type?: Exclude<EconomicOwnerType, 'mixed'>;
+  readonly economic_owner_id?: number | string | null;
+  /** Explicit source/provenance supplied at the accounting boundary. */
   readonly provenance: FinancialProvenance;
 };
 
 function transactionTimestamp(tx: PositionLedgerTransaction): string | null {
-  const candidate = 'timestamp' in tx ? tx.timestamp : undefined;
+  const candidate = tx.timestamp;
   if (candidate && !Number.isNaN(Date.parse(candidate))) return candidate;
-
-  const legacyCandidate = 'date' in tx ? tx.date : undefined;
+  const legacyCandidate = tx.date;
   if (legacyCandidate && !Number.isNaN(Date.parse(legacyCandidate))) return legacyCandidate;
-
   return null;
-}
-
-function transactionCharacterId(tx: PositionLedgerTransaction, fallback: number): number {
-  const value = 'character_id' in tx ? tx.character_id : undefined;
-  return value === undefined ? fallback : value;
 }
 
 function validProvenance(provenance: FinancialProvenance | undefined): boolean {
   if (!provenance) return false;
   return (
-    provenance.source_kind === 'ESI_WALLET_TRANSACTION' ||
-    provenance.source_kind === 'EXECUTION_TRANSACTION'
-  ) &&
+    (provenance.source_kind === 'ESI_WALLET_TRANSACTION' ||
+      provenance.source_kind === 'EXECUTION_TRANSACTION') &&
     typeof provenance.source_id === 'string' &&
     provenance.source_id.length > 0 &&
     typeof provenance.principal_scope === 'string' &&
-    provenance.principal_scope.length > 0;
+    provenance.principal_scope.length > 0
+  );
 }
 
-function transactionProvenance(tx: PositionLedgerTransaction): FinancialProvenance {
-  return tx.provenance;
+function validScope(accountingScopeId: string, tx: PositionLedgerTransaction): boolean {
+  return tx.accounting_scope_id === undefined || tx.accounting_scope_id === accountingScopeId;
 }
 
-function validTransaction(tx: PositionLedgerTransaction, characterId: number): boolean {
+function validTransaction(accountingScopeId: string, tx: PositionLedgerTransaction): boolean {
   return (
     Number.isSafeInteger(tx.transaction_id) &&
     tx.transaction_id > 0 &&
-    transactionCharacterId(tx, characterId) === characterId &&
+    validScope(accountingScopeId, tx) &&
     Number.isSafeInteger(tx.type_id) &&
     tx.type_id > 0 &&
     Number.isSafeInteger(tx.location_id) &&
@@ -83,7 +89,35 @@ function relatedOrderId(tx: PositionLedgerTransaction): OrderId | undefined {
   return normalizeOrderId(tx.order_id) ?? undefined;
 }
 
-function statusFor(
+function resolveEconomicOrigin(tx: PositionLedgerTransaction): EconomicOrigin {
+  return tx.economic_origin ?? (tx.is_buy ? 'MARKET_ACQUISITION' : 'UNKNOWN_ORIGIN');
+}
+
+function resolveEconomicOwnerType(tx: PositionLedgerTransaction): Exclude<EconomicOwnerType, 'mixed'> {
+  return tx.economic_owner_type ?? (tx.character_id !== undefined ? 'character' : 'unknown');
+}
+
+function resolveEconomicOwnerId(tx: PositionLedgerTransaction): number | string | null {
+  return tx.economic_owner_id !== undefined ? tx.economic_owner_id : tx.character_id ?? null;
+}
+
+function derivePositionOwner(
+  lots: readonly AcquisitionLot[],
+): { type: EconomicOwnerType; id: number | string | null } {
+  const owners = new Map<string, { type: Exclude<EconomicOwnerType, 'mixed'>; id: number | string | null }>();
+  for (const lot of lots) {
+    const key = lot.economic_owner_type + '|' + String(lot.economic_owner_id);
+    owners.set(key, { type: lot.economic_owner_type, id: lot.economic_owner_id });
+  }
+  if (owners.size === 0) return { type: 'unknown', id: null };
+  if (owners.size === 1) {
+    const owner = [...owners.values()][0];
+    return { type: owner.type, id: owner.id };
+  }
+  return { type: 'mixed', id: null };
+}
+
+function lifecycleStatus(
   lots: readonly AcquisitionLot[],
   totalAcquired: number,
   totalDisposed: number,
@@ -97,22 +131,30 @@ function statusFor(
 }
 
 /**
- * Reconstructs economic position state from transaction facts.
+ * Canonical economic position reconstruction.
  *
- * Market orders are deliberately absent from the input contract: their side is
- * not an accounting direction. A transaction with is_buy=true creates an
- * acquisition lot; a transaction with is_buy=false consumes causally prior lots.
+ * Accounting key: (accounting_scope_id, type_id).
+ * Character/corporation/issuer/observer identity remains provenance and
+ * attribution, never an automatic accounting silo.
+ *
+ * A numeric first argument is retained as a compatibility form and maps to
+ * character:<id>; multi-participant callers must use an explicit common scope.
  */
 export function reconstructPositionLedger(
-  characterId: number,
+  accountingScopeInput: string | number,
   typeId: number,
   transactions: readonly PositionLedgerTransaction[],
 ): PositionLedgerResult {
-  if (!Number.isSafeInteger(characterId) || characterId <= 0) {
-    throw new Error(`Invalid characterId: ${characterId}`);
+  const accountingScopeId =
+    typeof accountingScopeInput === 'number'
+      ? 'character:' + accountingScopeInput
+      : accountingScopeInput.trim();
+
+  if (!accountingScopeId) {
+    throw new Error('Invalid accountingScopeId: empty scope');
   }
   if (!Number.isSafeInteger(typeId) || typeId <= 0) {
-    throw new Error(`Invalid typeId: ${typeId}`);
+    throw new Error('Invalid typeId: ' + typeId);
   }
 
   const ordered = [...transactions]
@@ -128,33 +170,33 @@ export function reconstructPositionLedger(
     });
 
   const invalidTransactionIds = ordered
-    .filter((tx) => !validTransaction(tx, characterId))
+    .filter((tx) => !validTransaction(accountingScopeId, tx))
     .map((tx) => tx.transaction_id);
 
-  const valid = ordered.filter((tx) => validTransaction(tx, characterId));
+  const valid = ordered.filter((tx) => validTransaction(accountingScopeId, tx));
   const buyTransactions = valid.filter((tx) => tx.is_buy);
   const sellTransactions = valid.filter((tx) => !tx.is_buy);
 
   const lots: AcquisitionLot[] = buyTransactions.map((tx) => {
     const timestamp = transactionTimestamp(tx)!;
-    const qty = tx.quantity;
+    const quantity = tx.quantity;
     const unitCost = tx.unit_price;
-    const provenance = transactionProvenance(tx);
 
     return {
-      lot_id: `acquisition_${tx.transaction_id}`,
-      provenance,
+      lot_id: 'acquisition_' + tx.transaction_id,
+      provenance: tx.provenance,
       transaction_id: tx.transaction_id,
       type_id: tx.type_id,
       location_id: tx.location_id,
-      quantity_acquired: qty,
-      remaining_quantity: qty,
+      quantity_acquired: quantity,
+      remaining_quantity: quantity,
       unit_cost: unitCost,
-      total_original_cost: roundIsk(qty * unitCost),
-      remaining_cost_basis: roundIsk(qty * unitCost),
+      total_original_cost: roundIsk(quantity * unitCost),
+      remaining_cost_basis: roundIsk(quantity * unitCost),
       acquired_at: timestamp,
-      economic_owner_type: 'character',
-      economic_owner_id: characterId,
+      economic_origin: resolveEconomicOrigin(tx),
+      economic_owner_type: resolveEconomicOwnerType(tx),
+      economic_owner_id: resolveEconomicOwnerId(tx),
       related_order_id: relatedOrderId(tx),
       status: 'OPEN',
     };
@@ -191,11 +233,11 @@ export function reconstructPositionLedger(
       };
 
       allocations.push({
-        allocation_id: `allocation_${sell.transaction_id}_${lot.transaction_id}`,
+        allocation_id: 'allocation_' + sell.transaction_id + '_' + lot.transaction_id,
         disposition_transaction_id: sell.transaction_id,
         acquisition_lot_id: lot.lot_id,
         acquisition_transaction_id: lot.transaction_id,
-        provenance: transactionProvenance(sell),
+        provenance: sell.provenance,
         allocated_quantity: allocated,
         acquisition_unit_cost: lot.unit_cost,
         disposal_unit_price: sell.unit_price,
@@ -216,21 +258,19 @@ export function reconstructPositionLedger(
       0,
     );
     const disposedQuantity = sell.quantity - remaining;
-    const lifecycleStatus: PositionLifecycleStatus =
-      remaining > 0
-        ? 'PARTIALLY_REALIZED'
-        : remainingPositionQuantity === 0
-          ? 'CLOSED'
-          : disposedQuantity > 0
-            ? 'PARTIALLY_REALIZED'
-            : 'UNKNOWN';
+    const state: PositionLifecycleStatus =
+      remainingPositionQuantity === 0 && remaining === 0
+        ? 'CLOSED'
+        : disposedQuantity > 0
+          ? 'PARTIALLY_REALIZED'
+          : 'UNKNOWN';
 
     dispositionStates.push({
       disposition_transaction_id: sell.transaction_id,
       disposed_quantity: disposedQuantity,
       unmatched_quantity: remaining,
       remaining_position_quantity: remainingPositionQuantity,
-      lifecycle_status: lifecycleStatus,
+      lifecycle_status: state,
     });
   }
 
@@ -245,33 +285,24 @@ export function reconstructPositionLedger(
   );
 
   const provenanceByKey = new Map<string, FinancialProvenance>();
-  for (const lot of lots) {
-    const provenance = lot.provenance;
+  for (const source of [
+    ...lots.map((lot) => lot.provenance),
+    ...allocations.map((allocation) => allocation.provenance),
+  ]) {
     provenanceByKey.set(
-      `${provenance.source_kind}|${provenance.source_id}|${provenance.principal_scope}`,
-      provenance,
+      source.source_kind + '|' + source.source_id + '|' + source.principal_scope,
+      source,
     );
   }
-  for (const allocation of allocations) {
-    const provenance = allocation.provenance;
-    provenanceByKey.set(
-      `${provenance.source_kind}|${provenance.source_id}|${provenance.principal_scope}`,
-      provenance,
-    );
-  }
+
   const positionProvenance = Object.freeze(
     [...provenanceByKey.values()].sort((a, b) =>
-      `${a.source_kind}|${a.source_id}|${a.principal_scope}`.localeCompare(
-        `${b.source_kind}|${b.source_id}|${b.principal_scope}`,
+      (a.source_kind + '|' + a.source_id + '|' + a.principal_scope).localeCompare(
+        b.source_kind + '|' + b.source_id + '|' + b.principal_scope,
       ),
     ),
   );
 
-  // Capital recovery is position-level progress, not realized P&L:
-  // - committed = original cost of known acquisition lots;
-  // - recovered = revenue from causally allocated disposals only;
-  // - unmatched/orphan disposal revenue is never credited to a known acquisition position;
-  // - no known acquisition means recovery is UNKNOWN/null rather than synthetic zero.
   const capitalCommitted =
     quantityAcquired > 0
       ? roundIsk(lots.reduce((sum, lot) => sum + lot.total_original_cost, 0))
@@ -289,11 +320,21 @@ export function reconstructPositionLedger(
       ? cashRecovered / capitalCommitted
       : null;
 
+  const hasUnknownOrigin = lots.some((lot) => lot.economic_origin !== 'MARKET_ACQUISITION');
+  const sourceCoverage: FinancialSourceCoverage =
+    quantityAcquired <= 0
+      ? 'UNAVAILABLE'
+      : invalidTransactionIds.length > 0 || unmatchedDispositionQuantity > 0 || hasUnknownOrigin
+        ? 'PARTIAL'
+        : 'MARKET_TRACEABLE';
+
+  const owner = derivePositionOwner(lots);
   const position: CurrentPosition = Object.freeze({
-    position_id: `position_${characterId}_${typeId}`,
+    position_id: 'position_' + accountingScopeId + '_' + typeId,
+    accounting_scope_id: accountingScopeId,
     type_id: typeId,
-    economic_owner_type: 'character',
-    economic_owner_id: characterId,
+    economic_owner_type: owner.type,
+    economic_owner_id: owner.id,
     quantity_acquired: quantityAcquired,
     quantity_disposed: quantityDisposed,
     remaining_quantity: remainingQuantity,
@@ -304,11 +345,19 @@ export function reconstructPositionLedger(
     capital_recovery_delta: capitalRecoveryDelta,
     capital_recovery_ratio: capitalRecoveryRatio,
     provenance: positionProvenance,
-    lifecycle_status: statusFor(lots, quantityAcquired, quantityDisposed, unmatchedDispositionQuantity),
+    lifecycle_status: lifecycleStatus(
+      lots,
+      quantityAcquired,
+      quantityDisposed,
+      unmatchedDispositionQuantity,
+    ),
     financial_completeness:
-      invalidTransactionIds.length > 0 || unmatchedDispositionQuantity > 0
-        ? 'PARTIAL'
-        : 'OBSERVED',
+      sourceCoverage === 'UNAVAILABLE'
+        ? 'UNAVAILABLE'
+        : sourceCoverage === 'PARTIAL'
+          ? 'PARTIAL'
+          : 'OBSERVED',
+    source_coverage: sourceCoverage,
     lots: Object.freeze(lots.filter((lot) => lot.remaining_quantity > 0 || lot.quantity_acquired > 0)),
     allocations: Object.freeze(allocations),
     disposition_states: Object.freeze(dispositionStates),
@@ -316,10 +365,13 @@ export function reconstructPositionLedger(
     invalid_transaction_ids: Object.freeze(invalidTransactionIds),
   });
 
+  const firstCharacterId = valid.find((tx) => tx.character_id !== undefined)?.character_id;
+
   return Object.freeze({
-    character_id: characterId,
+    accounting_scope_id: accountingScopeId,
     type_id: typeId,
-    principal_scope: `character:${characterId}`,
+    character_id: firstCharacterId,
+    principal_scope: accountingScopeId,
     position,
   });
 }

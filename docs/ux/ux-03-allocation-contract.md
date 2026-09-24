@@ -927,6 +927,13 @@ Expected:
 - allocation is not presented as complete;
 - missing/partial candidate sources remain explicit.
 
+### M. Initial degraded universe
+
+Expected:
+- a first PARTIAL / STALE / ERROR refresh does not expose calculated positions as a fresh proposal;
+- diagnostic rejection reasons remain available;
+- only a previously validated proposal may remain visible during the degraded state.
+
 ---
 
 ## 21. Data sources and freshness expectations

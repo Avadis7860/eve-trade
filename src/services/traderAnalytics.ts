@@ -40,17 +40,35 @@ export class TraderAnalyticsService {
     brokerRelationsLevel?: number,
     options?: RealizedFinancialCalculationOptions
   ): TraderPerformanceMetrics {
-    // 1. Cross-character isolation: reject foreign transactions immediately
+    // Character identity is attribution. A cross-character accounting set is allowed
+    // only when the transactions declare one explicit common accounting scope.
+    const explicitScope = options?.accounting_scope_id?.trim();
+    const declaredScopes = new Set(
+      transactions
+        .map((tx) => (tx as any).accounting_scope_id?.trim())
+        .filter((scope): scope is string => Boolean(scope)),
+    );
+    const commonScope =
+      explicitScope ||
+      (declaredScopes.size === 1 ? [...declaredScopes][0] : undefined);
+
     for (const tx of transactions) {
       const txCharId =
         'character_id' in tx && (tx as any).character_id !== undefined
           ? (tx as any).character_id
           : characterId;
-      if (txCharId !== characterId) {
+      if (txCharId !== characterId && !commonScope) {
         throw new CrossCharacterFinancialMappingViolationError(
           txCharId,
           characterId,
-          tx.transaction_id
+          tx.transaction_id,
+        );
+      }
+      if (txCharId !== characterId && (tx as any).accounting_scope_id?.trim() !== commonScope) {
+        throw new CrossCharacterFinancialMappingViolationError(
+          txCharId,
+          characterId,
+          tx.transaction_id,
         );
       }
     }
@@ -165,7 +183,11 @@ export class TraderAnalyticsService {
       );
 
       totalRealizedGross += outcome.gross_realized_profit;
-      totalRealizedProfit += outcome.net_realized_profit;
+      if (outcome.net_realized_profit !== null) {
+        totalRealizedProfit += outcome.net_realized_profit;
+      } else {
+        hasUnavailable = true;
+      }
       totalBrokerFeesPaid +=
         outcome.fees.estimated_buy_broker_fee + outcome.fees.estimated_sell_broker_fee;
       totalSalesTaxPaid += outcome.fees.estimated_sales_tax;
@@ -806,6 +828,16 @@ export class TraderAnalyticsService {
     netProfit: number;
   } {
     if (outcome.fees.fee_mode === 'UNAVAILABLE') {
+      return {
+        cycleBuyBrokerFee: 0,
+        cycleSellBrokerFee: 0,
+        cycleSalesTax: 0,
+        cycleFees: 0,
+        netProfit: cycleGrossProfit,
+      };
+    }
+
+    if (outcome.net_realized_profit === null) {
       return {
         cycleBuyBrokerFee: 0,
         cycleSellBrokerFee: 0,

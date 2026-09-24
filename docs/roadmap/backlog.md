@@ -6,7 +6,7 @@ Source of truth: revalidated code and current state documents
 
 ## Repository / Agent Governance
 
-### CONTEXT-002 — Agent Context Hardening v2 — CLOSING
+### CONTEXT-002 — Agent Context Hardening v2 — DONE / MERGED
 
 - Stable machine-readable context map.
 - Separate active-work manifest.
@@ -14,15 +14,22 @@ Source of truth: revalidated code and current state documents
 - CI-owned `npm run test:context`.
 - Historical archive separation and reconciliation documentation.
 
-This is the only delivery chantier, on branch `chore/agent-context-hardening-v2` / PR #79, frozen for final certification and merge.
+PR #79 merged this foundation into `main`.
 
-### CONTEXT-003 — Stable Anchor Extraction Follow-up — CLOSING
+### CONTEXT-003 — Stable Anchor Extraction Follow-up — DONE / MERGED
+
+- Main Smoke post-merge proof was made explicit around the preserved integration anchor.
+- The first implementation exposed a shallow-history compatibility defect in Main Smoke.
+
+PR #80 merged the first anchor correction; its follow-up defect is tracked as CONTEXT-004.
+
+### CONTEXT-004 — Raw Commit Stable Anchor Follow-up — CLOSING
 
 - Main Smoke post-merge proof must remain valid with the workflow's shallow checkout.
-- Stable integration anchor is read from commit metadata, not revision traversal.
-- Regression coverage protects the shallow-checkout behavior.
+- Stable integration anchor is read from the raw commit object with `git cat-file commit HEAD`.
+- Regression coverage rejects history-traversal and pretty-format extraction.
 
-This is the only active delivery chantier on branch `chore/agent-context-hardening-post-merge-fix` / PR #80.
+This is the only active delivery chantier on branch `chore/agent-context-hardening-raw-anchor-fix` / PR #81.
 
 ## Product / UX program
 

@@ -443,25 +443,19 @@ export class RealizedFinancialOutcomeEngine {
             ...( 'order_id' in tx && tx.order_id ? { order_id: tx.order_id } : {}),
             observation_id: executionRecord.observation_id,
             opportunity_id: executionRecord.opportunity_id,
+            provenance,
           };
 
-          const explicitProvenance =
+          const provenance: import('../types').FinancialProvenance =
             'provenance' in tx && tx.provenance && typeof tx.provenance === 'object'
               ? tx.provenance as import('../types').FinancialProvenance
-              : null;
-          const provenance: import('../types').FinancialProvenance =
-            explicitProvenance ??
-            ('source' in tx && tx.source === 'ESI'
-              ? {
+              : {
+                  // Existing transaction inputs are wallet economic facts unless
+                  // an upstream boundary explicitly tags them otherwise.
                   source_kind: 'ESI_WALLET_TRANSACTION',
                   source_id: String(tx.transaction_id),
                   principal_scope: `character:${characterId}`,
-                }
-              : {
-                  source_kind: 'EXECUTION_TRANSACTION',
-                  source_id: String(tx.transaction_id),
-                  principal_scope: `character:${characterId}`,
-                });
+                };
           provenanceByTransactionId.set(tx.transaction_id, provenance);
 
           if (tx.is_buy) {
@@ -485,11 +479,14 @@ export class RealizedFinancialOutcomeEngine {
     const sellTxs = [...executionRecord.execution_outcome.sell_transactions];
     const provenanceByTransactionId = new Map<number, import('../types').FinancialProvenance>();
     for (const tx of [...buyTxs, ...sellTxs]) {
-      provenanceByTransactionId.set(tx.transaction_id, {
-        source_kind: 'EXECUTION_TRANSACTION',
-        source_id: String(tx.transaction_id),
-        principal_scope: `character:${characterId}`,
-      });
+      provenanceByTransactionId.set(
+        tx.transaction_id,
+        tx.provenance ?? {
+          source_kind: 'ESI_WALLET_TRANSACTION',
+          source_id: String(tx.transaction_id),
+          principal_scope: `character:${characterId}`,
+        },
+      );
     }
     const sampleTx = buyTxs[0] || sellTxs[0];
     const typeId = sampleTx ? sampleTx.type_id : 0;
@@ -653,6 +650,7 @@ export class RealizedFinancialOutcomeEngine {
           unit_price: tx.unit_price,
           timestamp: ts,
           ...( 'order_id' in tx && tx.order_id ? { order_id: tx.order_id } : {}),
+          ...( 'provenance' in tx && tx.provenance ? { provenance: tx.provenance } : {}),
         };
       });
 

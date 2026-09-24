@@ -7,20 +7,26 @@ import type {
   PositionLedgerResult,
   PositionLifecycleStatus,
 } from '../types';
+import type { OrderId } from '../types/order';
+import { normalizeOrderId } from './orderIdentity';
 import { roundIsk } from './money';
 
-type LedgerTransaction = {
+export type PositionLedgerTransaction = {
   readonly transaction_id: number;
   readonly character_id?: number;
   readonly type_id: number;
   readonly location_id: number;
+  /** Economic transaction direction. Never derived from MarketOrder.is_buy_order. */
   readonly is_buy: boolean;
   readonly quantity: number;
   readonly unit_price: number;
   readonly timestamp?: string;
   readonly date?: string;
-  readonly order_id?: import('../types/order').OrderId;
+  /** Optional corroborating CCP order identity; never required for accounting. */
+  readonly order_id?: OrderId;
   readonly opportunity_id?: string;
+  /** Explicit source/provenance supplied by the caller at the accounting boundary. */
+  readonly provenance: FinancialProvenance;
 };
 
 function transactionTimestamp(tx: LedgerTransaction): string | null {
@@ -38,21 +44,22 @@ function transactionCharacterId(tx: LedgerTransaction, fallback: number): number
   return value === undefined ? fallback : value;
 }
 
-function transactionProvenance(
-  tx: LedgerTransaction,
-  characterId: number,
-): FinancialProvenance {
-  const source_kind = 'order_id' in tx && tx.opportunity_id !== undefined
-    ? 'EXECUTION_TRANSACTION'
-    : 'ESI_WALLET_TRANSACTION';
-  return {
-    source_kind,
-    source_id: String(tx.transaction_id),
-    principal_scope: `character:${characterId}`,
-  };
+function validProvenance(provenance: FinancialProvenance): boolean {
+  return (
+    provenance.source_kind === 'ESI_WALLET_TRANSACTION' ||
+    provenance.source_kind === 'EXECUTION_TRANSACTION'
+  ) &&
+    typeof provenance.source_id === 'string' &&
+    provenance.source_id.length > 0 &&
+    typeof provenance.principal_scope === 'string' &&
+    provenance.principal_scope.length > 0;
 }
 
-function validTransaction(tx: LedgerTransaction, characterId: number): boolean {
+function transactionProvenance(tx: PositionLedgerTransaction): FinancialProvenance {
+  return tx.provenance;
+}
+
+function validTransaction(tx: PositionLedgerTransaction, characterId: number): boolean {
   return (
     Number.isSafeInteger(tx.transaction_id) &&
     tx.transaction_id > 0 &&
@@ -65,12 +72,14 @@ function validTransaction(tx: LedgerTransaction, characterId: number): boolean {
     tx.quantity > 0 &&
     Number.isFinite(tx.unit_price) &&
     tx.unit_price > 0 &&
-    transactionTimestamp(tx) !== null
+    transactionTimestamp(tx) !== null &&
+    validProvenance(tx.provenance)
   );
 }
 
-function relatedOrderId(tx: LedgerTransaction) {
-  return 'order_id' in tx && tx.order_id ? tx.order_id : undefined;
+function relatedOrderId(tx: PositionLedgerTransaction): OrderId | undefined {
+  if (!tx.order_id) return undefined;
+  return normalizeOrderId(tx.order_id) ?? undefined;
 }
 
 function statusFor(
@@ -96,7 +105,7 @@ function statusFor(
 export function reconstructPositionLedger(
   characterId: number,
   typeId: number,
-  transactions: readonly LedgerTransaction[],
+  transactions: readonly PositionLedgerTransaction[],
 ): PositionLedgerResult {
   if (!Number.isSafeInteger(characterId) || characterId <= 0) {
     throw new Error(`Invalid characterId: ${characterId}`);

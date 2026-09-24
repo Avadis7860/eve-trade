@@ -44,6 +44,7 @@ export interface PortfolioTreasurySnapshot {
   reserve_configured: boolean;
   allocation_budget: number | null;
   capital_status: TreasuryCapitalStatus;
+  data_health: DataHealthStatus;
   is_simulation: boolean;
 }
 

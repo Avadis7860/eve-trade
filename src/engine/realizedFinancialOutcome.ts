@@ -152,13 +152,13 @@ export class RealizedFinancialOutcomeEngine {
 
     const unmatchedSellQuantity = positionLedger.position.unmatched_disposition_quantity;
     // 5. Aggregate Quantities and Financial Totals
-    const totalBuyQuantity = sortedBuys.reduce(
-      (acc, b) => acc + (Number.isFinite(b.quantity) ? Math.max(0, b.quantity) : 0),
-      0
+    const totalBuyQuantity = positionLedger.position.lots.reduce(
+      (acc, lot) => acc + lot.quantity_acquired,
+      0,
     );
-    const totalSellQuantity = sortedSells.reduce(
-      (acc, s) => acc + (Number.isFinite(s.quantity) ? Math.max(0, s.quantity) : 0),
-      0
+    const totalSellQuantity = positionLedger.position.disposition_states.reduce(
+      (acc, state) => acc + state.disposed_quantity + state.unmatched_quantity,
+      0,
     );
     const matchedQuantity = allocations.reduce((acc, a) => acc + a.allocated_quantity, 0);
     const remainingInventoryQuantity = lots.reduce((acc, l) => acc + l.remaining_quantity, 0);
@@ -187,7 +187,11 @@ export class RealizedFinancialOutcomeEngine {
     let isFinanciallyComplete = false;
     let realizedNetEstimated: number | null = null;
 
-    if (hasUnmatchedSellQuantity || (matchedQuantity === 0 && totalSellQuantity > 0)) {
+    if (
+      positionLedger.position.invalid_transaction_ids.length > 0 ||
+      hasUnmatchedSellQuantity ||
+      (matchedQuantity === 0 && totalSellQuantity > 0)
+    ) {
       financialCompleteness = 'PARTIAL';
       isNetEstimated = fees.fee_mode === 'ESTIMATED';
       realizedNetEstimated = fees.fee_mode === 'ESTIMATED' ? netRealizedProfit : null;
@@ -256,6 +260,13 @@ export class RealizedFinancialOutcomeEngine {
     // 10. Data State & Diagnostic Reasons
     let dataState: 'VALID' | 'PARTIAL' = 'VALID';
     const stateReasons: string[] = [];
+
+    if (positionLedger.position.invalid_transaction_ids.length > 0) {
+      dataState = 'PARTIAL';
+      stateReasons.push(
+        `Invalid transaction facts excluded from accounting: ${positionLedger.position.invalid_transaction_ids.join(', ')}`
+      );
+    }
 
     if (hasUnmatchedSellQuantity) {
       dataState = 'PARTIAL';
@@ -575,8 +586,8 @@ export class RealizedFinancialOutcomeEngine {
           type_id: tx.type_id,
           location_id: tx.location_id,
           is_buy: tx.is_buy,
-          quantity: Number.isFinite(tx.quantity) ? Math.max(0, tx.quantity) : 0,
-          unit_price: Number.isFinite(tx.unit_price) ? Math.max(0, tx.unit_price) : 0,
+          quantity: tx.quantity,
+          unit_price: tx.unit_price,
           timestamp: ts,
         };
       });

@@ -858,7 +858,9 @@ Examples:
 
 - character wallet for character A;
 - corporation wallet division 3;
-- explicitly consolidated fleet budget.
+- explicit manual trading budget.
+
+Connected characters are operational contexts, not a shared economic owner. A character can be assigned to a market hub to organize dispersed order management, while corporation-owned orders remain in the corporation scope.
 
 Orders, transactions and realized outcomes must keep economic ownership separate from observing principal.
 

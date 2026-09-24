@@ -121,28 +121,52 @@ An order detail must show:
 
 ## Allocation contract
 
-Split the surface into:
+The detailed implementation contract is [UX-03 — Allocation / Portefeuille — Contrat métier détaillé](ux-03-allocation-contract.md), with source/derivation traceability in [UX-03 — Data Availability & Derivation Matrix](../validation/ux-03-data-availability.md).
 
 ### Real Portfolio
-Economic exposure already committed:
+
+Economic exposure already observed or durably reconstructed:
+
+- treasury source and provenance;
+- liquid cash;
+- explicit policy reserve;
+- buy escrow;
+- contingent uncovered buy obligation;
 - active orders;
-- stock/exposure when authoritative data exists;
-- escrow/capital lock;
-- concentration.
+- known inventory cost basis when authoritative;
+- derived inventory market valuation when market data is trustworthy;
+- concentration by type/group/category/route;
+- explicit inventory coverage state.
+
+Inventory coverage is allowed to be UNKNOWN/PARTIAL. Missing inventory is never interpreted as zero.
 
 ### Proposed Allocation
-Prospective capital deployment:
-- available capital;
-- candidate opportunities;
+
+Prospective deployment against a resolved treasury scope:
+
+- explicit allocation budget;
+- cross-item candidate universe;
 - allocated capital;
-- expected profit;
+- quantity;
+- deployed allocation share;
+- projected net profit;
+- capturable profit;
 - projected ROI;
 - profit/day;
-- risk/confidence;
+- expected days to sell;
+- liquidity;
+- capturability;
+- prediction probability/confidence when available;
+- data confidence;
+- risk fronts;
 - diversification;
 - unallocated capital and reason.
 
-A proposed allocation must never depend on the currently selected catalog item only.
+The candidate universe is sourced from the universe-wide discovery opportunity set, not from the currently selected catalog item.
+
+Score is a ranking aid only. It is not ROI, profit or probability.
+
+Proposed allocation is advisory and must not be presented as realized financial truth.
 
 ## Performance contract
 

@@ -39,11 +39,21 @@ There is no active P0 technical branch.
 
 ### P1 — Allocation / Portefeuille
 
-- Split Real Portfolio from Proposed Allocation.
-- Feed allocation with a cross-item opportunity universe instead of the currently selected item only.
-- Preserve and extend concentration controls.
-- Explain invested capital, unused capital, concentration and allocation rationale.
-- Optimize for projected ROI/profit/day/liquidity/capturability/risk rather than a single top-scoring item.
+Status: CONTRACT ENRICHMENT ACTIVE / IMPLEMENTATION NOT STARTED
+
+Detailed contract: [UX-03 Allocation / Portefeuille](../ux/ux-03-allocation-contract.md)
+
+- Split Real Portfolio from Proposed Allocation with separate economic truth boundaries.
+- Feed Proposed Allocation from the universe-wide opportunity set, never from the selected item only.
+- Define treasury scope/provenance and separate liquid cash, buy escrow, explicit reserve, contingent buy obligation and inventory cost basis.
+- Preserve type/group hard concentration controls and expose category/route concentrations without inventing hard caps.
+- Measure concentration against deployed proposed capital, not total treasury balance.
+- Keep projected net profit, capturable profit, projected ROI, profit/day, data confidence, prediction confidence and profit-realization probability distinct.
+- Treat liquidity and risk as multi-dimensional evidence rather than an opaque scalar.
+- Optimize across multiple opportunities instead of simply selecting the highest overall score.
+- Preserve valid prior proposals during stale/error refresh states and never collapse missing data to zero.
+- Cover multi-opportunity allocation, reserve, escrow, stale/partial/error, manual-budget and missing-inventory scenarios.
+- Correct current optimizer quantity/capital consistency and document allocation rationale before certification.
 
 ### P1 — Performance / Journal
 

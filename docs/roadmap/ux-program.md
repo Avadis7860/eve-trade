@@ -80,17 +80,26 @@ Gate:
 a trader can inspect an active order and decide whether to keep, adjust, relocate or cancel without leaving the operations context for routine information. Certified by PR #61 run `35859213922` and P0 browser diagnostics by PR #63 run `35862904773`.
 
 ### UX-03 — Allocation / Portefeuille
-Status: P1 — NEXT PRODUCT BUILD AFTER P0
+Status: CONTRACT ENRICHMENT ACTIVE — IMPLEMENTATION NOT STARTED
 
-Preparation before implementation:
-- freeze Real Portfolio vs Proposed Allocation information hierarchy;
-- define cross-item opportunity universe contract;
-- define concentration/diversification explanations;
-- define loading/empty/stale/partial/error behavior;
-- define scenarios for a multi-opportunity capital allocation.
+Detailed contract:
+[UX-03 Allocation / Portefeuille — Contrat métier détaillé](../ux/ux-03-allocation-contract.md)
+
+Contract now specifies:
+- Real Portfolio economic buckets and source provenance;
+- liquid cash vs buy escrow vs explicit reserve vs contingent buy obligation;
+- known inventory cost basis vs derived inventory market value;
+- cross-item opportunity universe and candidate eligibility;
+- separation of score, projected ROI, capturable profit, data confidence, prediction confidence and profit-realization probability;
+- liquidity and risk as explicit dimensions;
+- concentration semantics by type/group/category/route;
+- deployed-capital denominator for concentration;
+- refresh and degraded-data behavior;
+- multi-opportunity acceptance scenarios;
+- current PortfolioOptimizer corrections required before certification.
 
 Gate:
-the system can produce a meaningful diversified allocation across multiple opportunities independent of the currently selected catalog item.
+the system can produce a meaningful diversified allocation across multiple opportunities independent of the currently selected catalog item, with explicit capital provenance, concentration rationale and truth-state behavior.
 
 ### UX-04 — Performance / Journal
 Status: P1

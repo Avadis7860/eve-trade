@@ -9,7 +9,7 @@ CI gate: [../validation/ci.md](../validation/ci.md)
 
 ## Current baseline
 
-Current main head is `95e970933a1d440fb61d25a6f677742731b697aa` after PR #68. The functional E2E-001 baseline was `9438bbedb2d44cf3f5f371144bcf72094955cd46`. Deterministic browser CI is green and the target-PC real-CCP SSO/ESI smoke PASS was recorded on 2026-09-23.
+Current main head is `aec4c62691723e8fa2ee2bb2f9126249152ad57f` after PR #70. The functional E2E-001 baseline was `9438bbedb2d44cf3f5f371144bcf72094955cd46`. Deterministic browser CI is green and the target-PC real-CCP SSO/ESI smoke PASS was recorded on 2026-09-23.
 
 The UX-first program has closed the P0 market/ESI retrieval reliability gate. UX-01 is DONE / EXTERNALLY BOUNDED; the previously reported target-PC market-display symptom is resolved and the current application is functional.
 
@@ -36,7 +36,7 @@ A dedicated study is recorded in [CI management audit](../audits/ci-management-a
 
 ### Current CI management decision
 
-CI-001 is **DONE / MERGED** on main at `7fc6fe7ca65454d0d29843bc0eace336b2da864c`. The current main head is `95e970933a1d440fb61d25a6f677742731b697aa`, and Main Smoke #9 completed successfully against it.
+CI-001 is **DONE / MERGED** on main at `7fc6fe7ca65454d0d29843bc0eace336b2da864c`. The current main head is `aec4c62691723e8fa2ee2bb2f9126249152ad57f`, and Main Smoke #13 completed successfully against it.
 
 Post-merge behavior is now intentionally split: PR changes run the PR certification surface, while pushes to `main` run the short Main Smoke surface. Full Repository Certification is scheduled/manual.
 
@@ -88,6 +88,14 @@ The current engine/domain layers are ahead of the UI information architecture.
 - Cockpit remains too item-centric to serve as a decision-oriented synthesis.
 - Public repository security/release posture still needs the maintenance work recorded in [Public Readiness](../roadmap/public-readiness.md).
 
+## UX-03 contract status
+
+UX-03 contract enrichment is active on dedicated branch `ux-03/allocation-contract`.
+
+The detailed contract is [UX-03 Allocation / Portefeuille](../ux/ux-03-allocation-contract.md), with source/derivation traceability in [UX-03 Data Availability & Derivation Matrix](../validation/ux-03-data-availability.md). It defines the economic buckets, cross-item candidate universe, confidence/probability separation, concentration semantics, liquidity/risk boundaries and acceptance scenarios required before implementation.
+
+No UX-03 product code is committed on the branch yet.
+
 ## P0 closure status
 
 **DONE — EXTERNALLY BOUNDED.**
@@ -105,9 +113,9 @@ The previously reported target-PC market-display symptom is resolved. The applic
 
 ## Current chantier / sequencing
 
-**Current product sequence:** UX-03 Allocation / Portefeuille is the next product build. The present documentation branch is a maintenance synchronization step and is not a product implementation branch.
+**Current product sequence:** UX-03 Allocation / Portefeuille is the next product build. The present active branch is the dedicated UX-03 contract-enrichment branch; it is not a merge-only documentation signal.
 
-The P0-B and P0-C delivery branches are historical and must not be reused. There is no active technical delivery branch after this documentation sync.
+The P0-B and P0-C delivery branches are historical and must not be reused. The dedicated UX-03 contract branch is the only active product branch.
 
 UX-02 is DONE / MERGED. CI-001 is DONE / MERGED. UX-01/P0 is DONE / EXTERNALLY BOUNDED.
 

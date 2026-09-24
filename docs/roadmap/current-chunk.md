@@ -1,11 +1,13 @@
 # Current Chunk
 
-Status: READY FOR NEXT TECHNICAL CHANTIER
-Scope: UX-03 preparation + public-readiness maintenance follow-up
+Status: UX-03 CONTRACT ENRICHMENT ACTIVE
+Scope: UX-03 contract enrichment + public-readiness maintenance follow-up
 Reference: [UI/UX Product Audit](../audits/ui-ux-product-audit-2026-09-23.md)
 Program: [UX-First Trading Terminal Program](ux-program.md)
 Decision: [ADR-0002](../decisions/ADR-0002-ux-first-trading-terminal.md)
 Detailed plan: [UX-First Trading Terminal Program](ux-program.md)
+Detailed contract: [UX-03 Allocation / Portefeuille — Contrat métier détaillé](../ux/ux-03-allocation-contract.md)
+Data traceability: [UX-03 Data Availability & Derivation Matrix](../validation/ux-03-data-availability.md)
 Public-readiness audit: [Public Readiness Audit](../audits/public-readiness-audit-2026-09-24.md)
 
 ## Objective
@@ -41,8 +43,8 @@ The target-PC evidence workflow now includes a browser-visible JSON export conta
 
 ## Next increments
 
-1. Freeze the UX-03 Allocation / Portefeuille contract.
-2. Implement UX-03 from a fresh branch based on the current main head.
+1. Freeze and review the enriched UX-03 Allocation / Portefeuille contract on the dedicated branch.
+2. Continue UX-03 implementation from that same dedicated branch only after the contract is accepted.
 3. Address public-readiness maintenance items PUB-002/PUB-003 before the first portfolio showcase release.
 4. Keep the public-readiness audit synchronized with any material change in capabilities, security posture or release state.
 
@@ -67,6 +69,8 @@ Activation gate: only after the P0 closure gate is complete, unless a separate C
 PST-001, UI-001, E2E-002, UI-002, PERF-001 and TYPE-001 remain deferred.
 
 UX-02 is DONE / MERGED and is not an active branch.
+
+UX-03 contract enrichment is active on `ux-03/allocation-contract`. No UX-03 product implementation code is committed yet, and this branch is not to be merged merely for documentation.
 
 ## Validation
 

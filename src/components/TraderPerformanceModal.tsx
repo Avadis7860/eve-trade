@@ -263,7 +263,7 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                     <Percent className="w-3.5 h-3.5 text-blue-400" />
                   </div>
                   <div className="text-lg font-bold font-mono text-blue-400">
-                    {metrics.win_rate_pct.toFixed(1)}%
+                    {metrics.win_rate_pct === null ? '—' : metrics.win_rate_pct.toFixed(1) + '%'}
                   </div>
                   <div className="text-[10px] text-[#808495]">
                     {metrics.profitable_trades} positions clôturées gagnantes / {metrics.total_closed_trades} clôturées
@@ -351,7 +351,7 @@ export const TraderPerformanceModal: React.FC<TraderPerformanceModalProps> = ({
                               </div>
                               <div className="flex justify-between font-mono text-[11px]">
                                 <span className="text-[#808495]">Trades:</span>
-                                <span className="text-[#fafafa]">{m.total_closed_trades} ({m.win_rate_pct.toFixed(0)}% win)</span>
+                                <span className="text-[#fafafa]">{m.total_closed_trades} ({m.win_rate_pct === null ? '—' : m.win_rate_pct.toFixed(0) + '%'} win)</span>
                               </div>
                             </div>
                           ) : (

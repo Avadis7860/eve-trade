@@ -562,7 +562,8 @@ export class TraderAnalyticsService {
           operationNetProfit !== null;
 
         if (canPublishWholePosition) {
-          const positionRoi = safeDiv(operationNetProfit, operationCapitalCommitted!, 0);
+          const wholeOperationNetProfit = operationNetProfit!;
+          const positionRoi = safeDiv(wholeOperationNetProfit, operationCapitalCommitted!, 0);
           const finalSellTime = Date.parse(cycle.sell_date);
           const weightedAcquisitionTime =
             weightedBuyTimeMs / Math.max(1, disposedQuantity);
@@ -575,9 +576,9 @@ export class TraderAnalyticsService {
           if (index >= 0) {
             completedCycles[index] = {
               ...cycle,
-              position_net_profit: operationNetProfit,
+              position_net_profit: wholeOperationNetProfit,
               position_roi: positionRoi,
-              position_is_profitable: operationNetProfit > 0,
+              position_is_profitable: wholeOperationNetProfit > 0,
               position_total_quantity: operationQuantityAcquired,
               ...(positionHoldDays !== undefined
                 ? { position_hold_days: Number(positionHoldDays.toFixed(1)) }
@@ -595,7 +596,7 @@ export class TraderAnalyticsService {
             hold_days_list: [],
             total_volume_units: 0,
           };
-          item.total_profit = roundIsk(item.total_profit + operationNetProfit!);
+          item.total_profit = roundIsk(item.total_profit + wholeOperationNetProfit);
           item.trades_count += 1;
           item.rois.push(positionRoi);
           item.hold_days_list.push(positionHoldDays ?? cycle.hold_days);

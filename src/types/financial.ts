@@ -271,6 +271,7 @@ export interface CapitalRecoverySummary {
 
 export interface FifoLotRecord {
   readonly lot_id: string;
+  readonly position_segment_id: string;
   readonly provenance: FinancialProvenance; // "lot_{buy_transaction_id}"
   readonly buy_transaction_id: number;
   readonly type_id: number;
@@ -285,6 +286,7 @@ export interface FifoLotRecord {
 
 export interface FifoAllocationRecord {
   readonly allocation_id: string;
+  readonly position_segment_id: string;
   readonly provenance: FinancialProvenance;
   readonly sell_transaction_id: number;
   readonly buy_transaction_id: number;
@@ -481,12 +483,25 @@ export interface PositionDispositionState {
   readonly unmatched_quantity: number;
   readonly remaining_position_quantity: number;
   readonly lifecycle_status: PositionLifecycleStatus;
+  readonly position_quantity_acquired?: number;
+  readonly position_capital_committed?: number;
+  readonly position_cash_recovered?: number;
+  readonly position_recovery_delta?: number;
+  readonly position_recovery_ratio?: number | null;
+  readonly position_recovery_state?: EconomicPositionRecoveryState;
+  /** @deprecated Use position_segment_id and position_* fields. */
   readonly operation_id?: string;
+  /** @deprecated Use position_* fields. */
   readonly operation_quantity_acquired?: number;
+  /** @deprecated Use position_* fields. */
   readonly operation_capital_committed?: number;
+  /** @deprecated Use position_* fields. */
   readonly operation_cash_recovered?: number;
+  /** @deprecated Use position_* fields. */
   readonly operation_recovery_delta?: number;
+  /** @deprecated Use position_* fields. */
   readonly operation_recovery_ratio?: number | null;
+  /** @deprecated Use position_* fields. */
   readonly operation_recovery_state?: EconomicOperationRecoveryState;
 }
 

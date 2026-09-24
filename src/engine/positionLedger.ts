@@ -339,8 +339,7 @@ export function reconstructPositionLedger(
 
   const positionSegmentIds = Object.freeze(
     [...new Set(lots.map((lot) => lot.position_segment_id))]
-      .filter((id): id is string => Boolean(id))
-      .sort((a, b) => a.localeCompare(b)),
+      .filter((id): id is string => Boolean(id)),
   );
 
   const buildPositionSegment = (positionSegmentId: string): CurrentPosition => {

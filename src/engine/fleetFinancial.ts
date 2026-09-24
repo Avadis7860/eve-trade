@@ -202,7 +202,9 @@ export class FleetFinancialEngine {
       return a.cycle_id.localeCompare(b.cycle_id);
     });
 
-    const closedCycles = sortedCycles.filter((c) => c.quantity > 0);
+    const closedCycles = sortedCycles.filter(
+      (c) => c.quantity > 0 && c.is_position_closed === true,
+    );
 
     const avgRealizedRoi =
       closedCycles.length > 0

@@ -233,7 +233,7 @@ export class RealizedFinancialOutcomeEngine {
     const feeMode = fees?.fee_mode ?? 'UNAVAILABLE';
     const executionFeeMode = fees?.execution_fee_mode ?? 'UNKNOWN';
     const netRealizedProfit =
-      feeMode === 'UNAVAILABLE'
+      fees === null || feeMode === 'UNAVAILABLE'
         ? null
         : roundIsk(grossRealizedProfit - fees.estimated_total_fees);
 
@@ -499,7 +499,7 @@ export class RealizedFinancialOutcomeEngine {
           timestamp:
             'timestamp' in tx && tx.timestamp
               ? tx.timestamp
-              : ('date' in tx && tx.date ? tx.date : new Date(0).toISOString()),
+              : ('date' in tx && tx.date ? tx.date : ''),
           character_id: txCharacterId,
           ...(('accounting_scope_id' in tx && tx.accounting_scope_id)
             ? { accounting_scope_id: tx.accounting_scope_id }
@@ -766,8 +766,8 @@ export class RealizedFinancialOutcomeEngine {
     const totalBuyCost = buyTxs.reduce((acc, b) => acc + b.quantity * b.unit_price, 0);
     const totalSellRevenue = sellTxs.reduce((acc, s) => acc + s.quantity * s.unit_price, 0);
 
-    const firstTime = refs[0]?.timestamp || new Date(0).toISOString();
-    const lastTime = refs[refs.length - 1]?.timestamp || new Date(0).toISOString();
+    const firstTime = refs[0]?.timestamp || '';
+    const lastTime = refs[refs.length - 1]?.timestamp || '';
     const executionStatus =
       buyTxs.length > 0 && sellTxs.length > 0
         ? (totalSellQuantity >= totalBuyQuantity ? 'CLOSED' : 'SELL_PARTIAL')

@@ -10,7 +10,7 @@ These items block further finance, performance and portfolio development until t
 
 - **FIN-001 / #72 — CERTIFIED:** economic acquisitions are derived from real transactions; Acquisition Lots and Current Position carry source/provenance, remaining quantity, cost basis and lifecycle.
 - **ORD-001 / #73 — CERTIFIED:** one canonical MarketOrder model; character/corporation remain ownership/scope dimensions; issuer and observer remain explicit provenance.
-- **FIN-002 / #74 — IN PROGRESS:** harden Performance around OPEN -> PARTIALLY_REALIZED -> CLOSED. Disposal results remain visible at disposal scope; closed-position win rate/ROI and profitability rankings use the cumulative whole-position result only at closure.
+- **FIN-002 / #74 — IN PROGRESS:** harden Performance around OPEN -> PARTIALLY_REALIZED -> CLOSED. Disposal results remain visible at disposal scope; closed-position win rate/ROI and profitability rankings use the cumulative whole-position result only at closure. Lifecycle closure is independent from fee/configuration availability: source lineage coverage and financial completeness remain separate axes.
 - **DATA-001 / #75 — FIRST AUDIT CERTIFIED:** audit every financial path for UNKNOWN/PARTIAL/ERROR/ABSENT -> 0 collapse and provenance loss.
 - Active BUY orders may reserve capital but are not acquisition facts.
 - Market order side must never be treated as economic acquisition/disposition direction.

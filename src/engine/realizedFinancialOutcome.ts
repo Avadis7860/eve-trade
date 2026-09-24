@@ -502,6 +502,15 @@ export class RealizedFinancialOutcomeEngine {
           ...(('accounting_scope_id' in tx && tx.accounting_scope_id)
             ? { accounting_scope_id: tx.accounting_scope_id }
             : {}),
+          ...(('economic_owner_type' in tx && tx.economic_owner_type)
+            ? { economic_owner_type: tx.economic_owner_type }
+            : {}),
+          ...(('economic_owner_id' in tx && tx.economic_owner_id !== undefined)
+            ? { economic_owner_id: tx.economic_owner_id }
+            : {}),
+          ...(('economic_origin' in tx && tx.economic_origin)
+            ? { economic_origin: tx.economic_origin }
+            : {}),
           ...('order_id' in tx && tx.order_id ? { order_id: tx.order_id } : {}),
           observation_id: executionRecord.observation_id,
           opportunity_id: executionRecord.opportunity_id,

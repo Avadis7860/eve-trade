@@ -135,9 +135,13 @@ export class RealizedFinancialOutcomeEngine {
       options?.coverage_evidence,
     );
 
-    const ledgerLots = positionLedger.position.lots;
+    const positionSegments = positionLedger.position_segments;
+    const ledgerLots = positionSegments.flatMap((segment) => segment.lots);
+    const ledgerAllocations = positionSegments.flatMap((segment) => segment.allocations);
+    const ledgerDispositionStates = positionSegments.flatMap((segment) => segment.disposition_states);
     const lots: FifoLotRecord[] = ledgerLots.map((lot) => ({
       lot_id: lot.lot_id,
+      position_segment_id: lot.position_segment_id,
       provenance: lot.provenance,
       buy_transaction_id: lot.transaction_id,
       type_id: lot.type_id,
@@ -151,13 +155,14 @@ export class RealizedFinancialOutcomeEngine {
     }));
 
     let allocationSeq = 1;
-    const allocations: FifoAllocationRecord[] = positionLedger.position.allocations.map((allocation) => {
+    const allocations: FifoAllocationRecord[] = ledgerAllocations.map((allocation) => {
       const holdDurationMs = Math.max(
         0,
         Date.parse(allocation.disposed_at) - Date.parse(allocation.acquired_at),
       );
       return {
         allocation_id: `alloc_${allocation.disposition_transaction_id}_${allocation.acquisition_lot_id.replace(/^acquisition_/, '')}_${allocationSeq++}`,
+        position_segment_id: allocation.position_segment_id,
         provenance: allocation.provenance,
         sell_transaction_id: allocation.disposition_transaction_id,
         buy_transaction_id: allocation.acquisition_transaction_id,
@@ -175,13 +180,16 @@ export class RealizedFinancialOutcomeEngine {
       };
     });
 
-    const unmatchedSellQuantity = positionLedger.position.unmatched_disposition_quantity;
+    const unmatchedSellQuantity = ledgerDispositionStates.reduce(
+      (sum, state) => sum + state.unmatched_quantity,
+      0,
+    );
     // 5. Aggregate Quantities and Financial Totals
     const totalBuyQuantity = positionLedger.position.lots.reduce(
       (acc, lot) => acc + lot.quantity_acquired,
       0,
     );
-    const totalSellQuantity = positionLedger.position.disposition_states.reduce(
+    const totalSellQuantity = ledgerDispositionStates.reduce(
       (acc, state) => acc + state.disposed_quantity + state.unmatched_quantity,
       0,
     );
@@ -190,6 +198,12 @@ export class RealizedFinancialOutcomeEngine {
     const hasUnmatchedSellQuantity = unmatchedSellQuantity > 0;
     const positionLifecycle = positionLedger.position.lifecycle_status;
     const positionRemainingQuantity = positionLedger.position.remaining_quantity;
+    const sourceCoverage =
+      positionSegments.some((segment) => segment.source_coverage === 'PARTIAL')
+        ? 'PARTIAL'
+        : positionSegments.some((segment) => segment.source_coverage === 'MARKET_TRACEABLE')
+          ? 'MARKET_TRACEABLE'
+          : 'UNAVAILABLE';
 
     const realizedAcquisitionCost = roundIsk(allocations.reduce((acc, a) => acc + a.gross_cost, 0));
     const realizedRevenue = roundIsk(allocations.reduce((acc, a) => acc + a.gross_revenue, 0));
@@ -202,7 +216,8 @@ export class RealizedFinancialOutcomeEngine {
     const cashRecovered = positionLedger.position.cash_recovered;
     const capitalRecoveryDelta = positionLedger.position.capital_recovery_delta;
     const capitalRecoveryRatio = positionLedger.position.capital_recovery_ratio;
-    const sourceCoverage = positionLedger.position.source_coverage;
+    const historyCoverage = positionLedger.position.history_coverage;
+    const economicOriginCoverage = positionLedger.position.economic_origin_coverage;
 
     // 6. Fee Calculations via FeeEngine
     const fees = this.calculateFees(
@@ -367,9 +382,10 @@ export class RealizedFinancialOutcomeEngine {
       character_id: characterId,
       accounting_scope_id: accountingScopeId,
       source_coverage: sourceCoverage,
-      history_coverage: positionLedger.position.history_coverage,
-      economic_origin_coverage: positionLedger.position.economic_origin_coverage,
-      position_disposition_states: Object.freeze(positionLedger.position.disposition_states),
+      history_coverage: historyCoverage,
+      economic_origin_coverage: economicOriginCoverage,
+      position_segments: Object.freeze(positionSegments),
+      position_disposition_states: Object.freeze(ledgerDispositionStates),
       observation_id: observationId,
       calculation_source: 'EXECUTION_RECORD',
       opportunity_id: opportunityId,

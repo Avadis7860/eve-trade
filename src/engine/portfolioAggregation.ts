@@ -287,6 +287,7 @@ function treasuryDivision(
 export function aggregatePortfolioOrderExposure(
   orders: EveCharacterOrder[],
   explicitHealth?: DataHealthStatus,
+  unresolvedCorporationOrders: EveCharacterOrder[] = [],
 ): PortfolioOrderExposureSnapshot {
   let buyEscrow = 0;
   let buyObligation = 0;
@@ -326,26 +327,53 @@ export function aggregatePortfolioOrderExposure(
     }
   }
 
-  const health = explicitHealth ??
+  const unresolvedOrderIds = unresolvedCorporationOrders.map((order) => String(order.order_id));
+  let unresolvedNotional: number | null = 0;
+  for (const order of unresolvedCorporationOrders) {
+    const remain = finiteNonNegative(order.volume_remain);
+    const price = finiteNonNegative(order.price);
+    if (remain === null || price === null) {
+      unresolvedNotional = null;
+      break;
+    }
+    const notional = price * remain;
+    if (!Number.isFinite(notional)) {
+      unresolvedNotional = null;
+      break;
+    }
+    unresolvedNotional += notional;
+  }
+
+  let health: DataHealthStatus = explicitHealth ??
     (invalidCount > 0 || missingEscrowCount > 0 || missingProvenanceCount > 0
       ? 'PARTIAL'
       : 'UNKNOWN');
+  if (unresolvedCorporationOrders.length > 0 && health !== 'ERROR') {
+    health = 'PARTIAL';
+  }
+
+  const exposureComplete = unresolvedCorporationOrders.length === 0;
 
   return {
     order_count: orders.length,
     buy_order_count: orders.filter((order) => order.is_buy_order).length,
     sell_order_count: orders.filter((order) => !order.is_buy_order).length,
-    buy_escrow: missingEscrowCount > 0 ? null : buyEscrow,
-    buy_obligation: Number.isFinite(buyObligation) ? buyObligation : null,
+    // A division-scoped treasury cannot present a zero total when known
+    // corporation orders remain unattributed to that division.
+    buy_escrow: exposureComplete && missingEscrowCount === 0 ? buyEscrow : null,
+    buy_obligation: exposureComplete && Number.isFinite(buyObligation) ? buyObligation : null,
     uncovered_buy_obligation:
-      missingEscrowCount > 0 || !Number.isFinite(buyObligation)
-        ? null
-        : Math.max(0, buyObligation - buyEscrow),
-    sell_exposure: Number.isFinite(sellExposure) ? sellExposure : null,
+      exposureComplete && missingEscrowCount === 0 && Number.isFinite(buyObligation)
+        ? Math.max(0, buyObligation - buyEscrow)
+        : null,
+    sell_exposure: exposureComplete && Number.isFinite(sellExposure) ? sellExposure : null,
     data_health: health,
     missing_escrow_count: missingEscrowCount,
     missing_provenance_count: missingProvenanceCount,
     scoped_order_ids: orders.map((order) => String(order.order_id)),
+    unresolved_corporation_order_count: unresolvedCorporationOrders.length,
+    unresolved_corporation_order_ids: unresolvedOrderIds,
+    unresolved_corporation_order_notional: unresolvedNotional,
   };
 }
 

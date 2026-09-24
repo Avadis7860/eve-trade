@@ -4,10 +4,8 @@ import type {
   TreasurySourceMode,
   TreasuryCapitalStatus,
 } from '../types/financial';
-import type {
-  EveCharacterOrder,
-  EveCharacterSession,
-} from '../types/character';
+import type { EveCharacterSession } from '../types/character';
+import type { EveCharacterOrder } from '../types/order';
 import type {
   GlobalSyncProgress,
   InterRegionalOpportunity,

@@ -1,6 +1,7 @@
 import type { DataHealthStatus } from './market';
 import type { TreasuryCapitalStatus, TreasurySourceMode } from './financial';
-import type { EveCharacterOrder, EveCharacterSession } from './character';
+import type { EveCharacterSession } from './character';
+import type { EveCharacterOrder } from './order';
 import type { GlobalSyncProgress, InterRegionalOpportunity, UniverseWideOpportunity } from './opportunity';
 import type { PortfolioSimulation } from './execution';
 

@@ -579,13 +579,13 @@ async function runAllTests() {
     console.log('  [PASS] Test 18: Execution record immutability verified.');
   }
 
-  // Test 19: Cross-Character Isolation Guard
+  // Test 19: Cross-Character Scope Guard
   {
-    console.log('--- Test 19: Cross-Character Isolation Guard ---');
+    console.log('--- Test 19: Cross-Character Scope Guard ---');
     const buy: ExecutionTransactionRef = { transaction_id: 101, type_id: 34, location_id: 60003760, is_buy: true, quantity: 1000, unit_price: 100, timestamp: '2026-09-20T10:00:00Z' };
     const record = createMockExecutionRecord({ characterId: 2112001, buyTxs: [buy] });
 
-    // Inject external transaction belonging to Char B (2112002)
+    // Inject external transaction belonging to Char B (2112002) without declaring a common economic scope.
     const foreignTx: PersistedCharacterTransaction = {
       transaction_id: 999,
       character_id: 2112002, // Foreign!
@@ -615,8 +615,8 @@ async function runAllTests() {
       }
     }
 
-    assert(caughtError, 'CrossCharacterFinancialMappingViolationError must be thrown on foreign transaction');
-    console.log('  [PASS] Test 19: Cross-character isolation guard verified.');
+    assert(caughtError, 'CrossCharacterFinancialMappingViolationError must be thrown when cross-character scope is absent');
+    console.log('  [PASS] Test 19: Cross-character scope guard verified.');
   }
 
   // Test 20: Idempotence

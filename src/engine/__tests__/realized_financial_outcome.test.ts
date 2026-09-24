@@ -661,13 +661,34 @@ async function runAllTests() {
     console.log('  [PASS] Test 19: Cross-character economic allocation validated.');
   }
 
+  // Cross-scope mismatch must fail closed instead of consuming another ecosystem.
+  {
+    const scopedBuy: ExecutionTransactionRef = {
+      transaction_id: 301,
+      character_id: 2112001,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: true,
+      quantity: 10,
+      unit_price: 100,
+      timestamp: '2026-09-20T10:00:00Z',
+      accounting_scope_id: 'ecosystem:test',
+    };
+    const scopedSell: ExecutionTransactionRef = {
+      transaction_id: 302,
+      character_id: 2112002,
+      type_id: 34,
+      location_id: 60003760,
+      is_buy: false,
+      quantity: 10,
+      unit_price: 150,
+      timestamp: '2026-09-20T11:00:00Z',
+      accounting_scope_id: 'ecosystem:other',
+    };
     const rejected = RealizedFinancialOutcomeEngine.calculateForTransactions(
       2112001,
       34,
-      [
-        { ...buy, accounting_scope_id: 'ecosystem:test' },
-        { ...sell, accounting_scope_id: 'ecosystem:other' },
-      ],
+      [scopedBuy, scopedSell],
       {
         financialConfig: mockFinancialConfig,
         accounting_scope_id: 'ecosystem:test',
@@ -675,6 +696,7 @@ async function runAllTests() {
     );
     assert(rejected.matched_quantity === 0, 'cross-scope disposal must not consume the acquisition lot');
     assert(rejected.source_coverage === 'PARTIAL', 'cross-scope outcome must report partial coverage');
+  }
 
 
   // Test 20: Idempotence

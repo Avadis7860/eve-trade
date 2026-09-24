@@ -12,7 +12,7 @@ Source of truth: code, tests, CI and state documents
 | Trading orders | STABLE FOUNDATION / MODEL REBASE | order identity/scoping/normalization | order/corporation + Operations | orders | ORD-001 canonical axes |
 | Corporation ESI | STABLE | corporation gateway + EsiService | corporation boundary + ESI | corporation trading | corporation UI |
 | Finance | IMPLEMENTED PRIMITIVES / REBASE REQUIRED | fee/profit/treasury + position ledger | financial/treasury + position ledger | finance | capital recovery semantics |
-| Financial Truth | IMPLEMENTED CALCULATION BOUNDARY / REBASE REQUIRED | positionLedger + RealizedFinancialOutcomeEngine | realized-financial + position-ledger + FIN scenarios | financial truth | FIN-001/FIN-002/DATA-001 |
+| Financial Truth | IMPLEMENTED SEGMENT CALCULATION BOUNDARY / REBASE IN PROGRESS | positionLedger + RealizedFinancialOutcomeEngine | realized-financial + position-ledger + FIN scenarios | financial truth | FIN-002 certification |
 | Execution | IMPLEMENTED / FINANCIAL LIFECYCLE SEPARATE | correlation/outcome/tracking | execution suites | execution | keep operational closure separate from financial closure |
 | Portfolio | IMPLEMENTED SCAFFOLD / BLOCKED | PortfolioOptimizer | engine/property tests | portfolio | FIN-001 position/cost basis |
 | Prediction | IMPLEMENTED | features/scoring/prediction | scoring/prediction | prediction | empirical calibration |

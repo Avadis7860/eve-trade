@@ -12,14 +12,14 @@ The market/ESI retrieval reliability gate is closed and UX-02 Operations is merg
 
 ## Active working branch reality
 
-The only active product branch is ux-03/allocation-contract, associated with PR #71. It remains FROZEN FOR UX-03 FEATURE DEVELOPMENT pending completion of FIN-002 and the remaining data-quality/UX acceptance gates; FIN-001, ORD-001 and the first DATA-001 audit are certified and the financial/order contract rebase plus CI repair are green on the last validated code increment.
+The only active product branch is ux-03/allocation-contract, associated with PR #71. UX-03 feature development remains frozen pending completion of FIN-002 and the remaining data-quality/UX acceptance gates. FIN-001, ORD-001 and the first DATA-001 audit are certified; the current branch is being structurally hardened under the same semantic gate.
 
 The current branch documents the following boundaries:
 
 - market is_buy_order is a market-mechanism fact, not an economic acquisition/disposition fact;
 - economic direction for accounting comes from transaction facts;
 - active BUY orders are capital reservations/order exposure, not acquisition evidence;
-- deterministic AcquisitionLot / CurrentPosition reconstruction exists in src/engine/positionLedger.ts, but its current character-keyed accounting boundary is under FIN-002 rework;
+- deterministic AcquisitionLot / CurrentPosition reconstruction exists in src/engine/positionLedger.ts with explicit `accounting_scope_id`; character identity remains attribution/provenance rather than an implicit accounting boundary;
 - the target ledger boundary is the complete configured trading/industrial ecosystem, while character/corporation identity remains transaction attribution/provenance;
 - the ledger is a calculation boundary, not a durable IndexedDB position source;
 - economic origin is a separate accounting dimension from actor identity;
@@ -68,12 +68,12 @@ The current engine/domain layers remain ahead of the UI, but the financial bound
 
 ## Active gaps
 
-- Capital recovery is now a dedicated output in the canonical character-scoped Performance projection, with explicit KNOWN_POSITIONS scope.
+- Capital recovery is a dedicated output in Performance with explicit KNOWN_POSITIONS scope; analytics cache identity now follows the economic accounting scope rather than only the observing character.
 - Unrealized/current-market valuation is still a separate future/market-derived surface.
 - No durable AcquisitionLot / CurrentPosition store exists.
 - Economic origin is not yet a persisted multi-source event model; FIN-002 must add the generic contract without introducing PI/Industry ingestion in this increment.
 - DATA-001 first pass preserves unavailable ratios, removes invalid economic-volume coercion, and carries financial provenance through trader analytics.
-- Remaining numeric 0 fallbacks are being classified as legitimate accumulators/scope sentinels or separate prospective-domain policies; the financial truth boundary no longer fabricates missing physical volume or ROI.
+- Missing fee evidence now leaves net realized profit and its net ratios unavailable rather than substituting a zero-fee numeric result; cross-location allocation without observed transfer evidence is explicitly PARTIAL.
 - CI remains validated for the last code increment; documentation-only commits may advance the branch ref without changing that validated code.
 
 ## CI verification
@@ -82,13 +82,13 @@ The exact CI result is intentionally not duplicated here because it changes with
 
 Historical validated baselines may be retained in audit or validation documents, but they must not be presented as evidence for the current branch head.
 
-The context layer at .eve-trade/context-map.json identifies the validation families relevant to each domain.
+The context layer at .eve-trade/context-map.json identifies validation families and impact chains; .eve-trade/current-work.json carries the branch/PR/base state.
 
 ## Sequencing
 
 Documentation is now aligned with the ecosystem-level accounting correction and the economic-origin/source-coverage limitation. The next code changes target FIN-002; remaining UX-03 feature work stays blocked until the financial sequence is accepted.
 
-The current branch must not be treated as product truth for cross-character/corporation financial matching or ecosystem-complete ROI: CI green confirms regression integrity, not semantic certification.
+The current branch must not be treated as product truth for ecosystem-complete ROI until FIN-002 is certified: CI green confirms regression integrity, not semantic certification.
 
 UX-03 feature work resumes after FIN-002 and the remaining acceptance gates are certified.
 

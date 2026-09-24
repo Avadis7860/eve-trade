@@ -11,6 +11,6 @@ CI gate: corporation boundary + unit
 
 Planned/immediate opportunity calculations use financial configuration and fee profiles. Realized accounting is a separate concern owned by Financial Truth.
 
-Treasury selection distinguishes corporation, fleet, active character and manual budget sources. Corporation capital is not silently treated as character capital.
+Treasury selection distinguishes corporation, active character and manual budget sources. Corporation capital is not silently treated as character capital.
 
 [Financial Truth](financial-truth.md) · [Treasury](treasury.md) · [Fees](fees.md)

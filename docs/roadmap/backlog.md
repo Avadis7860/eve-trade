@@ -23,13 +23,19 @@ PR #79 merged this foundation into `main`.
 
 PR #80 merged the first anchor correction; its follow-up defect is tracked as CONTEXT-004.
 
-### CONTEXT-004 — Raw Commit Stable Anchor Follow-up — CLOSING
+### CONTEXT-004 — Raw Commit Stable Anchor Follow-up — DONE / MERGED
 
-- Main Smoke post-merge proof must remain valid with the workflow's shallow checkout.
-- Stable integration anchor is read from the raw commit object with `git cat-file commit HEAD`.
-- Regression coverage rejects history-traversal and pretty-format extraction.
+PR #81 merged the raw commit-object stable-anchor correction into `main`. Main Smoke #17 is green on `a01c2a31dbabd3678d3d8674b14f4c826ab0b0d8`.
 
-This is the only active delivery chantier on branch `chore/agent-context-hardening-raw-anchor-fix` / PR #81.
+### FIN-002-ARCHIVE-RECOVERY — ACTIVE
+
+- Selectively recover Financial Truth contracts and primitives from the UX-03 archive.
+- Reconcile accounting scope, position lifecycle, lot/allocation semantics and capital recovery.
+- Preserve UNKNOWN / PARTIAL / ERROR / UNAVAILABLE states.
+- Do not import archived UX, Fleet, ESI/OAuth or CI implementation.
+- Use historical tests as invariant evidence and rewrite them against current main.
+
+This is the only active delivery chantier on branch `chore/financial-truth-archive-recovery` / PR #82.
 
 ## Product / UX program
 
@@ -72,11 +78,9 @@ There is no active P0 technical branch.
 - Explain invested capital, unused capital, concentration and allocation rationale.
 - Optimize for projected ROI/profit/day/liquidity/capturability/risk rather than a single top-scoring item.
 
-### Financial Truth reconciliation gate — NEXT FINANCIAL STEP
+### Financial Truth reconciliation gate — ACTIVE
 
-- Reconcile historical position/recovery semantics against current main before any new financial implementation.
-- Explicitly decide the relationship between disposal-level realized P&L, cumulative recovery, position lifecycle and whole-operation profitability.
-- Keep the archive implementation non-authoritative and do not import it wholesale.
+The reconciliation gate is being executed as FIN-002-ARCHIVE-RECOVERY on PR #82. The archive is reference-only; the active implementation is rebuilt from current main with explicit evidence boundaries.
 
 ### P1 — Performance / Journal
 
@@ -116,7 +120,7 @@ These remain valid but are explicitly blocked until the UX baseline is accepted:
 
 ## Public-readiness / portfolio follow-up
 
-The detailed maintenance plan is [Public Readiness](public-readiness.md). High-priority items are security posture, license decision and public-facing truth synchronization. UX-03 remains future product work and is not active during Agent Context Hardening.
+The detailed maintenance plan is [Public Readiness](public-readiness.md). High-priority items are security posture, license decision and public-facing truth synchronization. UX-03 remains future product work and is not active during FIN-002-ARCHIVE-RECOVERY.
 
 ## CI follow-up candidates
 

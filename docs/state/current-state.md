@@ -9,7 +9,7 @@ CI gate: [../validation/ci.md](../validation/ci.md)
 
 ## Current baseline
 
-Current main integration anchor for PR #81 is `a05f6044b6b53fb8ece4c2a7796c885805f82542`. This is the pre-merge SHA carried by the CLOSING delivery manifest; the eventual merge commit is intentionally not embedded because GitHub creates it at merge time. The functional E2E-001 baseline was `9438bbedb2d44cf3f5f371144bcf72094955cd46`. Deterministic browser CI is green and the target-PC real-CCP SSO/ESI smoke PASS was recorded on 2026-09-23.
+Current main integration anchor for the active PR #82 is `a01c2a31dbabd3678d3d8674b14f4c826ab0b0d8`. Main Smoke #17 completed successfully on the current main commit `a01c2a31dbabd3678d3d8674b14f4c826ab0b0d8`. The active branch is based directly on this revalidated main head; the archive is a separate historical reference at `75df2e8f77d8ccc0cd5a2a631661902d1b54fab6`.
 
 The UX-first program has closed the P0 market/ESI retrieval reliability gate. UX-01 is DONE / EXTERNALLY BOUNDED; the previously reported target-PC market-display symptom is resolved and the current application is functional.
 
@@ -105,19 +105,13 @@ The previously reported target-PC market-display symptom is resolved. The applic
 
 ## Agent context hardening
 
-The current delivery is **CLOSING** on branch `chore/agent-context-hardening-raw-anchor-fix`, based on main `a05f6044b6b53fb8ece4c2a7796c885805f82542`, PR #81. Implementation scope is frozen for certification and merge. This follow-up fixes stable-anchor extraction for shallow checkouts by reading the raw commit object; stable validation preserves the integration anchor rather than requiring a future post-merge SHA.
-
-The chantier is limited to repository navigation, active-work governance, context integrity, CI ownership and historical documentation reconciliation. It must not import UX-03 or archived Financial Truth implementation.
+Agent Context Hardening / PR #81 is merged and Main Smoke #17 is green on `a01c2a31dbabd3678d3d8674b14f4c826ab0b0d8`. The current delivery is the selective Financial Truth archive recovery on branch `chore/financial-truth-archive-recovery` / PR #82. This branch reuses the current context architecture and does not modify CI or Agent Context behavior. The archive is used only as historical evidence and selected component source.
 
 The stable navigation layer is `.eve-trade/context-map.json`; the checkout-aware operational state is `.eve-trade/current-work.json`; validation is `npm run test:context`. The hardening closes lifecycle, bootstrap, routing and stable-state drift identified by the audit.
 
 ## Current chantier / sequencing
 
-**Current delivery:** the Agent Context Hardening raw-commit anchor correction is the only delivery branch/PR and is CLOSING after implementation. PR #81 is the dedicated follow-up branch. Agent Context Hardening v2 / PR #79 and the shallow-anchor correction / PR #80 are merged on main. UX-03 branches/PRs #71 and #77 are closed without merge and their archive is reference-only.
-
-After this maintenance chantier is certified, the next financial gate is an explicit Financial Truth semantic reconciliation/re-acceptance step. It is not an instruction to reuse the archived implementation. UX-03 remains a separate future product chantier and must receive its own fresh branch/PR after its contract and financial dependencies are accepted.
-
-UX-02 is DONE / MERGED. CI-001 is DONE / MERGED. UX-01/P0 is DONE / EXTERNALLY BOUNDED.
+**Current delivery:** selective Financial Truth archive recovery on branch `chore/financial-truth-archive-recovery`, PR #82, based on `a01c2a31dbabd3678d3d8674b14f4c826ab0b0d8`. PRs #79/#80/#81 and Agent Context Hardening are merged; Main Smoke #17 is green. The recovery is a FIN-002 semantic/engine chantier, not UX-03 UI work. UX-02 is DONE / MERGED. CI-001 is DONE / MERGED. UX-01/P0 is DONE / EXTERNALLY BOUNDED.
 
 Public Readiness remains a separate maintenance track; it is not merged into this chantier.
 

@@ -9,11 +9,9 @@ CI gate: PR CI
 
 ## Current state
 
-The functional E2E-001 baseline is stable and merged. CI-001 is merged and complete. UX-02 is merged. UX-01/P0 is closed. Agent Context Hardening v2 and its first stable-anchor correction are merged on main. The current delivery is the raw-commit stable-anchor correction on branch chore/agent-context-hardening-raw-anchor-fix / PR #81, based on main a05f6044b6b53fb8ece4c2a7796c885805f82542, and is CLOSING after implementation.
+The functional E2E-001 baseline is stable and merged. CI-001 and Agent Context Hardening are merged; Main Smoke #17 is green on `a01c2a31dbabd3678d3d8674b14f4c826ab0b0d8`. The current delivery is FIN-002-ARCHIVE-RECOVERY on branch `chore/financial-truth-archive-recovery` / PR #82, based on the revalidated `main@a01c2a31dbabd3678d3d8674b14f4c826ab0b0d8`.
 
-The application has mature market, ESI, finance, order, prediction and portfolio foundations, but the presentation layer does not yet expose them as a coherent trading workflow.
-
-After context hardening, the next financial gate is semantic reconciliation/re-acceptance of the archived Financial Truth decisions. UX-03 remains a separate future product chantier; it is not active in the current branch.
+The application has mature market, ESI, finance, order, prediction and portfolio foundations. The current financial gate is to reconcile archived Financial Truth decisions and selectively reconstruct the useful implementation against current main. UX-03 remains a future product surface and is not being resurrected by this work.
 
 See:
 - [UI/UX Product Audit](../audits/ui-ux-product-audit-2026-09-23.md)
@@ -23,7 +21,7 @@ See:
 
 ## Mandatory sequencing gate
 
-No unrelated product chantier starts before the UX-first baseline/contract gate is completed. CI-001 was the explicit cross-cutting infrastructure exception; it is now merged.
+No unrelated product chantier starts outside the active FIN-002 delivery contract. The archive recovery remains bounded to financial truth primitives and their validation. CI-001 was the explicit cross-cutting infrastructure exception; it is now merged.
 
 Allowed before that gate:
 - P0 market/ESI reliability and observability required to establish data truth;
@@ -50,7 +48,7 @@ Deferred until the UX gate:
 | UX-00 | DONE | Define and freeze product model, navigation, responsibilities and shared UX vocabulary | current audit | scope drift if implementation starts early | accepted UX contract |
 | UX-01 | DONE / EXTERNALLY BOUNDED | Establish market/ESI truth and retrieval observability; reported target-PC issue resolved without a persistent application defect | UX-00 vocabulary; existing ESI boundary | hidden empty/error states; ESI rate limits | caller audit + ERROR/PARTIAL/STALE/429 regression + current functional state |
 | UX-02 | DONE / MERGED | Rebuild Mes Ordres as the Operations console | UX-00, UX-01, CI-001 merged | business state fragmentation | UI/browser acceptance |
-| FIN-002-RECON | NEXT FINANCIAL GATE | Reconcile and explicitly re-accept the archived Financial Truth semantic boundary before new financial code | current main + historical evidence | contradictory lifecycle/profitability semantics | accepted contract + domain tests + CI ownership |
+| FIN-002-RECON | ACTIVE | Reconcile and selectively reconstruct the archived Financial Truth semantic boundary against current main | current main + historical evidence | contradictory lifecycle/profitability semantics | accepted contract + domain tests + CI ownership |
 | UX-03 | P1 / FUTURE | Rebuild Portefeuille as Real Portfolio + Proposed Allocation across multiple opportunities | UX-00, UX-01, UX-02 + accepted financial semantics | misleading allocation / concentration | engine + UI + scenario tests |
 | UX-04 | P1 | Replace manual Journal with ESI-based automatic Performance & Historique | UX-00, UX-01, financial truth, execution data | incorrect attribution | accounting + reconciliation + browser scenarios |
 | UX-05 | P1 | Rebuild Paramètres as business Control Center and remove/unwire fake controls | UX-00, engine consumer map, UX-03/04 parameter needs | settings with no effect | consumer matrix + UI tests |

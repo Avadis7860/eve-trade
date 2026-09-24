@@ -1,10 +1,10 @@
 {
   "schema_version": 2,
   "purpose": "Operational state for the current technical chantier. This file is checkout-aware governance metadata, not normative business truth.",
-  "state": "CLOSING",
-  "branch": "chore/agent-context-hardening-raw-anchor-fix",
-  "pull_request": 81,
+  "state": "ACTIVE",
+  "branch": "chore/financial-truth-archive-recovery",
+  "pull_request": 82,
   "base_branch": "main",
-  "base_sha": "a05f6044b6b53fb8ece4c2a7796c885805f82542",
+  "base_sha": "a01c2a31dbabd3678d3d8674b14f4c826ab0b0d8",
   "delivery_rule": "one_chantier_one_branch_one_pr"
 }

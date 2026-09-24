@@ -1,47 +1,43 @@
 # Current Chunk
 
-Status: CLOSING
-Scope: Agent Context Hardening — raw commit stable-anchor correction
-Branch: chore/agent-context-hardening-raw-anchor-fix
-Base: main @ a05f6044b6b53fb8ece4c2a7796c885805f82542
-PR: #81 (Draft)
-
-## Delivery status
-
-Implementation scope is frozen for certification and merge. No new work may be added to this delivery.
+Status: ACTIVE
+Scope: Selective Financial Truth recovery from archived UX-03
+Branch: chore/financial-truth-archive-recovery
+Base: main @ a01c2a31dbabd3678d3d8674b14f4c826ab0b0d8
+PR: #82 (Draft)
+Archive: archive/ux-03-allocation-contract-2026-09-24 @ 75df2e8f77d8ccc0cd5a2a631661902d1b54fab6
 
 ## Objective
 
-Reduce the context reconstruction cost for human and AI agents without introducing a second business or financial source of truth.
+Recover only still-valid Financial Truth contracts, primitives and invariants from the UX-03 archive, rebuilding them against the current main architecture.
 
 ## Active delivery sequence
 
-1. Stable machine-readable navigation map.
-2. Separate active-work manifest.
-3. Automated context/reference integrity.
-4. CI-owned context validation.
-5. Historical financial decision preservation as explicitly non-normative documentation.
-6. Explicit reconciliation memo for the unresolved whole-operation profitability semantics.
-7. State, roadmap and known-gaps synchronization.
-8. Final CLOSING lifecycle state so merged main does not inherit an ACTIVE chantier.
-9. Stable-anchor extraction must remain valid with the shallow checkout used by Main Smoke.
-10. Stable proof using the pre-merge main integration anchor, so merge-created SHA changes require no unreviewed post-merge mutation.
-11. Local validation where the execution environment permits it, followed by full PR CI certification.
+1. Freeze the current main and archive evidence.
+2. Reconcile economic scope, provenance, owner/observer dimensions and market-order semantics.
+3. Recover position-segment / acquisition-lot / disposal-allocation contracts.
+4. Rebuild the canonical position ledger against current types and current source boundaries.
+5. Rebase realized financial outcome calculation onto the ledger without collapsing UNKNOWN/PARTIAL/ERROR/UNAVAILABLE into numeric zero.
+6. Recover and rewrite historical financial invariants.
+7. Certify unit/domain/build and relevant regression paths through the current CI.
+8. Synchronize current contracts, validation, state, roadmap and known-gaps.
+9. Merge only after the final certification gate is green, then execute Main Smoke.
 
 ## Scope exclusions
 
-- No UX-03 implementation.
-- No Financial Truth engine implementation.
-- No PI/Industry ingestion.
-- No cherry-pick or bulk copy from archive/ux-03-allocation-contract-2026-09-24.
-- No opportunistic refactoring of hotspots.
+- No merge or bulk cherry-pick from the archive.
+- No UX-03 Portfolio UI resurrection.
+- No Portfolio aggregation recovery in this increment.
+- No Fleet restoration or Fleet-model migration.
+- No unrelated ESI/OAuth changes.
+- No CI / Agent Context redesign.
+- No PI/Industry implementation.
 
-## Historical findings preserved
+## Recovery rule
 
-The archived work established useful navigation patterns in commits 67ae1d2, 5634ddb0, b6c7c70, ca9e1ea2, 4d97146 and 774110f. The archive also contains financial/product implementation that is deliberately not imported.
-
-The recovered financial reasoning is documented in the historical ADR and reconciliation memo. The partial-disposal example, market-order-side rule, character/owner separation and order-ID provenance rule are retained as context. The conflicting definitions of progressive recovery versus whole-operation positivity remain an explicit reconciliation item.
+The archive is historical evidence only. Current main remains the integration authority. Every recovered element must satisfy:
+**current business need -> current contract -> invariant -> historical evidence -> adapted implementation -> regression proof**.
 
 ## Completion gate
 
-The chantier is complete only when the stable map contains no dead current-file or CI references, PR certification proves the active/closing branch and base metadata, stable-mode context validation rejects an ACTIVE main state and verifies the stable integration anchor against the checked-out main history, bootstrap/routing contracts are CI-owned, historical financial contradictions remain explicitly non-normative, and state/roadmap/known-gaps describe the final reality.
+The chantier is complete only when the selected financial primitives are implemented and tested against current main, CI certification is green, documentation states the reconciled financial boundary, and post-merge Main Smoke is green.

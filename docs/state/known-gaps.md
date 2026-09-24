@@ -51,7 +51,7 @@ See:
 
 - **CI follow-up:** the PR workflow currently triggers the full certification surface for Draft as well as Ready PRs. This is confirmed by PR #61 run `35858589551` and should be handled in a dedicated CI-002 hardening chantier.
 
-- **Current sequencing:** Agent Context Hardening v2 and the first stable-anchor correction (PR #80) are merged. The current delivery is the raw-commit stable-anchor follow-up (PR #81) and is CLOSING after implementation. UX-03 remains a future product chantier and is not active here; the financial semantic reconciliation gate must be accepted before any future financial implementation is resumed. Public-readiness remains a separate maintenance track.
+- **Current sequencing:** Agent Context Hardening v2, PR #80 and PR #81 are merged. Main Smoke #17 is green on `a01c2a31dbabd3678d3d8674b14f4c826ab0b0d8`. The current delivery is FIN-002-ARCHIVE-RECOVERY / PR #82 from `a01c2a31dbabd3678d3d8674b14f4c826ab0b0d8`. The archive remains reference-only; this delivery selectively reconstructs validated Financial Truth elements without resurrecting UX-03 UI, Fleet, CI, Agent Context or unrelated ESI/OAuth changes. Public-readiness remains a separate maintenance track.
 
 ## Public-readiness gaps
 

@@ -18,5 +18,6 @@ Source of truth: `package.json` and `.github/workflows/`
 | Regression matrix | [regression-matrix.md](regression-matrix.md) |
 | CI coverage matrix | [ci-coverage-matrix.md](ci-coverage-matrix.md) |
 | Public readiness | [public-readiness.md](public-readiness.md) |
+| UX-03 Data Availability | [ux-03-data-availability.md](ux-03-data-availability.md) |
 
 Validation is evidence. Documentation alone never proves a test passed.

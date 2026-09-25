@@ -1,47 +1,59 @@
 # Current Chunk
 
-Status: CLOSING
-Scope: Agent Context Hardening — raw commit stable-anchor correction
-Branch: chore/agent-context-hardening-raw-anchor-fix
-Base: main @ a05f6044b6b53fb8ece4c2a7796c885805f82542
-PR: #81 (Draft)
+Status: ACTIVE
+Scope: UX-03 / TASK-01 — Relecture et rebase du contrat Allocation / Portefeuille
+Branch: ux-03/allocation-contract
+Base: main @ 5343b465a5028e9822d486d29da522a6c3531645
+PR: #93
+Issue: #85
 
 ## Delivery status
 
-Implementation scope is frozen for certification and merge. No new work may be added to this delivery.
+This chantier is documentation/contract-only.
+
+No UX-03 product code is being recovered from the archive.
+No Financial Truth implementation is being reintroduced.
+No live order execution or allocation engine change is authorized by this task.
 
 ## Objective
 
-Reduce the context reconstruction cost for human and AI agents without introducing a second business or financial source of truth.
+Produce the accepted current UX-03 Allocation / Portfolio contract from:
 
-## Active delivery sequence
+- the historical UX-03 contract as reference;
+- the accepted Financial Truth contract on current main;
+- the current product/UX surface responsibilities;
+- explicit FACT / DERIVED / AGGREGATED / NEW SOURCE / POLICY boundaries.
 
-1. Stable machine-readable navigation map.
-2. Separate active-work manifest.
-3. Automated context/reference integrity.
-4. CI-owned context validation.
-5. Historical financial decision preservation as explicitly non-normative documentation.
-6. Explicit reconciliation memo for the unresolved whole-operation profitability semantics.
-7. State, roadmap and known-gaps synchronization.
-8. Final CLOSING lifecycle state so merged main does not inherit an ACTIVE chantier.
-9. Stable-anchor extraction must remain valid with the shallow checkout used by Main Smoke.
-10. Stable proof using the pre-merge main integration anchor, so merge-created SHA changes require no unreviewed post-merge mutation.
-11. Local validation where the execution environment permits it, followed by full PR CI certification.
+## Reconciled semantic decisions
+
+- Economic operation is reconstructed from economic transaction / position lineage.
+- A market BUY/SELL order is a mechanism/provenance record, not an economic operation.
+- CCP order IDs are corroborating order provenance only.
+- Character, corporation, issuer and observer are distinct attribution/provenance dimensions; they are not automatic accounting silos.
+- Explicit accounting scope remains the accounting boundary.
+- Partial disposal can produce a disposal-level realized result while the position remains PARTIALLY_REALIZED.
+- Capital recovery is separate from whole-operation profitability.
+- A partial-position ROI exposed by Financial Truth is disposal/allocation scoped; it is not whole-operation ROI.
+- Whole-operation ROI and profitability are closure-gated.
+- EJECT / RETAIN remains a POLICY decision and never rewrites Financial Truth.
+- Real Portfolio and Proposed Allocation remain separate.
+- UNKNOWN / PARTIAL / ERROR / ABSENT / UNAVAILABLE / STALE never become numeric zero.
 
 ## Scope exclusions
 
-- No UX-03 implementation.
-- No Financial Truth engine implementation.
-- No PI/Industry ingestion.
 - No cherry-pick or bulk copy from archive/ux-03-allocation-contract-2026-09-24.
-- No opportunistic refactoring of hotspots.
-
-## Historical findings preserved
-
-The archived work established useful navigation patterns in commits 67ae1d2, 5634ddb0, b6c7c70, ca9e1ea2, 4d97146 and 774110f. The archive also contains financial/product implementation that is deliberately not imported.
-
-The recovered financial reasoning is documented in the historical ADR and reconciliation memo. The partial-disposal example, market-order-side rule, character/owner separation and order-ID provenance rule are retained as context. The conflicting definitions of progressive recovery versus whole-operation positivity remain an explicit reconciliation item.
+- No new ESI acquisition path unless the accepted contract later identifies a genuine NEW SOURCE.
+- No PI/Industry ingestion.
+- No PortfolioOptimizer implementation changes in this task.
+- No UI implementation in this task.
 
 ## Completion gate
 
-The chantier is complete only when the stable map contains no dead current-file or CI references, PR certification proves the active/closing branch and base metadata, stable-mode context validation rejects an ACTIVE main state and verifies the stable integration anchor against the checked-out main history, bootstrap/routing contracts are CI-owned, historical financial contradictions remain explicitly non-normative, and state/roadmap/known-gaps describe the final reality.
+This task is complete only when:
+
+1. the rebased UX-03 contract is accepted;
+2. roadmap/current-state/known-gaps/current-chunk are synchronized;
+3. the archive remains explicitly non-normative;
+4. PR CI is green.
+
+A separate UX-03 implementation chantier starts only after this gate, from current main and with a new delivery branch/PR.

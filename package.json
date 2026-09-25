@@ -53,5 +53,6 @@
     "typescript": "^5.7.2",
     "vite": "^6.0.7",
     "@playwright/test": "1.63.0"
-  }
+  },
+  "license": "MIT"
 }

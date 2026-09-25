@@ -83,8 +83,7 @@ function normalizeCommonCorporationOrder(
     !finiteNumber(duration) ||
     duration < 0 ||
     typeof source.issued !== 'string' ||
-    source.issued.length === 0 ||
-    typeof source.is_buy_order !== 'boolean'
+    source.issued.length === 0
   ) {
     return null;
   }

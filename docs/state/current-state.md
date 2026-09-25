@@ -17,7 +17,9 @@ The UX-first program has closed the P0 market/ESI retrieval reliability gate. UX
 
 ## Active PR context
 
-PR #97 is based on the current stable `main` at `af725a60693b60a55895c75feb7dc57bfd0c36b9`. This exact base SHA is the authoritative active checkout anchor for context-integrity validation.
+PR #103 is the active UX-03 / TASK-03 delivery, based on current stable `main` at `0f822077a43a03ea17098e1b35e25f8374487888`.
+
+The active branch is `ux-03/task-03-typed-portfolio-model`. TASK-03 is limited to extraction/reconstruction of the typed Portfolio contract from current `main`; the historical archive remains reference-only.
 
 ## CI / delivery state
 
@@ -123,7 +125,7 @@ The stable navigation layer is `.eve-trade/context-map.json`; the checkout-aware
 
 Financial Truth semantic reconciliation is complete on main. UX-03 / TASK-01 is complete and its accepted contract is now part of main. The previous delivery was UX-03 / TASK-02 — Data Availability & Derivation Matrix revalidation, completed through PR #96. Main Post-Merge Smoke #23 passed on `af725a6`. The resulting matrix is current-main aligned, preserves FACT / DERIVED / AGGREGATED / NEW SOURCE / POLICY boundaries, and introduces no product implementation or new ESI source. Character Assets remains the explicit `NEW SOURCE` boundary for authoritative inventory quantity/location.
 
-There is no active product implementation branch. The next planned UX-03 task is issue #87 / TASK-03, which must start from the then-current stable `main` and use a new dedicated branch/PR.
+The active product implementation contract work is UX-03 / TASK-03 (issue #87) on branch `ux-03/task-03-typed-portfolio-model`, PR #103, based on `0f822077a43a03ea17098e1b35e25f8374487888`. The task is restricted to Portfolio model extraction and contract validation; product/UI implementation remains outside this task.
 
 UX-02 is DONE / MERGED. CI-001 is DONE / MERGED. UX-01/P0 is DONE / EXTERNALLY BOUNDED.
 

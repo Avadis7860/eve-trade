@@ -1,29 +1,39 @@
 # Current Chunk
 
-Status: CLOSING
-Scope: post-merge synchronization — UX-03 / TASK-02 completed
-Branch: chore/post-merge-ux03-task02-close
-Base: main @ af725a60693b60a55895c75feb7dc57bfd0c36b9
+Status: ACTIVE
+Scope: UX-03 / TASK-03 — Relecture et extraction du modèle typé Portfolio
+Branch: ux-03/task-03-typed-portfolio-model
+Base: main @ 0f822077a43a03ea17098e1b35e25f8374487888
+PR: #103
 
 ## Delivery status
 
-TASK-02 is completed. The active product implementation remains inactive until a dedicated implementation chantier is intentionally opened from the stable `main` state.
+The active chantier follows method C: re-extract a new Portfolio model from current `main`. The historical `src/types/portfolio.ts` remains reference-only.
 
-## Completed chantier
+## Objective
 
-UX-03 / TASK-02 revalidated the historical Data Availability & Derivation matrix against the Financial Truth and domain foundations now present on `main`.
+- complete field-by-field extraction from the archive;
+- define the minimal typed Portfolio contract from current-main authorities;
+- keep Real Portfolio and Proposed Allocation distinct;
+- preserve provenance, accounting scope, owner/observer/issuer, freshness, health and coverage;
+- preserve explicit UNKNOWN / PARTIAL / ERROR / ABSENT / UNAVAILABLE / STALE semantics.
 
-- PR #96 merged successfully.
-- Main Post-Merge Smoke #23 passed on `af725a6`.
-- The current matrix is `docs/validation/ux-03-data-availability.md`.
-- No product implementation was introduced.
-- No new ESI acquisition source was introduced.
-- Character Assets remains the explicit `NEW SOURCE` boundary for authoritative inventory quantity/location.
+## Scope guard
+
+No new ESI source.
+No Character Assets integration.
+No UI implementation.
+No new Financial Truth / FIFO implementation.
+No wholesale archive copy or cherry-pick.
 
 ## Exit gate
 
-The data matrix is current-main aligned, reclassifications from the archive are explicit, the no-new-source boundary is preserved, and the result is synchronized with the accepted UX-03 Allocation contract.
+- extraction matrix complete;
+- new Portfolio type contract compiles;
+- focused type-contract tests pass;
+- roadmap/state/context metadata synchronized;
+- CI certification green.
 
-## Next-step boundary
+## Next step after this chunk
 
-The next UX-03 work is issue #87 — TASK-03, dedicated to extracting a minimal typed Portfolio model from current `main`. The historical `src/types/portfolio.ts` remains reference material only.
+A separate implementation task may consume the accepted Portfolio contract only after TASK-03 is merged and the one-chanchier delivery rule opens the next branch/PR.

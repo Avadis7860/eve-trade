@@ -11,7 +11,7 @@ CI gate: [../validation/ci.md](../validation/ci.md)
 
 PR #83 (`feat(financial): recover canonical Financial Truth core`) was merged into `main` at `a2544d2f98f1b9e181dd2ecdd52191fc7680aec8`. Its stable integration anchor is the first parent `a01c2a31dbabd3678d3d8674b14f4c826ab0b0d8`. The Financial Truth core is now part of `main`.
 
-PR #84 completed the post-merge context synchronization, and PR #93 completed UX-03 / TASK-01 contract rebase. The current main tip is `c338265bd8c844a77082d21893d23fa98235b0da`. PR #94 is the closing lifecycle synchronization for that delivery. The functional E2E-001 baseline was `9438bbedb2d44cf3f5f371144bcf72094955cd46`. Deterministic browser CI is green and the target-PC real-CCP SSO/ESI smoke PASS was recorded on 2026-09-23.
+PR #84 completed the post-merge context synchronization, PR #93 completed UX-03 / TASK-01 contract rebase, and PR #94 completed the first repository-state closing pass. The current main tip is `8e73df689a60410a64266a42652baa245b37783d`. PR #95 is the final documentation cleanup for stale delivery references. The functional E2E-001 baseline was `9438bbedb2d44cf3f5f371144bcf72094955cd46`. Deterministic browser CI is green and the target-PC real-CCP SSO/ESI smoke PASS was recorded on 2026-09-23.
 
 The UX-first program has closed the P0 market/ESI retrieval reliability gate. UX-01 is DONE / EXTERNALLY BOUNDED; the previously reported target-PC market-display symptom is resolved and the current application is functional. Financial Truth / FIN-002 is also integrated and accepted on main.
 
@@ -107,7 +107,7 @@ The previously reported target-PC market-display symptom is resolved. The applic
 
 ## Agent context hardening
 
-The Agent Context Hardening delivery is closed through PR #84. UX-03 / TASK-01 is closed through PR #93. PR #94 is the closing repository-state delivery; no product implementation branch is active.
+The Agent Context Hardening delivery is closed through PR #84. UX-03 / TASK-01 is closed through PR #93. PR #94 completed the initial post-merge synchronization. PR #95 closes the remaining stale context references; no product implementation branch is active.
 
 TASK-01 was documentation/contract-only and did not import archived UX-03 implementation or revive the historical financial implementation.
 
@@ -115,9 +115,9 @@ The stable navigation layer is `.eve-trade/context-map.json`; the checkout-aware
 
 ## Current chantier / sequencing
 
-**Current delivery:** the Agent Context Hardening raw-commit anchor correction is the only delivery branch/PR and is CLOSING after implementation. PR #81 is the dedicated follow-up branch. Agent Context Hardening v2 / PR #79 and the shallow-anchor correction / PR #80 are merged on main. UX-03 branches/PRs #71 and #77 are closed without merge and their archive is reference-only.
+**Previous delivery:** the Agent Context Hardening raw-commit anchor correction was completed through PR #81, with PR #84 performing its post-merge synchronization. Agent Context Hardening v2 / PR #79 and the shallow-anchor correction / PR #80 are merged on main. UX-03 branches/PRs #71 and #77 are closed without merge and their archive is reference-only.
 
-Financial Truth semantic reconciliation is complete on main. UX-03 / TASK-01 is complete and its accepted contract is now part of main. PR #94 closes the delivery lifecycle. Any future UX-03 implementation requires a new dedicated branch/PR.
+Financial Truth semantic reconciliation is complete on main. UX-03 / TASK-01 is complete and its accepted contract is now part of main. PR #94 and PR #95 complete the delivery lifecycle/documentation synchronization. Any future UX-03 implementation requires a new dedicated branch/PR.
 
 UX-02 is DONE / MERGED. CI-001 is DONE / MERGED. UX-01/P0 is DONE / EXTERNALLY BOUNDED.
 

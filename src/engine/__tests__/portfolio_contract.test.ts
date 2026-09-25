@@ -2,7 +2,7 @@ import type {
   PortfolioSnapshot,
   ProposedAllocationPosition,
   PortfolioTreasuryProvenance,
-} from '../portfolio';
+} from '../../types/portfolio';
 import type { CurrentPosition, TreasuryResolution } from '../financial';
 import type { EveCharacterOrder } from '../character';
 import type { UniverseWideOpportunity } from '../opportunity';

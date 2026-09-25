@@ -64,6 +64,14 @@ There is no active P0 technical branch.
 - Separate economic ownership scope from performance-analysis scope.
 - Keep the existing order advisor but make its decision context inspectable.
 
+### P1 — UX-03 / TASK-02 — Data Availability & Derivation Matrix — ACTIVE
+
+- Revalidate the archived matrix against current main.
+- Correct stale FACT/DERIVED/AGGREGATED classifications.
+- Preserve explicit health, freshness, coverage and provenance semantics.
+- Keep Character Assets as the only identified missing authoritative inventory source.
+- Do not add a new ESI source in this task.
+
 ### P1 — Allocation / Portefeuille — FUTURE / NOT ACTIVE
 
 - Split Real Portfolio from Proposed Allocation.
@@ -153,5 +161,7 @@ Reference:
 Historical issues are not copied into the active backlog unless they remain reproducibly open today.
 
 The UX-first sequencing gate is mandatory: no deferred technical item is promoted ahead of UX-00/UX-01 and the relevant surface contract without an explicit roadmap update.
+
+The current UX-03 documentation chantier is TASK-02 / issue #86; product implementation remains inactive until the documentation/contract gate is closed.
 
 CI-001 and UX-02 are merged. The current product chantier starts from the merged `main` head and uses one active delivery branch/PR at a time.

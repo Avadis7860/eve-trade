@@ -49,4 +49,21 @@ assert.equal(
   'Legacy current-chunk roadmap must not return',
 );
 
+const licensePath = path.join(ROOT, 'LICENSE');
+const thirdPartyNoticesPath = path.join(ROOT, 'THIRD-PARTY-NOTICES.md');
+const packageJson = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
+const contributing = fs.readFileSync(path.join(ROOT, 'CONTRIBUTING.md'), 'utf8');
+const license = fs.readFileSync(licensePath, 'utf8');
+const thirdPartyNotices = fs.readFileSync(thirdPartyNoticesPath, 'utf8');
+
+assert.equal(packageJson.license, 'MIT', 'package.json must declare MIT');
+assert.match(license, /^MIT License/m, 'LICENSE must publish the MIT License');
+assert.match(license, /Copyright \(c\) 2026 Avadis7860/, 'LICENSE must identify the project copyright holder');
+assert.match(readme, /\*\*MIT\*\*/i, 'README must expose the published MIT license');
+assert.match(readme, /THIRD-PARTY-NOTICES\.md/i, 'README must point to third-party license boundaries');
+assert.match(contributing, /licensed under MIT/i, 'CONTRIBUTING must document contribution licensing');
+assert.match(thirdPartyNotices, /CCP Developer License Agreement/i, 'third-party notices must identify CCP terms');
+assert.match(thirdPartyNotices, /not relicensed under the EVE Trade MIT license/i, 'third-party notices must prevent broad relicensing interpretation');
+
 console.log('Documentation governance checks passed.');

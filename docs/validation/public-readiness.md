@@ -28,9 +28,15 @@ It separates:
 | Deterministic browser proof | PASS | Playwright E2E and CI browser jobs |
 | Main post-merge smoke | PASS | Main Smoke #9 on 95e970933a1d440fb61d25a6f677742731b697aa |
 | P0/UX-01 current status | PASS after this sync | current-state, roadmap and validation documents |
-| License file | NOT PRESENT | maintainer decision required |
+| License file | PASS | LICENSE publishes MIT for original EVE Trade materials |
 | GitHub release/tagged showcase | NOT PRESENT | release process is planned |
 | Public screenshots/demo path | NOT PRESENT | showcase work is planned |
+
+## License boundary checks
+
+- Original EVE Trade code and original project documentation: MIT, documented in LICENSE.
+- EVE/CCP/SDE-derived data and CCP tools/marks: explicitly excluded from the project license; see THIRD-PARTY-NOTICES.md and the current CCP terms.
+- Open-source dependencies: retain their upstream licenses; the project license does not relicense them.
 
 ## Administrative checks
 
@@ -51,7 +57,7 @@ A public showcase release should satisfy:
 
 1. accurate README and current project status;
 2. published security policy;
-3. explicit license decision;
+3. explicit license decision and published license boundary;
 4. verified repository security settings;
 5. verified main protection/ruleset;
 6. green Main Smoke on the release commit;

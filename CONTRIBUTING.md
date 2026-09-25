@@ -72,6 +72,12 @@ La situation actuelle de la CI est documentée dans :
 
 CI-001 est un chantier terminé. Les évolutions de durcissement restantes doivent être traitées comme des chantiers séparés. Après fusion, les évolutions de durcissement encore identifiées doivent être traitées comme des chantiers distincts, sans rouvrir une seconde PR sur CI-001.
 
+## Licensing
+
+Original EVE Trade code and original project documentation are licensed under MIT as stated in [LICENSE](LICENSE).
+
+Contributions must not assume that the project MIT license covers third-party material. Do not add EVE/CCP assets, SDE-derived material, trademarks, or third-party code/data under the assumption that they become MIT by inclusion in this repository. Preserve applicable upstream notices and licenses, and consult [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) when adding or modifying such material.
+
 ## Maintenance
 
 Avant fusion : liens valides, statuts cohérents, noms de fichiers actuels, absence de doublons normatifs et absence de dépendance aux vieux audits.

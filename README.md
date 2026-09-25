@@ -108,7 +108,9 @@ Les secrets CCP, tokens OAuth et credentials locaux ne doivent jamais être comm
 
 ## Licence et EVE Online
 
-Le dépôt est public, mais **aucune licence de code n'est actuellement publiée**. Le modèle de distribution sera décidé explicitement avant de présenter le projet comme open source.
+Le code original et la documentation originale d'EVE Trade sont publiés sous **MIT**. Voir [LICENSE](LICENSE).
+
+Cette licence ne relicencie pas les données EVE/CCP ou dérivées du SDE, les outils/services CCP (dont ESI et EVE SSO), les marques CCP/EVE, ni les dépendances tierces. Les frontières et références associées sont documentées dans [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 EVE Online, EVE et les marques associées restent la propriété de leurs ayants droit. EVE Trade est un projet tiers et n'est pas présenté comme un produit officiel de CCP Games.
 

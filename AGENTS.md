@@ -15,24 +15,15 @@ Fondations sensibles :
 
 ## Navigation
 
-Le dépôt possède une couche de navigation agent dédiée :
-- carte stable : .eve-trade/context-map.json
-- contexte stable du dernier delivery : .eve-trade/stable-context.json
-- état de chantier éphémère : .eve-trade/current-work.json
-- procédure : docs/operations/agent-context.md
+La documentation versionnée contient uniquement des connaissances durables :
+- carte de navigation : [.eve-trade/context-map.json](.eve-trade/context-map.json)
+- état logiciel : [docs/state/current-state.md](docs/state/current-state.md)
+- synthèse des domaines : [docs/state/truth-matrix.md](docs/state/truth-matrix.md)
+- roadmap stratégique : [docs/roadmap/master-plan.md](docs/roadmap/master-plan.md)
+- backlog stratégique : [docs/roadmap/backlog.md](docs/roadmap/backlog.md)
+- procédure : [docs/operations/agent-context.md](docs/operations/agent-context.md)
 
-Cette couche répond à où chercher, jamais à ce qui est vrai. Elle ne remplace ni le code, ni les tests certifiés, ni les contrats/invariants normatifs.
-
-Commencer par :
-1. [.eve-trade/stable-context.json](.eve-trade/stable-context.json) — contexte persistant du delivery intégré à main.
-2. [.eve-trade/current-work.json](.eve-trade/current-work.json) lorsque présent — état éphémère du checkout et du chantier.
-3. [docs/state/current-state.md](docs/state/current-state.md) — état actuel vérifiable.
-4. [docs/state/truth-matrix.md](docs/state/truth-matrix.md) — synthèse des domaines.
-5. [docs/roadmap/current-chunk.md](docs/roadmap/current-chunk.md) — périmètre actif.
-6. [.eve-trade/context-map.json](.eve-trade/context-map.json) — navigation stable.
-7. [docs/index.md](docs/index.md) — navigation documentaire générale.
-
-Puis charger seulement le domaine utile depuis la carte stable.
+Pour un chantier actif, consulter directement l'Issue GitHub et la Pull Request. Le dépôt ne conserve aucune copie du chantier courant.
 
 ## Où chercher
 
@@ -68,13 +59,15 @@ Ajouter les suites ciblées pour la surface modifiée. La CI est la validation p
 8. Aucun refactoring opportuniste hors périmètre.
 9. Ne pas importer de code depuis l'archive UX-03 uniquement parce qu'il était certifié ou testé ; toute réutilisation future doit être re-dérivée depuis main après réconciliation explicite des contrats.
 
-## Cycle de vie du contexte
+## Gouvernance du delivery
 
-- `current-work.json` est **éphémère** et limité au checkout d'un chantier actif.
-- `stable-context.json` est **persistant** sur `main` et décrit le delivery représenté par l'arbre stable, avec son ancre d'intégration.
-- `ACTIVE` appartient uniquement au contexte de checkout ; il n'est jamais une propriété persistante de `main`.
-- Draft / Ready for Review / merge-ready restent des états administratifs GitHub, jamais des états du manifeste.
-- Aucun correctif post-merge n'est requis pour supprimer un ancien chantier actif de `main`.
+GitHub Issue = définition et suivi du chantier.
+GitHub PR = branche, commits, CI, Draft/Ready et merge.
+Git = état réellement intégré.
+CI = preuve de certification.
+
+Aucun fichier versionné ne doit recopier l'Issue, la PR, la branche, la phase ou le statut administratif courant.
+Aucun merge normal ne doit nécessiter une PR de nettoyage documentaire.
 
 ## Documentation
 

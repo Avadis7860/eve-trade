@@ -7,8 +7,6 @@ function loadContextCriticalPaths() {
   const file = '.eve-trade/context-map.json';
   const critical = new Set([
     '.eve-trade/context-map.json',
-    '.eve-trade/stable-context.json',
-    '.eve-trade/current-work.json',
     'docs/operations/agent-context.md',
     'scripts/context-integrity.mjs',
     'scripts/ci-scope.mjs',
@@ -19,7 +17,6 @@ function loadContextCriticalPaths() {
     'docs/documentation-guide.md',
     'docs/state/current-state.md',
     'docs/state/truth-matrix.md',
-    'docs/roadmap/current-chunk.md',
     'docs/roadmap/master-plan.md',
     'docs/roadmap/backlog.md',
     'docs/contracts/index.md',

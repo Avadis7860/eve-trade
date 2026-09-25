@@ -2,110 +2,74 @@
 
 Status: STABLE
 Scope: stable developer and AI navigation guidance
-Stable navigation source: .eve-trade/context-map.json
-Stable delivery source: .eve-trade/stable-context.json
-Active work source: .eve-trade/current-work.json
+Navigation source: .eve-trade/context-map.json
+Delivery source: GitHub Issue / Pull Request
+Repository state source: Git
 Validation: npm run test:context
 
 ## Purpose
 
-This layer reduces context reconstruction cost as EVE Trade grows. It is navigation and governance metadata, not business truth and not a second accounting model.
-
-The context map describes stable repository ownership and validation relationships. The active-work manifest describes only the currently active technical chantier. They must never be treated as interchangeable.
+Cette couche réduit le coût de reconstruction du contexte sans créer une seconde source de vérité pour les chantiers. La navigation du dépôt est durable ; le suivi des livraisons est géré par GitHub.
 
 ## Standard load order
 
-1. Read .eve-trade/stable-context.json to understand the persistent stable delivery context and integration anchor.
-2. Read .eve-trade/current-work.json when present to understand the active checkout, branch, PR and base; it is ephemeral and may be absent on stable main.
-3. Read docs/state/current-state.md, docs/state/truth-matrix.md and docs/roadmap/current-chunk.md for the current repository state.
-4. Read .eve-trade/context-map.json to locate the affected domain, canonical implementation, contracts, invariants, tests and CI owner.
-5. Read only the domain sources required by the task.
-6. Validate the smallest relevant test set before broad certification.
+1. Consulter l'Issue GitHub et la PR lorsqu'un chantier actif est concerné.
+2. Lire docs/state/current-state.md pour l'état logiciel actuellement intégré.
+3. Lire docs/state/truth-matrix.md pour la synthèse des domaines.
+4. Lire docs/roadmap/master-plan.md et docs/roadmap/backlog.md pour la stratégie durable.
+5. Lire .eve-trade/context-map.json pour localiser code, contrats, invariants, tests et CI.
+6. Lire seulement les sources du domaine concerné.
 
 ## Navigation versus truth
 
-The navigation layer can answer where to look. It cannot answer what is true when implementation, tests, CI and normative contracts disagree.
+La navigation indique où chercher. Elle ne devient jamais une vérité métier ou une copie du cycle de vie GitHub.
 
-Authority order:
-1. normative contracts, invariants and accepted decisions;
-2. current implementation, certified tests and CI;
-3. current state and roadmap;
-4. navigation metadata.
+Autorité :
+1. contrats normatifs, invariants et décisions acceptées ;
+2. implémentation courante, tests certifiés et CI ;
+3. état logiciel et roadmap durable ;
+4. métadonnées de navigation.
 
-A contradiction must be surfaced and resolved in the authoritative source. Updating the map must never be used to hide a failed test, contradictory implementation or stale normative document.
+Pour le delivery :
+- GitHub Issue porte le chantier, son objectif et son suivi ;
+- GitHub PR porte branche, commits, Draft/Ready, CI et merge ;
+- Git représente l'arbre intégré et son historique ;
+- GitHub Actions fournit la preuve de certification.
 
 ## Change-impact chain
 
-task -> current work -> repository state -> domain -> canonical source -> contract -> invariant -> tests -> CI lane -> downstream impact
+GitHub Issue/PR -> repository state -> domain -> canonical source -> contract -> invariant -> tests -> CI lane -> downstream impact
 
 ## Stable-map maintenance
 
-Update the context map only when one of these changes:
-- canonical ownership;
-- domain boundary;
-- contract or invariant ownership;
-- validation ownership;
-- legacy replacement status.
+Mettre à jour context-map.json uniquement lorsque changent :
+- la propriété canonique ;
+- une frontière de domaine ;
+- la propriété d'un contrat ou invariant ;
+- la propriété d'une validation ;
+- le statut de remplacement d'une implémentation legacy.
 
-Do not edit the map for ordinary implementation-only changes.
+Ne pas modifier la carte pour suivre l'ouverture, l'avancement ou la fermeture d'une Issue/PR.
 
-CI lane references are workflow-qualified because job IDs are not globally unique across the repository.
+## Context integrity
 
-## Context lifecycle
+npm run test:context vérifie directement :
+- les fichiers de navigation et de bootstrap ;
+- les références de domaines, contrats, invariants et tests ;
+- les workflows et jobs référencés ;
+- le routage fonctionnel des domaines vers les lanes CI ;
+- la cohérence observable du checkout PR ou stable via Git/GitHub.
 
-`.eve-trade/current-work.json` is an ephemeral checkout manifest. It is generated for an active PR checkout and is ignored by Git, so it cannot survive as active state on stable `main`.
+Aucun manifeste versionné ou généré ne fait partie de cette certification.
 
-The persistent file `.eve-trade/stable-context.json` records the delivery represented by the tree that is being certified. Its delivery identity contains the PR, branch, base branch and the pre-merge integration anchor.
+## Anti-duplication
 
-- **Active mode:** `current-work.json` must exist and match the GitHub PR branch, PR number and base SHA. The stable delivery declaration must point to that same candidate delivery and anchor.
-- **Stable mode:** `current-work.json` is irrelevant and is not loaded. `stable-context.json` must match the first parent of the checked-out stable commit (or HEAD when there is no parent), while current-state must document the same anchor.
+Un document stable doit expliquer une règle, une capacité, une architecture ou une stratégie durable. Il ne doit pas recopier :
+- le numéro d'une Issue active ;
+- le numéro d'une PR active ;
+- sa branche ;
+- sa phase ;
+- son statut Draft/Ready ;
+- une action administrative attendue après merge.
 
-GitHub remains authoritative for Draft / Ready for Review and merge administration. The repository does not encode those transitions in its context state. This design removes the need for any post-merge cleanup mutation of `main`.
-
-## Historical archive rule
-
-The UX-03 archive is reference material only. Its financial implementation, tests and documents must be re-derived against current main before any future reuse. The historical financial decision record and reconciliation memo are explicitly non-normative; the historical progressive-recovery vocabulary is preserved as a contradiction to be resolved before any new financial code.
-
-## CI trigger model
-
-The PR certification workflow is deliberately conservative for context-critical changes.
-
-- Changes under .eve-trade always force the full certification scope.
-- Changes to the context integrity script or agent navigation also force full certification.
-- Changes to any current file referenced by the stable context map force full certification, including deletion or rename of a referenced contract, invariant or test.
-- PR certification runs test:context in active mode and checks the branch, PR number and base SHA carried by current-work.
-- Scheduled/manual Full Certification runs test:context in stable mode; it validates the stable map and documents without pretending that the last delivery branch is the current repository branch.
-- Ordinary unrelated documentation remains eligible for the existing documentation-only routing.
-
-This routing exists to make context drift visible without running the entire certification surface for every documentation edit.
-
-## Deterministic integrity checks
-
-`npm run test:context` verifies both reference integrity and a limited set of semantic relationships:
-
-- bootstrap files exist and expose the context entrypoints;
-- the persistent stable delivery schema is valid;
-- active checkout context, when required, matches its GitHub PR environment;
-- stable-state documentation identifies the stable integration anchor from the checked-out main commit object;
-- every mapped workflow/job exists;
-- canonical domain paths route to the expected CI certification family;
-- domain-documentation mappings reference known map domains;
-- impact-chain edges reference known domains.
-
-This remains intentionally deterministic. It does not claim to detect arbitrary natural-language contradictions or infer dependencies that were never declared.
-
-## Bootstrap ownership
-
-The following files are treated as context-critical inputs rather than ordinary documentation:
-
-`AGENTS.md`, `GEMINI.md`, `CONTRIBUTING.md`, `docs/index.md`, the current-state/roadmap bootstrap, the domain/contract/invariant/validation indexes, this procedure, `.eve-trade/*` and the context integrity/routing scripts.
-
-Changes to this bootstrap surface use the conservative certification path.
-
-## Routing versus ownership
-
-A CI lane reference proves that the workflow/job exists. The integrity check additionally exercises the change classifier with canonical paths in a functional-probe mode that deliberately bypasses the conservative context-critical guard. Each mapped CI lane declares the classification that is supposed to trigger it, so a lane cannot pass merely because the classifier fell back to `ambiguous/full_certification`. The normal production classifier remains conservative.
-
-Each `ci_lanes[].route` is a functional classifier class (`frontend`, `domain`, `server`, `sde`, `ci`, `config`, `tests` or `docs`). `ambiguous` and `full_certification` are deliberately excluded: they are fallback/aggregate states and cannot serve as positive routing evidence.
-
-The context map does not claim that its impact graph is exhaustive. Missing edges are unresolved navigation knowledge, not proof of no downstream consumer.
+Le dépôt ne doit pas nécessiter de PR de synchronisation uniquement parce qu'un chantier GitHub a changé d'état.

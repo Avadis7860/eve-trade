@@ -9,19 +9,12 @@ CI gate: [../validation/ci.md](../validation/ci.md)
 
 ## Current baseline
 
-Stable `main` at the start of CONTEXT-005 is `96797a2566496f097ddc6d075786addb8e7ce78d`, the merge commit of PR #105. That delivery exposed the repository-state defect: `.eve-trade/current-work.json` survived on `main` as an ACTIVE chantier.
+The stable repository state is determined by the integrated tree on `main`, its certified tests and its CI proofs.
 
-The persistent stable delivery boundary is now `.eve-trade/stable-context.json`. The active checkout manifest is `.eve-trade/current-work.json`, generated only in an active checkout and ignored by Git.
+PR #105 historically exposed a repository-state defect because chantier metadata survived a merge as active work. The durable lesson is that delivery lifecycle belongs to GitHub, while repository documents describe only stable software knowledge.
 
-The UX-first program has closed the P0 market/ESI retrieval reliability gate. UX-01 is DONE / EXTERNALLY BOUNDED; the previously reported target-PC market-display symptom is resolved and the current application is functional. The Financial Truth semantic boundary (FIN-002-RECON) is integrated and accepted on main. FIN-002 Performance & Trade Analytics remains OPEN / DEFERRED as a separate follow-up.
+The UX-first program has closed the P0 market/ESI retrieval reliability gate. UX-01 is DONE / EXTERNALLY BOUNDED; the previously reported target-PC market-display symptom is resolved and the current application is functional. The Financial Truth semantic boundary (FIN-002-RECON) is integrated and accepted on main. FIN-002 Performance & Trade Analytics remains an open separate follow-up.
 
-## Active PR context
-
-CONTEXT-005 is the active delivery chantier on branch `chore/context-005-current-work-lifecycle-rework`, PR #129, based on `main` `96797a2566496f097ddc6d075786addb8e7ce78d`.
-
-The active `current-work.json` is no longer persisted in Git. PR certification generates it from the GitHub event before running `npm run test:context`. The persistent `stable-context.json` records the delivery declaration that the PR is preparing to integrate; its integration anchor is the PR base SHA.
-
-PR #128 and PR #127 remain historical evidence only. No post-merge cleanup PR is part of the target architecture.
 
 ## CI / delivery state
 
@@ -46,11 +39,10 @@ A dedicated study is recorded in [CI management audit](../audits/ci-management-a
 
 ### Current CI management decision
 
-CI-001 is **DONE / MERGED** on main at `7fc6fe7ca65454d0d29843bc0eace336b2da864c`. Main Smoke #24 had completed successfully on the preceding main baseline; the current merged main baseline after TASK-03 is `db37afca938b9d106a2e442e24d777b8c98e9eac`.
+The PR certification workflow is the deep pre-merge proof. Main Post-Merge Smoke is the short independent proof on `main`. Full Repository Certification remains scheduled/manual.
 
-Post-merge behavior is now intentionally split: PR changes run the PR certification surface, while pushes to `main` run the short Main Smoke surface. Full Repository Certification is scheduled/manual.
+Delivery administration is handled by GitHub Issues and Pull Requests; repository state documentation does not mirror active PR or branch metadata.
 
-The single-active-branch/PR rule remains mandatory: one delivery branch at a time, and merged branches are not reused for new work.
 
 ## CI operator tooling status
 
@@ -115,27 +107,14 @@ The previously reported target-PC market-display symptom is resolved. The applic
 
 ## Agent context hardening
 
-The previous Agent Context Hardening line is being reworked by CONTEXT-005 (#126 / PR #129).
+The repository no longer persists or generates a current-work delivery manifest. Stable navigation is provided by `.eve-trade/context-map.json`; active delivery lifecycle is owned by GitHub Issues and Pull Requests; Git represents repository state; GitHub Actions provides certification.
 
-The architecture now separates:
-- stable navigation: `.eve-trade/context-map.json`;
-- persistent stable delivery context: `.eve-trade/stable-context.json`;
-- ephemeral active-work context: `.eve-trade/current-work.json`;
-- deterministic certification: `scripts/context-integrity.mjs`.
+`scripts/context-integrity.mjs` validates the stable navigation model and the Git checkout invariants required by the active and stable CI modes.
 
-The objective is to make an active chantier impossible to persist accidentally on `main`, without mirroring GitHub Draft / Ready for Review into a repository state machine.
+The durable objective is to keep delivery administration outside versioned repository state, so normal merges never require a documentation or manifest cleanup step.
 
-## Current chantier / sequencing
+## Delivery sequencing
 
-**Active delivery:** CONTEXT-005 — Reconcevoir le cycle de vie et la certification du manifeste `current-work`.
+The active technical chantier is managed in GitHub. Versioned roadmaps describe durable product and architecture sequencing only.
 
-Issue: #126  
-PR: #129  
-Branch: `chore/context-005-current-work-lifecycle-rework`  
-Base: `main` @ `96797a2566496f097ddc6d075786addb8e7ce78d`
-
-Current phase: **B/C — active/stable schema separation and certification rebuild**.
-
-No product, Financial Truth, ESI, or CI-002 implementation is part of this chantier.
-
-References: [Agent Context](../operations/agent-context.md) · [CONTEXT-005](https://github.com/Avadis7860/eve-trade/issues/126)
+References: [Agent Context](../operations/agent-context.md) · [UX program](../roadmap/ux-program.md) · [master plan](../roadmap/master-plan.md)

@@ -1,5 +1,7 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const root = new URL('../../', import.meta.url);
 const read = (relativePath) => fs.readFileSync(new URL(relativePath, root), 'utf8');
@@ -220,7 +222,6 @@ const bootstrapPaths = [
   'docs/documentation-guide.md',
   'docs/state/current-state.md',
   'docs/state/truth-matrix.md',
-  'docs/roadmap/current-chunk.md',
   'docs/roadmap/master-plan.md',
   'docs/roadmap/backlog.md',
   'docs/contracts/index.md',
@@ -231,7 +232,6 @@ const bootstrapPaths = [
   'docs/architecture/index.md',
   'docs/operations/agent-context.md',
   '.eve-trade/context-map.json',
-  '.eve-trade/stable-context.json',
   'scripts/context-integrity.mjs',
   'scripts/ci-scope.mjs',
 ];
@@ -240,7 +240,7 @@ for (const bootstrapPath of bootstrapPaths) {
   assert.ok(scopeSource.includes(`'${bootstrapPath}'`), `Agent bootstrap path must remain context-critical: ${bootstrapPath}`);
 }
 const contextMap = JSON.parse(read('.eve-trade/context-map.json'));
-assert.equal(contextMap.schema_version, 4, 'Context map schema must include functional CI routing metadata');
+assert.equal(contextMap.schema_version, 5, 'Context map schema must include GitHub delivery authority and functional CI routing metadata');
 for (const [domainName, domain] of Object.entries(contextMap.domains)) {
   for (const lane of domain.ci_lanes) {
     assert.ok(typeof lane.route === 'string', `${domainName}: each CI lane must declare a routing class`);
@@ -250,30 +250,41 @@ for (const [domainName, domain] of Object.entries(contextMap.domains)) {
 assert.ok(!Object.hasOwn(contextMap.ci_routing.classes, 'ambiguous'), 'Ambiguous fallback cannot be a functional routing class');
 assert.ok(!Object.hasOwn(contextMap.ci_routing.classes, 'full_certification'), 'Derived full certification cannot be a functional routing class');
 const contextSource = read('scripts/context-integrity.mjs');
-assert.ok(contextSource.includes("const work = mode === 'active'"), 'Current-work must only be loaded in active mode');
-assert.ok(contextSource.includes("const stable = readJson(STABLE_FILE"), 'Stable context must be loaded independently from current-work');
-assert.ok(contextSource.includes("mode === 'active' ? readJson(WORK_FILE"), 'Stable mode must not depend on current-work');
-assert.ok(contextSource.includes("work.schema_version === 3"), 'Active current-work schema must be version 3');
-assert.ok(contextSource.includes("stable.schema_version === 1"), 'Stable context schema must be version 1');
-assert.ok(contextSource.includes("git', ['ls-files', '--', '.eve-trade/current-work.json']"), 'Stable context certification must reject a tracked current-work manifest');
-assert.ok(contextSource.includes("stable.delivery.integration_anchor === anchor"), 'Stable mode must validate the persistent delivery anchor');
-assert.ok(contextSource.includes("stable.delivery.integration_anchor === envBase"), 'Active mode must validate the delivery anchor against the PR base');
-assert.ok(contextSource.includes("read_sequence?.[0] === '.eve-trade/stable-context.json'"), 'Read sequence must start from stable context');
-assert.ok(contextSource.includes("read_sequence?.includes('.eve-trade/current-work.json')"), 'Read sequence must document active current-work');
-assert.ok(read('scripts/context-work.mjs').includes("schema_version: 3"), 'Active context generator must emit schema version 3');
-assert.ok(read('.gitignore').includes('.eve-trade/current-work.json'), 'Active current-work manifest must be ignored by Git');
-assert.ok(read('.github/workflows/ci.yml').includes('run: node scripts/context-work.mjs'), 'PR CI must generate the ephemeral active manifest before context certification');
-assert.ok(read('.eve-trade/stable-context.json').includes('"pull_request": 129'), 'Stable delivery context must identify the current delivery PR');
-assert.ok(read('.eve-trade/stable-context.json').includes('"integration_anchor": "96797a2566496f097ddc6d075786addb8e7ce78d"'), 'Stable delivery context must preserve the current PR base anchor');
-assert.ok(contextSource.includes("work.state === 'ACTIVE'"), 'Active context integrity must enforce ACTIVE state without persisting it on main');
-assert.ok(contextSource.includes('stable delivery integration anchor mismatch'), 'Stable context integrity must validate the persistent delivery integration anchor');
-assert.ok(contextSource.includes("git', ['cat-file', 'commit', 'HEAD'"), 'Stable anchor extraction must read the raw commit object directly');
-assert.ok(contextSource.includes("git', ['rev-parse', '--verify', 'HEAD'"), 'Stable anchor extraction must verify the current commit directly');
-assert.ok(!contextSource.includes("git', ['show', '-s', '--format=%H %P', 'HEAD'"), 'Stable anchor extraction must not use pretty-format parent traversal');
-assert.ok(!contextSource.includes("git', ['rev-list', '--parents', '-n', '1', 'HEAD'"), 'Stable anchor extraction must not depend on revision traversal');
-assert.ok(contextSource.includes('respectContextCritical: false'), 'Context routing validation must bypass the conservative critical-path guard');
-assert.ok(contextSource.includes('canonical paths do not classify for routing class'), 'Context integrity must validate functional domain-to-CI routing');
-assert.ok(contextSource.includes('impact_chains'), 'Context integrity must validate impact graph references');
+assert.ok(contextSource.includes('delivery_authority'), 'Context integrity must validate GitHub delivery authority');
+assert.ok(contextSource.includes('GITHUB_HEAD_REF'), 'Active context integrity must use GitHub PR branch identity when available');
+assert.ok(contextSource.includes('GITHUB_BASE_SHA'), 'Active context integrity must validate the PR base SHA when running in CI');
+const repositoryRoot = fileURLToPath(root);
+const contextIntegrityScript = fileURLToPath(new URL('../context-integrity.mjs', import.meta.url));
+execFileSync(process.execPath, ['--check', contextIntegrityScript], { cwd: repositoryRoot, stdio: 'pipe' });
+const contextTestBranch = execFileSync('git', ['branch', '--show-current'], { cwd: repositoryRoot, encoding: 'utf8' }).trim() || 'ci-contract-test';
+const contextBaseSha = execFileSync('git', ['rev-parse', 'HEAD^1'], { cwd: repositoryRoot, encoding: 'utf8' }).trim();
+execFileSync(process.execPath, [contextIntegrityScript], {
+  cwd: repositoryRoot,
+  env: {
+    ...process.env,
+    CONTEXT_MODE: 'active',
+    CONTEXT_BRANCH: contextTestBranch,
+    CONTEXT_BASE_BRANCH: 'main',
+    CONTEXT_BASE_SHA: contextBaseSha,
+  },
+  stdio: 'pipe',
+});
+assert.ok(contextSource.includes("cat-file', '-e"), 'Active context integrity must verify the PR base commit exists');
+assert.ok(contextSource.includes('forbidden context artifact must not exist'), 'Context integrity must reject removed context artifacts');
+assert.ok(contextSource.includes('current-state must not contain live delivery sections'), 'Context integrity must prevent live delivery metadata from returning to current-state');
+assert.ok(!ci.includes('scripts/context-work.mjs'), 'PR CI must not generate a repository work manifest');
+assert.ok(!ci.includes('stable-context.json'), 'PR CI must not depend on a stable delivery manifest');
+assert.ok(!ci.includes('current-work.json'), 'PR CI must not depend on a current-work manifest');
+assert.ok(jobBlock('static').includes('fetch-depth: 0'), 'Static context certification must have repository history for base-SHA validation');
+assert.match(jobBlock('static'), /CONTEXT_BASE_BRANCH: \$\{\{ github\.event\.pull_request\.base\.ref \}\}/, 'Static context certification must pass the PR base branch to context integrity');
+assert.match(jobBlock('static'), /CONTEXT_BASE_SHA: \$\{\{ github\.event\.pull_request\.base\.sha \}\}/, 'Static context certification must pass the PR base SHA to context integrity');
+for (const forbiddenPath of ['.eve-trade/current-work.json', '.eve-trade/stable-context.json', 'scripts/context-work.mjs', 'docs/roadmap/current-chunk.md']) assert.ok(!fs.existsSync(new URL('../../' + forbiddenPath, import.meta.url)), 'Legacy context artifact must be removed: ' + forbiddenPath);
+assert.ok(read('.eve-trade/context-map.json').includes('github_issue_and_pull_request'), 'Context map must declare GitHub delivery authority');
+assert.ok(read('.eve-trade/context-map.json').includes('"schema_version": 5'), 'Context map schema must be version 5');
+assert.ok(!read('docs/state/current-state.md').includes('PR #129'), 'Current state must not mirror a live PR');
+assert.ok(!read('docs/state/current-state.md').includes('.eve-trade/stable-context.json'), 'Current state must not reference removed stable delivery context');
+assert.ok(!read('docs/state/current-state.md').includes('.eve-trade/current-work.json'), 'Current state must not reference removed active-work context');
+assert.ok(!read('docs/roadmap/index.md').includes('current-chunk.md'), 'Roadmap index must not reference removed current-chunk document');
 assert.ok(mainSmoke.includes('push:\n    branches: ["main"]'), 'Main smoke must own the main push trigger');
 assert.ok(mainSmoke.includes('name: CI / main-smoke'), 'Main smoke must expose a stable smoke job');
 assert.ok(mainSmoke.includes('timeout-minutes: 10'), 'Main smoke must have an explicit timeout');

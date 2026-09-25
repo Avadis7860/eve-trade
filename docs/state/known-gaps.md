@@ -6,12 +6,9 @@ Source of truth: code, tests, CI and current state documents
 
 ## Agent context / repository governance
 
-- CONTEXT-005 is reworking the demonstrated persistence boundary: active checkout state must not be persisted into stable `main`.
-- `.eve-trade/stable-context.json` is the persistent delivery context; `.eve-trade/current-work.json` is generated checkout state and ignored by Git.
-- GitHub remains authoritative for Draft, Ready for Review and merge administration; the repository validates context invariants without mirroring those administrative states.
-- Context references are qualified by workflow file and job because CI job IDs can repeat across workflows.
-- The archive is not a source of current implementation truth. Archived UX-03/Financial Truth code remains reference-only and must be re-derived from current main after explicit contract acceptance.
-- The post-merge audit demonstrated that a merged delivery could leave `current-work`, current-state and roadmap metadata presenting an old active chantier. CONTEXT-005 replaces that closing-state workaround with a persistent stable delivery context plus an ephemeral generated active manifest. Main Smoke continues to read the raw commit object for deterministic stable-anchor proof without mutating main after merge.
+The active delivery lifecycle is intentionally not duplicated in repository state. GitHub Issues and Pull Requests are authoritative for current work, while Git and CI provide the integrated state and certification evidence.
+
+The repository keeps only durable navigation and integrity metadata. No open issue, active PR, branch, phase, Draft/Ready state or post-merge cleanup action is represented as current state.
 
 ## UX / product gaps
 

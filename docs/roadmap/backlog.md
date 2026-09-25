@@ -4,40 +4,6 @@ Status: CURRENT
 Scope: open work only
 Source of truth: revalidated code and current state documents
 
-## Repository / Agent Governance
-
-### CONTEXT-002 — Agent Context Hardening v2 — DONE / MERGED
-
-- Stable machine-readable context map.
-- Separate active-work manifest.
-- Automated current-file and workflow-job integrity.
-- CI-owned `npm run test:context`.
-- Historical archive separation and reconciliation documentation.
-
-PR #79 merged this foundation into `main`.
-
-### CONTEXT-003 — Stable Anchor Extraction Follow-up — DONE / MERGED
-
-- Main Smoke post-merge proof was made explicit around the preserved integration anchor.
-- The first implementation exposed a shallow-history compatibility defect in Main Smoke.
-
-PR #80 merged the first anchor correction; its follow-up defect is tracked as CONTEXT-004.
-
-### CONTEXT-004 — Raw Commit Stable Anchor Follow-up — DONE / MERGED
-
-- Main Smoke post-merge proof must remain valid with the workflow's shallow checkout.
-- Stable integration anchor is read from the raw commit object with `git cat-file commit HEAD`.
-- Regression coverage rejects history-traversal and pretty-format extraction.
-
-PR #81 completed the raw-commit stable-anchor correction. The later delivery exposed that persisting `current-work` on `main` still crossed the wrong boundary; CONTEXT-005 (#126 / PR #129) is the active rework.
-
-### CONTEXT-005 — Active / stable context boundary rework
-
-- `.eve-trade/current-work.json` is checkout-scoped and ignored by Git.
-- `.eve-trade/stable-context.json` persists delivery identity and the pre-merge integration anchor.
-- GitHub PR administration remains authoritative for Draft / Ready / merge.
-- `context-integrity` validates active PR coherence separately from stable-main coherence.
-- No post-merge cleanup delivery is required.
 
 ## Product / UX program
 
@@ -201,7 +167,7 @@ Reference:
 
 ## Rule
 
-Historical issues are not copied into the active backlog unless they remain reproducibly open today.
+Issues and Pull Requests are the operational source for active chantiers. This backlog contains only durable strategic work that remains useful outside the GitHub delivery lifecycle.
 
 The UX-first sequencing gate is mandatory: no deferred technical item is promoted ahead of UX-00/UX-01 and the relevant surface contract without an explicit roadmap update.
 

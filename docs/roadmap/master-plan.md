@@ -13,7 +13,7 @@ The functional E2E-001 baseline is stable and merged. CI-001 is merged and compl
 
 The application has mature market, ESI, finance, order, prediction and portfolio foundations, but the presentation layer does not yet expose them as a coherent trading workflow.
 
-The Financial Truth semantic boundary is integrated and accepted on main. The UX-03 Allocation / Portfolio contract is also accepted on main; product implementation remains a future separate chantier.
+The Financial Truth semantic boundary is integrated and accepted on main. The UX-03 Allocation / Portfolio contract is also accepted on main. UX-03 / TASK-02 is the current documentation revalidation chantier; product implementation remains a future separate chantier.
 
 See:
 - [UI/UX Product Audit](../audits/ui-ux-product-audit-2026-09-23.md)

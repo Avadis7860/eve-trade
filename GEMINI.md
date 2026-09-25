@@ -4,10 +4,11 @@ Point d'entrée léger pour les agents.
 
 ## Première lecture
 
-1. [.eve-trade/current-work.json](.eve-trade/current-work.json) — état du checkout : ACTIVE / CLOSING / IDLE.
-2. [docs/state/current-state.md](docs/state/current-state.md) — état vérifié du dépôt.
-3. [docs/state/truth-matrix.md](docs/state/truth-matrix.md) — synthèse des domaines.
-4. [docs/roadmap/current-chunk.md](docs/roadmap/current-chunk.md) — chantier et périmètre.
+1. [.eve-trade/stable-context.json](.eve-trade/stable-context.json) — contexte persistant du dernier delivery intégré à main.
+2. [.eve-trade/current-work.json](.eve-trade/current-work.json) lorsqu'il est présent — état éphémère du checkout actif.
+3. [docs/state/current-state.md](docs/state/current-state.md) — état vérifié du dépôt.
+4. [docs/state/truth-matrix.md](docs/state/truth-matrix.md) — synthèse des domaines.
+5. [docs/roadmap/current-chunk.md](docs/roadmap/current-chunk.md) — chantier et périmètre.
 5. [.eve-trade/context-map.json](.eve-trade/context-map.json) — navigation stable vers code, contrats, invariants, tests et CI.
 6. [docs/index.md](docs/index.md) — index documentaire.
 7. [docs/operations/agent-context.md](docs/operations/agent-context.md) — règles d'utilisation de cette couche.

@@ -231,7 +231,7 @@ const bootstrapPaths = [
   'docs/architecture/index.md',
   'docs/operations/agent-context.md',
   '.eve-trade/context-map.json',
-  '.eve-trade/current-work.json',
+  '.eve-trade/stable-context.json',
   'scripts/context-integrity.mjs',
   'scripts/ci-scope.mjs',
 ];
@@ -250,6 +250,20 @@ for (const [domainName, domain] of Object.entries(contextMap.domains)) {
 assert.ok(!Object.hasOwn(contextMap.ci_routing.classes, 'ambiguous'), 'Ambiguous fallback cannot be a functional routing class');
 assert.ok(!Object.hasOwn(contextMap.ci_routing.classes, 'full_certification'), 'Derived full certification cannot be a functional routing class');
 const contextSource = read('scripts/context-integrity.mjs');
+assert.ok(contextSource.includes("const work = mode === 'active'"), 'Current-work must only be loaded in active mode');
+assert.ok(contextSource.includes("const stable = readJson(STABLE_FILE"), 'Stable context must be loaded independently from current-work');
+assert.ok(contextSource.includes("mode === 'active' ? readJson(WORK_FILE"), 'Stable mode must not depend on current-work');
+assert.ok(contextSource.includes("work.schema_version === 3"), 'Active current-work schema must be version 3');
+assert.ok(contextSource.includes("stable.schema_version === 1"), 'Stable context schema must be version 1');
+assert.ok(contextSource.includes("stable.delivery.integration_anchor === anchor"), 'Stable mode must validate the persistent delivery anchor');
+assert.ok(contextSource.includes("stable.delivery.integration_anchor === envBase"), 'Active mode must validate the delivery anchor against the PR base');
+assert.ok(contextSource.includes("read_sequence?.[0] === '.eve-trade/stable-context.json'"), 'Read sequence must start from stable context');
+assert.ok(contextSource.includes("read_sequence?.includes('.eve-trade/current-work.json')"), 'Read sequence must document active current-work');
+assert.ok(read('scripts/context-work.mjs').includes("schema_version: 3"), 'Active context generator must emit schema version 3');
+assert.ok(read('.gitignore').includes('.eve-trade/current-work.json'), 'Active current-work manifest must be ignored by Git');
+assert.ok(read('.github/workflows/ci.yml').includes('run: node scripts/context-work.mjs'), 'PR CI must generate the ephemeral active manifest before context certification');
+assert.ok(read('.eve-trade/stable-context.json').includes('"pull_request": 129'), 'Stable delivery context must identify the current delivery PR');
+assert.ok(read('.eve-trade/stable-context.json').includes('"integration_anchor": "96797a2566496f097ddc6d075786addb8e7ce78d"'), 'Stable delivery context must preserve the current PR base anchor');
 assert.ok(contextSource.includes("work.state !== 'IDLE'"), 'Context integrity must distinguish active and stable lifecycle state');
 assert.ok(contextSource.includes('stable integration anchor mismatch'), 'Stable context integrity must validate the merge integration anchor');
 assert.ok(contextSource.includes("git', ['cat-file', 'commit', 'HEAD'"), 'Stable anchor extraction must read the raw commit object directly');

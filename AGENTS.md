@@ -17,18 +17,20 @@ Fondations sensibles :
 
 Le dépôt possède une couche de navigation agent dédiée :
 - carte stable : .eve-trade/context-map.json
-- état de chantier : .eve-trade/current-work.json
+- contexte stable du dernier delivery : .eve-trade/stable-context.json
+- état de chantier éphémère : .eve-trade/current-work.json
 - procédure : docs/operations/agent-context.md
 
 Cette couche répond à où chercher, jamais à ce qui est vrai. Elle ne remplace ni le code, ni les tests certifiés, ni les contrats/invariants normatifs.
 
 Commencer par :
-1. [.eve-trade/current-work.json](.eve-trade/current-work.json) — état du checkout et du chantier.
-2. [docs/state/current-state.md](docs/state/current-state.md) — état actuel vérifiable.
-3. [docs/state/truth-matrix.md](docs/state/truth-matrix.md) — synthèse des domaines.
-4. [docs/roadmap/current-chunk.md](docs/roadmap/current-chunk.md) — périmètre actif.
-5. [.eve-trade/context-map.json](.eve-trade/context-map.json) — navigation stable.
-6. [docs/index.md](docs/index.md) — navigation documentaire générale.
+1. [.eve-trade/stable-context.json](.eve-trade/stable-context.json) — contexte persistant du delivery intégré à main.
+2. [.eve-trade/current-work.json](.eve-trade/current-work.json) lorsque présent — état éphémère du checkout et du chantier.
+3. [docs/state/current-state.md](docs/state/current-state.md) — état actuel vérifiable.
+4. [docs/state/truth-matrix.md](docs/state/truth-matrix.md) — synthèse des domaines.
+5. [docs/roadmap/current-chunk.md](docs/roadmap/current-chunk.md) — périmètre actif.
+6. [.eve-trade/context-map.json](.eve-trade/context-map.json) — navigation stable.
+7. [docs/index.md](docs/index.md) — navigation documentaire générale.
 
 Puis charger seulement le domaine utile depuis la carte stable.
 
@@ -68,11 +70,11 @@ Ajouter les suites ciblées pour la surface modifiée. La CI est la validation p
 
 ## Cycle de vie du contexte
 
-- `ACTIVE` : le checkout correspond à un chantier en développement sur une branche/PR dédiée.
-- `CLOSING` : le chantier est gelé pour certification/fusion ; aucune nouvelle portée ne doit être ajoutée.
-- `IDLE` : aucun chantier de livraison n'est actif sur l'état stable de `main`.
-
-Sur `main`, `.eve-trade/current-work.json` ne doit jamais être interprété comme un chantier actif. L'état `CLOSING` représente le dernier chantier livré en attendant qu'un nouveau checkout rétablisse `ACTIVE`. La validation stable utilise l'ancre d'intégration du dernier delivery (le premier parent du merge commit, ou `HEAD` si le commit stable n'est pas un merge), afin d'éviter toute mutation automatique post-merge.
+- `current-work.json` est **éphémère** et limité au checkout d'un chantier actif.
+- `stable-context.json` est **persistant** sur `main` et décrit le delivery représenté par l'arbre stable, avec son ancre d'intégration.
+- `ACTIVE` appartient uniquement au contexte de checkout ; il n'est jamais une propriété persistante de `main`.
+- Draft / Ready for Review / merge-ready restent des états administratifs GitHub, jamais des états du manifeste.
+- Aucun correctif post-merge n'est requis pour supprimer un ancien chantier actif de `main`.
 
 ## Documentation
 

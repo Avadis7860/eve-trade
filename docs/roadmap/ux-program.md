@@ -80,17 +80,24 @@ Gate:
 a trader can inspect an active order and decide whether to keep, adjust, relocate or cancel without leaving the operations context for routine information. Certified by PR #61 run `35859213922` and P0 browser diagnostics by PR #63 run `35862904773`.
 
 ### UX-03 — Allocation / Portefeuille
-Status: P1 — NEXT PRODUCT BUILD AFTER P0
+Status: P1 — TASK-01 CONTRACT REBASE / IMPLEMENTATION NOT STARTED
+Reference: issue #85 / PR #93
 
-Preparation before implementation:
-- freeze Real Portfolio vs Proposed Allocation information hierarchy;
-- define cross-item opportunity universe contract;
-- define concentration/diversification explanations;
-- define loading/empty/stale/partial/error behavior;
-- define scenarios for a multi-opportunity capital allocation.
+Task-01 rebase:
+- reconcile the historical UX-03 contract against the accepted Financial Truth boundary on main;
+- define the economic operation from transaction/position lineage rather than BUY/SELL order pairs;
+- keep order ID as market-order provenance/correlation only;
+- keep character, corporation, issuer and observer distinct from accounting scope;
+- preserve Real Portfolio vs Proposed Allocation;
+- define closure-gated whole-operation profitability separately from capital recovery;
+- define loading/empty/cache/stale/partial/error/unknown behavior;
+- preserve FACT / DERIVED / AGGREGATED / NEW SOURCE / POLICY boundaries.
 
-Gate:
-the system can produce a meaningful diversified allocation across multiple opportunities independent of the currently selected catalog item.
+Gate for this task:
+the UX-03 contract is accepted and synchronized across roadmap/state documentation.
+
+Implementation gate:
+no UX-03 product code starts until the accepted contract and its executable acceptance scenarios are in place.
 
 ### UX-04 — Performance / Journal
 Status: P1

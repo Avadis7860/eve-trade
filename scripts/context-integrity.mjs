@@ -268,6 +268,13 @@ if (mode === 'active') {
   let anchor = '';
   let head = '';
   try {
+    const trackedWork = execFileSync('git', ['ls-files', '--', '.eve-trade/current-work.json'], { cwd: ROOT, encoding: 'utf8' }).trim();
+    mark(!trackedWork, 'stable main must not track the ephemeral current-work manifest');
+  } catch (error) {
+    fail('git tracked-file verification failed: ' + error.message);
+    failed = true;
+  }
+  try {
     head = execFileSync('git', ['rev-parse', '--verify', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim();
     const commitObject = execFileSync('git', ['cat-file', 'commit', 'HEAD'], { cwd: ROOT, encoding: 'utf8' });
     const parents = commitObject

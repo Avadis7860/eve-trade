@@ -1,6 +1,6 @@
 # UX-03 — TASK-03 — Portfolio Typed Model Extraction
 
-Status: CURRENT / TASK-03 ACTIVE
+Status: COMPLETE / TASK-03 ACCEPTED
 Base main: `0f822077a43a03ea17098e1b35e25f8374487888`
 Historical reference: `archive/ux-03-allocation-contract-2026-09-24`
 Issue: #87

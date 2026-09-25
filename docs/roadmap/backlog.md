@@ -1,176 +1,78 @@
 # Backlog
 
 Status: CURRENT
-Scope: open work only
-Source of truth: revalidated code and current state documents
+Scope: durable open work only
+Source of truth: revalidated code, current state and GitHub Issues
 
+Les GitHub Issues sont la source opérationnelle des chantiers. Ce document ne reprend pas leurs plans d'exécution détaillés.
 
 ## Product / UX program
 
-The authoritative product backlog is [UX-First Trading Terminal Program](ux-program.md).
+The authoritative product sequence is [UX-First Trading Terminal Program](ux-program.md).
 
-### P0 — Market / ESI truth and retrieval reliability — DONE / CLOSED
+### UX-03 — Allocation / Portefeuille
 
-Completed:
-- Observable public market-order error propagation.
-- HTTP, cache and ESI budget metadata surfaced to the browser UI.
-- Stale-cache preservation on previously observed market data.
-- Deterministic ERROR / PARTIAL / STALE coverage.
-- Global sync failure accounting for market-quality ERROR.
-- Browser certification of operator-facing HTTP 401 + ESI budget diagnostics.
-- **P0-A caller audit:** all identified non-Operations market-order consumers are mapped; no concrete failure-to-empty/unchanged collapse was demonstrated.
-- Documentation of the P0-A caller matrix and the latent legacy-helper hazard.
+Preparatory contract work is complete in Issues #85–#87. The next review chantier is **Issue #88 — TASK-04 / Portfolio Aggregation**.
 
-Closure:
-- P0-A audit: complete and merged.
-- P0-B 429 / Retry-After: certified and merged.
-- P0-C evidence export: certified and merged.
-- The historical target-PC market-display issue is resolved; current application behavior is functional and no persistent software defect is identified.
-- P0-D: CLOSED / EXTERNALLY BOUNDED.
+See the GitHub Issues for the living work plan and current execution state.
 
-There is no active P0 technical branch.
+### FIN-002 — Performance & Trade Analytics
 
-### UX-02 — Operations / Mes Ordres — DONE / MERGED
+**Issue #74 — OPEN / DEFERRED**
 
-- The Operations console first increment is merged.
-- Browser decision gate for keep / adjust / relocate / cancel is certified by PR #61 run `35859213922`.
-- Expose capital, escrow, active sell value, order age, fill ratio, remaining locked capital, estimated turnover, expected remaining return, market distance and data health.
-- Separate economic ownership scope from performance-analysis scope.
-- Keep the existing order advisor but make its decision context inspectable.
+The canonical Financial Truth boundary is accepted. Remaining work concerns analytics semantics and reconciliation. This issue remains separate from the UX-03 review sequence and becomes a direct prerequisite before UX-04 is treated as financially certified.
 
-### P1 — UX-03 / TASK-02 — Data Availability & Derivation Matrix — DONE / MERGED
+### UX-04 → UX-07
 
-- Revalidate the archived matrix against current main.
-- Correct stale FACT/DERIVED/AGGREGATED classifications.
-- Preserve explicit health, freshness, coverage and provenance semantics.
-- Keep Character Assets as the only identified missing authoritative inventory source.
-- Do not add a new ESI source in this task.
-- PR #96 merged and Main Post-Merge Smoke #23 passed on `af725a6`.
+- UX-04 — Performance / Journal → Issue #120
+- UX-05 — Control Center / Paramètres → Issue #121
+- UX-06 — Cockpit → Issue #122
+- UX-07 — responsive/accessibility/interaction hardening → Issue #123
 
-### P1 — UX-03 / TASK-03 — Typed Portfolio Model — DONE / MERGED
-
-Issue: #87
-
-- Extract a minimal typed Portfolio contract from current `main` rather than importing the historical archive implementation.
-- Build a field-by-field extraction matrix: KEEP / REPLACE / DROP / ADAPT.
-- Reuse canonical Financial Truth, Treasury, Order and Opportunity types instead of duplicating domain truth.
-- Preserve provenance, accounting scope, owner/observer/issuer, freshness, health and coverage as distinct dimensions.
-- Keep `UNKNOWN / PARTIAL / ERROR / ABSENT / UNAVAILABLE / STALE` explicit.
-- Keep Character Assets as `NEW SOURCE` and outside this task unless a separate source task is opened.
-- No product/UI implementation starts from the historical `src/types/portfolio.ts` file.
-- Delivered on branch `ux-03/task-03-typed-portfolio-model` / PR #103 from main `0f822077a43a03ea17098e1b35e25f8374487888`; merged into `main` at `db37afca938b9d106a2e442e24d777b8c98e9eac`.
-- Method C was applied: the new model was reconstructed from current-main authorities; archive remains reference-only.
-- Post-merge state synchronization completed through PR #104, merged at `ae1c0df67d427f93215043820ce15bdc38688dc2`.
-- Stable `main` is ready for the next explicit chantier.
-
-### P1 — UX-03 / TASK-04 — Portfolio Aggregation — NEXT / NOT ACTIVE
-
-Issue: #88
-
-- Re-read and reconstruct the Portfolio aggregation layer from current `main`.
-- Compose canonical positions, realized outcomes, treasury, order exposure and opportunity scope without redefining domain truth.
-- Preserve the separation between Real Portfolio and Proposed Allocation.
-- Keep aggregate availability, provenance, scope and data-quality semantics explicit.
-- Do not revive the archived implementation wholesale.
-
-### P1 — Allocation / Portefeuille — FUTURE / NOT ACTIVE
-
-- Split Real Portfolio from Proposed Allocation.
-- Feed allocation with a cross-item opportunity universe instead of the currently selected item only.
-- Preserve and extend concentration controls.
-- Explain invested capital, unused capital, concentration and allocation rationale.
-- Optimize for projected ROI/profit/day/liquidity/capturability/risk rather than a single top-scoring item.
-
-### FIN-002 — Performance & Trade Analytics — OPEN / DEFERRED
-
-Issue: #74
-
-- Finalize the remaining Performance/Analytics alignment on the canonical Financial Truth already integrated into `main`.
-- Treat a closed trade as a financially closed position, not merely a disposal cycle with `quantity > 0`.
-- Keep partial disposal results, capital recovery and whole-operation profitability distinct.
-- Do not default win rate to `100%` when no closed-position sample exists; preserve the absence of a meaningful sample explicitly.
-- Keep cross-character reconstruction behind an explicit common accounting scope.
-- Do not redefine Financial Truth, add a new ESI source, or create a parallel accounting engine.
-- This issue is **not a prerequisite for UX-03 TASK-04 to TASK-08 review work**; it becomes a direct prerequisite before UX-04 Performance/Journal is treated as financially certified.
-
-### P1 — Performance / Journal
-
-Issue linkage: #74 FIN-002 must be completed before the Performance surface is presented as a fully certified financial analytics view.
-
-- Replace manual financial truth with ESI-derived trade reconstruction.
-- Reconcile opportunities, orders, fills, sales, fees and realized outcomes using the canonical Financial Truth lifecycle.
-- Compare predicted vs observed profit, ROI and turnover without conflating market persistence, execution and financial realization.
-- Keep manual input only for optional personal notes.
-
-### P1 — Control Center / Paramètres
-
-- Surface effective decision parameters: capital, ROI floor, profit floor, turnover, position cap, concentration, profile, hubs, logistics and risk.
-- Separate business policy from technical maintenance.
-- Hide or mark controls that have no effective engine consumer.
-
-### P2 — Cockpit
-
-- Rebuild cockpit around "what should I know/do now?"
-- Aggregate urgent order actions, actionable discovery, proposed allocation, recent performance and data health without duplicating full screens.
-
-### P2 — UX hardening
-
-- Responsive behavior.
-- Keyboard/focus/accessibility.
-- Consistent loading/empty/stale/partial/error states.
-- Interaction and information-density tuning.
+Each Issue owns its detailed execution plan, acceptance criteria and progression.
 
 ## Deferred technical work
 
-These remain valid but are explicitly blocked until the UX baseline is accepted:
+- PST-001 → Issue #114
+- UI-001 → Issue #115
+- E2E-002 → Issue #116
+- UI-002 → Issue #117
+- PERF-001 → Issue #118
+- TYPE-001 → Issue #119
 
-- PST-001: IndexedDB decomposition.
-- UI-001: corporation trading scope UI.
-- E2E-002: broader critical browser workflows.
-- UI-002: large frontend component decomposition.
-- PERF-001: performance measurement/optimization.
-- TYPE-001: legacy typing/facade cleanup.
+These remain strategically deferred; their Issues own the detailed plans.
 
-## Public-readiness / portfolio follow-up
+## Engine / operations follow-ups
 
-The detailed maintenance plan is [Public Readiness](public-readiness.md). High-priority items are security posture, license decision and public-facing truth synchronization. UX-03 / TASK-01 is complete; the accepted contract is the prerequisite for a future implementation chantier.
+- PRED-001 → Issue #98
+- DATA-002 → Issue #99
+- PRED-002 → Issue #100
+- ORD-002 → Issue #101
+- CAL-001 → Issue #102
 
-## CI follow-up candidates
+These Issues are the operational source for those chantiers.
 
-- **Draft routing mismatch:** the current PR workflow triggers `CI Foundation & Regression Gate` for Draft PRs as well as Ready PRs. PR #61 was created as Draft and run `35858589551` entered the full six-lane certification topology after `CI / Change Scope` succeeded. This is a confirmed behavior mismatch with the documented Draft Fast Gate model.
-- Keep this as a separate CI hardening chantier; do not mix it into the P0 product closure work.
+## Public readiness
 
-## CI operator tooling — future candidate
+The public-readiness track is summarized in [public-readiness.md](public-readiness.md). Operational plans live in Issues #106–#111 and the parent tracking Issue #124.
 
-- **CI-OPS-001 / Oclif operator CLI:** candidate separate maintenance chantier after P0 closure. Oclif would provide the project-facing operator layer (for example `eve ci status`, `eve ci watch`, `eve ci rerun-failed`, `eve ci certify`) while GitHub Actions remains the certification authority and gh remains the low-level GitHub control surface.
-- Do not activate this track during P0-B. Open it only when CI operational hardening is intentionally separated from product reliability work.
+## CI follow-ups
 
-## Operational issue — historical
+- CI-002 → Issue #112
+- CI-OPS-001 → Issue #113
 
-**Reported:** public market orders were not available for display from the user's PC.
+The current CI architecture remains documented in [CI-001 summary](ci-management-refactor.md); CI-001's detailed execution record is archived.
 
-**Current status:** RESOLVED / EXTERNALLY BOUNDED. The application is currently functional. The reported symptom was explained by insufficient available data to produce a market to display. No persistent application defect is currently identified.
+## Historical / closed material
 
-Primary diagnostic path:
-EsiService.fetchLiveOrdersDetailed -> /api/markets/region/orders -> MarketEsiGateway -> EsiGateway -> ESI.
+The closed P0 execution record is archived in [p0-market-reliability.md](../archive/roadmaps/p0-market-reliability.md).
 
-Evidence now certified in code:
-- backend error responses preserve HTTP/cache/rate-limit diagnostics;
-- Operations browser flow retains active orders and surfaces market ERROR instead of false zero activity;
-- P0-A caller audit maps the non-Operations consumers and found no concrete failure-to-empty collapse affecting certifiable business truth;
-- the historical target-PC symptom is no longer an active incident and is not a current product gap.
-
-Reference:
-[UI/UX Product Audit](../audits/ui-ux-product-audit-2026-09-23.md)
-[P0 Market Reliability Plan](p0-market-reliability.md)
-[P0-A Caller Matrix](../validation/p0-a-market-consumers.md)
+Historical financial reconciliation remains in [financial-truth-reconciliation.md](financial-truth-reconciliation.md) and is not an operational work plan.
 
 ## Rule
 
-Issues and Pull Requests are the operational source for active chantiers. This backlog contains only durable strategic work that remains useful outside the GitHub delivery lifecycle.
+Issues and Pull Requests are the operational source for active chantiers.
 
-The UX-first sequencing gate is mandatory: no deferred technical item is promoted ahead of UX-00/UX-01 and the relevant surface contract without an explicit roadmap update.
+Markdown roadmap/backlog content may define durable strategy, dependencies, contracts, and historical references, but must not become a second operational plan.
 
-TASK-01 / #85, TASK-02 / #86 and TASK-03 / #87 are complete and merged. PR #104 completed the post-merge repository-state synchronization; Main Smoke on `ae1c0df67d427f93215043820ce15bdc38688dc2` is green. TASK-04 / issue #88 is now the next inactive review chantier and must start from this stable `main` state.
-
-CI-001 and UX-02 are merged. The repository continues to enforce one active delivery branch/PR at a time.
+No document in the active roadmap should require a post-merge “synchronization PR” solely because an Issue or PR changed status.

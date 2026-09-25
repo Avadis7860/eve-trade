@@ -9,17 +9,19 @@ CI gate: [../validation/ci.md](../validation/ci.md)
 
 ## Current baseline
 
-PR #83 (`feat(financial): recover canonical Financial Truth core`) was merged into `main` at `a2544d2f98f1b9e181dd2ecdd52191fc7680aec8`. Its stable integration anchor is the first parent `a01c2a31dbabd3678d3d8674b14f4c826ab0b0d8`. The Financial Truth core is now part of `main`.
+Stable `main` at the start of CONTEXT-005 is `96797a2566496f097ddc6d075786addb8e7ce78d`, the merge commit of PR #105. That delivery exposed the repository-state defect: `.eve-trade/current-work.json` survived on `main` as an ACTIVE chantier.
 
-PR #84 completed the post-merge context synchronization, PR #93 completed UX-03 / TASK-01 contract rebase, and PR #94 completed the first repository-state closing pass. The current main tip before TASK-02 is `1799471409bc49782649c72d7a91756d046b044`. PR #95 completed the previous documentation cleanup for stale delivery references. The functional E2E-001 baseline was `9438bbedb2d44cf3f5f371144bcf72094955cd46`. Deterministic browser CI is green and the target-PC real-CCP SSO/ESI smoke PASS was recorded on 2026-09-23.
+The persistent stable delivery boundary is now `.eve-trade/stable-context.json`. The active checkout manifest is `.eve-trade/current-work.json`, generated only in an active checkout and ignored by Git.
 
 The UX-first program has closed the P0 market/ESI retrieval reliability gate. UX-01 is DONE / EXTERNALLY BOUNDED; the previously reported target-PC market-display symptom is resolved and the current application is functional. The Financial Truth semantic boundary (FIN-002-RECON) is integrated and accepted on main. FIN-002 Performance & Trade Analytics remains OPEN / DEFERRED as a separate follow-up.
 
 ## Active PR context
 
-PR #103 completed UX-03 / TASK-03 and was merged into `main` at `db37afca938b9d106a2e442e24d777b8c98e9eac`. PR #104 then completed the post-merge state synchronization at `ae1c0df67d427f93215043820ce15bdc38688dc2`.
+CONTEXT-005 is the active delivery chantier on branch `chore/context-005-current-work-lifecycle-rework`, PR #129, based on `main` `96797a2566496f097ddc6d075786addb8e7ce78d`.
 
-PR #104 completed the post-merge synchronization for TASK-03 and was merged into `main` at `ae1c0df67d427f93215043820ce15bdc38688dc2`. TASK-03 remains limited to extraction/reconstruction of the typed Portfolio contract from current `main`; the historical archive remains reference-only. No product delivery branch is active on stable `main`.
+The active `current-work.json` is no longer persisted in Git. PR certification generates it from the GitHub event before running `npm run test:context`. The persistent `stable-context.json` records the delivery declaration that the PR is preparing to integrate; its integration anchor is the PR base SHA.
+
+PR #128 and PR #127 remain historical evidence only. No post-merge cleanup PR is part of the target architecture.
 
 ## CI / delivery state
 
@@ -113,40 +115,27 @@ The previously reported target-PC market-display symptom is resolved. The applic
 
 ## Agent context hardening
 
-The Agent Context Hardening delivery is closed through PR #84. UX-03 / TASK-01 is closed through PR #93. PR #94 completed the initial post-merge synchronization. PR #95 closes the remaining stale context references; no product implementation branch is active.
+The previous Agent Context Hardening line is being reworked by CONTEXT-005 (#126 / PR #129).
 
-TASK-01 was documentation/contract-only and did not import archived UX-03 implementation or revive the historical financial implementation.
+The architecture now separates:
+- stable navigation: `.eve-trade/context-map.json`;
+- persistent stable delivery context: `.eve-trade/stable-context.json`;
+- ephemeral active-work context: `.eve-trade/current-work.json`;
+- deterministic certification: `scripts/context-integrity.mjs`.
 
-The stable navigation layer is `.eve-trade/context-map.json`; the checkout-aware operational state is `.eve-trade/current-work.json`; validation is `npm run test:context`. The hardening closes lifecycle, bootstrap, routing and stable-state drift identified by the audit.
+The objective is to make an active chantier impossible to persist accidentally on `main`, without mirroring GitHub Draft / Ready for Review into a repository state machine.
 
 ## Current chantier / sequencing
 
-**Previous delivery:** the Agent Context Hardening raw-commit anchor correction was completed through PR #81, with PR #84 performing its post-merge synchronization. Agent Context Hardening v2 / PR #79 and the shallow-anchor correction / PR #80 are merged on main. UX-03 branches/PRs #71 and #77 are closed without merge and their archive is reference-only.
+**Active delivery:** CONTEXT-005 — Reconcevoir le cycle de vie et la certification du manifeste `current-work`.
 
-Financial Truth semantic reconciliation is complete on main. The stable boundary is recorded as FIN-002-RECON; the remaining FIN-002 issue (#74) is now narrowed to Performance & Trade Analytics alignment and is not a prerequisite for the UX-03 review sequence.
+Issue: #126  
+PR: #129  
+Branch: `chore/context-005-current-work-lifecycle-rework`  
+Base: `main` @ `96797a2566496f097ddc6d075786addb8e7ce78d`
 
-UX-03 / TASK-01 is complete through PR #93. UX-03 / TASK-02 is complete through PR #96 with Main Post-Merge Smoke #23 passing on `af725a6`; the resulting matrix remains current-main aligned and keeps Character Assets as the explicit `NEW SOURCE` boundary. UX-03 / TASK-03 is complete through PR #103 and its post-merge synchronization PR #104 is merged at `ae1c0df67d427f93215043820ce15bdc38688dc2`.
+Current phase: **B/C — active/stable schema separation and certification rebuild**.
 
-The next product review is UX-03 / TASK-04 (#88), which remains inactive until a new delivery branch is explicitly opened from this stable main state.
+No product, Financial Truth, ESI, or CI-002 implementation is part of this chantier.
 
-UX-02 is DONE / MERGED. CI-001 is DONE / MERGED. UX-01/P0 is DONE / EXTERNALLY BOUNDED.
-
-Public Readiness remains a separate maintenance track; it is not merged into this chantier.
-
-References: [Agent Context](../operations/agent-context.md) · [Financial Truth Reconciliation](../roadmap/financial-truth-reconciliation.md)
-
-## Reference paths
-
-[CI Validation](../validation/ci.md) ·
-[CI Baseline](../audits/ci-management-baseline-2026-09-23.md) ·
-[CI Evidence Map](../validation/ci-evidence-map.md) ·
-[CI Management Audit](../audits/ci-management-audit-2026-09-23.md) ·
-[CI-001 Plan](../roadmap/ci-management-refactor.md) ·
-[P0 Market Reliability Plan](p0-market-reliability.md) ·
-[Public Readiness](../roadmap/public-readiness.md) ·
-[P0-C Target-PC Evidence](../validation/p0-c-target-pc-evidence.md) ·
-[UI/UX Product Audit](../audits/ui-ux-product-audit-2026-09-23.md) ·
-[UX Program](../roadmap/ux-program.md) ·
-[Master Plan](../roadmap/master-plan.md) ·
-[Truth Matrix](truth-matrix.md) ·
-[Known Gaps](known-gaps.md)
+References: [Agent Context](../operations/agent-context.md) · [CONTEXT-005](https://github.com/Avadis7860/eve-trade/issues/126)

@@ -6,6 +6,7 @@ import { classifyPaths } from './ci-scope.mjs';
 
 const ROOT = process.cwd();
 const MAP_FILE = path.join(ROOT, '.eve-trade', 'context-map.json');
+const STABLE_FILE = path.join(ROOT, '.eve-trade', 'stable-context.json');
 const WORK_FILE = path.join(ROOT, '.eve-trade', 'current-work.json');
 const CURRENT_STATE_FILE = path.join(ROOT, 'docs', 'state', 'current-state.md');
 const BOOTSTRAP_REQUIRED = [
@@ -27,7 +28,7 @@ const BOOTSTRAP_REQUIRED = [
   'docs/architecture/index.md',
   'docs/operations/agent-context.md',
   '.eve-trade/context-map.json',
-  '.eve-trade/current-work.json',
+  '.eve-trade/stable-context.json',
   'scripts/context-integrity.mjs',
   'scripts/ci-scope.mjs',
 ];
@@ -74,8 +75,9 @@ function workflowJobIds(source, workflowPath) {
 }
 
 const map = readJson(MAP_FILE, '.eve-trade/context-map.json');
-const work = readJson(WORK_FILE, '.eve-trade/current-work.json');
+const stable = readJson(STABLE_FILE, '.eve-trade/stable-context.json');
 const mode = process.env.CONTEXT_MODE || 'active';
+const work = mode === 'active' ? readJson(WORK_FILE, '.eve-trade/current-work.json') : null;
 let failed = false;
 const mark = (condition, message) => {
   if (!condition) {
@@ -84,22 +86,56 @@ const mark = (condition, message) => {
   }
 };
 
-if (!map || !work) process.exit(1);
+if (!map || !stable || (mode === 'active' && !work)) process.exit(1);
 mark(['active', 'stable'].includes(mode), 'CONTEXT_MODE must be active or stable');
 mark(map.schema_version === 4, 'unsupported context map schema_version');
 mark(map.ci_routing?.route_property === 'ci_lanes[].route', 'context map must declare functional CI routing semantics');
-mark(work.schema_version === 2, 'unsupported current-work schema_version');
-mark(['ACTIVE', 'CLOSING', 'IDLE'].includes(work.state), 'current-work state must be ACTIVE, CLOSING or IDLE');
+
+mark(stable.schema_version === 1, 'unsupported stable context schema_version');
+mark(stable.stable_branch === 'main', 'stable context must target main');
+mark(stable.delivery && typeof stable.delivery === 'object', 'stable context must declare delivery metadata');
+if (stable.delivery) {
+  mark(typeof stable.delivery.pull_request === 'number' && Number.isInteger(stable.delivery.pull_request), 'stable delivery must identify a PR number');
+  mark(typeof stable.delivery.branch === 'string' && stable.delivery.branch.length > 0, 'stable delivery must identify the delivery branch');
+  mark(stable.delivery.base_branch === 'main', 'stable delivery base branch must be main');
+  mark(/^[0-9a-f]{40}$/.test(stable.delivery.integration_anchor || ''), 'stable delivery must declare a full integration anchor SHA');
+}
+
+if (mode === 'active') {
+  mark(work.schema_version === 3, 'unsupported current-work schema_version');
+  mark(work.state === 'ACTIVE', 'active checkout current-work state must be ACTIVE');
+  mark(typeof work.branch === 'string' && work.branch.length > 0, 'active current-work must identify its branch');
+  mark(work.base_branch === 'main', 'active current-work base branch must be main');
+  mark(/^[0-9a-f]{40}$/.test(work.base_sha || ''), 'active current-work must declare a full base SHA');
+  mark(
+    work.pull_request === null || (typeof work.pull_request === 'number' && Number.isInteger(work.pull_request)),
+    'active current-work PR number must be null or an integer',
+  );
+}
 mark(!Object.prototype.hasOwnProperty.call(map, 'current_work'), 'stable context map must not embed current work state');
-mark(map.read_sequence?.[0] === '.eve-trade/current-work.json', 'read_sequence must start with current-work manifest');
+mark(map.read_sequence?.[0] === '.eve-trade/stable-context.json', 'read_sequence must start with stable context');
+mark(map.read_sequence?.includes('.eve-trade/current-work.json'), 'read_sequence must document optional active current-work');
 
 for (const file of BOOTSTRAP_REQUIRED) mark(exists(file), 'missing bootstrap-critical file: ' + file);
-for (const file of map.read_sequence || []) mark(exists(file), 'missing read-sequence file: ' + file);
+for (const file of map.read_sequence || []) {
+  if (file === '.eve-trade/current-work.json') continue;
+  mark(exists(file), 'missing read-sequence file: ' + file);
+}
 
 const agents = exists('AGENTS.md') ? fs.readFileSync(path.join(ROOT, 'AGENTS.md'), 'utf8') : '';
 const gemini = exists('GEMINI.md') ? fs.readFileSync(path.join(ROOT, 'GEMINI.md'), 'utf8') : '';
-mark(agents.includes('.eve-trade/context-map.json') && agents.includes('.eve-trade/current-work.json'), 'AGENTS.md must expose both context layers');
-mark(gemini.includes('.eve-trade/context-map.json') && gemini.includes('.eve-trade/current-work.json'), 'GEMINI.md must expose both context layers');
+mark(
+  agents.includes('.eve-trade/context-map.json') &&
+    agents.includes('.eve-trade/stable-context.json') &&
+    agents.includes('.eve-trade/current-work.json'),
+  'AGENTS.md must expose stable and active context layers',
+);
+mark(
+  gemini.includes('.eve-trade/context-map.json') &&
+    gemini.includes('.eve-trade/stable-context.json') &&
+    gemini.includes('.eve-trade/current-work.json'),
+  'GEMINI.md must expose stable and active context layers',
+);
 const currentState = exists('docs/state/current-state.md') ? fs.readFileSync(CURRENT_STATE_FILE, 'utf8') : '';
 
 const workflowCache = new Map();
@@ -205,7 +241,6 @@ try {
 mark(Boolean(packageJson.scripts?.['test:context']), 'package.json is missing test:context');
 
 if (mode === 'active') {
-  mark(work.state !== 'IDLE', 'active context cannot use IDLE state');
   const envBranch = process.env.CONTEXT_BRANCH || process.env.GITHUB_HEAD_REF || '';
   const envPr = process.env.CONTEXT_PR_NUMBER || process.env.PR_NUMBER || '';
   const envBase = process.env.CONTEXT_BASE_SHA || process.env.GITHUB_BASE_SHA || '';
@@ -214,6 +249,11 @@ if (mode === 'active') {
   mark(work.pull_request !== null && Boolean(envPr) && Number(work.pull_request) === Number(envPr), `active work PR mismatch: manifest=${work.pull_request} environment=${envPr}`);
   mark(Boolean(envBase) && envBase === work.base_sha, `active work base SHA mismatch: manifest=${work.base_sha} environment=${envBase}`);
   mark(currentState.includes(work.base_sha), 'current-state must identify the active PR base SHA');
+
+  mark(stable.delivery.pull_request === Number(envPr), 'stable delivery PR must match active PR');
+  mark(stable.delivery.branch === envBranch, 'stable delivery branch must match active branch');
+  mark(stable.delivery.base_branch === 'main', 'stable delivery base branch must be main');
+  mark(stable.delivery.integration_anchor === envBase, 'stable delivery integration anchor must match active PR base SHA');
 
   try {
     const gitRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd: ROOT, encoding: 'utf8' }).trim();
@@ -225,7 +265,6 @@ if (mode === 'active') {
     failed = true;
   }
 } else {
-  mark(work.state !== 'ACTIVE', 'stable main context cannot remain ACTIVE after a delivery is merged');
   let anchor = '';
   let head = '';
   try {
@@ -242,7 +281,10 @@ if (mode === 'active') {
   }
   if (anchor) {
     mark(currentState.includes(anchor), `current-state must identify stable integration anchor ${anchor}`);
-    mark(work.base_sha === anchor, `stable integration anchor mismatch: manifest=${work.base_sha} git-first-parent=${anchor}`);
+    mark(
+      stable.delivery.integration_anchor === anchor,
+      `stable delivery integration anchor mismatch: manifest=${stable.delivery.integration_anchor} git-first-parent=${anchor}`,
+    );
   }
 }
 
@@ -251,4 +293,4 @@ if (failed) {
   process.exit(1);
 }
 
-console.log(`[context-integrity] Context validation passed in ${mode} mode (${work.state}).`);
+console.log(`[context-integrity] Context validation passed in ${mode} mode.${mode === 'active' ? ' Active work: ' + work.branch : ' Stable delivery: PR #' + stable.delivery.pull_request}`);

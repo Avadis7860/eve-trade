@@ -30,10 +30,19 @@ export interface EsiCollectionResult<T> {
   readonly data: T[];
   readonly status: number;
   readonly error?: string;
+  readonly errorCode?: string;
+  readonly reauthorizeRequired?: boolean;
 }
 
 function classifyCollectionResult<T>(
-  result: { ok: boolean; status: number; data?: T[]; error?: string },
+  result: {
+    ok: boolean;
+    status: number;
+    data?: T[];
+    error?: string;
+    errorCode?: string;
+    reauthorizeRequired?: boolean;
+  },
 ): EsiCollectionResult<T> {
   if (result.ok && Array.isArray(result.data)) {
     return {
@@ -61,6 +70,8 @@ function classifyCollectionResult<T>(
     data: [],
     status: result.status,
     error: result.error || 'ESI collection request failed',
+    errorCode: result.errorCode,
+    reauthorizeRequired: result.reauthorizeRequired,
   };
 }
 
@@ -80,6 +91,8 @@ export interface EsiFetchOrdersResult {
   orders: RawMarketOrder[];
   quality: MarketDataQuality;
 }
+
+const EVE_CORPORATION_ORDERS_SCOPE = 'esi-markets.read_corporation_orders.v1';
 
 export class EsiService {
   private static locationNameCache = new Map<number, string>();
@@ -487,19 +500,54 @@ export class EsiService {
       });
     }
 
+    // CCP exposes character identity and granted scopes in the access-token JWT.
+    // These checks are an early diagnostic gate; ESI remains authoritative.
+    const tokenCharacterId = AuthService.getTokenCharacterId(accessToken);
+    if (tokenCharacterId !== null && tokenCharacterId !== characterId) {
+      return {
+        state: 'ERROR',
+        data: [],
+        status: 403,
+        error: 'CHARACTER_IDENTITY_MISMATCH',
+        errorCode: 'CHARACTER_IDENTITY_MISMATCH',
+        reauthorizeRequired: false,
+      };
+    }
+
+    if (AuthService.hasTokenScope(accessToken, EVE_CORPORATION_ORDERS_SCOPE) === false) {
+      return {
+        state: 'ERROR',
+        data: [],
+        status: 403,
+        error: 'CORP_ORDERS_SCOPE_MISSING',
+        errorCode: 'CORP_ORDERS_SCOPE_MISSING',
+        reauthorizeRequired: true,
+      };
+    }
+
     const result = await this.executeWithAuthRefreshResult<EveCharacterOrder[]>(
       characterId,
       accessToken,
       async token => {
-        const response = await fetchBackendApi<EveCharacterOrder[]>(
+        const response = await fetchBackendApi<unknown>(
           `/api/character/${characterId}/corporation/orders`,
           { headers: { Authorization: `Bearer ${token}` } },
         );
+        const errorPayload =
+          response.data && typeof response.data === 'object' && !Array.isArray(response.data)
+            ? response.data as Record<string, unknown>
+            : null;
         return {
           ok: response.ok,
           status: response.status,
-          data: response.data ?? undefined,
-          error: !response.ok ? `HTTP_${response.status}` : undefined,
+          data: Array.isArray(response.data) ? response.data as EveCharacterOrder[] : undefined,
+          error: !response.ok
+            ? (typeof errorPayload?.error === 'string' ? errorPayload.error : 'HTTP_' + response.status)
+            : undefined,
+          errorCode: !response.ok && typeof errorPayload?.error === 'string'
+            ? errorPayload.error
+            : undefined,
+          reauthorizeRequired: !response.ok && errorPayload?.reauthorize_required === true,
         };
       },
     );

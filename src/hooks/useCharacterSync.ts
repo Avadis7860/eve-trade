@@ -21,6 +21,7 @@ export function useCharacterSync(
   const [characterOrders, setCharacterOrders] = useState<EveCharacterOrder[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState<boolean>(false);
   const [orderSyncError, setOrderSyncError] = useState<string | null>(null);
+  const [corporationReauthorizationRequired, setCorporationReauthorizationRequired] = useState(false);
   const ssoPopupRef = useRef<Window | null>(null);
   const syncVersionByCharacterRef = useRef(new Map<number, number>());
 
@@ -86,9 +87,13 @@ export function useCharacterSync(
               corporationOrdersResult.state === 'EMPTY'
             ) {
               corporationOrders = corporationOrdersResult.data;
+              if (isTargetActive) setCorporationReauthorizationRequired(false);
             } else {
+              if (isTargetActive) {
+                setCorporationReauthorizationRequired(Boolean(corporationOrdersResult.reauthorizeRequired));
+              }
               console.warn(
-                `[useCharacterSync] Corporation orders unavailable for #${charId}: ${corporationOrdersResult.state}`,
+                `[useCharacterSync] Corporation orders unavailable for #${charId}: ${corporationOrdersResult.state} (${corporationOrdersResult.errorCode || corporationOrdersResult.error || 'UNKNOWN'})`,
               );
             }
           }
@@ -473,6 +478,7 @@ export function useCharacterSync(
     characterOrders,
     isLoadingOrders,
     orderSyncError,
+    corporationReauthorizationRequired,
     loadCharacterData,
     handleConnectSSO,
     handleExchangeCode,

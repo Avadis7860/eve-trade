@@ -97,7 +97,7 @@ function toPositionDataState(
   return worstDataState(states);
 }
 
-function aggregateCoverage<T extends string>(
+function aggregateScopeCoverage<T extends string>(
   values: readonly T[],
   completeValue: T,
   partialValue: T,
@@ -150,6 +150,15 @@ function buildFinancialQuality(
           : completenessValues.length > 0
             ? 'OBSERVED'
             : undefined;
+
+  const sourceCoverage =
+    sourceValues.includes('UNAVAILABLE')
+      ? 'UNAVAILABLE'
+      : sourceValues.includes('PARTIAL')
+        ? 'PARTIAL'
+        : sourceValues.length > 0
+          ? 'MARKET_TRACEABLE'
+          : undefined;
 
   return {
     health: outcomeHealth,

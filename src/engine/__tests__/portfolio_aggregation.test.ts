@@ -244,6 +244,21 @@ function run(): void {
   assert(corporationScoped.orders.records[0].order_id === corporationOrder.order_id, 'corporation scope selected the wrong order');
   assert(corporationScoped.orders.exposure.scoped_order_ids[0] === corporationOrder.order_id, 'order identity must remain provenance only');
 
+  const unresolvedCorporationOrder: EveCharacterOrder = {
+    ...corporationOrder,
+    order_id: '2999',
+    ownership: undefined,
+    is_corporation: true,
+  };
+  const incompleteCorporation = aggregatePortfolioReal(baseInput({
+    order_scope: { type: 'corporation', corporationId: '42' },
+    orders: [corporationOrder, unresolvedCorporationOrder],
+  }));
+  assert(incompleteCorporation.orders.exposure.unresolved_corporation_order_count === 1, 'legacy corporation order without ownership must remain unresolved');
+  assert(incompleteCorporation.orders.exposure.unresolved_corporation_order_ids[0] === '2999', 'unresolved order identity must be preserved');
+  assert(incompleteCorporation.orders.exposure.buy_obligation === null, 'incomplete corporation scope must not expose complete obligation');
+  assert(incompleteCorporation.orders.exposure.sell_exposure === null, 'incomplete corporation scope must not expose complete sell exposure');
+
   const mixedExposure = aggregatePortfolioReal(baseInput({
     order_scope: { type: 'active_character' },
     orders: [{

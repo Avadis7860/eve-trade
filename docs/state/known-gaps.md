@@ -51,7 +51,7 @@ See:
 
 - **CI follow-up:** the PR workflow currently triggers the full certification surface for Draft as well as Ready PRs. This is confirmed by PR #61 run `35858589551` and should be handled in a dedicated CI-002 hardening chantier.
 
-- **Current sequencing:** Agent Context Hardening and its post-merge synchronization are complete. UX-03 / TASK-01 contract rebase is complete and accepted. UX-03 / TASK-02 is now the active documentation revalidation chantier on a dedicated branch; product implementation is not active. Financial Truth semantic reconciliation is accepted on main, and the UX-03 contract is accepted on main. Public-readiness remains a separate maintenance track.
+- **Current sequencing:** Agent Context Hardening and its post-merge synchronization are complete. UX-03 / TASK-01, TASK-02 and TASK-03 are complete and merged. Stable `main` is at `ae1c0df67d427f93215043820ce15bdc38688dc2`, with no active delivery branch. UX-03 / TASK-04 (#88) is the next product review and remains inactive until a new delivery branch is explicitly opened. FIN-002-RECON is accepted; FIN-002 / Performance & Trade Analytics (#74) remains open/deferred for the later Performance/Journal surface. Public-readiness remains a separate maintenance track.
 
 ## Public-readiness gaps
 
@@ -72,6 +72,7 @@ See:
 
 - Character Assets, inventory and logistics corporation domains are not implemented; Character Assets remains the explicit NEW SOURCE boundary for authoritative inventory quantity/location.
 - Corporation trading UI scope remains less mature than the underlying ownership/ESI domain.
+- Performance/Trade Analytics still has legacy cycle/KPI semantics to align fully with Financial Truth; this is tracked in FIN-002 / issue #74 and is separate from the accepted Financial Truth core.
 - Prediction/calibration depends on accumulating valid historical observations.
 
 ## Historical reclassification

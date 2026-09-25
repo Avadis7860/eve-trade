@@ -116,9 +116,10 @@ function buildFinancialQuality(
   declaredState: DataState,
 ): PortfolioDataQuality {
   const positionHealth = toPositionHealth(positions, declaredHealth);
-  const outcomeHealth = outcomes.some((outcome) => outcome.data_state === 'PARTIAL')
-    ? 'PARTIAL'
-    : positionHealth;
+  const outcomeHealth = worstHealth([
+    positionHealth,
+    outcomes.some((outcome) => outcome.data_state === 'PARTIAL') ? 'PARTIAL' : 'LIVE',
+  ]);
 
   const historyValues = [
     ...positions.map((position) => position.history_coverage),

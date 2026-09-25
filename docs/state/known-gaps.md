@@ -51,7 +51,7 @@ See:
 
 - **CI follow-up:** the PR workflow currently triggers the full certification surface for Draft as well as Ready PRs. This is confirmed by PR #61 run `35858589551` and should be handled in a dedicated CI-002 hardening chantier.
 
-- **Current sequencing:** Agent Context Hardening and its post-merge synchronization are complete through PR #84. The current delivery is UX-03 / TASK-01 contract rebase (PR #93); implementation is not active. Financial Truth semantic reconciliation is accepted on main. Public-readiness remains a separate maintenance track.
+- **Current sequencing:** Agent Context Hardening and its post-merge synchronization are complete through PR #84. UX-03 / TASK-01 contract rebase is complete through PR #93; UX-03 implementation is not active. Financial Truth semantic reconciliation is accepted on main, and the UX-03 contract is accepted on main. Public-readiness remains a separate maintenance track.
 
 ## Public-readiness gaps
 

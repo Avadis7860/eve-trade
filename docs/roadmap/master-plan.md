@@ -9,11 +9,11 @@ CI gate: PR CI
 
 ## Current state
 
-The functional E2E-001 baseline is stable and merged. CI-001 is merged and complete. UX-02 is merged. UX-01/P0 is closed. Agent Context Hardening and its post-merge synchronization are closed by PR #84. The current delivery is UX-03 / TASK-01 contract rebase on branch ux-03/allocation-contract / PR #93, based on main 5343b465a5028e9822d486d29da522a6c3531645.
+The functional E2E-001 baseline is stable and merged. CI-001 is merged and complete. UX-02 is merged. UX-01/P0 is closed. Agent Context Hardening and its post-merge synchronization are closed by PR #84. UX-03 / TASK-01 contract rebase is complete through PR #93. No product delivery is currently active.
 
 The application has mature market, ESI, finance, order, prediction and portfolio foundations, but the presentation layer does not yet expose them as a coherent trading workflow.
 
-The Financial Truth semantic boundary is now integrated and accepted on main. UX-03 is the current product chantier, limited to contract rebase/review until this task is accepted.
+The Financial Truth semantic boundary is integrated and accepted on main. The UX-03 Allocation / Portfolio contract is also accepted on main; product implementation remains a future separate chantier.
 
 See:
 - [UI/UX Product Audit](../audits/ui-ux-product-audit-2026-09-23.md)
@@ -51,7 +51,7 @@ Deferred until the UX gate:
 | UX-01 | DONE / EXTERNALLY BOUNDED | Establish market/ESI truth and retrieval observability; reported target-PC issue resolved without a persistent application defect | UX-00 vocabulary; existing ESI boundary | hidden empty/error states; ESI rate limits | caller audit + ERROR/PARTIAL/STALE/429 regression + current functional state |
 | UX-02 | DONE / MERGED | Rebuild Mes Ordres as the Operations console | UX-00, UX-01, CI-001 merged | business state fragmentation | UI/browser acceptance |
 | FIN-002-RECON | DONE / ACCEPTED | Reconcile and explicitly re-accept the archived Financial Truth semantic boundary | current main + historical evidence | contradictory lifecycle/profitability semantics | accepted financial contract + domain validation |
-| UX-03 | P1 / CONTRACT REBASE | Rebuild Portefeuille as Real Portfolio + Proposed Allocation across multiple opportunities | UX-00, UX-01, UX-02 + accepted financial semantics + TASK-01 | misleading allocation / concentration | accepted contract + engine/UI/scenario tests |
+| UX-03 | P1 / CONTRACT ACCEPTED | Rebuild Portefeuille as Real Portfolio + Proposed Allocation across multiple opportunities | UX-00, UX-01, UX-02 + accepted financial semantics + TASK-01 | misleading allocation / concentration | contract accepted; future engine/UI/scenario tests |
 | UX-04 | P1 | Replace manual Journal with ESI-based automatic Performance & Historique | UX-00, UX-01, financial truth, execution data | incorrect attribution | accounting + reconciliation + browser scenarios |
 | UX-05 | P1 | Rebuild Paramètres as business Control Center and remove/unwire fake controls | UX-00, engine consumer map, UX-03/04 parameter needs | settings with no effect | consumer matrix + UI tests |
 | UX-06 | P2 | Reposition Cockpit as decision-oriented synthesis | UX-02..05 contracts | dashboard duplication | browser workflow acceptance |

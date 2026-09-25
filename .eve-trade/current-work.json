@@ -1,10 +1,10 @@
 {
   "schema_version": 2,
   "purpose": "Operational state for the current technical chantier. This file is checkout-aware governance metadata, not normative business truth.",
-  "state": "ACTIVE",
-  "branch": "ux-03/allocation-contract",
-  "pull_request": 93,
+  "state": "CLOSING",
+  "branch": "chore/post-merge-ux03-task01-close",
+  "pull_request": 94,
   "base_branch": "main",
-  "base_sha": "5343b465a5028e9822d486d29da522a6c3531645",
+  "base_sha": "c338265bd8c844a77082d21893d23fa98235b0da",
   "delivery_rule": "one_chantier_one_branch_one_pr"
 }

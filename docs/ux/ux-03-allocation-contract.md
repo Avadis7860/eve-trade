@@ -1,8 +1,8 @@
 # UX-03 — Allocation / Portefeuille — Contrat métier rebasé
 
-Status: PROPOSED CONTRACT / REBASED AGAINST FIN-002 / IMPLEMENTATION NOT STARTED
+Status: ACCEPTED CONTRACT / FIN-002 REBASED / IMPLEMENTATION NOT STARTED
 Scope: UX-03 Allocation, Real Portfolio, Proposed Allocation, economic-operation semantics and decision-support boundaries
-Base: `main` @ `5343b465a5028e9822d486d29da522a6c3531645`
+Accepted on `main` via PR #93 at `c338265bd8c844a77082d21893d23fa98235b0da`.
 Historical source: `archive/ux-03-allocation-contract-2026-09-24`
 Related:
 - [Financial Contract](../contracts/financial.md)
@@ -844,4 +844,4 @@ UX-03 is implementation-ready only when:
 13. documentation, roadmap and state metadata are synchronized;
 14. no archived UX-03 implementation is imported wholesale.
 
-This contract is the prerequisite for a future UX-03 implementation chantier. It does not authorize code changes by itself.
+This accepted contract is the prerequisite for a future UX-03 implementation chantier. It does not authorize product code changes by itself.

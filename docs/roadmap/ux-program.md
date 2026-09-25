@@ -81,7 +81,7 @@ a trader can inspect an active order and decide whether to keep, adjust, relocat
 
 ### UX-03 — Allocation / Portefeuille
 Status: P1 — TASK-03 DONE / MERGED; TASK-04 NEXT / NOT ACTIVE
-Reference: issue #86 / Task-01 contract accepted by PR #93
+References: #85 TASK-01, #86 TASK-02 and #87 TASK-03 — all complete and merged
 
 Task-01 rebase:
 - reconcile the historical UX-03 contract against the accepted Financial Truth boundary on main;
@@ -113,10 +113,11 @@ Completed task:
 issue #87 / TASK-03 — relecture et extraction du modèle typé Portfolio. PR #103 merged into `main` at `db37afca938b9d106a2e442e24d777b8c98e9eac`. The implementation uses a newly extracted model from current `main`; the historical archive remains reference-only.
 
 Next task:
-issue #88 / TASK-04 — relecture et extraction de l'agrégation Portfolio. This task is not active yet and must start from the stable `main` state after the TASK-03 post-merge synchronization is complete.
+issue #88 / TASK-04 — relecture et extraction de l'agrégation Portfolio. This task is not active yet and must start from the stable `main` state `ae1c0df67d427f93215043820ce15bdc38688dc2`, after the TASK-03 post-merge synchronization and Main Smoke are already green.
 
 ### UX-04 — Performance / Journal
 Status: P1
+Dependency: FIN-002 / issue #74 must be completed before the surface is treated as a fully certified financial analytics view.
 
 Deliverables:
 - automatic ESI trade reconstruction;

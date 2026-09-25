@@ -1,6 +1,6 @@
 # UX-03 — Allocation / Portefeuille — Contrat métier rebasé
 
-Status: CONTRACT REBASED / FIN-002 INTEGRATED / IMPLEMENTATION NOT STARTED
+Status: PROPOSED CONTRACT / REBASED AGAINST FIN-002 / IMPLEMENTATION NOT STARTED
 Scope: UX-03 Allocation, Real Portfolio, Proposed Allocation, economic-operation semantics and decision-support boundaries
 Base: `main` @ `5343b465a5028e9822d486d29da522a6c3531645`
 Historical source: `archive/ux-03-allocation-contract-2026-09-24`

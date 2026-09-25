@@ -80,7 +80,7 @@ Gate:
 a trader can inspect an active order and decide whether to keep, adjust, relocate or cancel without leaving the operations context for routine information. Certified by PR #61 run `35859213922` and P0 browser diagnostics by PR #63 run `35862904773`.
 
 ### UX-03 — Allocation / Portefeuille
-Status: P1 — TASK-02 DATA MATRIX REVALIDATION / CLOSING — IMPLEMENTATION NOT STARTED
+Status: P1 — TASK-02 COMPLETE / IMPLEMENTATION NOT STARTED
 Reference: issue #86 / Task-01 contract accepted by PR #93
 
 Task-01 rebase:
@@ -107,7 +107,10 @@ Task-02 data matrix revalidation:
 - make no new ESI acquisition change.
 
 Gate for TASK-02:
-the current data matrix is synchronized with current main, its reclassifications are explicit, and no new source is introduced. The delivery is in CLOSING state pending merge and stable main smoke.
+the current data matrix is synchronized with current main, its reclassifications are explicit, no new source is introduced, PR #96 is merged, and Main Post-Merge Smoke #23 passes on `af725a6`.
+
+Next task:
+issue #87 / TASK-03 — relecture et extraction du modèle typé Portfolio. The implementation must use a newly extracted model from current `main`; the historical archive remains reference-only.
 
 ### UX-04 — Performance / Journal
 Status: P1

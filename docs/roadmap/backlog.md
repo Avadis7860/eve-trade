@@ -64,13 +64,26 @@ There is no active P0 technical branch.
 - Separate economic ownership scope from performance-analysis scope.
 - Keep the existing order advisor but make its decision context inspectable.
 
-### P1 — UX-03 / TASK-02 — Data Availability & Derivation Matrix — ACTIVE
+### P1 — UX-03 / TASK-02 — Data Availability & Derivation Matrix — DONE / MERGED
 
 - Revalidate the archived matrix against current main.
 - Correct stale FACT/DERIVED/AGGREGATED classifications.
 - Preserve explicit health, freshness, coverage and provenance semantics.
 - Keep Character Assets as the only identified missing authoritative inventory source.
 - Do not add a new ESI source in this task.
+- PR #96 merged and Main Post-Merge Smoke #23 passed on `af725a6`.
+
+### P1 — UX-03 / TASK-03 — Typed Portfolio Model — NEXT / NOT ACTIVE
+
+Issue: #87
+
+- Extract a minimal typed Portfolio contract from current `main` rather than importing the historical archive implementation.
+- Build a field-by-field extraction matrix: KEEP / REPLACE / DROP / ADAPT.
+- Reuse canonical Financial Truth, Treasury, Order and Opportunity types instead of duplicating domain truth.
+- Preserve provenance, accounting scope, owner/observer/issuer, freshness, health and coverage as distinct dimensions.
+- Keep `UNKNOWN / PARTIAL / ERROR / ABSENT / UNAVAILABLE / STALE` explicit.
+- Keep Character Assets as `NEW SOURCE` and outside this task unless a separate source task is opened.
+- No product/UI implementation starts from the historical `src/types/portfolio.ts` file.
 
 ### P1 — Allocation / Portefeuille — FUTURE / NOT ACTIVE
 
@@ -162,6 +175,6 @@ Historical issues are not copied into the active backlog unless they remain repr
 
 The UX-first sequencing gate is mandatory: no deferred technical item is promoted ahead of UX-00/UX-01 and the relevant surface contract without an explicit roadmap update.
 
-The current UX-03 documentation chantier is TASK-02 / issue #86; product implementation remains inactive until the documentation/contract gate is closed.
+TASK-02 / issue #86 is complete. Product implementation remains inactive until the dedicated TASK-03 model-extraction gate is completed.
 
 CI-001 and UX-02 are merged. The current product chantier starts from the merged `main` head and uses one active delivery branch/PR at a time.

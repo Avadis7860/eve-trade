@@ -1,30 +1,29 @@
 # Current Chunk
 
 Status: CLOSING
-Scope: UX-03 / TASK-02 — Relecture de la matrice Data Availability & Derivation
-Branch: ux-03/task-02-data-availability
-Base: main @ 1799471409bc49782649c72d7a91756d046b0444
-PR: #96
+Scope: post-merge synchronization — UX-03 / TASK-02 completed
+Branch: chore/post-merge-ux03-task02-close
+Base: main @ af725a60693b60a55895c75feb7dc57bfd0c36b9
 
 ## Delivery status
 
-This chantier is documentation/contract-validation only.
+TASK-02 is completed. The active product implementation remains inactive until a dedicated implementation chantier is intentionally opened from the stable `main` state.
 
-No product implementation is active.
-No Financial Truth implementation is being changed.
-No new ESI acquisition source is being introduced.
-No archived UX-03 implementation is being imported.
+## Completed chantier
 
-## Objective
+UX-03 / TASK-02 revalidated the historical Data Availability & Derivation matrix against the Financial Truth and domain foundations now present on `main`.
 
-Revalidate the historical UX-03 Data Availability & Derivation matrix against current main and synchronize the result with the accepted UX-03 Allocation contract.
-
-## Required classification
-
-Every relevant datum is classified as FACT, DERIVED, AGGREGATED, NEW SOURCE or POLICY.
-
-The review explicitly covers treasury, orders and escrow, Financial Truth CurrentPosition/lots, inventory/Character Assets, cross-item candidate universe, freshness/coverage/health, projected/predictive metrics and provenance/scope.
+- PR #96 merged successfully.
+- Main Post-Merge Smoke #23 passed on `af725a6`.
+- The current matrix is `docs/validation/ux-03-data-availability.md`.
+- No product implementation was introduced.
+- No new ESI acquisition source was introduced.
+- Character Assets remains the explicit `NEW SOURCE` boundary for authoritative inventory quantity/location.
 
 ## Exit gate
 
-The matrix is current-main aligned, reclassifications from the archive are documented, the no-new-source boundary is explicit, and roadmap/state documentation is synchronized.
+The data matrix is current-main aligned, reclassifications from the archive are explicit, the no-new-source boundary is preserved, and the result is synchronized with the accepted UX-03 Allocation contract.
+
+## Next-step boundary
+
+The next UX-03 work is issue #87 — TASK-03, dedicated to extracting a minimal typed Portfolio model from current `main`. The historical `src/types/portfolio.ts` remains reference material only.

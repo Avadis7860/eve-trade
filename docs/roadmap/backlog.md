@@ -23,13 +23,13 @@ PR #79 merged this foundation into `main`.
 
 PR #80 merged the first anchor correction; its follow-up defect is tracked as CONTEXT-004.
 
-### CONTEXT-004 — Raw Commit Stable Anchor Follow-up — CLOSING
+### CONTEXT-004 — Raw Commit Stable Anchor Follow-up — DONE / MERGED
 
 - Main Smoke post-merge proof must remain valid with the workflow's shallow checkout.
 - Stable integration anchor is read from the raw commit object with `git cat-file commit HEAD`.
 - Regression coverage rejects history-traversal and pretty-format extraction.
 
-This is the only active delivery chantier on branch `chore/agent-context-hardening-raw-anchor-fix` / PR #81.
+PR #81 completed the raw-commit stable-anchor correction; the repository-state lifecycle was subsequently synchronized through the Agent Context follow-up deliveries. No Context delivery branch is active on stable `main`.
 
 ## Product / UX program
 
@@ -86,7 +86,8 @@ Issue: #87
 - No product/UI implementation starts from the historical `src/types/portfolio.ts` file.
 - Delivered on branch `ux-03/task-03-typed-portfolio-model` / PR #103 from main `0f822077a43a03ea17098e1b35e25f8374487888`; merged into `main` at `db37afca938b9d106a2e442e24d777b8c98e9eac`.
 - Method C was applied: the new model was reconstructed from current-main authorities; archive remains reference-only.
-- Post-merge state synchronization is being completed on `chore/post-merge-ux03-task03-close` / PR #104.
+- Post-merge state synchronization completed through PR #104, merged at `ae1c0df67d427f93215043820ce15bdc38688dc2`.
+- Stable `main` is ready for the next explicit chantier.
 
 ### P1 — UX-03 / TASK-04 — Portfolio Aggregation — NEXT / NOT ACTIVE
 
@@ -106,17 +107,25 @@ Issue: #88
 - Explain invested capital, unused capital, concentration and allocation rationale.
 - Optimize for projected ROI/profit/day/liquidity/capturability/risk rather than a single top-scoring item.
 
-### Financial Truth reconciliation gate — NEXT FINANCIAL STEP
+### FIN-002 — Performance & Trade Analytics — OPEN / DEFERRED
 
-- Reconcile historical position/recovery semantics against current main before any new financial implementation.
-- Explicitly decide the relationship between disposal-level realized P&L, cumulative recovery, position lifecycle and whole-operation profitability.
-- Keep the archive implementation non-authoritative and do not import it wholesale.
+Issue: #74
+
+- Finalize the remaining Performance/Analytics alignment on the canonical Financial Truth already integrated into `main`.
+- Treat a closed trade as a financially closed position, not merely a disposal cycle with `quantity > 0`.
+- Keep partial disposal results, capital recovery and whole-operation profitability distinct.
+- Do not default win rate to `100%` when no closed-position sample exists; preserve the absence of a meaningful sample explicitly.
+- Keep cross-character reconstruction behind an explicit common accounting scope.
+- Do not redefine Financial Truth, add a new ESI source, or create a parallel accounting engine.
+- This issue is **not a prerequisite for UX-03 TASK-04 to TASK-08 review work**; it becomes a direct prerequisite before UX-04 Performance/Journal is treated as financially certified.
 
 ### P1 — Performance / Journal
 
+Issue linkage: #74 FIN-002 must be completed before the Performance surface is presented as a fully certified financial analytics view.
+
 - Replace manual financial truth with ESI-derived trade reconstruction.
-- Reconcile opportunities, orders, fills, sales, fees and realized outcomes.
-- Compare predicted vs observed profit, ROI and turnover.
+- Reconcile opportunities, orders, fills, sales, fees and realized outcomes using the canonical Financial Truth lifecycle.
+- Compare predicted vs observed profit, ROI and turnover without conflating market persistence, execution and financial realization.
 - Keep manual input only for optional personal notes.
 
 ### P1 — Control Center / Paramètres
@@ -188,6 +197,6 @@ Historical issues are not copied into the active backlog unless they remain repr
 
 The UX-first sequencing gate is mandatory: no deferred technical item is promoted ahead of UX-00/UX-01 and the relevant surface contract without an explicit roadmap update.
 
-TASK-02 / issue #86 is complete. TASK-03 / issue #87 is complete and merged; its repository-state closing pass is isolated in PR #104. TASK-04 / issue #88 is next and remains inactive until that closing pass is merged and Main Smoke is green.
+TASK-01 / #85, TASK-02 / #86 and TASK-03 / #87 are complete and merged. PR #104 completed the post-merge repository-state synchronization; Main Smoke on `ae1c0df67d427f93215043820ce15bdc38688dc2` is green. TASK-04 / issue #88 is now the next inactive review chantier and must start from this stable `main` state.
 
 CI-001 and UX-02 are merged. The repository continues to enforce one active delivery branch/PR at a time.

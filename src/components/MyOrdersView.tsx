@@ -47,6 +47,7 @@ interface MyOrdersViewProps {
   orders?: EveCharacterOrder[];
   isLoadingOrders: boolean;
   orderSyncError?: string | null;
+  corporationReauthorizationRequired?: boolean;
   onRefreshOrders: () => void;
   onConnectSSO: (customRedirectUri?: string) => void;
   onExchangeCode: (code: string, redirectUri?: string) => Promise<void>;
@@ -83,6 +84,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
   orders: rawOrders = [],
   isLoadingOrders,
   orderSyncError,
+  corporationReauthorizationRequired = false,
   onRefreshOrders,
   onConnectSSO,
   onExchangeCode,
@@ -430,6 +432,32 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                 <span>Reconnecter EVE SSO</span>
               </button>
             </div>
+          </div>
+        )}
+
+        {corporationReauthorizationRequired && (
+          <div className="bg-amber-500/10 border-2 border-amber-500/40 rounded-xl p-5 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <div className="text-sm font-bold text-amber-300">
+                  Autorisation corporation à renouveler
+                </div>
+                <div className="text-xs text-[#808495] leading-relaxed">
+                  Le jeton actuel ne contient pas le scope ESI requis pour lire les ordres corporation.
+                  Une nouvelle autorisation EVE SSO est nécessaire ; un simple renouvellement du token
+                  ne peut pas ajouter une permission absente.
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onConnectSSO(AuthService.getPreferredRedirectUri())}
+              className="flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-[#0e1117] text-xs font-bold px-4 py-2.5 rounded-lg shadow-md transition-all w-full md:w-auto"
+            >
+              <Zap className="w-3.5 h-3.5 fill-current" />
+              <span>Réautoriser EVE SSO</span>
+            </button>
           </div>
         )}
 

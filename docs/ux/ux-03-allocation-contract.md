@@ -150,7 +150,9 @@ Disposal-level realized P&L is calculated only on quantity actually allocated to
 
 It belongs to Financial Truth.
 
-UX-03 may display it as supporting historical information, but must not reinterpret it as the profitability of the complete open operation.
+The current Financial Truth `roi` field is also based on the realized/acquisition cost of the matched quantity. Therefore, during a partial lifecycle, a positive `roi` is a **disposal/allocation ROI**.
+
+UX-03 may display this measure only with an explicit scope label such as "realized disposal ROI". It must never be presented as the ROI of the complete open operation.
 
 ### 4.3 Capital recovery
 
@@ -170,20 +172,26 @@ A `POSITIVE` recovery state may coexist with `PARTIALLY_REALIZED`.
 
 **Recovery state is not whole-operation profitability.**
 
-### 4.4 Whole-operation profitability
+### 4.4 Whole-operation ROI and profitability
+
+Whole-operation ROI is distinct from the current disposal/allocation ROI.
+
+For an open or partially realized operation, UX-03 must not present a whole-operation ROI as a realized metric. The complete-operation denominator is the original capital committed by the economic position segment, and the complete-operation numerator is the cumulative realized net result only once the operation is closed and the relevant financial evidence supports it.
 
 Whole-operation profitability must remain closure-gated.
 
 Before the economic position is closed:
 
 - a positive disposal result may be shown;
+- a positive disposal/allocation ROI may be shown when supported;
 - cumulative capital recovery may be shown;
 - the remaining exposure may be shown;
+- no whole-operation ROI may be claimed;
 - the operation must not be labelled globally profitable.
 
-At closure, a whole-position result may be reported when the relevant financial evidence is complete enough to support it.
+At closure, a whole-position result and whole-operation ROI may be reported when the relevant financial evidence is complete enough to support them.
 
-Every ROI display must state its scope and denominator.
+Every ROI display must state its scope, lifecycle state and denominator.
 
 ### 4.5 Eject / retain semantics
 
@@ -393,7 +401,16 @@ The scope and denominator must be visible.
 
 ### Realized profit / ROI
 
-Only Financial Truth may provide these as realized measures.
+Only Financial Truth may provide realized measures.
+
+When a position is PARTIALLY_REALIZED, a realized ROI supplied by Financial Truth refers to the matched/disposed allocation basis unless the source explicitly establishes another scope.
+
+UX-03 must therefore distinguish:
+
+- **realized disposal/allocation ROI** — realized result over the acquisition cost allocated to quantities already disposed;
+- **whole-operation ROI** — the complete economic operation result over its original committed capital, available only after closure under this contract.
+
+A disposal/allocation ROI of +40% is not a 40% whole-operation ROI when most of the original operation remains exposed.
 
 ---
 
@@ -717,6 +734,8 @@ Expected:
 - 9,999 remaining;
 - lifecycle PARTIALLY_REALIZED;
 - capital recovery delta -999,860 ISK;
+- any exposed positive ROI is scoped to the disposed/allocation quantity only;
+- no whole-operation ROI;
 - no globally profitable label for the complete open operation.
 
 ### E. Recovery before closure
@@ -727,6 +746,8 @@ Expected:
 
 - recovery state may become RECOVERED/POSITIVE;
 - lifecycle remains PARTIALLY_REALIZED;
+- a realized disposal/allocation ROI may be positive;
+- whole-operation ROI remains unavailable/not presented;
 - whole-operation profitability remains closure-gated.
 
 ### F. Full liquidation
@@ -788,6 +809,19 @@ Expected:
 
 - every proposed quantity is fundable;
 - rounding cannot create a one-unit allocation above the remaining capital budget.
+
+### M. ROI scope on a partial operation
+
+Input:
+
+`10,000 @ 100` acquired, then `1 @ 140` disposed.
+
+Expected:
+
+- a Financial Truth disposal/allocation ROI may be positive on the matched unit when fee evidence permits;
+- the UI labels that ROI by its disposal/allocation scope;
+- no whole-operation ROI is displayed;
+- lifecycle remains PARTIALLY_REALIZED.
 
 ---
 

@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "purpose": "Operational state for the current technical chantier. This file is checkout-aware governance metadata, not normative business truth.",
-  "state": "ACTIVE",
+  "state": "CLOSING",
   "branch": "ux-03/task-02-data-availability",
   "pull_request": 96,
   "base_branch": "main",

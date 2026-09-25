@@ -80,8 +80,8 @@ Gate:
 a trader can inspect an active order and decide whether to keep, adjust, relocate or cancel without leaving the operations context for routine information. Certified by PR #61 run `35859213922` and P0 browser diagnostics by PR #63 run `35862904773`.
 
 ### UX-03 — Allocation / Portefeuille
-Status: P1 — TASK-01 CONTRACT REBASE / IMPLEMENTATION NOT STARTED
-Reference: issue #85 / PR #93
+Status: P1 — CONTRACT ACCEPTED / IMPLEMENTATION NOT STARTED
+Reference: issue #85 / PR #93 (merged)
 
 Task-01 rebase:
 - reconcile the historical UX-03 contract against the accepted Financial Truth boundary on main;
@@ -93,11 +93,11 @@ Task-01 rebase:
 - define loading/empty/cache/stale/partial/error/unknown behavior;
 - preserve FACT / DERIVED / AGGREGATED / NEW SOURCE / POLICY boundaries.
 
-Gate for this task:
-the UX-03 contract is accepted and synchronized across roadmap/state documentation.
+Gate for TASK-01:
+the UX-03 contract is accepted and synchronized across roadmap/state documentation. Completed by PR #93.
 
 Implementation gate:
-no UX-03 product code starts until the accepted contract and its executable acceptance scenarios are in place.
+no UX-03 product code starts until a new implementation chantier is opened from current main and the accepted contract's executable acceptance scenarios are in place.
 
 ### UX-04 — Performance / Journal
 Status: P1

@@ -337,16 +337,19 @@
     },
     "portfolio": {
       "canonical_code": [
+        "src/types/portfolio.ts",
         "src/engine/portfolio.ts",
         "src/components/PortfolioView.tsx"
       ],
       "contracts": [
-        "docs/domains/portfolio.md"
+        "docs/domains/portfolio.md",
+        "docs/validation/ux-03-portfolio-type-extraction.md"
       ],
       "invariants": [
         "docs/invariants/data-semantics.md"
       ],
       "tests": [
+        "src/engine/__tests__/portfolio_contract.test.ts",
         "src/engine/__tests__/end_to_end_integration.test.ts",
         "src/engine/__tests__/systemic_certification.test.ts"
       ],

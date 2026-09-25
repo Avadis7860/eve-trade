@@ -1,9 +1,11 @@
 # Current Chunk
 
-Status: IDLE
-Scope: none
+Status: CLOSING
+Scope: post-merge synchronization of UX-03 / TASK-01
+Branch: chore/post-merge-ux03-task01-close
+PR: #94
 
-No product chantier is active in the current repository state.
+No product implementation chantier is active. This delivery is only closing the repository lifecycle after PR #93.
 
 ## Last completed delivery
 

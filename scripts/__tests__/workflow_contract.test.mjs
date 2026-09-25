@@ -265,7 +265,7 @@ assert.ok(read('.gitignore').includes('.eve-trade/current-work.json'), 'Active c
 assert.ok(read('.github/workflows/ci.yml').includes('run: node scripts/context-work.mjs'), 'PR CI must generate the ephemeral active manifest before context certification');
 assert.ok(read('.eve-trade/stable-context.json').includes('"pull_request": 129'), 'Stable delivery context must identify the current delivery PR');
 assert.ok(read('.eve-trade/stable-context.json').includes('"integration_anchor": "96797a2566496f097ddc6d075786addb8e7ce78d"'), 'Stable delivery context must preserve the current PR base anchor');
-assert.ok(contextSource.includes("work.state !== 'IDLE'"), 'Context integrity must distinguish active and stable lifecycle state');
+assert.ok(contextSource.includes("work.state === 'ACTIVE'"), 'Active context integrity must enforce ACTIVE state without persisting it on main');
 assert.ok(contextSource.includes('stable integration anchor mismatch'), 'Stable context integrity must validate the merge integration anchor');
 assert.ok(contextSource.includes("git', ['cat-file', 'commit', 'HEAD'"), 'Stable anchor extraction must read the raw commit object directly');
 assert.ok(contextSource.includes("git', ['rev-parse', '--verify', 'HEAD'"), 'Stable anchor extraction must verify the current commit directly');

@@ -80,7 +80,7 @@ Gate:
 a trader can inspect an active order and decide whether to keep, adjust, relocate or cancel without leaving the operations context for routine information. Certified by PR #61 run `35859213922` and P0 browser diagnostics by PR #63 run `35862904773`.
 
 ### UX-03 — Allocation / Portefeuille
-Status: P1 — TASK-03 ACTIVE / IMPLEMENTATION NOT STARTED
+Status: P1 — TASK-03 DONE / MERGED; TASK-04 NEXT / NOT ACTIVE
 Reference: issue #86 / Task-01 contract accepted by PR #93
 
 Task-01 rebase:
@@ -109,8 +109,11 @@ Task-02 data matrix revalidation:
 Gate for TASK-02:
 the current data matrix is synchronized with current main, its reclassifications are explicit, no new source is introduced, PR #96 is merged, and Main Post-Merge Smoke #23 passes on `af725a6`.
 
-Active task:
-issue #87 / TASK-03 — relecture et extraction du modèle typé Portfolio. Active delivery: PR #103 on branch `ux-03/task-03-typed-portfolio-model`, based on `main` `0f822077a43a03ea17098e1b35e25f8374487888`. The implementation uses a newly extracted model from current `main`; the historical archive remains reference-only.
+Completed task:
+issue #87 / TASK-03 — relecture et extraction du modèle typé Portfolio. PR #103 merged into `main` at `db37afca938b9d106a2e442e24d777b8c98e9eac`. The implementation uses a newly extracted model from current `main`; the historical archive remains reference-only.
+
+Next task:
+issue #88 / TASK-04 — relecture et extraction de l'agrégation Portfolio. This task is not active yet and must start from the stable `main` state after the TASK-03 post-merge synchronization is complete.
 
 ### UX-04 — Performance / Journal
 Status: P1

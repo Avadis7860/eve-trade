@@ -17,9 +17,9 @@ The UX-first program has closed the P0 market/ESI retrieval reliability gate. UX
 
 ## Active PR context
 
-PR #103 is the active UX-03 / TASK-03 delivery, based on current stable `main` at `0f822077a43a03ea17098e1b35e25f8374487888`.
+PR #103 completed UX-03 / TASK-03 and was merged into `main` at `db37afca938b9d106a2e442e24d777b8c98e9eac`. Its first parent is the stable integration anchor.
 
-The active branch is `ux-03/task-03-typed-portfolio-model`. TASK-03 is limited to extraction/reconstruction of the typed Portfolio contract from current `main`; the historical archive remains reference-only.
+The post-merge synchronization is being completed on `chore/post-merge-ux03-task03-close` / PR #104. TASK-03 remains limited to extraction/reconstruction of the typed Portfolio contract from current `main`; the historical archive remains reference-only.
 
 ## CI / delivery state
 
@@ -44,7 +44,7 @@ A dedicated study is recorded in [CI management audit](../audits/ci-management-a
 
 ### Current CI management decision
 
-CI-001 is **DONE / MERGED** on main at `7fc6fe7ca65454d0d29843bc0eace336b2da864c`. Main Smoke had completed successfully on the preceding main baseline; the current main baseline for TASK-02 is `1799471409bc49782649c72d7a91756d046b044`.
+CI-001 is **DONE / MERGED** on main at `7fc6fe7ca65454d0d29843bc0eace336b2da864c`. Main Smoke #24 had completed successfully on the preceding main baseline; the current merged main baseline after TASK-03 is `db37afca938b9d106a2e442e24d777b8c98e9eac`.
 
 Post-merge behavior is now intentionally split: PR changes run the PR certification surface, while pushes to `main` run the short Main Smoke surface. Full Repository Certification is scheduled/manual.
 
@@ -125,7 +125,9 @@ The stable navigation layer is `.eve-trade/context-map.json`; the checkout-aware
 
 Financial Truth semantic reconciliation is complete on main. UX-03 / TASK-01 is complete and its accepted contract is now part of main. The previous delivery was UX-03 / TASK-02 — Data Availability & Derivation Matrix revalidation, completed through PR #96. Main Post-Merge Smoke #23 passed on `af725a6`. The resulting matrix is current-main aligned, preserves FACT / DERIVED / AGGREGATED / NEW SOURCE / POLICY boundaries, and introduces no product implementation or new ESI source. Character Assets remains the explicit `NEW SOURCE` boundary for authoritative inventory quantity/location.
 
-The active product implementation contract work is UX-03 / TASK-03 (issue #87) on branch `ux-03/task-03-typed-portfolio-model`, PR #103, based on `0f822077a43a03ea17098e1b35e25f8374487888`. The task is restricted to Portfolio model extraction and contract validation; product/UI implementation remains outside this task.
+TASK-03 (issue #87) is complete through PR #103 merged at `db37afca938b9d106a2e442e24d777b8c98e9eac`. The delivery extracted the typed Portfolio contract from current-main authorities, added the field-by-field extraction matrix and compile-time contract assertions, and introduced no product/UI implementation or new ESI source.
+
+The current repository-state synchronization is the separate closing pass on `chore/post-merge-ux03-task03-close` / PR #104.
 
 UX-02 is DONE / MERGED. CI-001 is DONE / MERGED. UX-01/P0 is DONE / EXTERNALLY BOUNDED.
 

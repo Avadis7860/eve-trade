@@ -9,9 +9,9 @@ CI gate: [../validation/ci.md](../validation/ci.md)
 
 ## Current baseline
 
-Current financial delivery anchor for PR #83 is `a01c2a31dbabd3678d3d8674b14f4c826ab0b0d8`, on `chore/financial-truth-core-recovery`. This is active delivery metadata; the Financial Truth core is not merged yet.
+PR #83 (`feat(financial): recover canonical Financial Truth core`) was merged into `main` at `a2544d2f98f1b9e181dd2ecdd52191fc7680aec8`. Its stable integration anchor is the first parent `a01c2a31dbabd3678d3d8674b14f4c826ab0b0d8`. The Financial Truth core is now part of `main`.
 
-Current main integration anchor for PR #81 is `a05f6044b6b53fb8ece4c2a7796c885805f82542`. This is the pre-merge SHA carried by the CLOSING delivery manifest; the eventual merge commit is intentionally not embedded because GitHub creates it at merge time. The functional E2E-001 baseline was `9438bbedb2d44cf3f5f371144bcf72094955cd46`. Deterministic browser CI is green and the target-PC real-CCP SSO/ESI smoke PASS was recorded on 2026-09-23.
+The delivery manifest is `CLOSING` for the post-merge context synchronization PR #84. Its base/stable anchor is the merged Financial Truth commit `a2544d2f98f1b9e181dd2ecdd52191fc7680aec8`. Once PR #84 is merged, the stable delivery manifest can return to `IDLE`. The functional E2E-001 baseline was `9438bbedb2d44cf3f5f371144bcf72094955cd46`. Deterministic browser CI is green and the target-PC real-CCP SSO/ESI smoke PASS was recorded on 2026-09-23.
 
 The UX-first program has closed the P0 market/ESI retrieval reliability gate. UX-01 is DONE / EXTERNALLY BOUNDED; the previously reported target-PC market-display symptom is resolved and the current application is functional.
 

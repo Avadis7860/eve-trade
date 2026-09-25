@@ -3,6 +3,7 @@ name: CI Foundation & Regression Gate
 on:
   pull_request:
     branches: ["main"]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
 
 permissions:
   contents: read
@@ -93,6 +94,7 @@ jobs:
           CONTEXT_BRANCH: ${{ github.head_ref }}
           CONTEXT_PR_NUMBER: ${{ github.event.pull_request.number }}
           CONTEXT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CONTEXT_PR_DRAFT: ${{ github.event.pull_request.draft }}
         run: npm run test:context
       - name: Frontend typecheck
         run: npm run typecheck

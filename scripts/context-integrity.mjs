@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { classifyPaths } from './ci-scope.mjs';
+import { parsePrDraft, validatePrLifecycle } from './context-lifecycle.mjs';
 
 const ROOT = process.cwd();
 const MAP_FILE = path.join(ROOT, '.eve-trade', 'context-map.json');
@@ -209,6 +210,12 @@ if (mode === 'active') {
   const envBranch = process.env.CONTEXT_BRANCH || process.env.GITHUB_HEAD_REF || '';
   const envPr = process.env.CONTEXT_PR_NUMBER || process.env.PR_NUMBER || '';
   const envBase = process.env.CONTEXT_BASE_SHA || process.env.GITHUB_BASE_SHA || '';
+  const prDraft = parsePrDraft(process.env.CONTEXT_PR_DRAFT);
+
+  for (const message of validatePrLifecycle({ mode, state: work.state, prDraft })) {
+    fail(message);
+    failed = true;
+  }
 
   mark(Boolean(envBranch) && envBranch === work.branch, `active work branch mismatch: manifest=${work.branch} environment=${envBranch}`);
   mark(work.pull_request !== null && Boolean(envPr) && Number(work.pull_request) === Number(envPr), `active work PR mismatch: manifest=${work.pull_request} environment=${envPr}`);

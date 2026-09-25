@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
+import { parsePrDraft, validatePrLifecycle } from '../context-lifecycle.mjs';
 
 const root = new URL('../../', import.meta.url);
 const read = (relativePath) => fs.readFileSync(new URL(relativePath, root), 'utf8');
@@ -339,3 +340,17 @@ assert.equal(packageJson.scripts['test:corporation-boundary'], 'tsx src/services
 assert.ok(packageJson.scripts['test:corporation-boundary:full'], 'Full historical corporation-boundary composition must remain available for recovery/full certification');
 
 console.log('Workflow contract checks passed.');
+
+assert.match(ci, /types: \[opened, synchronize, reopened, ready_for_review, converted_to_draft\]/, 'PR certification must observe lifecycle transition events explicitly');
+assert.ok(ci.includes('CONTEXT_PR_DRAFT: ${{ github.event.pull_request.draft }}'), 'PR certification must pass the GitHub Draft/Ready state to context validation');
+
+assert.equal(parsePrDraft('true'), true, 'true Draft flag must parse as draft');
+assert.equal(parsePrDraft('false'), false, 'false Draft flag must parse as ready');
+assert.equal(parsePrDraft(''), null, 'missing Draft flag must remain unspecified');
+
+assert.deepEqual(validatePrLifecycle({ mode: 'active', state: 'ACTIVE', prDraft: true }), [], 'Draft PR must accept ACTIVE lifecycle state');
+assert.ok(validatePrLifecycle({ mode: 'active', state: 'CLOSING', prDraft: true }).some((m) => m.includes('ACTIVE')), 'Draft PR must reject CLOSING lifecycle state');
+assert.deepEqual(validatePrLifecycle({ mode: 'active', state: 'CLOSING', prDraft: false }), [], 'Ready PR must accept CLOSING lifecycle state');
+assert.ok(validatePrLifecycle({ mode: 'active', state: 'ACTIVE', prDraft: false }).some((m) => m.includes('CLOSING')), 'Ready PR must reject ACTIVE lifecycle state');
+assert.deepEqual(validatePrLifecycle({ mode: 'active', state: 'ACTIVE', prDraft: null }), [], 'Local validation without a Draft/Ready signal must preserve compatibility');
+assert.ok(validatePrLifecycle({ mode: 'stable', state: 'ACTIVE', prDraft: null }).some((m) => m.includes('stable')), 'Stable validation must reject ACTIVE lifecycle state independently of PR readiness');

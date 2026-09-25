@@ -53,9 +53,10 @@ CI lane references are workflow-qualified because job IDs are not globally uniqu
 
 `.eve-trade/current-work.json` is checkout-aware. Its `state` determines whether the branch/PR metadata is active:
 
-- `ACTIVE` — development is in progress on the dedicated branch/PR.
-- `CLOSING` — the delivery is frozen for final certification/merge; no new scope is allowed.
+- `ACTIVE` — development is in progress on the dedicated branch/PR. A Draft PR is expected to remain in this state.
+- `CLOSING` — the delivery is frozen for final certification/merge; no new scope is allowed. A Ready for Review PR is expected to be in this state.
 - `IDLE` — the stable `main` checkout has no active delivery chantier.
+- **PR lifecycle gate** — during GitHub PR certification, the Draft/Ready state is an explicit input to context validation: Draft requires `ACTIVE`; Ready for Review requires `CLOSING`. Branch, PR number and base SHA must still match the event in both cases.
 
 A stable `main` state must never be `ACTIVE`. The last merged delivery may remain represented as `CLOSING` until the next chantier creates a new `ACTIVE` manifest. This avoids requiring an unreviewed post-merge mutation of `main`.
 
@@ -66,6 +67,8 @@ During PR certification, branch, PR number and base SHA must match the GitHub ev
 The UX-03 archive is reference material only. Its financial implementation, tests and documents must be re-derived against current main before any future reuse. The historical financial decision record and reconciliation memo are explicitly non-normative; the historical progressive-recovery vocabulary is preserved as a contradiction to be resolved before any new financial code.
 
 ## CI trigger model
+
+The PR certification workflow observes `opened`, `synchronize`, `reopened`, `ready_for_review` and `converted_to_draft` so lifecycle transitions are certified explicitly. CI-002 may later optimize which lanes execute for Draft versus Ready; it must not weaken this lifecycle invariant.
 
 The PR certification workflow is deliberately conservative for context-critical changes.
 

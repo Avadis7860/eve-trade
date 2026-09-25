@@ -33,7 +33,8 @@ Produce the accepted current UX-03 Allocation / Portfolio contract from:
 - Explicit accounting scope remains the accounting boundary.
 - Partial disposal can produce a disposal-level realized result while the position remains PARTIALLY_REALIZED.
 - Capital recovery is separate from whole-operation profitability.
-- Whole-operation profitability is closure-gated.
+- A partial-position ROI exposed by Financial Truth is disposal/allocation scoped; it is not whole-operation ROI.
+- Whole-operation ROI and profitability are closure-gated.
 - EJECT / RETAIN remains a POLICY decision and never rewrites Financial Truth.
 - Real Portfolio and Proposed Allocation remain separate.
 - UNKNOWN / PARTIAL / ERROR / ABSENT / UNAVAILABLE / STALE never become numeric zero.

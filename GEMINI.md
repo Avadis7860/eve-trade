@@ -9,9 +9,9 @@ Point d'entrée léger pour les agents.
 3. [docs/state/current-state.md](docs/state/current-state.md) — état vérifié du dépôt.
 4. [docs/state/truth-matrix.md](docs/state/truth-matrix.md) — synthèse des domaines.
 5. [docs/roadmap/current-chunk.md](docs/roadmap/current-chunk.md) — chantier et périmètre.
-5. [.eve-trade/context-map.json](.eve-trade/context-map.json) — navigation stable vers code, contrats, invariants, tests et CI.
-6. [docs/index.md](docs/index.md) — index documentaire.
-7. [docs/operations/agent-context.md](docs/operations/agent-context.md) — règles d'utilisation de cette couche.
+6. [.eve-trade/context-map.json](.eve-trade/context-map.json) — navigation stable vers code, contrats, invariants, tests et CI.
+7. [docs/index.md](docs/index.md) — index documentaire.
+8. [docs/operations/agent-context.md](docs/operations/agent-context.md) — règles d'utilisation de cette couche.
 
 ## Règles critiques
 

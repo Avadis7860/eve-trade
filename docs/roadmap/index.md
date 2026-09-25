@@ -1,12 +1,14 @@
 # Roadmap Index
 
 Status: CURRENT
-Scope: project evolution
+Scope: project strategy and navigation
 Source of truth: [master-plan.md](master-plan.md)
 
-- [Master Plan](master-plan.md) — order and dependencies of major work.
-- [UX-First Trading Terminal Program](ux-program.md) — mandatory UX workstream and implementation gates.
-- [Completed](completed.md) — compact history of completed major gates.
-- [Backlog](backlog.md) — current technical/documentation/functional debt.
-- [Public Readiness](public-readiness.md) — public-repository credibility and showcase preparation.
-- [Financial Truth Reconciliation](financial-truth-reconciliation.md) — historical financial decisions and the explicit re-acceptance gate for future FIN-002 work.
+Les **GitHub Issues sont la source opérationnelle des chantiers**. Les documents ci-dessous ne contiennent que stratégie, dépendances, état durable ou navigation.
+
+- [Master Plan](master-plan.md) — séquençage stratégique et dépendances durables.
+- [UX-First Trading Terminal Program](ux-program.md) — programme produit, contrats et gates communs.
+- [Completed](completed.md) — synthèse historique des gates terminés.
+- [Backlog](backlog.md) — dette et travaux durables restant pertinents.
+- [Public Readiness](public-readiness.md) — track de maintenance publique.
+- [Financial Truth Reconciliation](financial-truth-reconciliation.md) — réconciliation financière historique, non opérationnelle.

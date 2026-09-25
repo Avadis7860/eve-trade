@@ -339,8 +339,6 @@ assert.equal(packageJson.scripts['test:ci-scope'], 'node scripts/__tests__/ci_sc
 assert.equal(packageJson.scripts['test:corporation-boundary'], 'tsx src/services/__tests__/corporationTreasurySync.test.ts', 'Corporation boundary script must contain only its canonical unique proof');
 assert.ok(packageJson.scripts['test:corporation-boundary:full'], 'Full historical corporation-boundary composition must remain available for recovery/full certification');
 
-console.log('Workflow contract checks passed.');
-
 assert.match(ci, /types: \[opened, synchronize, reopened, ready_for_review, converted_to_draft\]/, 'PR certification must observe lifecycle transition events explicitly');
 assert.ok(ci.includes('CONTEXT_PR_DRAFT: ${{ github.event.pull_request.draft }}'), 'PR certification must pass the GitHub Draft/Ready state to context validation');
 
@@ -354,3 +352,5 @@ assert.deepEqual(validatePrLifecycle({ mode: 'active', state: 'CLOSING', prDraft
 assert.ok(validatePrLifecycle({ mode: 'active', state: 'ACTIVE', prDraft: false }).some((m) => m.includes('CLOSING')), 'Ready PR must reject ACTIVE lifecycle state');
 assert.deepEqual(validatePrLifecycle({ mode: 'active', state: 'ACTIVE', prDraft: null }), [], 'Local validation without a Draft/Ready signal must preserve compatibility');
 assert.ok(validatePrLifecycle({ mode: 'stable', state: 'ACTIVE', prDraft: null }).some((m) => m.includes('stable')), 'Stable validation must reject ACTIVE lifecycle state independently of PR readiness');
+
+console.log('Workflow contract checks passed.');

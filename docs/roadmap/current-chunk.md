@@ -1,31 +1,35 @@
 # Current Chunk
 
-Status: CLOSING
-Scope: post-merge synchronization — UX-03 / TASK-03 completed
-Branch: chore/post-merge-ux03-task03-close
-Base: main @ db37afca938b9d106a2e442e24d777b8c98e9eac
-PR: #104
+Status: ACTIVE
+Scope: CONTEXT-005 — Reconcevoir le cycle de vie et la certification du manifeste current-work
+Branch: chore/context-005-lifecycle-certification
+Base: main @ 96797a2566496f097ddc6d075786addb8e7ce78d
+PR: #128
 
 ## Delivery status
 
-TASK-03 is completed. The delivery extracted a new typed Portfolio model from current `main`; the historical `src/types/portfolio.ts` remains reference-only.
+The governance hardening chantier is active. Its goal is to make the `current-work` lifecycle explicit and certifiable before merge, without post-merge recovery commits.
 
-## Completed chantier
+## Contract
 
-UX-03 / TASK-03 delivered the minimal Portfolio contract and its traceability matrix.
+- Draft PR / iteration: `current-work.state=ACTIVE`.
+- Ready for Review / merge-ready certification: `current-work.state=CLOSING`.
+- Both states require matching branch, PR number and base SHA.
+- Stable `main` keeps `CLOSING` and validates the first parent of its merge commit.
+- Main Post-Merge Smoke remains a second proof, not a recovery mechanism.
 
-- PR #103 merged successfully at `db37afca938b9d106a2e442e24d777b8c98e9eac`.
-- The model composes canonical Treasury, Financial Truth, Order and Opportunity types.
-- Real Portfolio and Proposed Allocation remain separate lenses.
-- Provenance, accounting scope, owner/observer/issuer, freshness, health and coverage remain explicit.
-- UNKNOWN / PARTIAL / ERROR / ABSENT / UNAVAILABLE / STALE are preserved.
-- Character Assets remains the explicit `NEW SOURCE` boundary.
-- No new ESI source, UI rewrite, FIFO implementation or wholesale archive reuse was introduced.
+## Scope guard
+
+No product implementation.
+No Financial Truth changes.
+No ESI source changes.
+No archive resurrection.
+CI-002 (#112) remains separate from this lifecycle-safety chantier.
 
 ## Exit gate
 
-The extraction matrix is complete, the new Portfolio type contract compiles, focused type-contract assertions were added, roadmap/state/context metadata is synchronized, and PR certification is green. Post-merge Main Smoke must validate the stable repository state.
+The lifecycle transition contract, PR event coverage, context-integrity enforcement, regression tests and context documentation must all be green before merge. No post-merge closing PR is allowed to be required by this chantier.
 
 ## Next-step boundary
 
-The next UX-03 review is issue #88 — TASK-04, dedicated to re-reading and reconstructing Portfolio aggregation from current `main`. It is not active until this closing synchronization is merged and its post-merge Smoke is green.
+After CONTEXT-005 is merged and Main Smoke is green, the one-chantier rule may open the next explicitly selected issue.

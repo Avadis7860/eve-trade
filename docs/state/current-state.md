@@ -17,9 +17,11 @@ The UX-first program has closed the P0 market/ESI retrieval reliability gate. UX
 
 ## Active PR context
 
-PR #103 completed UX-03 / TASK-03 and was merged into `main` at `db37afca938b9d106a2e442e24d777b8c98e9eac`. PR #104 then completed the post-merge state synchronization at `ae1c0df67d427f93215043820ce15bdc38688dc2`.
+CONTEXT-005 is the current active governance chantier on branch `chore/context-005-lifecycle-certification` / PR #128, based on stable `main` `96797a2566496f097ddc6d075786addb8e7ce78d`.
 
-PR #104 completed the post-merge synchronization for TASK-03 and was merged into `main` at `ae1c0df67d427f93215043820ce15bdc38688dc2`. TASK-03 remains limited to extraction/reconstruction of the typed Portfolio contract from current `main`; the historical archive remains reference-only. No product delivery branch is active on stable `main`.
+The chantier is limited to the lifecycle and certification contract of `.eve-trade/current-work.json`: Draft PRs must carry `ACTIVE`, Ready for Review PRs must carry `CLOSING`, and branch/PR/base SHA must remain aligned with the GitHub event. Stable `main` retains `CLOSING` and validates the first parent of the merge commit.
+
+The product sequence remains paused at UX-03 / TASK-04 (#88); no product implementation is being performed by CONTEXT-005.
 
 ## CI / delivery state
 

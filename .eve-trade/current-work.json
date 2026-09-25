@@ -3,7 +3,7 @@
   "purpose": "Operational state for the current technical chantier. This file is checkout-aware governance metadata, not normative business truth.",
   "state": "ACTIVE",
   "branch": "chore/context-005-current-work-lifecycle-rework",
-  "pull_request": null,
+  "pull_request": 129,
   "base_branch": "main",
   "base_sha": "96797a2566496f097ddc6d075786addb8e7ce78d",
   "delivery_rule": "one_chantier_one_branch_one_pr"

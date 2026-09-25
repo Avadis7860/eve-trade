@@ -78,6 +78,31 @@ export class AuthService {
    * Safely parses JWT claims without relying on any external library.
    * Never fabricates exp if absent.
    */
+  /** Returns the scopes actually present in the JWT without treating an unparsable token as scope-less. */
+  static getTokenScopes(token: string): string[] | null {
+    const claims = this.parseJwtClaims(token);
+    if (!claims) return null;
+    return Array.isArray(claims.scp) && claims.scp.every((scope: unknown) => typeof scope === 'string')
+      ? (claims.scp as string[])
+      : [];
+  }
+
+  /** Extracts the JWT subject character ID for advisory identity binding checks. */
+  static getTokenCharacterId(token: string): number | null {
+    const claims = this.parseJwtClaims(token);
+    const match = typeof claims?.sub === 'string'
+      ? claims.sub.match(/^CHARACTER:EVE:(\d+)$/)
+      : null;
+    if (!match) return null;
+    const characterId = Number(match[1]);
+    return Number.isInteger(characterId) && characterId > 0 ? characterId : null;
+  }
+
+  static hasTokenScope(token: string, requiredScope: string): boolean | null {
+    const scopes = this.getTokenScopes(token);
+    return scopes === null ? null : scopes.includes(requiredScope);
+  }
+
   static parseJwtClaims(token: string): { exp?: number; sub?: string; name?: string; [key: string]: any } | null {
     try {
       if (!token || typeof token !== 'string') return null;

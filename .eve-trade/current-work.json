@@ -1,10 +1,10 @@
 {
   "schema_version": 2,
   "purpose": "Operational state for the current technical chantier. This file is checkout-aware governance metadata, not normative business truth.",
-  "state": "CLOSING",
-  "branch": "chore/post-merge-ux03-task02-close",
-  "pull_request": 97,
+  "state": "ACTIVE",
+  "branch": "ux-03/task-03-typed-portfolio-model",
+  "pull_request": 103,
   "base_branch": "main",
-  "base_sha": "af725a60693b60a55895c75feb7dc57bfd0c36b9",
+  "base_sha": "0f822077a43a03ea17098e1b35e25f8374487888",
   "delivery_rule": "one_chantier_one_branch_one_pr"
 }

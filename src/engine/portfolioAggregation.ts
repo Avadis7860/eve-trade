@@ -50,10 +50,14 @@ function worstHealth(states: readonly DataHealthStatus[]): DataHealthStatus {
 function worstDataState(states: readonly DataState[]): DataState {
   if (states.length === 0) return 'UNKNOWN';
 
-  return states.reduce(
-    (worst, state) => DATA_STATE_PRIORITY[state] > DATA_STATE_PRIORITY[worst] ? state : worst,
-    'VALID' as DataState,
-  );
+  if (states.includes('ERROR')) return 'ERROR';
+  if (states.includes('UNKNOWN')) return 'UNKNOWN';
+  if (states.includes('STALE')) return 'STALE';
+  if (states.includes('PARTIAL')) return 'PARTIAL';
+  if (states.includes('CACHE')) return 'CACHE';
+  if (states.includes('EMPTY')) return 'EMPTY';
+  if (states.includes('LIVE')) return 'LIVE';
+  return 'VALID';
 }
 
 function toPositionHealth(

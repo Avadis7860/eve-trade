@@ -117,7 +117,9 @@ The stable navigation layer is `.eve-trade/context-map.json`; the checkout-aware
 
 **Previous delivery:** the Agent Context Hardening raw-commit anchor correction was completed through PR #81, with PR #84 performing its post-merge synchronization. Agent Context Hardening v2 / PR #79 and the shallow-anchor correction / PR #80 are merged on main. UX-03 branches/PRs #71 and #77 are closed without merge and their archive is reference-only.
 
-Financial Truth semantic reconciliation is complete on main. UX-03 / TASK-01 is complete and its accepted contract is now part of main. The current delivery is UX-03 / TASK-02 — Data Availability & Derivation Matrix revalidation, documentation-only, now in CLOSING state on branch `ux-03/task-02-data-availability`, PR #96, based on main `1799471409bc49782649c72d7a91756d046b0444`. It introduces no product implementation and no new ESI source. Any future UX-03 implementation requires a separate dedicated branch/PR.
+Financial Truth semantic reconciliation is complete on main. UX-03 / TASK-01 is complete and its accepted contract is now part of main. The previous delivery was UX-03 / TASK-02 — Data Availability & Derivation Matrix revalidation, completed through PR #96. Main Post-Merge Smoke #23 passed on `af725a6`. The resulting matrix is current-main aligned, preserves FACT / DERIVED / AGGREGATED / NEW SOURCE / POLICY boundaries, and introduces no product implementation or new ESI source. Character Assets remains the explicit `NEW SOURCE` boundary for authoritative inventory quantity/location.
+
+There is no active product implementation branch. The next planned UX-03 task is issue #87 / TASK-03, which must start from the then-current stable `main` and use a new dedicated branch/PR.
 
 UX-02 is DONE / MERGED. CI-001 is DONE / MERGED. UX-01/P0 is DONE / EXTERNALLY BOUNDED.
 

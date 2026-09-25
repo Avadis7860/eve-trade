@@ -3,9 +3,9 @@ import type {
   ProposedAllocationPosition,
   PortfolioTreasuryProvenance,
 } from '../../types/portfolio';
-import type { CurrentPosition, TreasuryResolution } from '../financial';
-import type { EveCharacterOrder } from '../character';
-import type { UniverseWideOpportunity } from '../opportunity';
+import type { CurrentPosition, TreasuryResolution } from '../../types/financial';
+import type { EveCharacterOrder } from '../../types/character';
+import type { UniverseWideOpportunity } from '../../types/opportunity';
 
 const treasury: TreasuryResolution = {
   source_mode: 'manual_budget',
@@ -49,7 +49,7 @@ void order;
 void position;
 void allocation;
 
-// Historical `PortfolioSimulation` fields are deliberately not part of the new
+// Historical PortfolioSimulation fields are deliberately not part of the new
 // Proposed Allocation contract.
 // @ts-expect-error Portfolio truth must not expose the historical simulation aggregate directly.
 void allocation.total_expected_profit;

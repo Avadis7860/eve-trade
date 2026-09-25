@@ -13,7 +13,12 @@ import type {
   RealizedFinancialOutcome,
   TreasuryResolution,
 } from './financial';
-import type { EveCharacterOrder, OrderOwnership } from './character';
+import type {
+  EveCharacterOrder,
+  OrderOwnership,
+  OrderScope,
+  OrderSelectionContext,
+} from './character';
 import type { OrderId } from './order';
 import type { UniverseWideOpportunity } from './opportunity';
 
@@ -209,13 +214,43 @@ export interface PortfolioSnapshot {
 }
 
 /**
- * Small implementation-facing context. It deliberately references existing
- * domain types instead of introducing a second source model.
+ * Explicit input boundary for Portfolio Aggregation.
+ *
+ * Every upstream source is resolved before entering the aggregator. The
+ * aggregator only composes canonical records and source-quality state.
  */
-export interface PortfolioCompositionContext {
+export interface PortfolioAggregationInput {
+  readonly accounting_scope_id: string;
   readonly treasury: PortfolioTreasurySnapshot;
+
+  /**
+   * Order scope is deliberately independent from treasury scope.
+   */
+  readonly order_scope: OrderScope;
+  readonly order_selection_context: OrderSelectionContext;
   readonly orders: readonly EveCharacterOrder[];
+  readonly orders_health: DataHealthStatus;
+  readonly orders_data_state: DataState;
+
+  /**
+   * Financial Truth records are already reconstructed by their canonical
+   * engines. The collection state is explicit so an empty array is not
+   * interpreted as an authoritative empty portfolio.
+   */
   readonly positions: readonly CurrentPosition[];
-  readonly realized_outcomes?: readonly RealizedFinancialOutcome[];
-  readonly candidates: readonly UniverseWideOpportunity[];
+  readonly realized_outcomes: readonly RealizedFinancialOutcome[];
+  readonly financial_health: DataHealthStatus;
+  readonly financial_data_state: DataState;
+
+  /**
+   * Global opportunity acquisition is complete before composition. Coverage,
+   * health, state and freshness travel with the snapshot.
+   */
+  readonly candidate_universe: PortfolioCandidateUniverseSnapshot;
 }
+
+/**
+ * Backward-compatible implementation-facing name retained for consumers that
+ * already reference the generic Portfolio composition context.
+ */
+export type PortfolioCompositionContext = PortfolioAggregationInput;

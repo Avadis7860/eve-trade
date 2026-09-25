@@ -29,7 +29,8 @@
     "test:corporation-boundary:full": "tsx src/engine/__tests__/financial_config.test.ts && tsx src/engine/__tests__/treasury.test.ts && tsx src/services/__tests__/corporationTreasurySync.test.ts && tsx server/__tests__/corporation_esi_gateway.test.ts && tsx server/__tests__/character_routes_contract.test.ts && tsx server/__tests__/corporation_esi_architecture.test.ts",
     "test:e2e:auth": "playwright test tests/e2e/auth-browser.spec.ts",
     "test:e2e:operations": "playwright test tests/e2e/operations-browser.spec.ts",
-    "test:context": "node scripts/context-integrity.mjs"
+    "test:context": "node scripts/context-integrity.mjs",
+    "test:docs": "node scripts/__tests__/documentation_governance.test.mjs"
   },
   "dependencies": {
     "express": "^5.2.1",

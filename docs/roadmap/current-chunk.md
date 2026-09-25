@@ -1,39 +1,31 @@
 # Current Chunk
 
-Status: ACTIVE
-Scope: UX-03 / TASK-03 — Relecture et extraction du modèle typé Portfolio
-Branch: ux-03/task-03-typed-portfolio-model
-Base: main @ 0f822077a43a03ea17098e1b35e25f8374487888
-PR: #103
+Status: CLOSING
+Scope: post-merge synchronization — UX-03 / TASK-03 completed
+Branch: chore/post-merge-ux03-task03-close
+Base: main @ db37afca938b9d106a2e442e24d777b8c98e9eac
+PR: #104
 
 ## Delivery status
 
-The active chantier follows method C: re-extract a new Portfolio model from current `main`. The historical `src/types/portfolio.ts` remains reference-only.
+TASK-03 is completed. The delivery extracted a new typed Portfolio model from current `main`; the historical `src/types/portfolio.ts` remains reference-only.
 
-## Objective
+## Completed chantier
 
-- complete field-by-field extraction from the archive;
-- define the minimal typed Portfolio contract from current-main authorities;
-- keep Real Portfolio and Proposed Allocation distinct;
-- preserve provenance, accounting scope, owner/observer/issuer, freshness, health and coverage;
-- preserve explicit UNKNOWN / PARTIAL / ERROR / ABSENT / UNAVAILABLE / STALE semantics.
+UX-03 / TASK-03 delivered the minimal Portfolio contract and its traceability matrix.
 
-## Scope guard
-
-No new ESI source.
-No Character Assets integration.
-No UI implementation.
-No new Financial Truth / FIFO implementation.
-No wholesale archive copy or cherry-pick.
+- PR #103 merged successfully at `db37afca938b9d106a2e442e24d777b8c98e9eac`.
+- The model composes canonical Treasury, Financial Truth, Order and Opportunity types.
+- Real Portfolio and Proposed Allocation remain separate lenses.
+- Provenance, accounting scope, owner/observer/issuer, freshness, health and coverage remain explicit.
+- UNKNOWN / PARTIAL / ERROR / ABSENT / UNAVAILABLE / STALE are preserved.
+- Character Assets remains the explicit `NEW SOURCE` boundary.
+- No new ESI source, UI rewrite, FIFO implementation or wholesale archive reuse was introduced.
 
 ## Exit gate
 
-- extraction matrix complete;
-- new Portfolio type contract compiles;
-- focused type-contract tests pass;
-- roadmap/state/context metadata synchronized;
-- CI certification green.
+The extraction matrix is complete, the new Portfolio type contract compiles, focused type-contract assertions were added, roadmap/state/context metadata is synchronized, and PR certification is green. Post-merge Main Smoke must validate the stable repository state.
 
-## Next step after this chunk
+## Next-step boundary
 
-A separate implementation task may consume the accepted Portfolio contract only after TASK-03 is merged and the one-chanchier delivery rule opens the next branch/PR.
+The next UX-03 review is issue #88 — TASK-04, dedicated to re-reading and reconstructing Portfolio aggregation from current `main`. It is not active until this closing synchronization is merged and its post-merge Smoke is green.

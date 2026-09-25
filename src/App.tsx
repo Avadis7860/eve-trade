@@ -99,6 +99,7 @@ const AppShell: React.FC = () => {
     characterOrders,
     isLoadingOrders,
     orderSyncError,
+    corporationReauthorizationRequired,
     loadCharacterData,
     handleConnectSSO,
     handleExchangeCode,
@@ -450,6 +451,7 @@ const AppShell: React.FC = () => {
               orders={scopedOrders}
               isLoadingOrders={isLoadingOrders}
               orderSyncError={orderSyncError}
+              corporationReauthorizationRequired={corporationReauthorizationRequired}
               onRefreshOrders={() => {
                 if (characterSession) {
                   loadCharacterData(

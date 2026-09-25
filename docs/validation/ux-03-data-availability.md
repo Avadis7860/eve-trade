@@ -55,7 +55,7 @@ No product implementation or new ESI acquisition route is introduced by TASK-02.
 | Order economic owner | FACT | `EveCharacterOrder.ownership.owner_type / owner_id` | Preserve owner identity exactly; do not rewrite ownership for presentation. | Use |
 | Observing principal | FACT | `ownership.principal_character_id` and observers | Keep observation principal distinct from economic owner. | Use |
 | Order issuer | FACT | `ownership.issuer_character_id` when supplied | Optional provenance only; absence is not an alternative issuer fact. | Use when present |
-| Accounting scope | FACT / POLICY | `accounting_scope_id` in Financial Truth; explicit scope selection | Scope is contractual; character/corporation identity does not automatically define it. | Use explicitly |
+| Accounting scope | POLICY | `accounting_scope_id` in Financial Truth; explicit scope selection | Scope is contractual; character/corporation identity does not automatically define it. | Use explicitly |
 | Wallet transaction fact | FACT | `EveCharacterTransaction` / `PersistedCharacterTransaction` | Preserve source, transaction ID, principal and ingestion state. | Use |
 | Acquisition lot | AGGREGATED | Financial Truth reconstruction from transaction facts | Deterministic causal FIFO lineage; not a raw ESI fact. | Use via Financial Truth |
 | Disposal allocation | AGGREGATED | Financial Truth reconstruction from transaction facts | Match disposal quantity to causally prior acquisition lots. | Use via Financial Truth |
@@ -93,7 +93,7 @@ No product implementation or new ESI acquisition route is introduced by TASK-02.
 | Real Portfolio snapshot | AGGREGATED | treasury + active orders + Financial Truth + available inventory evidence | Separate committed exposure from liquid capital and preserve coverage. | Use |
 | Proposed Allocation snapshot | AGGREGATED | treasury scope + cross-item opportunities + policy + optimizer | Prospective recommendation; never a realized financial result. | Use |
 | Proposed Allocation freshness | AGGREGATED | candidate detection times + refresh state | Show snapshot freshness; do not imply globally real-time evidence. | Use |
-| Provenance bundle | FACT + AGGREGATED | source metadata on current facts and derived outputs | Preserve `source_kind + source_id + principal_scope`, plus accounting scope, owner, observer, issuer, freshness, health and coverage. | Mandatory |
+| Provenance bundle | AGGREGATED | source metadata on current facts and derived outputs | Preserve `source_kind + source_id + principal_scope`, plus accounting scope, owner, observer, issuer, freshness, health and coverage. | Mandatory |
 
 ## Reclassifications from the archived matrix
 
@@ -162,12 +162,13 @@ All other first-increment Allocation data reviewed here can be supplied by exist
 TASK-02 does not authorize product code changes. Before the future UX-03 implementation chantier:
 
 - treasury resolution must be consumed together with its source/status semantics;
-- the allocator must consume the declared treasury scope rather than silently assuming a generic `available_capital` bucket;
+- the allocator must consume the declared treasury scope rather than silently assuming a generic `available_capital` bucket; current `PortfolioOptimizer` still initializes its budget directly from `FinancialConfig.available_capital`, so this is an implementation alignment gate, not evidence that the resolved treasury is already wired through;
 - CurrentPosition / Financial Truth outputs must remain coverage-aware;
 - the cross-item universe must carry its scan coverage;
 - projected and predictive values must remain visibly prospective;
 - Real Portfolio and Proposed Allocation must stay separate;
-- Character Assets must remain a separately scoped source addition.
+- Character Assets must remain a separately scoped source addition;
+- numeric fallback fields in evidence/projection serializers must not be interpreted as proof of an observed zero when the originating state is UNKNOWN, PARTIAL, ERROR or UNAVAILABLE.
 
 ## Evidence checked on current main
 

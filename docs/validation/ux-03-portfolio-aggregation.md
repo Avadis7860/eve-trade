@@ -66,7 +66,7 @@ The aggregate keeps health and data state explicit.
 
 UNKNOWN / PARTIAL / ERROR / STALE / unavailable evidence never becomes an artificial zero or an authoritative empty business state.
 
-Missing escrow, ownership provenance, invalid order economics, or foreign-scope financial records degrade the aggregate rather than silently presenting a complete view.
+Missing escrow, ownership provenance, invalid order economics, unresolved legacy corporation orders, or foreign-scope financial records degrade the aggregate rather than silently presenting a complete view.
 
 Physical inventory remains:
 

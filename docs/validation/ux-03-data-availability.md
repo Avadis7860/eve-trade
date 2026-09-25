@@ -1,8 +1,8 @@
 # UX-03 — Data Availability & Derivation Matrix
 
-Status: CURRENT / TASK-02 REVALIDATED
-Revalidated against current main: `1799471409bc49782649c72d7a91756d046b0444`
-Task: UX-03 / TASK-02 — issue #86
+Status: CURRENT / TASK-02 COMPLETE
+Validated on current main baseline: `af725a60693b60a55895c75feb7dc57bfd0c36b9`
+Task: UX-03 / TASK-02 — issue #86 (completed)
 Historical reference: `archive/ux-03-allocation-contract-2026-09-24`
 
 ## Purpose

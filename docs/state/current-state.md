@@ -15,6 +15,10 @@ PR #84 completed the post-merge context synchronization, PR #93 completed UX-03 
 
 The UX-first program has closed the P0 market/ESI retrieval reliability gate. UX-01 is DONE / EXTERNALLY BOUNDED; the previously reported target-PC market-display symptom is resolved and the current application is functional. Financial Truth / FIN-002 is also integrated and accepted on main.
 
+## Active PR context
+
+PR #97 is based on the current stable `main` at `af725a60693b60a55895c75feb7dc57bfd0c36b9`. This exact base SHA is the authoritative active checkout anchor for context-integrity validation.
+
 ## CI / delivery state
 
 The current CI is **operationally restructured and certification-safe** after CI-001. Its post-merge Main Smoke and scheduled/manual Full Certification are separate from the PR gate.

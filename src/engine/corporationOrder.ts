@@ -94,6 +94,21 @@ function normalizeCommonCorporationOrder(
     return null;
   }
 
+  // ESI marks is_buy_order as optional for corporation orders. CCP documents
+  // that optional booleans are omitted when false, so an absent value is an
+  // authoritative false at this boundary. An explicitly malformed value still
+  // fails closed rather than being coerced.
+  const isBuyOrder =
+    source.is_buy_order === undefined
+      ? false
+      : typeof source.is_buy_order === 'boolean'
+        ? source.is_buy_order
+        : null;
+
+  if (isBuyOrder === null) {
+    return null;
+  }
+
   return {
     orderId,
     typeId,
@@ -102,7 +117,7 @@ function normalizeCommonCorporationOrder(
     price,
     volumeRemain,
     volumeTotal,
-    isBuyOrder: source.is_buy_order,
+    isBuyOrder,
     issued: source.issued,
     duration,
     ...(escrow !== undefined ? { escrow } : {}),

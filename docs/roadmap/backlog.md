@@ -73,7 +73,7 @@ There is no active P0 technical branch.
 - Do not add a new ESI source in this task.
 - PR #96 merged and Main Post-Merge Smoke #23 passed on `af725a6`.
 
-### P1 — UX-03 / TASK-03 — Typed Portfolio Model — ACTIVE
+### P1 — UX-03 / TASK-03 — Typed Portfolio Model — DONE / MERGED
 
 Issue: #87
 
@@ -84,8 +84,19 @@ Issue: #87
 - Keep `UNKNOWN / PARTIAL / ERROR / ABSENT / UNAVAILABLE / STALE` explicit.
 - Keep Character Assets as `NEW SOURCE` and outside this task unless a separate source task is opened.
 - No product/UI implementation starts from the historical `src/types/portfolio.ts` file.
-- Active delivery: branch `ux-03/task-03-typed-portfolio-model` / PR #103 from main `0f822077a43a03ea17098e1b35e25f8374487888`.
-- Method C is mandatory: reconstruct a new model from current-main authorities; archive remains reference-only.
+- Delivered on branch `ux-03/task-03-typed-portfolio-model` / PR #103 from main `0f822077a43a03ea17098e1b35e25f8374487888`; merged into `main` at `db37afca938b9d106a2e442e24d777b8c98e9eac`.
+- Method C was applied: the new model was reconstructed from current-main authorities; archive remains reference-only.
+- Post-merge state synchronization is being completed on `chore/post-merge-ux03-task03-close` / PR #104.
+
+### P1 — UX-03 / TASK-04 — Portfolio Aggregation — NEXT / NOT ACTIVE
+
+Issue: #88
+
+- Re-read and reconstruct the Portfolio aggregation layer from current `main`.
+- Compose canonical positions, realized outcomes, treasury, order exposure and opportunity scope without redefining domain truth.
+- Preserve the separation between Real Portfolio and Proposed Allocation.
+- Keep aggregate availability, provenance, scope and data-quality semantics explicit.
+- Do not revive the archived implementation wholesale.
 
 ### P1 — Allocation / Portefeuille — FUTURE / NOT ACTIVE
 
@@ -177,6 +188,6 @@ Historical issues are not copied into the active backlog unless they remain repr
 
 The UX-first sequencing gate is mandatory: no deferred technical item is promoted ahead of UX-00/UX-01 and the relevant surface contract without an explicit roadmap update.
 
-TASK-02 / issue #86 is complete. TASK-03 / issue #87 is now the single active product-model extraction chantier.
+TASK-02 / issue #86 is complete. TASK-03 / issue #87 is complete and merged; its repository-state closing pass is isolated in PR #104. TASK-04 / issue #88 is next and remains inactive until that closing pass is merged and Main Smoke is green.
 
-CI-001 and UX-02 are merged. The current product chantier starts from the merged `main` head and uses one active delivery branch/PR at a time.
+CI-001 and UX-02 are merged. The repository continues to enforce one active delivery branch/PR at a time.

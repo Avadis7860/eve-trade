@@ -28,7 +28,7 @@ Allowed supporting work:
 | UX-00 — Product model and information architecture | DONE | historical gate; see completed records |
 | UX-01 — Market truth / retrieval observability | DONE / EXTERNALLY BOUNDED | historical gate; current state/validation docs |
 | UX-02 — Operations / Mes Ordres | DONE / MERGED | historical delivery; PR records |
-| UX-03 — Allocation / Portefeuille | P1 / CONTRACT ACCEPTED | [Issues #85–#92](https://github.com/Avadis7860/eve-trade/issues?q=is%3Aissue+label%3Aux-03) |
+| UX-03 — Allocation / Portefeuille | P1 / CONTRACT ACCEPTED | Issues #85–#92 (voir notamment [#85](https://github.com/Avadis7860/eve-trade/issues/85) et [#88](https://github.com/Avadis7860/eve-trade/issues/88)) |
 | UX-04 — Performance / Journal | P1 / NOT ACTIVE | Issue #120 |
 | UX-05 — Control Center / Paramètres | P1 / NOT ACTIVE | Issue #121 |
 | UX-06 — Cockpit | P2 / NOT ACTIVE | Issue #122 |

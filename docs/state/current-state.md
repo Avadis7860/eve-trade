@@ -13,13 +13,13 @@ PR #83 (`feat(financial): recover canonical Financial Truth core`) was merged in
 
 PR #84 completed the post-merge context synchronization, PR #93 completed UX-03 / TASK-01 contract rebase, and PR #94 completed the first repository-state closing pass. The current main tip before TASK-02 is `1799471409bc49782649c72d7a91756d046b044`. PR #95 completed the previous documentation cleanup for stale delivery references. The functional E2E-001 baseline was `9438bbedb2d44cf3f5f371144bcf72094955cd46`. Deterministic browser CI is green and the target-PC real-CCP SSO/ESI smoke PASS was recorded on 2026-09-23.
 
-The UX-first program has closed the P0 market/ESI retrieval reliability gate. UX-01 is DONE / EXTERNALLY BOUNDED; the previously reported target-PC market-display symptom is resolved and the current application is functional. Financial Truth / FIN-002 is also integrated and accepted on main.
+The UX-first program has closed the P0 market/ESI retrieval reliability gate. UX-01 is DONE / EXTERNALLY BOUNDED; the previously reported target-PC market-display symptom is resolved and the current application is functional. The Financial Truth semantic boundary (FIN-002-RECON) is integrated and accepted on main. FIN-002 Performance & Trade Analytics remains OPEN / DEFERRED as a separate follow-up.
 
 ## Active PR context
 
-PR #103 completed UX-03 / TASK-03 and was merged into `main` at `db37afca938b9d106a2e442e24d777b8c98e9eac`. Its first parent is the stable integration anchor.
+PR #103 completed UX-03 / TASK-03 and was merged into `main` at `db37afca938b9d106a2e442e24d777b8c98e9eac`. PR #104 then completed the post-merge state synchronization at `ae1c0df67d427f93215043820ce15bdc38688dc2`.
 
-The post-merge synchronization is being completed on `chore/post-merge-ux03-task03-close` / PR #104. TASK-03 remains limited to extraction/reconstruction of the typed Portfolio contract from current `main`; the historical archive remains reference-only.
+PR #104 completed the post-merge synchronization for TASK-03 and was merged into `main` at `ae1c0df67d427f93215043820ce15bdc38688dc2`. TASK-03 remains limited to extraction/reconstruction of the typed Portfolio contract from current `main`; the historical archive remains reference-only. No product delivery branch is active on stable `main`.
 
 ## CI / delivery state
 
@@ -123,11 +123,11 @@ The stable navigation layer is `.eve-trade/context-map.json`; the checkout-aware
 
 **Previous delivery:** the Agent Context Hardening raw-commit anchor correction was completed through PR #81, with PR #84 performing its post-merge synchronization. Agent Context Hardening v2 / PR #79 and the shallow-anchor correction / PR #80 are merged on main. UX-03 branches/PRs #71 and #77 are closed without merge and their archive is reference-only.
 
-Financial Truth semantic reconciliation is complete on main. UX-03 / TASK-01 is complete and its accepted contract is now part of main. The previous delivery was UX-03 / TASK-02 — Data Availability & Derivation Matrix revalidation, completed through PR #96. Main Post-Merge Smoke #23 passed on `af725a6`. The resulting matrix is current-main aligned, preserves FACT / DERIVED / AGGREGATED / NEW SOURCE / POLICY boundaries, and introduces no product implementation or new ESI source. Character Assets remains the explicit `NEW SOURCE` boundary for authoritative inventory quantity/location.
+Financial Truth semantic reconciliation is complete on main. The stable boundary is recorded as FIN-002-RECON; the remaining FIN-002 issue (#74) is now narrowed to Performance & Trade Analytics alignment and is not a prerequisite for the UX-03 review sequence.
 
-TASK-03 (issue #87) is complete through PR #103 merged at `db37afca938b9d106a2e442e24d777b8c98e9eac`. The delivery extracted the typed Portfolio contract from current-main authorities, added the field-by-field extraction matrix and compile-time contract assertions, and introduced no product/UI implementation or new ESI source.
+UX-03 / TASK-01 is complete through PR #93. UX-03 / TASK-02 is complete through PR #96 with Main Post-Merge Smoke #23 passing on `af725a6`; the resulting matrix remains current-main aligned and keeps Character Assets as the explicit `NEW SOURCE` boundary. UX-03 / TASK-03 is complete through PR #103 and its post-merge synchronization PR #104 is merged at `ae1c0df67d427f93215043820ce15bdc38688dc2`.
 
-The current repository-state synchronization is the separate closing pass on `chore/post-merge-ux03-task03-close` / PR #104.
+The next product review is UX-03 / TASK-04 (#88), which remains inactive until a new delivery branch is explicitly opened from this stable main state.
 
 UX-02 is DONE / MERGED. CI-001 is DONE / MERGED. UX-01/P0 is DONE / EXTERNALLY BOUNDED.
 

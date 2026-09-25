@@ -255,6 +255,7 @@ assert.ok(contextSource.includes("const stable = readJson(STABLE_FILE"), 'Stable
 assert.ok(contextSource.includes("mode === 'active' ? readJson(WORK_FILE"), 'Stable mode must not depend on current-work');
 assert.ok(contextSource.includes("work.schema_version === 3"), 'Active current-work schema must be version 3');
 assert.ok(contextSource.includes("stable.schema_version === 1"), 'Stable context schema must be version 1');
+assert.ok(contextSource.includes("git', ['ls-files', '--', '.eve-trade/current-work.json']"), 'Stable context certification must reject a tracked current-work manifest');
 assert.ok(contextSource.includes("stable.delivery.integration_anchor === anchor"), 'Stable mode must validate the persistent delivery anchor');
 assert.ok(contextSource.includes("stable.delivery.integration_anchor === envBase"), 'Active mode must validate the delivery anchor against the PR base');
 assert.ok(contextSource.includes("read_sequence?.[0] === '.eve-trade/stable-context.json'"), 'Read sequence must start from stable context');

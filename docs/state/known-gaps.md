@@ -53,7 +53,7 @@ See:
 
 ## Public-readiness gaps
 
-- The repository is now public but had no published license at audit time; a licensing decision is required before presenting it as open-source.
+- The repository license is now published as MIT for original EVE Trade code and documentation. EVE/CCP/SDE-derived material and third-party dependencies remain governed by their own terms; see THIRD-PARTY-NOTICES.md.
 - Public security posture still requires administrative verification of Dependabot alerts, secret scanning/push protection, code scanning/SAST and main branch protection/rulesets.
 - No GitHub release is recorded yet for the current package version; release provenance is planned.
 - The README has been refreshed by this sync, but screenshots or a deterministic public showcase path are still planned.

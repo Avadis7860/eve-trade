@@ -297,8 +297,22 @@ export class EsiService {
   private static async executeWithAuthRefreshResult<T>(
     characterId: number,
     initialToken: string,
-    requestFn: (token: string) => Promise<{ ok: boolean; status: number; data?: T; error?: string }>
-  ): Promise<{ ok: boolean; status: number; data?: T; error?: string }> {
+    requestFn: (token: string) => Promise<{
+      ok: boolean;
+      status: number;
+      data?: T;
+      error?: string;
+      errorCode?: string;
+      reauthorizeRequired?: boolean;
+    }>
+  ): Promise<{
+    ok: boolean;
+    status: number;
+    data?: T;
+    error?: string;
+    errorCode?: string;
+    reauthorizeRequired?: boolean;
+  }> {
     let token = initialToken;
     try {
       const res1 = await requestFn(token);

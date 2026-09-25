@@ -1,0 +1,28 @@
+version: 2
+
+updates:
+  # Security-only posture for PUB-002.
+  # Routine version-update policy remains the responsibility of PUB-006 (#110).
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
+    groups:
+      npm-security:
+        applies-to: "security-updates"
+        patterns:
+          - "*"
+
+  # Keep the pinned GitHub Actions supply chain eligible for security updates
+  # without starting routine version-update PRs before PUB-006 defines that policy.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
+    groups:
+      github-actions-security:
+        applies-to: "security-updates"
+        patterns:
+          - "*"

@@ -116,7 +116,7 @@ These remain valid but are explicitly blocked until the UX baseline is accepted:
 
 ## Public-readiness / portfolio follow-up
 
-The detailed maintenance plan is [Public Readiness](public-readiness.md). High-priority items are security posture, license decision and public-facing truth synchronization. UX-03 / TASK-01 is the active product documentation task; implementation remains blocked until the rebased contract is accepted.
+The detailed maintenance plan is [Public Readiness](public-readiness.md). High-priority items are security posture, license decision and public-facing truth synchronization. UX-03 / TASK-01 is complete; the accepted contract is the prerequisite for a future implementation chantier.
 
 ## CI follow-up candidates
 

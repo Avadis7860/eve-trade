@@ -3,6 +3,7 @@
 Status: STABLE
 Scope: stable developer and AI navigation guidance
 Stable navigation source: .eve-trade/context-map.json
+Stable delivery source: .eve-trade/stable-context.json
 Active work source: .eve-trade/current-work.json
 Validation: npm run test:context
 
@@ -18,8 +19,8 @@ The context map describes stable repository ownership and validation relationshi
 2. Read .eve-trade/current-work.json when present to understand the active checkout, branch, PR and base; it is ephemeral and may be absent on stable main.
 3. Read docs/state/current-state.md, docs/state/truth-matrix.md and docs/roadmap/current-chunk.md for the current repository state.
 4. Read .eve-trade/context-map.json to locate the affected domain, canonical implementation, contracts, invariants, tests and CI owner.
-4. Read only the domain sources required by the task.
-5. Validate the smallest relevant test set before broad certification.
+5. Read only the domain sources required by the task.
+6. Validate the smallest relevant test set before broad certification.
 
 ## Navigation versus truth
 

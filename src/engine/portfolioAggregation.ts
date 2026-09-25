@@ -194,6 +194,7 @@ function aggregateOrderExposure(
   orders: readonly import('../types/character').EveCharacterOrder[],
   declaredHealth: DataHealthStatus,
   declaredState: DataState,
+  unresolvedCorporationOrders: readonly import('../types/character').EveCharacterOrder[] = [],
 ): PortfolioOrderExposureSnapshot {
   const scoped = [...orders];
   let buyEscrow = 0;
@@ -244,21 +245,48 @@ function aggregateOrderExposure(
 
   const exposureHealth = worstHealth([
     declaredHealth,
-    missingProvenanceCount > 0 || missingEscrowCount > 0 || invalidNotionalCount > 0
+    unresolvedCorporationOrders.length > 0
+      || missingProvenanceCount > 0
+      || missingEscrowCount > 0
+      || invalidNotionalCount > 0
       ? 'PARTIAL'
       : 'LIVE',
   ]);
 
   const exposureState = worstDataState([
     declaredState,
-    missingProvenanceCount > 0 || missingEscrowCount > 0 || invalidNotionalCount > 0
+    unresolvedCorporationOrders.length > 0
+      || missingProvenanceCount > 0
+      || missingEscrowCount > 0
+      || invalidNotionalCount > 0
       ? 'PARTIAL'
       : 'VALID',
   ]);
 
-  const buyObligationKnown = invalidNotionalCount === 0;
-  const sellExposureKnown = invalidNotionalCount === 0;
-  const escrowKnown = missingEscrowCount === 0;
+  const scopeComplete = unresolvedCorporationOrders.length === 0;
+  const buyObligationKnown = scopeComplete && invalidNotionalCount === 0;
+  const sellExposureKnown = scopeComplete && invalidNotionalCount === 0;
+  const escrowKnown = scopeComplete && missingEscrowCount === 0;
+
+  let unresolvedNotional: number | null = 0;
+  for (const order of unresolvedCorporationOrders) {
+    const remaining = Number.isFinite(order.volume_remain) && order.volume_remain >= 0
+      ? order.volume_remain
+      : null;
+    const price = Number.isFinite(order.price) && order.price >= 0
+      ? order.price
+      : null;
+    if (remaining === null || price === null) {
+      unresolvedNotional = null;
+      break;
+    }
+    const notional = remaining * price;
+    if (!Number.isFinite(notional)) {
+      unresolvedNotional = null;
+      break;
+    }
+    unresolvedNotional += notional;
+  }
 
   return {
     order_count: scoped.length,
@@ -274,9 +302,9 @@ function aggregateOrderExposure(
     missing_escrow_count: missingEscrowCount,
     missing_provenance_count: missingProvenanceCount,
     scoped_order_ids: scoped.map((order) => order.order_id),
-    unresolved_corporation_order_count: 0,
-    unresolved_corporation_order_ids: [],
-    unresolved_corporation_order_notional: 0,
+    unresolved_corporation_order_count: unresolvedCorporationOrders.length,
+    unresolved_corporation_order_ids: unresolvedCorporationOrders.map((order) => order.order_id),
+    unresolved_corporation_order_notional: unresolvedNotional,
     health: exposureHealth,
     data_state: exposureState,
   };
@@ -289,6 +317,13 @@ function aggregateOrderExposure(
 export function aggregatePortfolioReal(
   input: PortfolioAggregationInput,
 ): RealPortfolioSnapshot {
+  const unresolvedCorporationOrders =
+    input.order_scope.type === 'corporation'
+      ? input.orders.filter(
+          (order) => order.is_corporation === true && !order.ownership,
+        )
+      : [];
+
   const scopedOrders = selectOrdersByScope(
     [...input.orders],
     input.order_scope,
@@ -309,6 +344,7 @@ export function aggregatePortfolioReal(
     scopedOrders,
     input.orders_health,
     input.orders_data_state,
+    unresolvedCorporationOrders,
   );
 
   const financialQuality = buildFinancialQuality(

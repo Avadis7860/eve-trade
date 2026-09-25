@@ -307,6 +307,16 @@ function run(): void {
   assert(unavailableFinancial.positions.length === 0, 'unknown financial source must not create synthetic positions');
   assert(unavailableFinancial.quality.health === 'UNKNOWN', 'unknown financial state must remain unknown');
   assert(unavailableFinancial.quality.data_state === 'UNKNOWN', 'unknown financial state must remain unknown');
+
+  const explicitUnknownWithPartialOrder = aggregatePortfolioReal(baseInput({
+    positions: [],
+    realized_outcomes: [],
+    orders: [{ ...characterOrder, escrow: undefined }],
+    financial_health: 'UNKNOWN',
+    financial_data_state: 'UNKNOWN',
+  }));
+  assert(explicitUnknownWithPartialOrder.orders.exposure.data_state === 'PARTIAL', 'partial order evidence must remain partial');
+  assert(explicitUnknownWithPartialOrder.quality.data_state === 'UNKNOWN', 'higher-severity unknown financial state must dominate partial order evidence');
   assert(unavailableFinancial.inventory.quantity === null, 'missing inventory must remain null');
   assert(unavailableFinancial.inventory.coverage === 'UNKNOWN', 'missing inventory coverage must remain unknown');
   assert(unavailableFinancial.inventory.source_boundary === 'NEW_SOURCE', 'inventory must remain a new-source boundary');

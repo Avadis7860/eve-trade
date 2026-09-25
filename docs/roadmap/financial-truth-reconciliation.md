@@ -31,7 +31,6 @@ The following archive documents were inspected as historical sources. Their cont
 - docs/ux/trading-terminal-surface-contracts.md
 - docs/roadmap/master-plan.md
 - docs/roadmap/backlog.md
-- docs/roadmap/current-chunk.md
 - docs/roadmap/ux-program.md
 - docs/state/current-state.md
 - docs/state/known-gaps.md

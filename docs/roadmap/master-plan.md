@@ -9,7 +9,7 @@ CI gate: PR CI
 
 ## Current state
 
-The functional E2E-001 baseline is stable and merged. CI-001 is merged and complete. UX-02 is merged. UX-01/P0 is closed. Agent Context Hardening and its post-merge synchronization are closed by PR #84. UX-03 / TASK-01 contract rebase is complete through PR #93. No product delivery is currently active.
+The functional E2E-001 baseline is stable and merged. CI-001 is complete. UX-02 is merged and UX-01/P0 is closed. Agent-context navigation and CI integrity rules are stable. Active delivery administration is handled in GitHub rather than mirrored here.
 
 The application has mature market, ESI, finance, order, prediction and portfolio foundations, but the presentation layer does not yet expose them as a coherent trading workflow.
 
@@ -45,7 +45,6 @@ Deferred until the UX gate:
 | CONTEXT-002 | DONE / MERGED | Harden lifecycle, bootstrap protection, functional CI routing and stable integration-state validation | CONTEXT-001 + CI-001 | stale lifecycle metadata or false routing proof can misroute future work | test:context + PR CI + Main Smoke | 
 | CONTEXT-003 | DONE / MERGED | Make stable integration-anchor validation robust to shallow post-merge checkouts | CONTEXT-002 | Main Smoke must not fall back to the merge SHA when parent history is shallow | test:context + PR CI + Main Smoke |
 | CONTEXT-004 | DONE / MERGED | Read the stable integration anchor from the raw commit object in shallow post-merge checkouts | CONTEXT-003 | Pretty-format and revision traversal must not alter parent visibility in stable proof | test:context + PR CI + Main Smoke |
-| CONTEXT-005 | ACTIVE | Separate ephemeral active-work context from persistent stable delivery context and rebuild context certification around invariants | CONTEXT-004 + #105/#127 regressions | merged delivery must never persist an old active chantier; no post-merge cleanup | test:context + PR CI + Main Smoke |
 | DOC-001 | DONE | Reconstruct modular documentation governance | current mission | stale truth if incomplete | docs/link audit + CI |
 | E2E-001 | DONE | Establish reproducible local OAuth/browser gate, deterministic CI E2E coverage, and real-CCP smoke | stable auth/ESI | environment-sensitive auth/callback integration | browser E2E + security/API + local CCP smoke |
 | UX-00 | DONE | Define and freeze product model, navigation, responsibilities and shared UX vocabulary | current audit | scope drift if implementation starts early | accepted UX contract |

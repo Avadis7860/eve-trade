@@ -4,14 +4,12 @@ Point d'entrée léger pour les agents.
 
 ## Première lecture
 
-1. [.eve-trade/stable-context.json](.eve-trade/stable-context.json) — contexte persistant du dernier delivery intégré à main.
-2. [.eve-trade/current-work.json](.eve-trade/current-work.json) lorsqu'il est présent — état éphémère du checkout actif.
-3. [docs/state/current-state.md](docs/state/current-state.md) — état vérifié du dépôt.
-4. [docs/state/truth-matrix.md](docs/state/truth-matrix.md) — synthèse des domaines.
-5. [docs/roadmap/current-chunk.md](docs/roadmap/current-chunk.md) — chantier et périmètre.
-6. [.eve-trade/context-map.json](.eve-trade/context-map.json) — navigation stable vers code, contrats, invariants, tests et CI.
-7. [docs/index.md](docs/index.md) — index documentaire.
-8. [docs/operations/agent-context.md](docs/operations/agent-context.md) — règles d'utilisation de cette couche.
+1. Consulter l'Issue GitHub et la Pull Request du chantier lorsqu'un travail actif est en cours.
+2. [docs/state/current-state.md](docs/state/current-state.md) — état logiciel stable.
+3. [docs/state/truth-matrix.md](docs/state/truth-matrix.md) — synthèse des domaines.
+4. [docs/roadmap/master-plan.md](docs/roadmap/master-plan.md) et [docs/roadmap/backlog.md](docs/roadmap/backlog.md) — stratégie durable.
+5. [.eve-trade/context-map.json](.eve-trade/context-map.json) — navigation vers code, contrats, invariants, tests et CI.
+6. [docs/operations/agent-context.md](docs/operations/agent-context.md) — règles d'utilisation.
 
 ## Règles critiques
 
@@ -19,6 +17,6 @@ La carte de contexte répond à « où chercher ». Elle ne répond jamais à «
 
 Les contrats canoniques vivent dans [docs/contracts/](docs/contracts/), les invariants dans [docs/invariants/](docs/invariants/) et les validations dans [docs/validation/](docs/validation/).
 
-Les documents sous [docs/audits/archive/](docs/audits/archive/) sont historiques. Identifier toujours l'implémentation, les tests et le gate CI avant de modifier.
+Les documents sous [docs/audits/archive/](docs/audits/archive/) sont historiques.
 
-Le routage CI du contexte distingue la protection conservatrice des chemins critiques de leur classification fonctionnelle : les preuves de routage utilisent des probes fonctionnels explicites, déclarés par lane, sans laisser le fallback `ambiguous` produire artificiellement la preuve.
+Le cycle de vie d'un chantier appartient à GitHub ; le dépôt ne conserve pas de manifeste du chantier courant.

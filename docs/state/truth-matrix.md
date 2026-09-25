@@ -19,5 +19,5 @@ Source of truth: code, tests, CI and manifests
 | Persistence | STABLE / DEFERRED | IndexedDbStore v5 / 11 stores | persistence tests | [persistence](../architecture/persistence.md) | decomposition after UX gate |
 | Security | STABLE | auth + ESI principal boundary | security/ESI | [security](../architecture/security-boundary.md) | new scopes |
 | UI | PARTIAL / PRIORITY | React components/hooks | typecheck/build + browser E2E | [frontend](../architecture/frontend.md) | UX-00..UX-07 |
-| Agent context | REFACTOR IN PROGRESS / STABLE AFTER MERGE | .eve-trade/context-map.json + stable-context + ephemeral current-work + context-integrity + ci-scope | test:context + CI static + Main Smoke stable check | [agent context](../operations/agent-context.md) | active/stable persistence boundary + bootstrap/functional-routing + raw-commit stable-anchor hardening |
+| Agent context | STABLE / GIT-GITHUB GOVERNED | .eve-trade/context-map.json + context-integrity + ci-scope | test:context + PR CI + Main Smoke | [agent context](../operations/agent-context.md) | durable navigation/integrity; delivery lifecycle owned by GitHub |
 | Browser E2E | DONE / EXPAND LATER | deterministic Playwright OAuth/ESI composition merged to main | PR #46 + target-PC smoke PASS | [e2e](../validation/e2e.md) | E2E-002 after UX contracts |

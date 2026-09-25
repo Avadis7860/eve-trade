@@ -101,6 +101,65 @@ async function run() {
   assert(malformedJournal.state === 'ERROR', 'Malformed successful JSON must be ERROR');
   assert(malformedJournal.status === 500, 'Malformed backend JSON must surface controlled HTTP 500 semantics');
 
+  const makeUnsignedJwt = (claims: Record<string, unknown>): string => {
+    const payload = Buffer.from(JSON.stringify(claims), 'utf8').toString('base64url');
+    return 'eyJhbGciOiJSUzI1NiJ9.' + payload + '.test-signature';
+  };
+
+  setBackendApiFetchForTesting(async () => {
+    throw new Error('corporation capability gate reached the backend unexpectedly');
+  });
+
+  const scopeMissing = await EsiService.fetchCharacterCorporationOrders(
+    1001,
+    makeUnsignedJwt({
+      sub: 'CHARACTER:EVE:1001',
+      scp: ['esi-markets.read_character_orders.v1'],
+    }),
+    99001,
+    'Trade Operations Corporation',
+  );
+  assert(scopeMissing.state === 'ERROR', 'Missing corporation scope must be ERROR');
+  assert(scopeMissing.status === 403, 'Missing corporation scope must preserve authorization semantics');
+  assert(scopeMissing.errorCode === 'CORP_ORDERS_SCOPE_MISSING', 'Missing corporation scope must be explicit');
+  assert(scopeMissing.reauthorizeRequired === true, 'Missing corporation scope must require reauthorization');
+
+  const identityMismatch = await EsiService.fetchCharacterCorporationOrders(
+    1001,
+    makeUnsignedJwt({
+      sub: 'CHARACTER:EVE:1002',
+      scp: ['esi-markets.read_corporation_orders.v1'],
+    }),
+    99001,
+    'Trade Operations Corporation',
+  );
+  assert(identityMismatch.state === 'ERROR', 'JWT character mismatch must be ERROR');
+  assert(identityMismatch.status === 403, 'JWT character mismatch must preserve authorization semantics');
+  assert(identityMismatch.errorCode === 'CHARACTER_IDENTITY_MISMATCH', 'JWT character mismatch must be explicit');
+  assert(identityMismatch.reauthorizeRequired === false, 'Identity mismatch is not a scope reauthorization condition');
+
+  setBackendApiFetchForTesting(async () => new Response(JSON.stringify({
+    error: 'CORP_ORDERS_ACCESS_DENIED',
+    reauthorize_required: false,
+  }), {
+    status: 403,
+    headers: { 'Content-Type': 'application/json' },
+  }));
+  const scopePresentButDenied = await EsiService.fetchCharacterCorporationOrders(
+    1001,
+    makeUnsignedJwt({
+      sub: 'CHARACTER:EVE:1001',
+      scp: ['esi-markets.read_corporation_orders.v1'],
+    }),
+    99001,
+    'Trade Operations Corporation',
+  );
+  assert(scopePresentButDenied.state === 'ERROR', 'A valid-scope ESI 403 must remain ERROR');
+  assert(scopePresentButDenied.status === 403, 'A valid-scope ESI 403 must preserve HTTP 403');
+  assert(scopePresentButDenied.errorCode === 'CORP_ORDERS_ACCESS_DENIED', 'Backend authorization code must be preserved');
+  assert(scopePresentButDenied.reauthorizeRequired === false, 'A role or other ESI 403 must not trigger reauthorization');
+
+  setBackendApiFetchForTesting(null);
   let corporationAuthHeaders: string[] = [];
   setBackendApiFetchForTesting(async (input, init) => {
     const url = String(input);

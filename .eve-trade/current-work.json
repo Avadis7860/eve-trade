@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "purpose": "Operational state for the current technical chantier. This file is checkout-aware governance metadata, not normative business truth.",
-  "state": "ACTIVE",
+  "state": "CLOSING",
   "branch": "chore/reconcile-fin002-and-ux03-state",
   "pull_request": 105,
   "base_branch": "main",

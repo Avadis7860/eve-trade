@@ -64,6 +64,8 @@ The canonical financial lifecycle remains `OPEN -> PARTIALLY_REALIZED -> CLOSED`
 
 The aggregate keeps health and data state explicit.
 
+Data-state precedence is explicit and source-preserving: `ERROR > UNKNOWN > STALE > PARTIAL > CACHE > EMPTY > LIVE/VALID`. In particular, an `UNKNOWN` financial source remains `UNKNOWN` even when another sub-source is merely `PARTIAL`; a lower-information state must never conceal the fact that a source cannot be established.
+
 UNKNOWN / PARTIAL / ERROR / STALE / unavailable evidence never becomes an artificial zero or an authoritative empty business state.
 
 Missing escrow, ownership provenance, invalid order economics, unresolved legacy corporation orders, or foreign-scope financial records degrade the aggregate rather than silently presenting a complete view.

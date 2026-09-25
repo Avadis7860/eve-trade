@@ -27,17 +27,6 @@ const HEALTH_PRIORITY: Record<DataHealthStatus, number> = {
   ERROR: 5,
 };
 
-const DATA_STATE_PRIORITY: Record<DataState, number> = {
-  VALID: 0,
-  LIVE: 0,
-  EMPTY: 1,
-  CACHE: 1,
-  STALE: 3,
-  UNKNOWN: 4,
-  PARTIAL: 4,
-  ERROR: 5,
-};
-
 function worstHealth(states: readonly DataHealthStatus[]): DataHealthStatus {
   if (states.length === 0) return 'UNKNOWN';
 

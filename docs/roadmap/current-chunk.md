@@ -1,6 +1,6 @@
 # Current Chunk
 
-Status: ACTIVE
+Status: CLOSING
 Scope: UX-03 / TASK-02 — Relecture de la matrice Data Availability & Derivation
 Branch: ux-03/task-02-data-availability
 Base: main @ 1799471409bc49782649c72d7a91756d046b0444

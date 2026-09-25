@@ -168,24 +168,19 @@ function buildFinancialQuality(
       toPositionDataState(positions, declaredState),
       outcomes.some((outcome) => outcome.data_state === 'PARTIAL') ? 'PARTIAL' : 'VALID',
     ]),
-    ...(aggregateCoverage(
+    ...(aggregateScopeCoverage(
       historyValues,
       'COMPLETE_FOR_SCOPE',
       'PARTIAL',
       'UNKNOWN',
-    ) ? { history_coverage: aggregateCoverage(historyValues, 'COMPLETE_FOR_SCOPE', 'PARTIAL', 'UNKNOWN') } : {}),
-    ...(aggregateCoverage(
+    ) ? { history_coverage: aggregateScopeCoverage(historyValues, 'COMPLETE_FOR_SCOPE', 'PARTIAL', 'UNKNOWN') } : {}),
+    ...(aggregateScopeCoverage(
       originValues,
       'COMPLETE_FOR_SCOPE',
       'PARTIAL',
       'UNKNOWN',
-    ) ? { economic_origin_coverage: aggregateCoverage(originValues, 'COMPLETE_FOR_SCOPE', 'PARTIAL', 'UNKNOWN') } : {}),
-    ...(aggregateCoverage(
-      sourceValues,
-      'COMPLETE_FOR_SCOPE',
-      'PARTIAL',
-      'UNKNOWN',
-    ) ? { source_coverage: aggregateCoverage(sourceValues, 'COMPLETE_FOR_SCOPE', 'PARTIAL', 'UNKNOWN') as never } : {}),
+    ) ? { economic_origin_coverage: aggregateScopeCoverage(originValues, 'COMPLETE_FOR_SCOPE', 'PARTIAL', 'UNKNOWN') } : {}),
+    ...(sourceCoverage ? { source_coverage: sourceCoverage } : {}),
     ...(financialCompleteness ? { financial_completeness: financialCompleteness as FinancialCompleteness } : {}),
   };
 }

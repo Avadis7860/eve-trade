@@ -8,6 +8,7 @@
     "navigation_metadata"
   ],
   "read_sequence": [
+    ".eve-trade/stable-context.json",
     ".eve-trade/current-work.json",
     "docs/state/current-state.md",
     "docs/state/truth-matrix.md",
@@ -567,12 +568,14 @@
     "validation": "context-integrity validates that all referenced domain names exist; it does not infer missing semantic dependencies."
   },
   "lifecycle": {
+    "stable_context": ".eve-trade/stable-context.json",
+    "active_context": ".eve-trade/current-work.json",
     "states": {
-      "ACTIVE": "An implementation chantier is actively being developed on its dedicated branch/PR.",
-      "CLOSING": "The chantier is frozen for certification/merge; no new scope is expected. Its branch/PR metadata remains as the last delivery context.",
-      "IDLE": "No technical delivery chantier is active on the stable main state."
+      "ACTIVE": "An implementation chantier exists only in a checkout-scoped current-work manifest.",
+      "STABLE": "The persistent stable context describes the delivery integrated into main and its pre-merge integration anchor."
     },
-    "rule": "Stable main must never present ACTIVE as its current-work state. A merged delivery is represented as CLOSING until the next chantier establishes a new ACTIVE context."
+    "rule": "Stable main persists only stable-context. current-work is ephemeral checkout state and is never committed into stable main.",
+    "authority": "GitHub owns PR administration; the repository validates declared context invariants without mirroring Draft or Ready for Review."
   },
   "ci_routing": {
     "route_property": "ci_lanes[].route",

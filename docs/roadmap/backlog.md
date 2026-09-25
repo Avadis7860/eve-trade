@@ -29,7 +29,15 @@ PR #80 merged the first anchor correction; its follow-up defect is tracked as CO
 - Stable integration anchor is read from the raw commit object with `git cat-file commit HEAD`.
 - Regression coverage rejects history-traversal and pretty-format extraction.
 
-PR #81 completed the raw-commit stable-anchor correction; the repository-state lifecycle was subsequently synchronized through the Agent Context follow-up deliveries. No Context delivery branch is active on stable `main`.
+PR #81 completed the raw-commit stable-anchor correction. The later delivery exposed that persisting `current-work` on `main` still crossed the wrong boundary; CONTEXT-005 (#126 / PR #129) is the active rework.
+
+### CONTEXT-005 — Active / stable context boundary rework
+
+- `.eve-trade/current-work.json` is checkout-scoped and ignored by Git.
+- `.eve-trade/stable-context.json` persists delivery identity and the pre-merge integration anchor.
+- GitHub PR administration remains authoritative for Draft / Ready / merge.
+- `context-integrity` validates active PR coherence separately from stable-main coherence.
+- No post-merge cleanup delivery is required.
 
 ## Product / UX program
 

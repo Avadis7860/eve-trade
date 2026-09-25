@@ -3,6 +3,7 @@
 Status: STABLE
 Scope: stable developer and AI navigation guidance
 Stable navigation source: .eve-trade/context-map.json
+Stable delivery source: .eve-trade/stable-context.json
 Active work source: .eve-trade/current-work.json
 Validation: npm run test:context
 
@@ -14,11 +15,12 @@ The context map describes stable repository ownership and validation relationshi
 
 ## Standard load order
 
-1. Read .eve-trade/current-work.json to understand the active branch, PR, base and delivery rule.
-2. Read docs/state/current-state.md, docs/state/truth-matrix.md and docs/roadmap/current-chunk.md for the current repository state.
-3. Read .eve-trade/context-map.json to locate the affected domain, canonical implementation, contracts, invariants, tests and CI owner.
-4. Read only the domain sources required by the task.
-5. Validate the smallest relevant test set before broad certification.
+1. Read .eve-trade/stable-context.json to understand the persistent stable delivery context and integration anchor.
+2. Read .eve-trade/current-work.json when present to understand the active checkout, branch, PR and base; it is ephemeral and may be absent on stable main.
+3. Read docs/state/current-state.md, docs/state/truth-matrix.md and docs/roadmap/current-chunk.md for the current repository state.
+4. Read .eve-trade/context-map.json to locate the affected domain, canonical implementation, contracts, invariants, tests and CI owner.
+5. Read only the domain sources required by the task.
+6. Validate the smallest relevant test set before broad certification.
 
 ## Navigation versus truth
 
@@ -49,17 +51,16 @@ Do not edit the map for ordinary implementation-only changes.
 
 CI lane references are workflow-qualified because job IDs are not globally unique across the repository.
 
-## Active-work lifecycle
+## Context lifecycle
 
-`.eve-trade/current-work.json` is checkout-aware. Its `state` determines whether the branch/PR metadata is active:
+`.eve-trade/current-work.json` is an ephemeral checkout manifest. It is generated for an active PR checkout and is ignored by Git, so it cannot survive as active state on stable `main`.
 
-- `ACTIVE` — development is in progress on the dedicated branch/PR.
-- `CLOSING` — the delivery is frozen for final certification/merge; no new scope is allowed.
-- `IDLE` — the stable `main` checkout has no active delivery chantier.
+The persistent file `.eve-trade/stable-context.json` records the delivery represented by the tree that is being certified. Its delivery identity contains the PR, branch, base branch and the pre-merge integration anchor.
 
-A stable `main` state must never be `ACTIVE`. The last merged delivery may remain represented as `CLOSING` until the next chantier creates a new `ACTIVE` manifest. This avoids requiring an unreviewed post-merge mutation of `main`.
+- **Active mode:** `current-work.json` must exist and match the GitHub PR branch, PR number and base SHA. The stable delivery declaration must point to that same candidate delivery and anchor.
+- **Stable mode:** `current-work.json` is irrelevant and is not loaded. `stable-context.json` must match the first parent of the checked-out stable commit (or HEAD when there is no parent), while current-state must document the same anchor.
 
-During PR certification, branch, PR number and base SHA must match the GitHub event. In stable mode, the CLOSING manifest carries the pre-merge main integration anchor. Validation reads the raw commit object with `git cat-file commit HEAD`, extracts the first `parent` line of a merge commit (or uses HEAD when no parent exists), and checks that current-state identifies the same anchor. This is deliberately independent of shallow-history traversal and keeps stable proof deterministic without any post-merge mutation.
+GitHub remains authoritative for Draft / Ready for Review and merge administration. The repository does not encode those transitions in its context state. This design removes the need for any post-merge cleanup mutation of `main`.
 
 ## Historical archive rule
 
@@ -83,7 +84,8 @@ This routing exists to make context drift visible without running the entire cer
 `npm run test:context` verifies both reference integrity and a limited set of semantic relationships:
 
 - bootstrap files exist and expose the context entrypoints;
-- current-work lifecycle state is legal for the certification mode;
+- the persistent stable delivery schema is valid;
+- active checkout context, when required, matches its GitHub PR environment;
 - stable-state documentation identifies the stable integration anchor from the checked-out main commit object;
 - every mapped workflow/job exists;
 - canonical domain paths route to the expected CI certification family;

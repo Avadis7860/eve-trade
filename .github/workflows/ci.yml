@@ -87,6 +87,13 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: CI workflow contract tests
         run: npm run test:ci-config
+      - name: Generate active context manifest
+        env:
+          CONTEXT_BRANCH: ${{ github.head_ref }}
+          CONTEXT_PR_NUMBER: ${{ github.event.pull_request.number }}
+          CONTEXT_BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+          CONTEXT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/context-work.mjs
       - name: Agent context integrity
         env:
           CONTEXT_MODE: active

@@ -106,9 +106,19 @@ function run(): void {
     normalizeCorporationOrder({ ...raw, order_id: Number.MAX_SAFE_INTEGER + 1 }, 1001, 99001) === null,
     'Unsafe numeric order ID must fail normalization',
   );
+  const sellOrderWithoutOptionalBoolean = normalizeCorporationOrder(
+    { ...raw, is_buy_order: undefined },
+    1001,
+    99001,
+  );
   assert(
-    normalizeCorporationOrder({ ...raw, is_buy_order: undefined }, 1001, 99001) === null,
-    'Missing side must fail normalization',
+    sellOrderWithoutOptionalBoolean !== null &&
+      sellOrderWithoutOptionalBoolean.is_buy_order === false,
+    'Omitted optional is_buy_order must normalize to false for corporation sell orders',
+  );
+  assert(
+    normalizeCorporationOrder({ ...raw, is_buy_order: 'false' }, 1001, 99001) === null,
+    'Malformed explicit is_buy_order must fail normalization',
   );
   assert(
     normalizeCorporationOrderHistory({ ...raw, state: 'unknown' }, 1001, 99001) === null,

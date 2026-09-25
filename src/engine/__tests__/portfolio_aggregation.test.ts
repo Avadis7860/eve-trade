@@ -300,16 +300,15 @@ function run(): void {
   assert(candidate === candidateUniverse, 'candidate universe must be transported without rewriting evidence');
   assert(candidate.selected_item_is_navigation_only, 'selected item remains navigation-only');
 
-  const proposed = null as unknown as ProposedAllocationSnapshot;
-  Object.defineProperty(proposed, 'accounting_scope_id', { value: 'corp:42' });
+  const proposed = { accounting_scope_id: 'corp:42' } as ProposedAllocationSnapshot;
 
   const snapshot = composePortfolioSnapshot(financial, proposed);
   assert(snapshot.real === financial, 'final composition must preserve the real portfolio snapshot');
 
   let mismatchRejected = false;
-  Object.defineProperty(proposed, 'accounting_scope_id', { value: 'character:10', configurable: true });
+  const mismatchedProposed = { accounting_scope_id: 'character:10' } as ProposedAllocationSnapshot;
   try {
-    composePortfolioSnapshot(financial, proposed);
+    composePortfolioSnapshot(financial, mismatchedProposed);
   } catch {
     mismatchRejected = true;
   }

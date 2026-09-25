@@ -26,3 +26,6 @@ venv/
 .idea/
 playwright-report/
 test-results/
+
+# EVE Trade checkout-scoped agent context
+.eve-trade/current-work.json

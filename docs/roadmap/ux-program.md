@@ -80,8 +80,8 @@ Gate:
 a trader can inspect an active order and decide whether to keep, adjust, relocate or cancel without leaving the operations context for routine information. Certified by PR #61 run `35859213922` and P0 browser diagnostics by PR #63 run `35862904773`.
 
 ### UX-03 — Allocation / Portefeuille
-Status: P1 — CONTRACT ACCEPTED / IMPLEMENTATION NOT STARTED
-Reference: issue #85 / PR #93 (merged)
+Status: P1 — TASK-02 DATA MATRIX REVALIDATION / IMPLEMENTATION NOT STARTED
+Reference: issue #86 / Task-01 contract accepted by PR #93
 
 Task-01 rebase:
 - reconcile the historical UX-03 contract against the accepted Financial Truth boundary on main;
@@ -98,6 +98,16 @@ the UX-03 contract is accepted and synchronized across roadmap/state documentati
 
 Implementation gate:
 no UX-03 product code starts until a new implementation chantier is opened from current main and the accepted contract's executable acceptance scenarios are in place.
+
+Task-02 data matrix revalidation:
+- revalidate the archived Data Availability & Derivation matrix against current main;
+- classify each datum as FACT, DERIVED, AGGREGATED, NEW SOURCE or POLICY;
+- verify treasury, orders/escrow, Financial Truth positions/lots, inventory/Character Assets, cross-item universe, freshness/coverage/health, projected/predictive metrics and provenance/scope;
+- keep the Character Assets boundary explicit;
+- make no new ESI acquisition change.
+
+Gate for TASK-02:
+the current data matrix is synchronized with current main, its reclassifications are explicit, and no new source is introduced.
 
 ### UX-04 — Performance / Journal
 Status: P1

@@ -296,6 +296,17 @@ function run(): void {
   assert(unavailableFinancial.inventory.coverage === 'UNKNOWN', 'missing inventory coverage must remain unknown');
   assert(unavailableFinancial.inventory.source_boundary === 'NEW_SOURCE', 'inventory must remain a new-source boundary');
 
+  const errorFinancial = aggregatePortfolioReal(baseInput({
+    positions: [],
+    realized_outcomes: [{
+      ...makeOutcome('corp:42'),
+      data_state: 'PARTIAL',
+    }],
+    financial_health: 'ERROR',
+    financial_data_state: 'ERROR',
+  }));
+  assert(errorFinancial.quality.health === 'ERROR', 'a financial error must not be downgraded to partial');
+
   const candidate = composePortfolioCandidateUniverse(candidateUniverse);
   assert(candidate === candidateUniverse, 'candidate universe must be transported without rewriting evidence');
   assert(candidate.selected_item_is_navigation_only, 'selected item remains navigation-only');
